@@ -24,3 +24,6 @@
 Thumbs.db
 .vscode/
 .idea/
+
+# === Test/build artifacts ===
+/build/
