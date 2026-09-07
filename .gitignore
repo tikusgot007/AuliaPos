@@ -1,0 +1,26 @@
+# === Environment & credential -- JANGAN PERNAH ter-commit ===
+.env
+.env.*
+!.env.example
+
+# === Dependency (di-install ulang lewat composer install) ===
+/vendor/
+
+# === Runtime AuliaPos (log, cache, session file, upload) ===
+/writable/cache/*
+!/writable/cache/index.html
+/writable/logs/*
+!/writable/logs/index.html
+/writable/session/*
+!/writable/session/index.html
+/writable/uploads/*
+/writable/backups/*
+/writable/debugbar/*
+!/writable/debugbar/index.html
+!/writable/uploads/index.html
+
+# === OS/editor ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

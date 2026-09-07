@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview Banner</title>
+<style>
+  :root{
+    --bg:#E3E0D3;
+    --bg-line:rgba(30,35,40,0.05);
+    --paper:#F7F4EB;
+    --ink:#1E2328;
+    --ink-soft:#5B6167;
+    --line:#CFC7B0;
+    --accent:#F0B429;
+    --accent-ink:#241A02;
+    --error:#B4402B;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      repeating-linear-gradient(0deg, var(--bg-line) 0px, var(--bg-line) 1px, transparent 1px, transparent 28px),
+      repeating-linear-gradient(90deg, var(--bg-line) 0px, var(--bg-line) 1px, transparent 1px, transparent 28px),
+      var(--bg);
+    min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    display:flex;
+    justify-content:center;
+    padding:28px 14px 60px;
+  }
+  .ticket{
+    width:100%;
+    max-width:460px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(0,0,0,0.04);
+  }
+  .ticket-head{
+    padding:26px 24px 18px;
+  }
+  .eyebrow-mark{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    color:var(--ink-soft);
+    font-size:13px;
+    margin-bottom:10px;
+  }
+  .eyebrow-mark svg{display:block;}
+  h1{
+    margin:0;
+    font-size:26px;
+    font-weight:700;
+    letter-spacing:-0.02em;
+    line-height:1.15;
+  }
+  .subtitle{
+    margin:8px 0 0;
+    font-size:14.5px;
+    color:var(--ink-soft);
+    line-height:1.5;
+    max-width:34ch;
+  }
+  .perforation{
+    height:0;
+    border-top:2px dashed var(--line);
+    margin:0 0;
+    position:relative;
+  }
+  .perforation::before, .perforation::after{
+    content:"";
+    position:absolute;
+    top:-9px;
+    width:18px; height:18px;
+    border-radius:50%;
+    background:var(--bg);
+    border:1px solid var(--line);
+  }
+  .perforation::before{ left:-9px; }
+  .perforation::after{ right:-9px; }
+
+  .body{
+    padding:26px 24px 24px;
+  }
+  .step{
+    display:flex;
+    gap:14px;
+    margin-bottom:22px;
+  }
+  .step-num{
+    flex:0 0 auto;
+    width:26px;height:26px;
+    border:1px solid var(--ink);
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;
+    font-weight:700;
+    margin-top:2px;
+  }
+  .step-body{flex:1; min-width:0;}
+  .step-label{
+    font-size:15px;
+    font-weight:600;
+    margin-bottom:8px;
+  }
+
+  .dropzone{
+    border:1.5px dashed var(--line);
+    background:#fff;
+    padding:18px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .dropzone:hover{ border-color:var(--ink-soft); }
+  .dropzone.drag-active{
+    border-color:var(--accent);
+    background:rgba(240,180,41,0.10);
+  }
+  .dropzone.has-file{
+    text-align:left;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:12px;
+  }
+  .dropzone-icon{ color:var(--ink-soft); }
+  .dropzone-text{ font-size:14px; color:var(--ink-soft); }
+  .dropzone-text b{ color:var(--ink); font-weight:600; }
+  #fileInput{ display:none; }
+  .thumb{
+    width:52px;height:52px;
+    object-fit:cover;
+    border:1px solid var(--line);
+    background:#fff;
+    flex:0 0 auto;
+  }
+  .file-meta{ min-width:0; flex:1; }
+  .file-name{
+    font-size:14px; font-weight:600;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .file-change{
+    font-size:12.5px; color:var(--ink-soft); text-decoration:underline;
+    margin-top:2px; cursor:pointer;
+  }
+
+  .dims-row{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+  }
+  .dim-field{ flex:1; min-width:0; }
+  .dim-field label{
+    display:block;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .dim-field input{
+    width:100%;
+    font-family:ui-monospace,"SFMono-Regular",Consolas,"Roboto Mono",monospace;
+    font-size:20px;
+    padding:10px 10px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+  }
+  .dim-field input:focus{ outline:2px solid var(--accent); outline-offset:-1px; }
+  .dims-x{
+    font-family:ui-monospace,monospace;
+    font-size:18px;
+    color:var(--ink-soft);
+    padding-bottom:11px;
+  }
+  .unit-tag{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    padding-bottom:11px;
+  }
+
+  .error-msg{
+    font-size:13px;
+    color:var(--error);
+    margin-top:10px;
+    display:none;
+  }
+  .error-msg.show{ display:block; }
+
+  .btn{
+    display:block;
+    width:100%;
+    border:none;
+    padding:15px 18px;
+    font-size:15px;
+    font-weight:700;
+    font-family:inherit;
+    cursor:pointer;
+    text-align:center;
+  }
+  .btn-primary{
+    background:var(--accent);
+    color:var(--accent-ink);
+    margin-top:24px;
+  }
+  .btn-primary:active{ transform:translateY(1px); }
+  .btn-secondary{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--ink);
+    margin-top:12px;
+  }
+  .btn-ghost{
+    background:transparent;
+    color:var(--ink-soft);
+    text-decoration:underline;
+    padding:10px 0;
+    font-weight:600;
+  }
+
+  .results{ display:none; padding:0 24px 26px; }
+  .results.show{ display:block; }
+  .result-head{
+    font-size:13px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    margin:22px 0 10px;
+  }
+  .result-img{
+    width:100%;
+    display:block;
+    border:1px solid var(--line);
+    background:#fff;
+  }
+  .result-caption{
+    font-family:ui-monospace,monospace;
+    font-size:13.5px;
+    color:var(--ink-soft);
+    margin-top:8px;
+  }
+  .download-row{
+    display:flex;
+    gap:10px;
+    margin-top:10px;
+  }
+  .download-row .btn{ margin-top:0; }
+  .btn-small{
+    flex:1;
+    padding:11px 10px;
+    font-size:13.5px;
+  }
+
+  .loading{
+    text-align:center;
+    padding:30px 0;
+    color:var(--ink-soft);
+    font-size:14px;
+    display:none;
+  }
+  .loading.show{ display:block; }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="ticket">
+  <div class="ticket-head">
+    <div class="eyebrow-mark">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></svg>
+      Toko Cetak &middot; Alat Internal
+    </div>
+    <h1>Preview Banner</h1>
+    <p class="subtitle">Upload desain, masukkan ukuran, dan dapatkan gambar preview yang siap dikirim ke customer lewat WhatsApp.</p>
+  </div>
+
+  <div class="perforation"></div>
+
+  <div class="body">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-label">Upload desain</div>
+        <div class="dropzone" id="dropzone">
+          <div id="dropzoneEmpty">
+            <div class="dropzone-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style="margin:0 auto 8px;display:block;"><path d="M12 16V4M12 4L7 9M12 4l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </div>
+            <div class="dropzone-text"><b>Klik untuk memilih gambar</b><br>atau tarik &amp; lepas di sini &mdash; JPG, JPEG, PNG</div>
+          </div>
+          <div id="dropzoneFilled" class="hidden" style="display:flex;align-items:center;gap:14px;width:100%;">
+            <img id="thumb" class="thumb" alt="">
+            <div class="file-meta">
+              <div class="file-name" id="fileName"></div>
+              <div class="file-change">Ganti gambar</div>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg">
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-label">Ukuran banner pesanan</div>
+        <div class="dims-row">
+          <div class="dim-field">
+            <label for="widthInput">Lebar (cm)</label>
+            <input type="number" id="widthInput" inputmode="decimal" min="1" step="0.1">
+          </div>
+          <div class="dims-x">&times;</div>
+          <div class="dim-field">
+            <label for="heightInput">Tinggi (cm)</label>
+            <input type="number" id="heightInput" inputmode="decimal" min="1" step="0.1">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <button class="btn btn-primary" id="generateBtn">Buat Preview</button>
+
+    <div class="loading" id="loading">Membuat preview&hellip;</div>
+
+    <!-- SINGLE RESULT MODE -->
+    <div class="results" id="singleResults">
+      <div class="result-head">Preview</div>
+      <img class="result-img" id="singleImg" alt="Preview banner">
+      <button class="btn btn-secondary" id="showFiveBtn">Lihat 5 pilihan</button>
+      <button class="btn btn-small btn-secondary" id="downloadSingleBtn" style="margin-top:10px;">Download Gambar</button>
+    </div>
+
+    <!-- FIVE OPTIONS MODE -->
+    <div class="results" id="fiveResults">
+      <div class="result-head">Gambar 1 &middot; Sesuai ukuran, Crop, Fit</div>
+      <img class="result-img" id="img1" alt="Preview opsi 1-3">
+
+      <div class="result-head">Gambar 2 &middot; Panjang &amp; Tinggi Sesuai Pesanan</div>
+      <img class="result-img" id="img2" alt="Preview opsi 4-5">
+
+      <button class="btn btn-primary" id="downloadBothBtn">Download 2 Gambar</button>
+      <div class="download-row">
+        <button class="btn btn-small btn-secondary" id="downloadImg1Btn">Gambar 1 saja</button>
+        <button class="btn btn-small btn-secondary" id="downloadImg2Btn">Gambar 2 saja</button>
+      </div>
+    </div>
+
+    <div id="resetRow" class="results" style="text-align:center;">
+      <button class="btn btn-ghost" id="resetBtn">Buat preview baru</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  const fileInput = document.getElementById('fileInput');
+  const dropzone = document.getElementById('dropzone');
+  const dropzoneEmpty = document.getElementById('dropzoneEmpty');
+  const dropzoneFilled = document.getElementById('dropzoneFilled');
+  const thumb = document.getElementById('thumb');
+  const fileName = document.getElementById('fileName');
+  const widthInput = document.getElementById('widthInput');
+  const heightInput = document.getElementById('heightInput');
+  const generateBtn = document.getElementById('generateBtn');
+  const errorMsg = document.getElementById('errorMsg');
+  const loading = document.getElementById('loading');
+  const singleResults = document.getElementById('singleResults');
+  const fiveResults = document.getElementById('fiveResults');
+  const singleImg = document.getElementById('singleImg');
+  const img1 = document.getElementById('img1');
+  const img2 = document.getElementById('img2');
+  const showFiveBtn = document.getElementById('showFiveBtn');
+  const downloadSingleBtn = document.getElementById('downloadSingleBtn');
+  const downloadBothBtn = document.getElementById('downloadBothBtn');
+  const downloadImg1Btn = document.getElementById('downloadImg1Btn');
+  const downloadImg2Btn = document.getElementById('downloadImg2Btn');
+  const resetRow = document.getElementById('resetRow');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let uploadedImg = null;
+  let currentW = 0, currentH = 0;
+  let canvas1 = null, canvas2 = null, canvasSingle = null;
+
+  const FONT_UI = "-apple-system,'Segoe UI',Arial,sans-serif";
+  const FONT_MONO = "ui-monospace,'SFMono-Regular',Consolas,'Roboto Mono',monospace";
+
+  // ---------- Upload handling (click / browse) ----------
+  dropzone.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(file) handleFile(file);
+  });
+
+  async function handleFile(file){
+    const validTypes = ['image/jpeg','image/jpg','image/png'];
+    if(!validTypes.includes(file.type)){
+      showError('Format tidak didukung. Gunakan JPG, JPEG, atau PNG.');
+      return;
+    }
+    hideError();
+    try{
+      uploadedImg = await loadImageFromFile(file);
+      thumb.src = uploadedImg.src;
+      fileName.textContent = file.name;
+      dropzoneEmpty.classList.add('hidden');
+      dropzoneFilled.classList.remove('hidden');
+      dropzoneFilled.style.display = 'flex';
+    }catch(err){
+      showError('Gagal membaca file. Coba file lain.');
+    }
+  }
+
+  // ---------- Upload handling (drag & drop) ----------
+  ['dragenter','dragover'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('drag-active');
+    });
+  });
+  ['dragleave','dragend'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('drag-active');
+    });
+  });
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropzone.classList.remove('drag-active');
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(file) handleFile(file);
+  });
+
+  function loadImageFromFile(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function showError(msg){
+    errorMsg.textContent = msg;
+    errorMsg.classList.add('show');
+  }
+  function hideError(){
+    errorMsg.classList.remove('show');
+  }
+
+  // ---------- Generate ----------
+  generateBtn.addEventListener('click', () => {
+    hideError();
+    const w = parseFloat(widthInput.value);
+    const h = parseFloat(heightInput.value);
+
+    if(!uploadedImg){ showError('Upload desain terlebih dahulu.'); return; }
+    if(!w || !h || w <= 0 || h <= 0){ showError('Masukkan lebar dan tinggi banner.'); return; }
+
+    currentW = w; currentH = h;
+
+    singleResults.classList.remove('show');
+    fiveResults.classList.remove('show');
+    resetRow.classList.remove('show');
+    loading.classList.add('show');
+
+    setTimeout(() => {
+      const designRatio = uploadedImg.naturalWidth / uploadedImg.naturalHeight;
+      const targetRatio = w / h;
+      const stretchPercent = computeStretchPercent(designRatio, targetRatio);
+
+      if(stretchPercent <= 10){
+        renderSingleMode(w, h);
+      } else {
+        renderFiveMode(w, h);
+      }
+      loading.classList.remove('show');
+      resetRow.classList.add('show');
+    }, 30);
+  });
+
+  function computeStretchPercent(designRatio, targetRatio){
+    const r = targetRatio / designRatio;
+    const bigger = r >= 1 ? r : 1 / r;
+    return (bigger - 1) * 100;
+  }
+
+  // ---------- Single mode ----------
+  function renderSingleMode(w, h){
+    const block = optSesuai(uploadedImg, w, h);
+    canvasSingle = composeImage([block], w, h);
+    singleImg.src = canvasSingle.toDataURL('image/jpeg', 0.92);
+    singleResults.classList.add('show');
+  }
+
+  showFiveBtn.addEventListener('click', () => {
+    singleResults.classList.remove('show');
+    renderFiveMode(currentW, currentH);
+  });
+
+  // ---------- Five options mode ----------
+  function renderFiveMode(w, h){
+    const designRatio = uploadedImg.naturalWidth / uploadedImg.naturalHeight;
+    const b1 = optSesuai(uploadedImg, w, h);
+    const b2 = optCrop(uploadedImg, w, h);
+    const b3 = optFit(uploadedImg, w, h);
+    const b4 = optWidthFollow(uploadedImg, w, designRatio);
+    const b5 = optHeightFollow(uploadedImg, h, designRatio);
+
+    canvas1 = composeImage([b1, b2, b3], w, h);
+    canvas2 = composeImage([b4, b5], w, h);
+
+    img1.src = canvas1.toDataURL('image/jpeg', 0.92);
+    img2.src = canvas2.toDataURL('image/jpeg', 0.92);
+    fiveResults.classList.add('show');
+  }
+
+  // ---------- Option renderers ----------
+  function pxDims(wcm, hcm, maxDim, minDim){
+    maxDim = maxDim || 900;
+    minDim = minDim || 160;
+    const ratio = wcm / hcm;
+    let w, h;
+    if(ratio >= 1){
+      w = maxDim; h = maxDim / ratio;
+      if(h < minDim){ h = minDim; w = minDim * ratio; }
+    } else {
+      h = maxDim; w = maxDim * ratio;
+      if(w < minDim){ w = minDim; h = minDim / ratio; }
+    }
+    return { w: Math.round(w), h: Math.round(h) };
+  }
+
+  function makeCanvas(w, h){
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    return c;
+  }
+
+  function optSesuai(img, wcm, hcm){
+    const { w, h } = pxDims(wcm, hcm);
+    const c = makeCanvas(w, h);
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    return { canvas: c, wcm, hcm, num: 1, label: 'Sesuai ukuran' };
+  }
+
+  function optCrop(img, wcm, hcm){
+    const { w, h } = pxDims(wcm, hcm);
+    const c = makeCanvas(w, h);
+    const ctx = c.getContext('2d');
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const scale = Math.max(w / iw, h / ih);
+    const dw = iw * scale, dh = ih * scale;
+    const dx = (w - dw) / 2, dy = (h - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+    return { canvas: c, wcm, hcm, num: 2, label: 'Crop' };
+  }
+
+  function optFit(img, wcm, hcm){
+    const { w, h } = pxDims(wcm, hcm);
+    const c = makeCanvas(w, h);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const scale = Math.min(w / iw, h / ih);
+    const dw = iw * scale, dh = ih * scale;
+    const dx = (w - dw) / 2, dy = (h - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+    return { canvas: c, wcm, hcm, num: 3, label: 'Fit + area kosong' };
+  }
+
+  function optWidthFollow(img, targetWcm, designRatio){
+    const resultWcm = targetWcm;
+    const resultHcm = targetWcm / designRatio;
+    const { w, h } = pxDims(resultWcm, resultHcm);
+    const c = makeCanvas(w, h);
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    return { canvas: c, wcm: resultWcm, hcm: resultHcm, num: 4, label: 'Panjang sesuai pesanan', dim: true };
+  }
+
+  function optHeightFollow(img, targetHcm, designRatio){
+    const resultHcm = targetHcm;
+    const resultWcm = targetHcm * designRatio;
+    const { w, h } = pxDims(resultWcm, resultHcm);
+    const c = makeCanvas(w, h);
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    return { canvas: c, wcm: resultWcm, hcm: resultHcm, num: 5, label: 'Tinggi sesuai pesanan', dim: true };
+  }
+
+  // ---------- Compose into a WhatsApp-ready sheet ----------
+  function fmt(n){
+    const r = Math.round(n * 10) / 10;
+    return (r % 1 === 0) ? r.toFixed(0) : r.toFixed(1);
+  }
+
+  function drawDashedLine(ctx, x1, y1, x2, y2){
+    ctx.save();
+    ctx.strokeStyle = '#CFC7B0';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCropMarks(ctx, x, y, w, h){
+    const len = 14;
+    ctx.save();
+    ctx.strokeStyle = '#F0B429';
+    ctx.lineWidth = 3;
+    const corners = [
+      [x, y, 1, 1], [x + w, y, -1, 1],
+      [x, y + h, 1, -1], [x + w, y + h, -1, -1]
+    ];
+    corners.forEach(([cx, cy, dx, dy]) => {
+      ctx.beginPath();
+      ctx.moveTo(cx + dx * len, cy);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx, cy + dy * len);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  function drawArrowHead(ctx, tipX, tipY, dirX, dirY){
+    const size = 6;
+    const angle = Math.atan2(dirY, dirX);
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - size * Math.cos(angle - Math.PI / 6), tipY - size * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(tipX - size * Math.cos(angle + Math.PI / 6), tipY - size * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Horizontal dimension line above a block, showing its width in cm
+  function drawWidthDimension(ctx, x, yTop, w, label){
+    const lineY = yTop + 26;
+    ctx.save();
+    ctx.fillStyle = '#1E2328';
+    ctx.font = '700 21px ' + FONT_MONO;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(label, x + w / 2, yTop + 13);
+    ctx.strokeStyle = '#5B6167';
+    ctx.fillStyle = '#5B6167';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(x, lineY);
+    ctx.lineTo(x + w, lineY);
+    ctx.stroke();
+    drawArrowHead(ctx, x, lineY, -1, 0);
+    drawArrowHead(ctx, x + w, lineY, 1, 0);
+    ctx.restore();
+  }
+
+  // Vertical dimension line to the right of a block, showing its height in cm
+  function drawHeightDimension(ctx, imgX, imgW, imgY, imgH, label){
+    const lineX = imgX + imgW + 18;
+    const midY = imgY + imgH / 2;
+    const lineTop = midY - 24;
+    const lineBottom = midY + 24;
+    ctx.save();
+    ctx.strokeStyle = '#5B6167';
+    ctx.fillStyle = '#5B6167';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(lineX, lineTop);
+    ctx.lineTo(lineX, lineBottom);
+    ctx.stroke();
+    drawArrowHead(ctx, lineX, lineTop, 0, -1);
+    drawArrowHead(ctx, lineX, lineBottom, 0, 1);
+    ctx.fillStyle = '#1E2328';
+    ctx.font = '700 21px ' + FONT_MONO;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, lineX + 12, midY);
+    ctx.restore();
+  }
+
+  function composeImage(blocks, orderWcm, orderHcm){
+    const CW = 900;
+    const marginX = 50;
+    const contentW = CW - marginX * 2;
+    const headerH = 100;
+    const labelH = 40;
+    const captionH = 34;
+    const blockGap = 34;
+    const maxImgH = 420;       // cap for Opsi 1-3 sheet (unchanged)
+    const maxImgHDim = 500;    // taller cap for Opsi 4-5 sheet (dimension line now beside, not below)
+    const minImgH = 90;
+    const dimTopPad = 46;      // reserved space above image for width dimension line (Opsi 4/5)
+    const dimRightPad = 140;   // reserved space to the right of image for height dimension line (Opsi 4/5)
+    const bottomMargin = 30;
+
+    const hasDim = blocks.some(b => b.dim);
+
+    // Shared cm->px scale across all blocks in this sheet, so blocks with
+    // different physical result sizes (e.g. Opsi 4 vs Opsi 5) render at
+    // proportionally different sizes instead of all filling the same box.
+    const maxWcm = Math.max.apply(null, blocks.map(b => b.wcm));
+    const maxHcm = Math.max.apply(null, blocks.map(b => b.hcm));
+    const usableW = hasDim ? (contentW - dimRightPad) : contentW;
+    const maxHUse = hasDim ? maxImgHDim : maxImgH;
+    let scale = Math.min(usableW / maxWcm, maxHUse / maxHcm);
+
+    const blockPx = blocks.map(b => {
+      let w = b.wcm * scale, h = b.hcm * scale;
+      if(w < minImgH && h < minImgH){
+        const bump = minImgH / Math.max(w, h);
+        w *= bump; h *= bump;
+      }
+      return { w, h };
+    });
+
+    let totalH = headerH;
+    blocks.forEach((b, i) => {
+      totalH += labelH + (b.dim ? dimTopPad : 0) + blockPx[i].h + (b.dim ? 0 : captionH) + blockGap;
+    });
+    totalH += bottomMargin;
+
+    const c = makeCanvas(CW, Math.round(totalH));
+    const ctx = c.getContext('2d');
+
+    ctx.fillStyle = '#F7F4EB';
+    ctx.fillRect(0, 0, c.width, c.height);
+
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#5B6167';
+    ctx.font = '600 14px ' + FONT_UI;
+    ctx.fillText('UKURAN PESANAN', marginX, 26);
+
+    ctx.fillStyle = '#1E2328';
+    ctx.font = '700 30px ' + FONT_MONO;
+    ctx.fillText(fmt(orderWcm) + ' \u00d7 ' + fmt(orderHcm) + ' cm', marginX, 48);
+
+    drawDashedLine(ctx, marginX, headerH - 14, CW - marginX, headerH - 14);
+
+    let y = headerH;
+    blocks.forEach((b, i) => {
+      const imgW = blockPx[i].w, imgH = blockPx[i].h;
+
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#1E2328';
+      ctx.font = '700 21px ' + FONT_UI;
+      ctx.fillText(b.num + '. ' + b.label, marginX, y + 6);
+      y += labelH;
+
+      const imgX = b.dim ? marginX : marginX + (contentW - imgW) / 2;
+
+      if(b.dim){
+        drawWidthDimension(ctx, imgX, y, imgW, fmt(b.wcm) + ' cm');
+        y += dimTopPad;
+      }
+
+      ctx.drawImage(b.canvas, imgX, y, imgW, imgH);
+      drawCropMarks(ctx, imgX, y, imgW, imgH);
+
+      if(b.dim){
+        drawHeightDimension(ctx, imgX, imgW, y, imgH, fmt(b.hcm) + ' cm');
+      }
+
+      y += imgH;
+
+      if(!b.dim){
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#5B6167';
+        ctx.font = '500 17px ' + FONT_MONO;
+        ctx.fillText(fmt(b.wcm) + ' \u00d7 ' + fmt(b.hcm) + ' cm', marginX, y + 8);
+        y += captionH;
+      }
+      y += blockGap;
+    });
+
+    return c;
+  }
+
+  // ---------- Downloads ----------
+  function downloadCanvas(canvas, filename){
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }, 'image/jpeg', 0.92);
+  }
+
+  downloadSingleBtn.addEventListener('click', () => {
+    if(canvasSingle) downloadCanvas(canvasSingle, 'preview-banner-' + currentW + 'x' + currentH + 'cm.jpg');
+  });
+
+  downloadImg1Btn.addEventListener('click', () => {
+    if(canvas1) downloadCanvas(canvas1, 'preview-banner-gambar1-' + currentW + 'x' + currentH + 'cm.jpg');
+  });
+
+  downloadImg2Btn.addEventListener('click', () => {
+    if(canvas2) downloadCanvas(canvas2, 'preview-banner-gambar2-' + currentW + 'x' + currentH + 'cm.jpg');
+  });
+
+  downloadBothBtn.addEventListener('click', () => {
+    if(canvas1) downloadCanvas(canvas1, 'preview-banner-gambar1-' + currentW + 'x' + currentH + 'cm.jpg');
+    if(canvas2) setTimeout(() => downloadCanvas(canvas2, 'preview-banner-gambar2-' + currentW + 'x' + currentH + 'cm.jpg'), 250);
+  });
+
+  // ---------- Reset ----------
+  resetBtn.addEventListener('click', () => {
+    uploadedImg = null;
+    fileInput.value = '';
+    dropzoneEmpty.classList.remove('hidden');
+    dropzoneFilled.classList.add('hidden');
+    dropzoneFilled.style.display = 'none';
+    widthInput.value = '';
+    heightInput.value = '';
+    hideError();
+    singleResults.classList.remove('show');
+    fiveResults.classList.remove('show');
+    resetRow.classList.remove('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,25 @@
+Options -Indexes
+RewriteEngine On
+RewriteBase /aulia/
+
+# Redirect root ke public/index.php
+
+RewriteRule ^$ public/index.php [L]
+
+# Jika request bukan file/direktori, arahkan ke public/index.php
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.\*)$ public/index.php/$1 [L]
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+    # Jangan proses file/folder yang memang ada di root
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Semua request diarahkan ke folder public
+    RewriteRule ^(.*)$ public/$1 [L]
+
+</IfModule>

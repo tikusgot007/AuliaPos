@@ -1,0 +1,1306 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Models\TransaksiModel;
+use App\Models\DetailTransaksiModel;
+use App\Models\PembayaranModel;
+use App\Models\PelangganModel;
+use App\Models\ProdukModel;
+use App\Models\KategoriModel;
+
+class Transaksi extends BaseController
+{
+    public function index()
+    {
+        $model = new TransaksiModel();
+        $pelangganModel = new PelangganModel();
+
+        /*
+    |--------------------------------------------------------------------------
+    | FILTER TANGGAL
+    |--------------------------------------------------------------------------
+    |
+    | Default: 7 hari terakhir sampai hari ini.
+    |
+    | Jika user memilih tanggal sendiri, gunakan tanggal tersebut.
+    |
+    */
+
+        $tanggal_awal = $this->request->getGet('tanggal_awal');
+        $tanggal_akhir = $this->request->getGet('tanggal_akhir');
+
+        if (empty($tanggal_awal)) {
+            $tanggal_awal = date(
+                'Y-m-d',
+                strtotime('-0 days')
+            );
+        }
+
+        if (empty($tanggal_akhir)) {
+            $tanggal_akhir = date('Y-m-d');
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FILTER STATUS PEMBAYARAN
+    |--------------------------------------------------------------------------
+    */
+
+        $status_pembayaran =
+            $this->request->getGet('status_pembayaran') ?? '';
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FILTER STATUS TRANSAKSI
+    |--------------------------------------------------------------------------
+    |
+    | Pilihan eksplisit (2026-09-05, menggantikan 'aktif' yang ambigu):
+    |
+    | ''       = Semua (proses + selesai + batal, tidak difilter)
+    | proses   = hanya proses
+    | selesai  = hanya selesai
+    | batal    = hanya batal
+    |
+    | Default = '' (Semua), konsisten dengan pola default filter
+    | status_pembayaran di bawah.
+    |
+    | Catatan kompatibilitas: nilai lama 'aktif' (proses + selesai,
+    | mengecualikan batal) TIDAK dihapus dari query builder di bawah —
+    | link lama yang masih mengirim status_transaksi=aktif tetap
+    | berfungsi sama seperti sebelumnya. Nilai ini sengaja tidak lagi
+    | ditawarkan sebagai pilihan baru di dropdown UI karena maknanya
+    | ambigu (lihat docs perubahan filter transaksi).
+    |
+    */
+
+        $status_transaksi =
+            $this->request->getGet('status_transaksi') ?? '';
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FILTER PELANGGAN
+    |--------------------------------------------------------------------------
+    */
+
+        $pelanggan_filter =
+            $this->request->getGet('pelanggan') ?? '';
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | KEYWORD
+    |--------------------------------------------------------------------------
+    |
+    | Digunakan untuk mencari:
+    | - kode invoice
+    | - no order
+    | - nama pelanggan
+    |
+    | Jika keyword diisi, pencarian tidak dibatasi
+    | oleh default periode 3 bulan.
+    |
+    */
+
+        $keyword =
+            trim(
+                (string) (
+                    $this->request->getGet('keyword') ?? ''
+                )
+            );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | QUERY UTAMA
+    |--------------------------------------------------------------------------
+    */
+
+        $builder = $model
+            ->select(
+                'transaksi.id,
+             transaksi.kode_invoice,
+             transaksi.no_order,
+             transaksi.tanggal,
+             transaksi.pelanggan_id,
+             transaksi.kasir_id,
+             transaksi.grand_total,
+             transaksi.total_dibayar,
+             transaksi.status_pembayaran,
+             transaksi.status,
+             transaksi.sumber,
+             users.username AS kasir_nama,
+             pelanggan.nama AS pelanggan_nama'
+            )
+            ->join(
+                'users',
+                'users.id = transaksi.kasir_id',
+                'left'
+            )
+            ->join(
+                'pelanggan',
+                'pelanggan.id = transaksi.pelanggan_id',
+                'left'
+            )
+            ->orderBy(
+                'transaksi.id',
+                'DESC'
+            );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FILTER TANGGAL
+    |--------------------------------------------------------------------------
+    |
+    | Jika TIDAK ada keyword:
+    | gunakan filter tanggal.
+    |
+    | Jika ADA keyword:
+    | pencarian berlaku ke seluruh histori.
+    |
+    */
+
+        if ($keyword === '') {
+
+            $awalDatetime =
+                $tanggal_awal . ' 00:00:00';
+
+            /*
+         * Tambahkan 1 hari untuk menjadikan batas atas eksklusif.
+         *
+         * Contoh:
+         * tanggal_akhir = 2026-08-31
+         *
+         * menjadi:
+         * < 2026-09-01 00:00:00
+         *
+         * sehingga transaksi sampai
+         * 2026-08-31 23:59:59 tetap masuk.
+         */
+
+            $akhirDatetime =
+                date(
+                    'Y-m-d 00:00:00',
+                    strtotime(
+                        $tanggal_akhir . ' +1 day'
+                    )
+                );
+
+
+            $builder
+                ->where(
+                    'transaksi.tanggal >=',
+                    $awalDatetime
+                )
+                ->where(
+                    'transaksi.tanggal <',
+                    $akhirDatetime
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FILTER STATUS PEMBAYARAN
+    |--------------------------------------------------------------------------
+    */
+
+        if ($status_pembayaran !== '') {
+
+            $builder->where(
+                'transaksi.status_pembayaran',
+                $status_pembayaran
+            );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FILTER STATUS TRANSAKSI
+    |--------------------------------------------------------------------------
+    */
+
+        if ($status_transaksi === 'aktif') {
+
+            /*
+         * Kompatibilitas mundur untuk link lama:
+         * proses + selesai, mengecualikan batal.
+         * Tidak lagi ditawarkan sebagai pilihan baru di UI.
+         */
+
+            $builder->where(
+                'transaksi.status !=',
+                'batal'
+            );
+        } elseif ($status_transaksi === 'batal') {
+
+            /*
+         * Hanya transaksi batal.
+         */
+
+            $builder->where(
+                'transaksi.status',
+                'batal'
+            );
+        } elseif ($status_transaksi === 'proses') {
+
+            /*
+         * Hanya transaksi proses.
+         */
+
+            $builder->where(
+                'transaksi.status',
+                'proses'
+            );
+        } elseif ($status_transaksi === 'selesai') {
+
+            /*
+         * Hanya transaksi selesai.
+         */
+
+            $builder->where(
+                'transaksi.status',
+                'selesai'
+            );
+        }
+
+        /*
+         * $status_transaksi === '' (Semua) -> tidak ada filter status
+         * transaksi sama sekali; proses + selesai + batal semua tampil.
+         */
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FILTER PELANGGAN
+    |--------------------------------------------------------------------------
+    */
+
+        if ($pelanggan_filter !== '') {
+
+            $builder->where(
+                'transaksi.pelanggan_id',
+                $pelanggan_filter
+            );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FILTER KEYWORD
+    |--------------------------------------------------------------------------
+    */
+
+        if ($keyword !== '') {
+
+            $parsedNoOrder =
+                $this->parseNoOrder(
+                    $keyword
+                );
+
+
+            $builder->groupStart();
+
+            /*
+         * Invoice
+         */
+            $builder->like(
+                'transaksi.kode_invoice',
+                $keyword
+            );
+
+            /*
+         * No Order
+         */
+            $builder->orLike(
+                'transaksi.no_order',
+                $keyword
+            );
+
+            /*
+         * Nama Pelanggan
+         */
+            $builder->orLike(
+                'pelanggan.nama',
+                $keyword
+            );
+
+
+            /*
+         * Jika keyword dapat diparse
+         * menjadi nomor order numerik,
+         * cari juga secara exact number.
+         */
+
+            if ($parsedNoOrder) {
+
+                $builder->orWhere(
+                    'transaksi.no_order',
+                    (int) $parsedNoOrder
+                );
+
+                $builder->orLike(
+                    'transaksi.no_order',
+                    (string) $parsedNoOrder
+                );
+            }
+
+            $builder->groupEnd();
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | AMBIL DATA
+    |--------------------------------------------------------------------------
+    |
+    | Untuk sementara tetap menggunakan findAll()
+    | karena halaman saat ini menggunakan DataTables
+    | client-side.
+    |
+    */
+
+        $transaksi =
+            $builder->findAll();
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | DAFTAR PELANGGAN
+    |--------------------------------------------------------------------------
+    */
+
+        $pelanggan_list =
+            $pelangganModel
+            ->orderBy(
+                'nama',
+                'ASC'
+            )
+            ->findAll();
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | DATA UNTUK VIEW
+    |--------------------------------------------------------------------------
+    */
+
+        $data = [
+
+            'title' =>
+            'Transaksi | AULIA',
+
+            'content' =>
+            'transaksi/index',
+
+            'transaksi' =>
+            $transaksi,
+
+            /*
+         * Filter tanggal yang sedang aktif
+         */
+            'tanggal_awal' =>
+            $tanggal_awal,
+
+            'tanggal_akhir' =>
+            $tanggal_akhir,
+
+            /*
+         * Filter pembayaran
+         */
+            'status_pembayaran' =>
+            $status_pembayaran,
+
+            /*
+         * Filter transaksi
+         */
+            'status_transaksi' =>
+            $status_transaksi,
+
+            /*
+         * Filter pelanggan
+         */
+            'pelanggan_filter' =>
+            $pelanggan_filter,
+
+            /*
+         * Keyword
+         */
+            'keyword' =>
+            $keyword,
+
+            /*
+         * Daftar pelanggan
+         */
+            'pelanggan_list' =>
+            $pelanggan_list,
+
+            /*
+         * Pilihan status pembayaran
+         */
+            'status_pembayaran_list' =>
+            [
+                'belum_bayar',
+                'dp',
+                'lunas'
+            ],
+
+            /*
+         * 4 pilihan eksplisit status transaksi (2026-09-05).
+         * '' = Semua.
+         */
+            'status_transaksi_list' =>
+            [
+                '',
+                'proses',
+                'selesai',
+                'batal'
+            ],
+
+            /*
+         * Penanda halaman bukan berasal dari tagihan
+         */
+            'dariTagihan' =>
+            false
+        ];
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | RENDER
+    |--------------------------------------------------------------------------
+    */
+
+        return view(
+            'layout/main',
+            $data
+        );
+    }
+    public function hariIni()
+    {
+        $db = \Config\Database::connect();
+
+        /*
+    |--------------------------------------------------------------------------
+    | Batas waktu hari ini
+    |--------------------------------------------------------------------------
+    */
+
+        $awalHari = date('Y-m-d 00:00:00');
+        $awalBesok = date(
+            'Y-m-d 00:00:00',
+            strtotime('+1 day')
+        );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Ambil item transaksi
+    |--------------------------------------------------------------------------
+    |
+    | Satu baris = satu item dari detail_transaksi.
+    | Data transaksi induk ikut dibawa agar view bisa
+    | mengelompokkan item berdasarkan transaksi_id.
+    |
+    */
+
+        $builder = $db->table('detail_transaksi dt');
+
+        $builder->select([
+            'dt.id AS detail_id',
+            'dt.transaksi_id',
+            'dt.produk_id',
+            'dt.nama_produk',
+            'dt.kategori_id',
+            'dt.jumlah',
+            'dt.harga_satuan',
+            'dt.subtotal',
+
+            't.tanggal',
+            't.kode_invoice',
+            't.no_order',
+            't.pelanggan_id',
+            't.kasir_id',
+            't.grand_total',
+            't.total_dibayar',
+            't.status_pembayaran',
+            't.status',
+            't.sumber',
+
+            'p.nama AS pelanggan_nama',
+
+            'u.username AS kasir_nama',
+            'u.nama AS kasir_real_nama',
+        ]);
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | JOIN
+    |--------------------------------------------------------------------------
+    */
+
+        $builder->join(
+            'transaksi t',
+            't.id = dt.transaksi_id',
+            'inner'
+        );
+
+        $builder->join(
+            'pelanggan p',
+            'p.id = t.pelanggan_id',
+            'left'
+        );
+
+        $builder->join(
+            'users u',
+            'u.id = t.kasir_id',
+            'left'
+        );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Hanya transaksi hari ini
+    |--------------------------------------------------------------------------
+    */
+
+        $builder->where(
+            't.tanggal >=',
+            $awalHari
+        );
+
+        $builder->where(
+            't.tanggal <',
+            $awalBesok
+        );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Hanya transaksi aktif
+    |--------------------------------------------------------------------------
+    |
+    | Transaksi yang sudah dibatalkan tidak ditampilkan
+    | di halaman Item Terjual Hari Ini.
+    |
+    */
+
+        $builder->where(
+            't.status !=',
+            'batal'
+        );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Urutan
+    |--------------------------------------------------------------------------
+    |
+    | Transaksi terbaru di atas.
+    | Dalam transaksi yang sama, item mengikuti
+    | urutan detail.
+    |
+    */
+
+        $builder->orderBy(
+            't.tanggal',
+            'DESC'
+        );
+
+        $builder->orderBy(
+            't.id',
+            'DESC'
+        );
+
+        $builder->orderBy(
+            'dt.id',
+            'ASC'
+        );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Ambil data
+    |--------------------------------------------------------------------------
+    */
+
+        $transaksi = $builder
+            ->get()
+            ->getResultArray();
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Kirim ke view
+    |--------------------------------------------------------------------------
+    */
+
+        $data = [
+            'title'     => 'Item Terjual Hari Ini | AULIA',
+            'content'   => 'transaksi/hari_ini',
+            'transaksi' => $transaksi,
+            'tanggal'   => date('Y-m-d'),
+        ];
+
+        return view(
+            'layout/main',
+            $data
+        );
+    }
+    private function getAvailableNoOrdersForEdit(?int $selectedNoOrder = null): array
+    {
+        $transaksiModel = new \App\Models\TransaksiModel();
+
+        if ($selectedNoOrder === null || $selectedNoOrder <= 0) {
+            return [];
+        }
+
+        $min = max(1, $selectedNoOrder - 20);
+        $max = $selectedNoOrder + 20;
+
+        $usedOrders = $transaksiModel
+            ->select('no_order')
+            ->where('no_order >=', $min)
+            ->where('no_order <=', $max)
+            ->findAll();
+
+        $usedArray = array_map(
+            'intval',
+            array_column($usedOrders, 'no_order')
+        );
+
+        // Nomor yang sedang diedit jangan dianggap terpakai
+        $usedArray = array_values(
+            array_diff($usedArray, [$selectedNoOrder])
+        );
+
+        $available = [];
+
+        for ($i = $min; $i <= $max; $i++) {
+            if (!in_array($i, $usedArray, true)) {
+                $available[] = $i;
+            }
+        }
+
+        sort($available, SORT_NUMERIC);
+
+        return $available;
+    }
+    /**
+     * 🔥 Parse No Order dari format huruf (contoh: A4295 → 104295)
+     * Jika input bukan format huruf, return null
+     */
+    private function parseNoOrder($formatted)
+    {
+        $ambang = 100000;
+        $siklus = 9999;
+
+        $formatted = strtoupper(trim($formatted));
+
+        // 🔥 Jika angka murni, return null (tidak perlu parsing)
+        if (is_numeric($formatted)) {
+            return null;
+        }
+
+        // 🔥 Jika format huruf + angka (contoh: A4295, A0001, B0001)
+        if (preg_match('/^([A-Z]+)(\d+)$/', $formatted, $matches)) {
+            $hurufStr = $matches[1];
+            $angkaStr = $matches[2];
+            $nomorDalamSiklus = (int)$angkaStr;
+
+            // Konversi huruf ke angka (A=0, B=1, ...)
+            $indexSiklus = 0;
+            for ($i = 0; $i < strlen($hurufStr); $i++) {
+                $indexSiklus = $indexSiklus * 26 + (ord($hurufStr[$i]) - 64);
+            }
+            $indexSiklus -= 1;
+
+            $posisi = ($indexSiklus * $siklus) + $nomorDalamSiklus;
+            return $ambang + $posisi;
+        }
+
+        return null;
+    }
+
+
+    public function detail($id)
+    {
+        $transaksiModel = new TransaksiModel();
+        $detailModel = new DetailTransaksiModel();
+        $pembayaranModel = new PembayaranModel();
+        $pelangganModel = new PelangganModel();
+
+        // Ambil data transaksi
+        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama')
+            ->join('users', 'users.id = transaksi.kasir_id', 'left')
+            ->find($id);
+
+        if (!$transaksi) {
+            return redirect()->to('/transaksi')->with('error', 'Transaksi tidak ditemukan.');
+        }
+
+        // Ambil detail item
+        $detailItems = $detailModel->where('transaksi_id', $id)->findAll();
+
+        // Ambil pembayaran
+        $pembayaran = $pembayaranModel
+            ->select('pembayaran.*, users.nama as kasir_nama, users.username as kasir_username')
+            ->join('users', 'users.id = pembayaran.kasir_id', 'left')
+            ->where('pembayaran.transaksi_id', $id)
+            ->where('pembayaran.status', 'aktif')
+            ->orderBy('pembayaran.tanggal', 'ASC')
+            ->findAll();
+
+        // Ambil pelanggan
+        $pelanggan = null;
+        if ($transaksi['pelanggan_id']) {
+            $pelanggan = $pelangganModel->find($transaksi['pelanggan_id']);
+        }
+
+        $total_dibayar = array_sum(array_column($pembayaran, 'jumlah'));
+        $sisa_tagihan = max(0, $transaksi['grand_total'] - $total_dibayar);
+        $kelebihan_bayar = max(0, $total_dibayar - $transaksi['grand_total']);
+
+        $data = [
+            'title'   => 'Detail Transaksi | AULIA',
+            'content' => 'transaksi/detail',
+            'transaksi' => $transaksi,
+            'detail_items' => $detailItems,
+            'pembayaran' => $pembayaran,
+            'pelanggan' => $pelanggan,
+            'total_dibayar' => $total_dibayar,
+            'sisa_tagihan' => $sisa_tagihan,
+            'kelebihan_bayar' => $kelebihan_bayar,
+            'dariTagihan' => false
+        ];
+
+        return view('layout/main', $data);
+    }
+
+    public function batal($id)
+    {
+        $model = new TransaksiModel();
+        $detailModel = new DetailTransaksiModel();
+        $produkModel = new \App\Models\ProdukModel();
+
+        $transaksi = $model->find($id);
+
+        if (!$transaksi) {
+            return redirect()->to('/transaksi')->with('error', 'Transaksi tidak ditemukan.');
+        }
+
+        if ($transaksi['status'] === 'batal') {
+            return redirect()->to('/transaksi')->with('error', 'Transaksi sudah dibatalkan.');
+        }
+
+        // Mulai transaksi database
+        $db = \Config\Database::connect();
+        $db->transStart();
+
+        try {
+            // Aturan perubahan status dipusatkan di TransaksiModel.
+            $isAdmin = session()->get('role') === 'admin';
+            $model->ubahStatus($id, 'batal', $isAdmin);
+
+            $db->transComplete();
+
+            return redirect()->to('/transaksi')->with('success', 'Transaksi berhasil dibatalkan.');
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->to('/transaksi')->with('error', 'Gagal membatalkan transaksi: ' . $e->getMessage());
+        }
+    }
+
+    public function cetakStruk($id)
+    {
+        return redirect()->to('/transaksi/detail/' . $id)->with('info', 'Fitur cetak struk sedang dalam pengembangan.');
+    }
+
+    /**
+     * Halaman Edit Transaksi (Menggunakan tampilan kasir)
+     */
+    public function edit($id)
+    {
+        $produkModel = new ProdukModel();
+        $transaksiModel = new TransaksiModel();
+        $detailModel = new DetailTransaksiModel();
+        $kategoriModel = new KategoriModel();
+        $pelangganModel = new PelangganModel();
+
+        // Ambil transaksi
+        $transaksi = $transaksiModel
+            ->select('transaksi.*, users.username as kasir_nama')
+            ->join('users', 'users.id = transaksi.kasir_id', 'left')
+            ->find($id);
+
+        if (!$transaksi) {
+            return redirect()
+                ->to('/transaksi')
+                ->with('error', 'Transaksi tidak ditemukan.');
+        }
+
+        // Edit hanya diperbolehkan selama transaksi masih PROSES.
+        if (($transaksi['status'] ?? '') !== 'proses') {
+            return redirect()
+                ->to('/transaksi/detail/' . $id)
+                ->with('error', 'Transaksi sudah final atau batal, hanya transaksi PROSES yang dapat diedit.');
+        }
+
+        /*
+     * ============================================================
+     * FILTER PRODUK
+     * ============================================================
+     *
+     * Tetap definisikan variabel ini agar view lama yang masih
+     * menggunakan $keyword / $kategoriFilter tidak error.
+     *
+     * PENTING:
+     * Variabel ini TIDAK digunakan untuk query produk.
+     * Filter sebenarnya dilakukan oleh JavaScript di browser.
+     */
+        $kategoriFilter = trim(
+            (string) ($this->request->getGet('kategori') ?? '')
+        );
+
+        $keyword = trim(
+            (string) ($this->request->getGet('keyword') ?? '')
+        );
+
+        /*
+     * ============================================================
+     * PRODUK
+     * ============================================================
+     *
+     * Ambil SEMUA produk aktif sekali saja.
+     * Jangan gunakan method Paginated.
+     */
+        $produk = $produkModel->getProdukAktifWithPopularity();
+
+        // Detail transaksi
+        $detailItems = $detailModel
+            ->where('transaksi_id', $id)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+
+        // Pelanggan
+        $pelanggan = null;
+
+        if (!empty($transaksi['pelanggan_id'])) {
+            $pelanggan = $pelangganModel->find(
+                $transaksi['pelanggan_id']
+            );
+        }
+
+        $selectedNoOrder = !empty($transaksi['no_order'])
+            ? (int) $transaksi['no_order']
+            : null;
+
+        $availableNoOrders = $this->getAvailableNoOrdersForEdit(
+            $selectedNoOrder
+        );
+
+        $data = [
+            'title' => 'Edit Transaksi | AULIA',
+            'content' => 'kasir/edit',
+
+            'is_edit' => true,
+            'edit_mode' => true,
+            'transaksi_id' => (int) $id,
+
+            'transaksi' => $transaksi,
+            'detail_items' => $detailItems,
+            'pelanggan' => $pelanggan,
+
+            /*
+         * Semua produk.
+         * Filter dilakukan di JavaScript.
+         */
+            'produk' => $produk,
+
+            'kategori' => $kategoriModel
+                ->where('parent_id IS NULL')
+                ->findAll(),
+
+            'kategori_aktif' => $kategoriFilter,
+
+            /*
+         * Dipertahankan untuk kompatibilitas view.
+         */
+            'keyword_produk' => $keyword,
+            'keyword' => $keyword,
+
+            'available_no_orders' => $availableNoOrders,
+            'selected_no_order' => $selectedNoOrder,
+        ];
+
+        return view('layout/main', $data);
+    }
+
+    /** Update transaksi tanpa membuat ulang histori pembayaran. */
+    public function updateTransaksi($id)
+    {
+        $db = \Config\Database::connect();
+
+        $transaksiModel = new \App\Models\TransaksiModel();
+        $detailModel = new \App\Models\DetailTransaksiModel();
+        $pelangganModel = new \App\Models\PelangganModel();
+
+        $request = $this->request->getJSON(true) ?? [];
+        $keranjang = $request['keranjang'] ?? [];
+
+        // ==========================================
+        // 1. VALIDASI DASAR
+        // ==========================================
+
+        if (!is_array($keranjang) || empty($keranjang)) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Keranjang kosong. Tidak ada yang bisa disimpan.'
+            ]);
+        }
+
+        $transaksi = $transaksiModel->find($id);
+
+        if (!$transaksi) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Transaksi tidak ditemukan.'
+            ]);
+        }
+
+        // Update hanya diperbolehkan selama transaksi masih PROSES.
+        if (($transaksi['status'] ?? '') !== 'proses') {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Hanya transaksi PROSES yang dapat diedit.'
+            ]);
+        }
+
+        // ==========================================
+        // 2. DATA REQUEST
+        // ==========================================
+
+        $pelangganId = $request['pelanggan'] ?? null;
+        $pelangganNama = trim((string) ($request['pelanggan_nama'] ?? ''));
+        $pelangganTelp = trim((string) ($request['pelanggan_telp'] ?? ''));
+        $diskon = (float) ($request['diskon'] ?? 0);
+        $noOrderInput = trim((string) ($request['no_order'] ?? ''));
+
+        // ==========================================
+        // 3. PARSE NO ORDER
+        // ==========================================
+
+        $noOrder = null;
+
+        if ($noOrderInput !== '') {
+            $noOrder = parse_no_order($noOrderInput);
+
+            if ($noOrder === null) {
+                return $this->response->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Format No Order tidak valid.'
+                ]);
+            }
+        }
+
+        // ==========================================
+        // 4. VALIDASI KATEGORI 16 / CETAK
+        // ==========================================
+
+        $hasKategori16 = false;
+
+        foreach ($keranjang as $item) {
+            $kategoriId = isset($item['kategori_id'])
+                ? (int) $item['kategori_id']
+                : 0;
+
+            if ($kategoriId === 16) {
+                $hasKategori16 = true;
+                break;
+            }
+
+            if (
+                isset($item['is_cetak']) &&
+                $item['is_cetak'] === true
+            ) {
+                $hasKategori16 = true;
+                break;
+            }
+
+            if (
+                isset($item['is_custom']) &&
+                $item['is_custom'] === true &&
+                isset($item['is_cetak']) &&
+                $item['is_cetak'] === true
+            ) {
+                $hasKategori16 = true;
+                break;
+            }
+        }
+
+        // ==========================================
+        // 5. HITUNG SUBTOTAL
+        // ==========================================
+
+        $subtotal = 0;
+
+        foreach ($keranjang as $item) {
+            $subtotal += (float) ($item['subtotal'] ?? 0);
+        }
+
+        // ==========================================
+        // 6. VALIDASI DISKON
+        // ==========================================
+
+        if ($diskon < 0) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Diskon tidak boleh negatif.'
+            ]);
+        }
+
+        if ($diskon > $subtotal) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Diskon tidak boleh melebihi total belanja.'
+            ]);
+        }
+
+        // ==========================================
+        // 7. PELANGGAN
+        // ==========================================
+
+        $finalPelangganId = null;
+
+        if ($pelangganId === 'new' && $pelangganNama !== '') {
+            $finalPelangganId = $pelangganModel->insert([
+                'nama'  => $pelangganNama,
+                'no_hp' => $pelangganTelp
+            ]);
+
+            if (!$finalPelangganId) {
+                throw new \Exception('Gagal membuat pelanggan baru.');
+            }
+        } elseif (!empty($pelangganId) && is_numeric($pelangganId)) {
+            $finalPelangganId = (int) $pelangganId;
+        } else {
+            $finalPelangganId = !empty($transaksi['pelanggan_id'])
+                ? (int) $transaksi['pelanggan_id']
+                : null;
+        }
+
+        // ==========================================
+        // 8. HITUNG GRAND TOTAL
+        // SAMA DENGAN SIMPAN TRANSAKSI
+        // ==========================================
+
+        $grandTotalSebelumPembulatan = $subtotal - $diskon;
+
+        $grandTotal = floor(
+            $grandTotalSebelumPembulatan / 100
+        ) * 100;
+
+        $selisihPembulatan =
+            $grandTotalSebelumPembulatan - $grandTotal;
+
+        // ==========================================
+        // 9. BENTUK DETAIL TRANSAKSI
+        // ==========================================
+        //
+        // Catatan arsitektur (lihat docs/aturan-bisnis-AULIA.md
+        // Section 6, 7, 12, 16, 22):
+        //
+        // - Edit transaksi TIDAK PERNAH mencatat refund otomatis.
+        //   Refund adalah proses tersendiri (Kas Keluar > kategori
+        //   'refund_penjualan'), diputuskan manual oleh kasir.
+        // - total_dibayar & status_pembayaran BUKAN dihitung manual
+        //   di sini. Keduanya cache/denormalisasi dari
+        //   SUM(pembayaran WHERE status='aktif') — sumber kebenaran
+        //   tunggalnya adalah TransaksiModel::sinkronkanPembayaran(),
+        //   dipanggil setelah grand_total baru tersimpan (lihat step 11).
+        // - Kalau grand_total baru < total pembayaran aktif yang sudah
+        //   ada, itu SAH: hasilnya kelebihan bayar (status tetap
+        //   'lunas'), bukan kondisi error. Kelebihan bayar dihitung
+        //   di response, ditampilkan di UI, ditindaklanjuti manual.
+
+        $detailItems = [];
+
+        foreach ($keranjang as $item) {
+            $detailItems[] = [
+                'produk_id'    => (int) ($item['produk_id'] ?? 1),
+                'nama_produk'  => (string) ($item['nama'] ?? ''),
+                'kategori_id'  => (int) ($item['kategori_id'] ?? 1),
+                'jumlah'       => (float) ($item['jumlah'] ?? 1),
+                'harga_satuan' => (float) ($item['harga'] ?? 0),
+                'subtotal'     => (float) ($item['subtotal'] ?? 0),
+                'catatan'      => (string) ($item['catatan'] ?? '')
+            ];
+        }
+
+        // ==========================================
+        // 10. SIMPAN DALAM SATU TRANSAKSI DATABASE
+        // ==========================================
+
+        $db->transStart();
+
+        try {
+            // --------------------------------------
+            // Update transaksi existing
+            //
+            // total_dibayar & status_pembayaran SENGAJA tidak
+            // diisi di sini — akan diisi oleh sinkronkanPembayaran()
+            // setelah grand_total baru ini tersimpan.
+            // --------------------------------------
+
+            $transaksiModel->update($id, [
+                'no_order'           => $noOrder,
+                'pelanggan_id'       => $finalPelangganId,
+                'subtotal'           => $subtotal,
+                'diskon'             => $diskon,
+                'pajak'              => 0,
+                'grand_total'        => $grandTotal,
+                'selisih_pembulatan' => $selisihPembulatan,
+            ]);
+
+            // --------------------------------------
+            // Hapus detail lama
+            // --------------------------------------
+
+            $detailModel
+                ->where('transaksi_id', $id)
+                ->delete();
+
+            // --------------------------------------
+            // Simpan detail baru
+            // --------------------------------------
+
+            foreach ($detailItems as $item) {
+                $item['transaksi_id'] = (int) $id;
+                $detailModel->insert($item);
+            }
+
+            // --------------------------------------
+            // 11. SINKRONKAN total_dibayar & status_pembayaran
+            //
+            // Sumber kebenaran tunggal: SUM(pembayaran aktif) vs
+            // grand_total yang baru saja disimpan di atas.
+            // --------------------------------------
+
+            $sinkron = $transaksiModel->sinkronkanPembayaran($id);
+            $totalDibayar = (float) $sinkron['total_dibayar'];
+            $statusPembayaran = $sinkron['status_pembayaran'];
+
+            // --------------------------------------
+            // Selesaikan transaksi database
+            // --------------------------------------
+
+            $db->transComplete();
+
+            if (!$db->transStatus()) {
+                throw new \Exception(
+                    'Gagal menyelesaikan update transaksi.'
+                );
+            }
+
+            // --------------------------------------
+            // Response
+            // --------------------------------------
+
+            $sisaTagihan = max(0, $grandTotal - $totalDibayar);
+            $kelebihanBayar = max(0, $totalDibayar - $grandTotal);
+
+            return $this->response->setJSON([
+                'status'                         => 'success',
+                'message'                        => $kelebihanBayar > 0
+                    ? 'Transaksi berhasil diperbarui. Ada kelebihan bayar Rp'
+                    . number_format($kelebihanBayar, 0, ',', '.')
+                    . ' — refund fisik (jika perlu) dicatat manual lewat Kas Keluar.'
+                    : 'Transaksi berhasil diperbarui.',
+                'transaksi_id'                   => (int) $id,
+                'invoice'                        => $transaksi['kode_invoice'],
+                'grand_total'                    => $grandTotal,
+                'grand_total_sebelum_pembulatan' => $grandTotalSebelumPembulatan,
+                'selisih_pembulatan'             => $selisihPembulatan,
+                'total_dibayar'                  => $totalDibayar,
+                'sisa_tagihan'                   => $sisaTagihan,
+                'kelebihan_bayar'                => $kelebihanBayar,
+                'status_pembayaran'              => $statusPembayaran,
+                'redirect'                       => base_url(
+                    '/transaksi/detail/' . $id
+                )
+            ]);
+        } catch (\Throwable $e) {
+            $db->transRollback();
+
+            log_message(
+                'error',
+                'Error updateTransaksi: ' . $e->getMessage()
+            );
+
+            log_message(
+                'error',
+                $e->getTraceAsString()
+            );
+
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Gagal memperbarui transaksi: ' .
+                        $e->getMessage()
+                ]);
+        }
+    }
+
+    /**
+     * 🔥 DEKONSTRUKSI BANNER DARI NAMA
+     */
+    private function dekonstruksiBanner($nama, $harga, $qty)
+    {
+        // Contoh nama: "Banner 1.0mx1.0m (1.00 m²)"
+        $pattern = '/Banner\s+([\d.]+)mx([\d.]+)m\s*\(([\d.]+)\s*m²\)/';
+        if (preg_match($pattern, $nama, $matches)) {
+            $p = (float)$matches[1] * 100; // konversi ke cm
+            $l = (float)$matches[2] * 100;
+            $luas = (float)$matches[3];
+
+            // Harga per m² = harga / luas
+            $hargaPerM2 = $luas > 0 ? round($harga / $luas) : 22000;
+
+            return [
+                'p' => $p,
+                'l' => $l,
+                'luas' => $luas,
+                'qty' => $qty,
+                'harga_per_m2' => $hargaPerM2
+            ];
+        }
+
+        return null;
+    }
+    public function aktifkan($id)
+    {
+        $model = new TransaksiModel();
+
+        $transaksi = $model->find($id);
+
+        if (!$transaksi) {
+            return redirect()
+                ->to('/transaksi')
+                ->with('error', 'Transaksi tidak ditemukan.');
+        }
+
+        // BATAL adalah status terminal dan tidak dapat diaktifkan kembali.
+        return redirect()
+            ->to('/transaksi/detail/' . $id)
+            ->with(
+                'error',
+                'Transaksi BATAL bersifat final dan tidak dapat diaktifkan kembali.'
+            );
+    }
+}
