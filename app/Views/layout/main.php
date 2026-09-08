@@ -701,6 +701,16 @@
                     </li>
 
 
+                    <!-- INBOX WHATSAPP -->
+                    <li class="nav-item">
+                        <a class="nav-link <?= (strpos(current_url(), '/inbox') !== false) ? 'active' : '' ?>"
+                            href="<?= base_url('/inbox') ?>">
+                            <i class="fab fa-whatsapp"></i>
+                            <span>Inbox WhatsApp</span>
+                        </a>
+                    </li>
+
+
                     <!-- ================================= -->
                     <!-- PEMBAYARAN -->
                     <!-- ================================= -->

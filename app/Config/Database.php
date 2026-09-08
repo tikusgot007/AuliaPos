@@ -51,6 +51,55 @@ class Database extends Config
         ],
     ];
 
+    /**
+     * Koneksi database KEDUA, KHUSUS untuk module Shared WhatsApp
+     * Inbox (aulia_inboxdb) -- SENGAJA terpisah total dari database
+     * AuliaPos existing ($default di atas), sesuai keputusan
+     * arsitektur module Inbox (lihat
+     * docs/aturan-bisnis-AULIA.md Section 28).
+     *
+     * Model-model Inbox (ConversationModel, MessageModel,
+     * GatewayStatusModel) WAJIB eksplisit set
+     * `protected $DBGroup = 'inbox';` -- tidak pernah mengandalkan
+     * default group, supaya tidak mungkin salah nyambung ke database
+     * AuliaPos utama.
+     *
+     * Kredensial SENGAJA dikosongkan di sini (sama seperti $default
+     * di atas) -- diisi lewat .env di server, contoh:
+     *   database.inbox.hostname = localhost
+     *   database.inbox.username = ...
+     *   database.inbox.password = ...
+     *   database.inbox.database = aulia_inboxdb
+     *
+     * @var array<string, mixed>
+     */
+    public array $inbox = [
+        'DSN'          => '',
+        'hostname'     => 'localhost',
+        'username'     => '',
+        'password'     => '',
+        'database'     => 'aulia_inboxdb',
+        'DBDriver'     => 'MySQLi',
+        'DBPrefix'     => '',
+        'pConnect'     => false,
+        'DBDebug'      => true,
+        'charset'      => 'utf8mb4',
+        'DBCollat'     => 'utf8mb4_general_ci',
+        'swapPre'      => '',
+        'encrypt'      => false,
+        'compress'     => false,
+        'strictOn'     => false,
+        'failover'     => [],
+        'port'         => 3306,
+        'numberNative' => false,
+        'foundRows'    => false,
+        'dateFormat'   => [
+            'date'     => 'Y-m-d',
+            'datetime' => 'Y-m-d H:i:s',
+            'time'     => 'H:i:s',
+        ],
+    ];
+
     //    /**
     //     * Sample database connection for SQLite3.
     //     *

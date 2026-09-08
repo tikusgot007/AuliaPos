@@ -1,5 +1,9 @@
 # AULIA — Dokumentasi Aturan Bisnis & Keputusan Teknis
 
+> **[branch v3.x]** Dokumen ini isinya aturan bisnis AuliaPos INTI
+> (v2.x) — tidak menyentuh Chat/Inbox WhatsApp sama sekali. Untuk
+> dokumentasi modul Chat/Inbox, lihat `docs/aturan-bisnis-CHAT.md`.
+
 **Status:** Baseline aktif  
 **Tanggal:** 2026-09-10 (update terakhir)  
 **Project:** AULIA — PHP CodeIgniter 4 POS
