@@ -24,6 +24,27 @@ $routes->post('/auth/proses-login', 'Auth::prosesLogin');
 $routes->get('/logout', 'Auth::logout');
 
 // ==========================================
+// ROUTE GATEWAY WHATSAPP INBOX (MACHINE-TO-MACHINE, BEARER TOKEN)
+// ==========================================
+// Dipanggil oleh Gateway Node.js/Baileys terpisah di LAN, BUKAN dari
+// browser kasir -- sengaja dikecualikan dari filter session 'auth'
+// (lihat app/Config/Filters.php), diproteksi filter 'gatewaytoken'
+// sendiri. Lihat app/Controllers/InboxGatewayApi.php.
+$routes->post('/api/inbox/gateway/messages', 'InboxGatewayApi::messages', ['filter' => 'gatewaytoken']);
+$routes->post('/api/inbox/gateway/status', 'InboxGatewayApi::status', ['filter' => 'gatewaytoken']);
+
+// Endpoint browser POS (kasir/admin, session-authenticated) untuk
+// kirim balasan text -- Phase 3. UI utama + polling -- Phase 4.
+$routes->get('/inbox', 'Inbox::index', ['filter' => 'auth']);
+$routes->get('/inbox/api/conversations', 'Inbox::apiConversations', ['filter' => 'auth']);
+$routes->get('/inbox/api/conversations/(:num)/messages', 'Inbox::apiMessages/$1', ['filter' => 'auth']);
+$routes->get('/inbox/api/gateway-status', 'Inbox::apiGatewayStatus', ['filter' => 'auth']);
+$routes->get('/inbox/media/(:num)', 'Inbox::media/$1', ['filter' => 'auth']);
+$routes->get('/inbox/test', 'Inbox::testPage', ['filter' => 'auth']);
+$routes->post('/inbox/kirim', 'Inbox::kirim', ['filter' => 'auth']);
+$routes->post('/inbox/mulai-percakapan', 'Inbox::mulaiPercakapan', ['filter' => 'auth']);
+
+// ==========================================
 // ROUTE GANTI PASSWORD - OTOMATIS KENA AUTH
 // ==========================================
 
