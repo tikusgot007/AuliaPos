@@ -13,6 +13,7 @@
 
     // Sama persis dengan jadwal.js -- konsisten di seluruh modul.
     const SHIFT_URUTAN = { P: 1, S: 2, PM: 3, L: 4 };
+    const HARI_LABEL = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
     function el(id) {
         return document.getElementById(id);
@@ -41,6 +42,37 @@
         const [tahun, bulan, hari] = tanggal.split('-').map(Number);
         const d = new Date(tahun, bulan - 1, hari);
         return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    // Format pendek untuk header kolom Mingguan, mis. "07 Sep 2026" --
+    // sama dengan jadwal.js supaya konsisten dengan Matrix Admin.
+    function formatTanggalPendek(tanggal) {
+        const [tahun, bulan, hari] = tanggal.split('-').map(Number);
+        const d = new Date(tahun, bulan - 1, hari);
+        return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    // Sama persis dengan jadwal.js -- tanggal HARI INI lokal (bukan
+    // UTC), dan index kolom (0=Senin..6=Minggu) yang mewakilinya di
+    // minggu yang sedang tampil, atau -1 kalau tidak ada.
+    function tanggalHariIniLokal() {
+        const d = new Date();
+        const yy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return yy + '-' + mm + '-' + dd;
+    }
+
+    function todayIndexDalamMinggu(mingguAwal, mingguAkhir) {
+        const hariIni = tanggalHariIniLokal();
+
+        if (hariIni < mingguAwal || hariIni > mingguAkhir) return -1;
+
+        for (let i = 0; i < 7; i++) {
+            if (tanggalPlus(mingguAwal, i) === hariIni) return i;
+        }
+
+        return -1;
     }
 
     async function apiGet(url) {
@@ -126,12 +158,67 @@
         });
     }
 
+    // Header (hari + tanggal aktual minggu yang sedang tampil) --
+    // digenerate ulang tiap render, sama seperti Matrix Admin
+    // (jadwal.js renderHeaderMatrix()), supaya tanggal selalu sesuai
+    // minggu_awal yang sedang ditampilkan. Kolom "hari ini" (kalau
+    // ada di minggu yang tampil) diberi highlight.
+    function renderHeaderMingguan(data, todayIdx) {
+        const baris = ['<tr class="roster-date-header">',
+            '<th class="sortable-header roster-sticky-th" data-sort-key="divisi">Karyawan ' +
+            '<i class="fas fa-sort sort-icon"></i></th>'];
+
+        for (let i = 0; i < 7; i++) {
+            const tanggal = tanggalPlus(data.minggu_awal, i);
+            const kelasHariIni = i === todayIdx ? ' roster-today-col' : '';
+            baris.push(
+                '<th class="text-center sortable-header roster-sticky-th' + kelasHariIni + '" data-sort-key="hari:' + i + '">' +
+                HARI_LABEL[i] + '<br><small>' + formatTanggalPendek(tanggal) + '</small> ' +
+                '<i class="fas fa-sort sort-icon"></i></th>'
+            );
+        }
+
+        baris.push('</tr>');
+        el('tabelRosterMingguanHead').innerHTML = baris.join('');
+
+        bindSortHeadersMingguan();
+        updateStickyOffsetsMingguan();
+    }
+
+    // Sticky PAGE-LEVEL (bukan kotak scroll lokal) -- lihat catatan
+    // panjang di <style> roster/index.php untuk root cause & alasan
+    // pendekatan ini. `top` dihitung dari tinggi ASLI `.top-header`
+    // aplikasi saat ini (bukan hardcode), supaya tetap presisi walau
+    // tingginya berubah (mis. breakpoint mobile yang menumpuk elemen
+    // header jadi beberapa baris).
+    function updateStickyOffsetsMingguan() {
+        const topHeaderEl = document.querySelector('.top-header');
+        const baseTop = topHeaderEl ? Math.ceil(topHeaderEl.getBoundingClientRect().height) : 0;
+
+        document.querySelectorAll('#tabelRosterMingguanHead th').forEach(function (th) {
+            th.style.top = baseTop + 'px';
+        });
+    }
+
     function renderMingguan(data) {
         state.mingguAwal = data.minggu_awal;
         state.matrixTerakhir = data;
 
         el('rosterLabelMinggu').textContent =
             formatTanggalIndo(data.minggu_awal) + ' – ' + formatTanggalIndo(data.minggu_akhir);
+
+        const todayIdx = todayIndexDalamMinggu(data.minggu_awal, data.minggu_akhir);
+
+        // Default sort ke kolom hari ini -- sama pola dengan Matrix
+        // Admin, hanya berlaku sekali di render pertama (selama
+        // state.sortKey masih null) dan tidak pernah menimpa pilihan
+        // sort manual user berikutnya.
+        if (state.sortKey === null && todayIdx !== -1) {
+            state.sortKey = 'hari:' + todayIdx;
+            state.sortDir = 'asc';
+        }
+
+        renderHeaderMingguan(data, todayIdx);
 
         const tbody = el('rosterMingguanBody');
         tbody.innerHTML = '';
@@ -153,7 +240,7 @@
             for (let i = 0; i < 7; i++) {
                 const tanggal = tanggalPlus(data.minggu_awal, i);
                 const shift = (data.peta[k.id] || {})[tanggal];
-                const kelas = shift ? 'shift-' + shift : 'shift-kosong';
+                const kelas = (shift ? 'shift-' + shift : 'shift-kosong') + (i === todayIdx ? ' roster-today-col' : '');
                 baris += '<td class="roster-cell ' + kelas + '">' + (shift || '-') + '</td>';
             }
 
@@ -176,12 +263,22 @@
         if (state.matrixTerakhir) renderMingguan(state.matrixTerakhir);
     }
 
+    // Event delegation di <thead> (bukan bind per-<th>) -- header kini
+    // dibuat ulang tiap render (lihat renderHeaderMingguan()), jadi
+    // node <th> lama selalu diganti. Listener cukup dipasang sekali
+    // di elemen induk yang tidak pernah diganti (sama pola dengan
+    // jadwal.js bindSortHeaders()).
     function bindSortHeadersMingguan() {
-        document.querySelectorAll('#tabelRosterMingguan .sortable-header').forEach(function (th) {
-            th.addEventListener('click', function () {
-                terapkanSortMingguan(th.dataset.sortKey);
-            });
+        const thead = el('tabelRosterMingguanHead');
+        if (!thead || thead.dataset.sortBound) return;
+
+        thead.addEventListener('click', function (e) {
+            const th = e.target.closest('.sortable-header');
+            if (!th || !thead.contains(th)) return;
+            terapkanSortMingguan(th.dataset.sortKey);
         });
+
+        thead.dataset.sortBound = '1';
     }
 
     async function muatMingguan() {
@@ -327,8 +424,21 @@
     // INIT
     // ================================================================
 
+    // Ukuran wrapper Mingguan bisa perlu dihitung ulang saat resize
+    // (sama pola dengan jadwal.js) -- debounce ringan.
+    let resizeTimerRoster = null;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimerRoster);
+        resizeTimerRoster = setTimeout(function () {
+            if (state.mode === 'mingguan') updateStickyOffsetsMingguan();
+        }, 150);
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
-        bindSortHeadersMingguan();
+        // bindSortHeadersMingguan() TIDAK dipanggil langsung di sini --
+        // header Mingguan digenerate oleh renderHeaderMingguan() (lewat
+        // renderMingguan() di bawah), yang sudah membind sort listener
+        // via delegation setiap kali dijalankan.
         if (cfg.hariIniAwal) renderHariIni(cfg.hariIniAwal);
         if (cfg.matrixAwal) renderMingguan(cfg.matrixAwal);
     });

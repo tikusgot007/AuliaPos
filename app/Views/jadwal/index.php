@@ -64,6 +64,92 @@
     .sortable-header.sort-active .sort-icon {
         color: #212529;
     }
+
+    /* ============================================================ */
+    /* STICKY HEADER MATRIX (tanggal + ketersediaan)                */
+    /* ============================================================ */
+    /*
+     * CATATAN REVISI: percobaan pertama (sticky relatif ke halaman
+     * penuh, top-header sticky sebagai acuan) TERBUKTI TIDAK RELIABLE
+     * lintas browser -- `.table-responsive` yang hanya set
+     * overflow-x:auto membuat perilaku position:sticky relatif ke
+     * viewport jadi ambigu/tidak konsisten (quirk lama seputar
+     * overflow campuran visible/non-visible di beberapa browser).
+     *
+     * Solusi yang dipakai sekarang: wrapper tabel Matrix diberi
+     * TINGGI TERBATAS (dihitung dinamis via JS berdasar sisa ruang
+     * viewport, lihat updateStickyOffsets() di jadwal.js) + eksplisit
+     * overflow-x DAN overflow-y auto -- menjadikan wrapper ini scroll
+     * container LOKAL yang jelas. `position: sticky; top: 0` pada
+     * <th> jadi 100% reliable karena acuannya tidak ambigu lagi
+     * (scrolling ancestor terdekat = wrapper itu sendiri, bukan
+     * halaman). Pola bounded-height + overflow-y:auto ini SUDAH
+     * dipakai di tempat lain aplikasi ini juga (mis. tab Bulanan
+     * roster/index.php, modal daftar karyawan di jadwal/index.php),
+     * jadi konsisten dengan konvensi yang sudah ada, bukan pola baru.
+     *
+     * Efek UX: area tabel Matrix scroll SENDIRI di dalam kotaknya
+     * (bukan seluruh halaman ikut scroll) -- filter/tab/nav di atas
+     * tabel tetap selalu terlihat.
+     */
+    .matrix-table-responsive {
+        overflow-x: auto;
+        overflow-y: auto;
+        /* max-height diisi dinamis via JS (updateStickyOffsets()). */
+    }
+
+    .matrix-sticky-th {
+        position: sticky;
+        z-index: 2;
+        background-color: #f8f9fa;
+    }
+
+    .matrix-date-header th {
+        white-space: nowrap;
+    }
+
+    .matrix-date-header small {
+        font-weight: 400;
+        color: #6c757d;
+    }
+
+    .matrix-availability-header th {
+        font-size: 0.72rem;
+        line-height: 1.35;
+        font-weight: 400;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        border-top: 0;
+    }
+
+    .matrix-availability-header th:first-child {
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+
+    /* Baris per-shift di dalam cell Ketersediaan (Pagi/Siang/PM),
+       satu baris per shift -- class .avail-line dipasang khusus di
+       elemen baris terluar (BUKAN generic `span`), supaya ikon
+       divisi+angka di dalamnya (nested <span>) tetap inline di
+       satu baris yang sama, tidak ikut ke-block. */
+    .matrix-availability-cell .avail-line {
+        display: block;
+        white-space: nowrap;
+    }
+
+    /* Highlight kolom "hari ini" (header tanggal, header
+       ketersediaan, dan seluruh cell body di kolom yang sama --
+       lihat renderBarisMatrix()/renderHeaderMatrix() di jadwal.js).
+       Pakai box-shadow inset (bukan background-color) supaya tetap
+       menumpuk di ATAS warna shift per-cell (P/S/PM/L) yang sudah
+       ada, bukan menimpanya -- kolom tetap kebaca sebagai satu
+       kesatuan yang di-highlight tanpa menghilangkan info warna
+       shift tiap cell. */
+    .matrix-today-col {
+        box-shadow: inset 0 0 0 999px rgba(13, 110, 253, 0.10);
+        border-left: 2px solid #0d6efd !important;
+        border-right: 2px solid #0d6efd !important;
+    }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -91,14 +177,23 @@
 <div id="jadwalTabMatrix" class="jadwal-tab-pane">
 
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div class="btn-group">
-            <button class="btn btn-outline-secondary" type="button" id="btnMingguSebelum">
-                <i class="fas fa-chevron-left"></i> Minggu Sebelumnya
-            </button>
-            <span class="btn btn-light disabled" id="labelMinggu"></span>
-            <button class="btn btn-outline-secondary" type="button" id="btnMingguBerikutnya">
-                Minggu Berikutnya <i class="fas fa-chevron-right"></i>
-            </button>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary" type="button" id="btnMingguSebelum">
+                    <i class="fas fa-chevron-left"></i> Minggu Sebelumnya
+                </button>
+                <span class="btn btn-light disabled" id="labelMinggu"></span>
+                <button class="btn btn-outline-secondary" type="button" id="btnMingguBerikutnya">
+                    Minggu Berikutnya <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+
+            <div class="d-flex align-items-center gap-1">
+                <input type="date" class="form-control form-control-sm" id="cariTanggalMatrix" style="width: auto;">
+                <button class="btn btn-outline-primary btn-sm" type="button" id="btnCariTanggalMatrix">
+                    <i class="fas fa-search"></i> Cari
+                </button>
+            </div>
         </div>
 
         <div class="d-flex gap-2">
@@ -133,7 +228,7 @@
             </select>
         </div>
         <div class="col-md-4">
-            <input type="text" class="form-control form-control-sm" id="filterSearchMatrix" placeholder="Cari karyawan...">
+            <input type="text" class="form-control form-control-sm" id="filterSearchMatrix" placeholder="Cari karyawan... (pisah - untuk banyak)">
         </div>
         <div class="col-md-2">
             <button class="btn btn-outline-secondary btn-sm w-100" type="button" id="btnResetFilterMatrix">Reset</button>
@@ -144,25 +239,19 @@
         Mode Swap aktif — klik 2 cell yang mau ditukar (harus karyawan divisi sama).
     </div>
 
-    <div class="table-responsive">
+    <div class="table-responsive matrix-table-responsive">
         <table class="table table-bordered table-sm align-middle" id="tabelMatrix">
-            <thead class="table-light">
-                <tr>
-                    <th class="sortable-header" data-sort-key="divisi">Karyawan <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:0">Sen <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:1">Sel <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:2">Rab <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:3">Kam <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:4">Jum <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:5">Sab <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:6">Min <i class="fas fa-sort sort-icon"></i></th>
-                </tr>
-            </thead>
+            <!--
+                Konten <thead> (baris tanggal + baris ketersediaan)
+                SEPENUHNYA digenerate oleh jadwal.js (renderHeaderMatrix()),
+                sama seperti <tbody> yang sudah lebih dulu begitu --
+                supaya initial load dan AJAX navigasi minggu selalu
+                menghasilkan struktur yang identik (satu sumber render).
+            -->
+            <thead class="table-light" id="tabelMatrixHead"></thead>
             <tbody id="tabelMatrixBody"></tbody>
         </table>
     </div>
-
-    <div class="row g-2 mt-2" id="statistikMatrix"></div>
 </div>
 
 <!-- ============================================================ -->
@@ -188,7 +277,7 @@
             </select>
         </div>
         <div class="col-md-4">
-            <input type="text" class="form-control form-control-sm" id="filterSearchKalender" placeholder="Cari karyawan...">
+            <input type="text" class="form-control form-control-sm" id="filterSearchKalender" placeholder="Cari karyawan... (pisah - untuk banyak)">
         </div>
         <div class="col-md-2">
             <button class="btn btn-outline-secondary btn-sm w-100" type="button" id="btnFilterKalender">Terapkan</button>

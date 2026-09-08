@@ -813,12 +813,23 @@
     // Reminder tagihan 3 hari terakhir milik kasir yang login.
     // Lihat Kasir::getReminderTagihanSaya() untuk kriteria & jeda 15
     // menitnya, dan docs/aturan-bisnis-AULIA.md Section 25.
+    //
+    // SENGAJA pakai modal konfirmasi() (dua tombol eksplisit: Tutup /
+    // Lihat), BUKAN showToast() -- toast auto-hilang setelah beberapa
+    // detik meski tipe warning, sedangkan reminder ini harus tetap
+    // ada sampai kasir benar-benar meresponnya secara sadar (klik
+    // salah satu tombol), bukan hilang sendiri sambil terlewat.
     document.addEventListener('DOMContentLoaded', function() {
         const jumlah = <?= (int) ($reminderTagihan['count'] ?? 0) ?>;
-        const pesan = 'Ada ' + jumlah + ' tagihan dari 3 hari terakhir yang perlu dicek lagi. (klik untuk lihat)';
+        const pesan = 'Ada ' + jumlah + ' tagihan dari 3 hari terakhir yang perlu dicek lagi.';
 
-        showToast(pesan, 'warning', {
-            onClick: function() {
+        konfirmasi(pesan, {
+            title: 'Reminder Tagihan',
+            okText: 'Lihat',
+            okClass: 'btn-warning',
+            cancelText: 'Tutup',
+        }).then(function(lihat) {
+            if (lihat) {
                 window.open('<?= base_url('/tagihan?saya=1') ?>', '_blank');
             }
         });

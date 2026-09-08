@@ -51,6 +51,79 @@
     .sortable-header.sort-active .sort-icon {
         color: #212529;
     }
+
+    /* ============================================================ */
+    /* HEADER MINGGUAN BERTANGGAL + STICKY (page-level)             */
+    /* ============================================================ */
+    /*
+     * Sticky di sini SENGAJA relatif ke HALAMAN PENUH (bukan kotak
+     * scroll lokal seperti Matrix Admin) -- perilaku yang diminta:
+     * halaman scroll normal (card "Jadwal Hari Ini" dkk ikut naik
+     * ke atas), sampai header tabel menyentuh tepi atas viewport,
+     * baru header itu "menempel" dan baris di bawahnya yang lanjut
+     * scroll.
+     *
+     * ROOT CAUSE kenapa percobaan sticky halaman-penuh sebelumnya
+     * (di Matrix Admin) tidak jalan: div `.table-responsive` Bootstrap
+     * hanya set `overflow-x:auto`. Begitu SATU sumbu overflow di-set
+     * non-visible, browser memperlakukan div itu sebagai "scroll
+     * container" penuh (kedua sumbu) untuk keperluan positioning --
+     * padahal div itu sendiri TIDAK PERNAH benar-benar discroll
+     * secara internal (tingginya auto mengikuti konten, tidak pernah
+     * overflow vertikal). Akibatnya elemen sticky di dalamnya
+     * mengacu ke "scrollport" yang scrollTop-nya selalu 0 (karena
+     * yang benar-benar discroll user adalah halaman/body, BUKAN div
+     * itu) -- makanya sticky terlihat seperti tidak berfungsi sama
+     * sekali (header ikut naik terus bersama halaman).
+     *
+     * FIX di sini: wrapper tabel Mingguan TIDAK diberi
+     * `.table-responsive`/overflow-x:auto sama sekali di layar lebar
+     * (desktop/tablet), supaya tidak ada ancestor non-visible-overflow
+     * di antara <th> dan halaman -- sticky jadi reliable relatif ke
+     * viewport sungguhan. Di layar sempit (mobile), 8 kolom tabel
+     * bisa kepotong tanpa scroll horizontal, jadi khusus breakpoint
+     * itu overflow-x:auto DIAKTIFKAN LAGI sebagai fallback -- pada
+     * kondisi itu sticky sengaja "dikorbankan" (fallback ke scroll
+     * biasa) demi tabel tetap bisa digeser horizontal, trade-off yang
+     * disengaja, bukan bug.
+     */
+    .roster-mingguan-wrap {
+        overflow-x: visible;
+    }
+
+    @media (max-width: 767.98px) {
+        .roster-mingguan-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    }
+
+    .roster-sticky-th {
+        position: sticky;
+        z-index: 20;
+        background-color: #f8f9fa;
+        /* `top` di-set dinamis via JS (updateStickyOffsetsMingguan()
+           di roster.js), berdasarkan tinggi ASLI .top-header aplikasi
+           saat ini -- bukan angka hardcode. */
+    }
+
+    .roster-date-header th {
+        white-space: nowrap;
+    }
+
+    .roster-date-header small {
+        font-weight: 400;
+        color: #6c757d;
+    }
+
+    /* Highlight kolom "hari ini", pola sama dengan Matrix Admin
+       (lihat jadwal/index.php .matrix-today-col) -- box-shadow inset
+       supaya tetap menumpuk di atas warna shift per-cell. */
+    .roster-today-col {
+        box-shadow: inset 0 0 0 999px rgba(13, 110, 253, 0.10);
+        border-left: 2px solid #0d6efd !important;
+        border-right: 2px solid #0d6efd !important;
+    }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -129,7 +202,7 @@
         </select>
     </div>
     <div class="col-md-4">
-        <input type="text" class="form-control form-control-sm" id="rosterFilterSearch" placeholder="Cari karyawan...">
+        <input type="text" class="form-control form-control-sm" id="rosterFilterSearch" placeholder="Cari karyawan... (pisah - untuk banyak)">
     </div>
     <div class="col-md-2">
         <button class="btn btn-outline-secondary btn-sm w-100" type="button" id="rosterBtnReset">Reset</button>
@@ -149,20 +222,13 @@
             </button>
         </div>
     </div>
-    <div class="table-responsive">
+    <div class="roster-mingguan-wrap">
         <table class="table table-bordered table-sm align-middle" id="tabelRosterMingguan">
-            <thead class="table-light">
-                <tr>
-                    <th class="sortable-header" data-sort-key="divisi">Karyawan <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:0">Sen <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:1">Sel <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:2">Rab <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:3">Kam <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:4">Jum <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:5">Sab <i class="fas fa-sort sort-icon"></i></th>
-                    <th class="text-center sortable-header" data-sort-key="hari:6">Min <i class="fas fa-sort sort-icon"></i></th>
-                </tr>
-            </thead>
+            <!-- Konten <thead> (hari + tanggal aktual) digenerate oleh
+                 roster.js (renderHeaderMingguan()), sama seperti Matrix
+                 Admin -- supaya tanggal selalu sesuai minggu yang
+                 sedang ditampilkan, bukan statis. -->
+            <thead class="table-light" id="tabelRosterMingguanHead"></thead>
             <tbody id="rosterMingguanBody"></tbody>
         </table>
     </div>

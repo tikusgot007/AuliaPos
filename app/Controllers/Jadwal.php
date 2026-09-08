@@ -101,8 +101,11 @@ class Jadwal extends BaseController
             $petaId[$r['karyawan_id']][$r['tanggal']] = (int) $r['id'];
         }
 
-        $karyawanIds = array_column($karyawan, 'id');
-        $statistik = $this->jadwalModel->getStatistik($mingguAwal, $mingguAkhir, $karyawanIds);
+        // Ringkasan Ketersediaan (menggantikan weekly summary lama --
+        // lihat docs Section "Modul Jadwal Karyawan"). getStatistik()
+        // TIDAK dihapus (dipertahankan di model), hanya berhenti
+        // dipakai di response Matrix ini.
+        $availability = $this->jadwalModel->getAvailability($mingguAwal, $mingguAkhir);
 
         return [
             'minggu_awal'  => $mingguAwal,
@@ -110,7 +113,7 @@ class Jadwal extends BaseController
             'karyawan'     => $karyawan,
             'peta'         => $peta,
             'peta_id'      => $petaId,
-            'statistik'    => $statistik,
+            'availability' => $availability,
         ];
     }
 
@@ -137,8 +140,11 @@ class Jadwal extends BaseController
             $petaId[$r['karyawan_id']][$r['tanggal']] = (int) $r['id'];
         }
 
-        $karyawanIds = array_column($karyawan, 'id');
-        $statistik = $this->jadwalModel->getStatistik($minggu, $mingguAkhir, $karyawanIds, $divisi);
+        // Ketersediaan SENGAJA tidak menerima $divisi/$shift/$search --
+        // lihat dokumentasi keputusan di JadwalModel::getAvailability().
+        // Filter Matrix hanya memengaruhi baris karyawan yang tampil,
+        // bukan ringkasan staffing.
+        $availability = $this->jadwalModel->getAvailability($minggu, $mingguAkhir);
 
         return $this->response->setJSON([
             'status' => 'success',
@@ -147,7 +153,7 @@ class Jadwal extends BaseController
             'karyawan'     => $karyawan,
             'peta'         => $peta,
             'peta_id'      => $petaId,
-            'statistik'    => $statistik,
+            'availability' => $availability,
         ]);
     }
 

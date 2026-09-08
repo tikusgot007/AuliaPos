@@ -31,6 +31,16 @@ class JadwalModel extends Model
     public const SHIFT_VALID = ['P', 'S', 'PM', 'L'];
 
     /**
+     * Divisi tetap yang ditampilkan di ringkasan Ketersediaan Matrix
+     * (lihat getAvailability()). Bukan sumber kebenaran divisi
+     * (kolom `users.divisi` tetap bebas), murni daftar yang relevan
+     * untuk indikator staffing per permintaan bisnis saat ini.
+     * Karyawan dengan divisi di luar daftar ini (mis. kosong, atau
+     * divisi lain di masa depan) sengaja tidak dihitung.
+     */
+    public const DIVISI_KETERSEDIAAN = ['Wanita', 'Pria', 'Banner'];
+
+    /**
      * Definisi jam per shift. Satu-satunya sumber kebenaran jam kerja
      * di seluruh modul ini -- jangan simpan jam di database.
      *
@@ -58,6 +68,71 @@ class JadwalModel extends Model
     public static function labelShift(string $shift): string
     {
         return self::DEFINISI_SHIFT[$shift]['label'] ?? $shift;
+    }
+
+    /**
+     * Pecah input filter "Cari karyawan" jadi beberapa istilah,
+     * supaya user bisa cari beberapa nama sekaligus dalam satu kotak
+     * pencarian, mis. "budi-siti" atau "budi, siti" -- tabel lalu
+     * menampilkan baris yang cocok dengan SALAH SATU istilah (OR).
+     *
+     * Pemisah yang didukung: koma (,), titik-koma (;), atau strip (-).
+     * Istilah kosong (spasi ganda, pemisah beruntun, dll) dibuang.
+     * Kalau tidak ada pemisah sama sekali, hasilnya tetap array berisi
+     * satu istilah -- perilaku identik dengan search satu-nama seperti
+     * sebelumnya, tidak ada regresi.
+     *
+     * @return string[]
+     */
+    public static function pecahIstilahSearch(?string $search): array
+    {
+        if (!is_string($search) || trim($search) === '') {
+            return [];
+        }
+
+        $bagian = preg_split('/[,;\-]+/', $search) ?: [];
+        $bagian = array_map('trim', $bagian);
+
+        return array_values(array_filter($bagian, fn ($s) => $s !== ''));
+    }
+
+    /**
+     * Terapkan filter "Cari karyawan" (bisa multi-istilah, lihat
+     * pecahIstilahSearch()) ke query builder yang sedang berjalan.
+     * Setiap istilah dicek ke KEDUA kolom (nama ATAU inisial), dan
+     * antar-istilah digabung dengan OR -- supaya baris yang cocok
+     * dengan salah satu nama yang dicari tetap muncul.
+     *
+     * $kolomNama/$kolomInisial diteruskan sebagai parameter (bukan
+     * hardcode) karena dua pemanggil (getJadwalPeriode() vs
+     * getKaryawanUntukPeriode()) memakai builder dengan prefix kolom
+     * berbeda ('users.nama' vs 'nama').
+     */
+    private function terapkanFilterSearch($builder, ?string $search, string $kolomNama, string $kolomInisial)
+    {
+        $istilah = self::pecahIstilahSearch($search);
+
+        if (empty($istilah)) {
+            return $builder;
+        }
+
+        $builder->groupStart();
+
+        foreach ($istilah as $i => $kata) {
+            if ($i === 0) {
+                $builder->groupStart();
+            } else {
+                $builder->orGroupStart();
+            }
+
+            $builder->like($kolomNama, $kata)
+                ->orLike($kolomInisial, $kata)
+                ->groupEnd();
+        }
+
+        $builder->groupEnd();
+
+        return $builder;
     }
 
     /**
@@ -173,7 +248,9 @@ class JadwalModel extends Model
      *
      * @param string|null $divisi Filter opsional.
      * @param string|null $shift  Filter opsional (P/S/PM/L).
-     * @param string|null $search Cari nama/inisial karyawan.
+     * @param string|null $search Cari nama/inisial karyawan. Bisa
+     *                              multi-istilah dipisah koma/titik-
+     *                              koma/strip, lihat pecahIstilahSearch().
      */
     public function getJadwalPeriode(
         string $tanggalMulai,
@@ -199,10 +276,7 @@ class JadwalModel extends Model
         }
 
         if (!empty($search)) {
-            $builder->groupStart()
-                ->like('users.nama', $search)
-                ->orLike('users.inisial', $search)
-                ->groupEnd();
+            $this->terapkanFilterSearch($builder, $search, 'users.nama', 'users.inisial');
         }
 
         return $builder->orderBy('jadwal.tanggal', 'ASC')->findAll();
@@ -314,10 +388,7 @@ class JadwalModel extends Model
         }
 
         if (!empty($search)) {
-            $builder->groupStart()
-                ->like('nama', $search)
-                ->orLike('inisial', $search)
-                ->groupEnd();
+            $this->terapkanFilterSearch($builder, $search, 'nama', 'inisial');
         }
 
         return $builder->orderBy('nama', 'ASC')->get()->getResultArray();
@@ -380,6 +451,76 @@ class JadwalModel extends Model
         $stat['hari_kerja'] = $stat['P'] + $stat['S'] + $stat['PM'];
 
         return $stat;
+    }
+
+    /**
+     * Ringkasan ketersediaan tenaga kerja PER TANGGAL x PER DIVISI x
+     * PER SHIFT untuk suatu rentang minggu -- pengganti weekly summary
+     * lama (getStatistik()) di tampilan Matrix.
+     *
+     * SATU query agregasi untuk seluruh rentang (bukan per
+     * tanggal/divisi/shift -- lihat requirement performa docs), hasil
+     * diindex sebagai [tanggal][divisi][shift] => jumlah, sudah
+     * diprapopulasi 0 untuk semua kombinasi supaya konsumen (JS) tidak
+     * perlu menangani kunci yang tidak ada.
+     *
+     * Aturan hitung (murni fakta, bukan penilaian cukup/kurang):
+     * - hanya users.is_active = 1;
+     * - shift dihitung hanya P/S/PM (L dan "belum dijadwalkan" tidak
+     *   dihitung sebagai ketersediaan);
+     * - hanya karyawan dengan divisi yang match $divisiTarget persis.
+     *
+     * SENGAJA independen dari filter Shift/search Matrix (lihat
+     * catatan keputusan di docs/aturan-bisnis-AULIA.md) -- pemanggil
+     * tidak boleh meneruskan filter shift/search UI ke sini. Filter
+     * Divisi Matrix juga sengaja TIDAK diteruskan: availability selalu
+     * menampilkan ketiga divisi supaya tetap berguna sebagai
+     * pembanding staffing antar-divisi, apa pun filter yang sedang
+     * aktif di tabel.
+     *
+     * @param string[] $divisiTarget Daftar divisi yang dihitung (lihat
+     *                                DIVISI_KETERSEDIAAN).
+     *
+     * @return array<string,array<string,array<string,int>>> [tanggal][divisi][shift]
+     */
+    public function getAvailability(
+        string $tanggalMulai,
+        string $tanggalSelesai,
+        array $divisiTarget = self::DIVISI_KETERSEDIAAN
+    ): array {
+        $hasil = [];
+
+        // Prapopulasi 0 untuk semua tanggal x divisi x shift dalam
+        // rentang, supaya tanggal tanpa satu pun schedule tetap
+        // tampil sebagai 0, bukan hilang dari struktur.
+        $cursor = $tanggalMulai;
+
+        while ($cursor <= $tanggalSelesai) {
+            foreach ($divisiTarget as $d) {
+                $hasil[$cursor][$d] = ['P' => 0, 'S' => 0, 'PM' => 0];
+            }
+            $cursor = date('Y-m-d', strtotime('+1 day', strtotime($cursor)));
+        }
+
+        if (empty($divisiTarget)) {
+            return $hasil;
+        }
+
+        $rows = $this->select('jadwal.tanggal, users.divisi, jadwal.shift, COUNT(*) as jumlah')
+            ->join('users', 'users.id = jadwal.karyawan_id')
+            ->where('jadwal.tanggal >=', $tanggalMulai)
+            ->where('jadwal.tanggal <=', $tanggalSelesai)
+            ->where('users.is_active', 1)
+            ->whereIn('users.divisi', $divisiTarget)
+            ->whereIn('jadwal.shift', ['P', 'S', 'PM'])
+            ->groupBy('jadwal.tanggal, users.divisi, jadwal.shift')
+            ->findAll();
+
+        foreach ($rows as $r) {
+            $hasil[$r['tanggal']][$r['divisi']][$r['shift']] = (int) $r['jumlah'];
+        }
+
+        return $hasil;
     }
 
     /**

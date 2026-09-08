@@ -1476,9 +1476,19 @@ ini **hanya** di-update saat toast benar-benar ditampilkan (count >
 tapi muncul satu 2 menit kemudian, kasir tetap langsung diberi tahu
 tanpa harus menunggu jeda yang tidak relevan.
 
-**Tampilan**: toast tipe `warning` (durasi 4 detik, sesuai 25.4),
-bisa diklik — klik membuka **tab/window baru** ke
-`/tagihan?saya=1`.
+**Tampilan (revisi):** semula toast tipe `warning` (bisa diklik,
+auto-hilang 4 detik sesuai 25.4). **Diganti jadi modal `konfirmasi()`**
+(dua tombol eksplisit: **Tutup** / **Lihat**) supaya reminder tidak
+hilang sendiri sebelum benar-benar direspons kasir secara sadar.
+`data-bs-backdrop="static"` (bawaan `confirmModal`, tidak diubah)
+membuat klik di luar modal tidak menutupnya — hanya tombol Tutup/X/Esc
+atau tombol Lihat yang bisa menutup. Tombol **Lihat** membuka
+**tab/window baru** ke `/tagihan?saya=1`; tombol **Tutup** (atau X/Esc)
+sekadar menutup modal tanpa aksi lain. `konfirmasi()` diperluas dengan
+opsi baru `cancelText` (default tetap `"Batal"` supaya seluruh
+pemanggil existing seperti konfirmasi hapus/batalkan tidak berubah
+tampilannya) khusus untuk mengubah label tombol Batal jadi "Tutup" di
+kasus ini.
 
 **Filter `?saya=1` di `Tagihan::index()`** (baru): menampilkan hanya
 tagihan dengan `kasir_id` = user yang login. Nilai filter **selalu**

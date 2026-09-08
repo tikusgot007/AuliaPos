@@ -1185,19 +1185,27 @@
         // atau di dalam async function: if (!(await konfirmasi('Yakin?'))) return;
         //
         // Opsi tambahan (semua opsional):
-        //   konfirmasi(pesan, { title: 'Judul', okText: 'Ya, Hapus', okClass: 'btn-danger' })
+        //   konfirmasi(pesan, { title: 'Judul', okText: 'Ya, Hapus', okClass: 'btn-danger', cancelText: 'Tutup' })
         function konfirmasi(pesan, opsi = {}) {
             return new Promise((resolve) => {
                 const modalEl = document.getElementById('confirmModal');
                 const titleEl = document.getElementById('confirmModalTitle');
                 const bodyEl = document.getElementById('confirmModalBody');
                 const okBtn = document.getElementById('confirmModalOkBtn');
+                const cancelBtn = document.getElementById('confirmModalCancelBtn');
 
                 titleEl.textContent = opsi.title || 'Konfirmasi';
                 bodyEl.textContent = pesan;
 
                 okBtn.className = 'btn ' + (opsi.okClass || 'btn-danger');
                 okBtn.textContent = opsi.okText || 'Ya, Lanjutkan';
+                // cancelText opsional -- default tetap "Batal" supaya semua
+                // pemanggil existing (konfirmasi hapus/batalkan, dst) tidak
+                // berubah tampilannya sama sekali. Tombol ini tidak perlu
+                // di-clone seperti okBtn karena tidak pernah dipasangi
+                // listener JS baru -- cukup mengandalkan `data-bs-dismiss`
+                // bawaan Bootstrap di markup-nya.
+                cancelBtn.textContent = opsi.cancelText || 'Batal';
 
                 const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
 

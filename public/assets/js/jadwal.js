@@ -20,6 +20,23 @@
     // ditaruh paling akhir, apa pun arah sortnya.
     const SHIFT_URUTAN = { P: 1, S: 2, PM: 3, L: 4 };
 
+    // Divisi yang ditampilkan di ringkasan Ketersediaan -- harus sama
+    // persis dengan JadwalModel::DIVISI_KETERSEDIAAN di backend (lihat
+    // getAvailability()), termasuk urutannya.
+    const DIVISI_KETERSEDIAAN = ['Wanita', 'Pria', 'Banner'];
+
+    // Urutan & label shift untuk baris Ketersediaan (dikelompokkan
+    // per shift, bukan per divisi -- lihat renderHeaderMatrix()).
+    const SHIFT_KETERSEDIAAN = [
+        { key: 'P', label: 'Pagi' },
+        { key: 'S', label: 'Siang' },
+        { key: 'PM', label: 'PM' },
+    ];
+
+    // Ikon per divisi untuk baris Ketersediaan (hemat ruang). Urutan
+    // tampil tetap ikut DIVISI_KETERSEDIAAN.
+    const DIVISI_ICON = { Wanita: '👩🏻', Pria: '👧🏻', Banner: '📇' };
+
     // ================================================================
     // HELPER
     // ================================================================
@@ -49,6 +66,52 @@
     function formatTanggalIndo(tanggal) {
         const d = new Date(tanggal + 'T00:00:00');
         return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    // Format pendek untuk header kolom Matrix, mis. "07 Sep 2026"
+    // (day 2-digit, beda dari formatTanggalIndo yang tanpa leading zero).
+    function formatTanggalPendek(tanggal) {
+        const d = new Date(tanggal + 'T00:00:00');
+        return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    // Cari tanggal SENIN dari minggu yang memuat `tanggal`, murni pakai
+    // komponen tanggal lokal (sama seperti tanggalPlus() -- lihat
+    // catatan bug timezone di atas, JANGAN pakai toISOString()/UTC).
+    // Dipakai oleh fitur "Cari Tanggal" (jump ke minggu tertentu).
+    function awalMingguDariTanggal(tanggal) {
+        const [tahun, bulan, hari] = tanggal.split('-').map(Number);
+        const d = new Date(tahun, bulan - 1, hari);
+        const jsDay = d.getDay(); // 0=Minggu..6=Sabtu
+        const isoDay = jsDay === 0 ? 7 : jsDay; // 1=Senin..7=Minggu
+
+        return tanggalPlus(tanggal, -(isoDay - 1));
+    }
+
+    // Tanggal HARI INI dalam format 'Y-m-d', murni pakai komponen
+    // lokal (bukan toISOString()/UTC) -- sama alasan seperti di atas.
+    function tanggalHariIniLokal() {
+        const d = new Date();
+        const yy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return yy + '-' + mm + '-' + dd;
+    }
+
+    // Index kolom (0=Senin..6=Minggu) yang mewakili hari ini di dalam
+    // minggu yang sedang ditampilkan, atau -1 kalau hari ini tidak
+    // ada di rentang minggu tsb (mis. admin sedang lihat minggu lain).
+    // Dipakai untuk default sort & highlight kolom "hari ini".
+    function todayIndexDalamMinggu(mingguAwal, mingguAkhir) {
+        const hariIni = tanggalHariIniLokal();
+
+        if (hariIni < mingguAwal || hariIni > mingguAkhir) return -1;
+
+        for (let i = 0; i < 7; i++) {
+            if (tanggalPlus(mingguAwal, i) === hariIni) return i;
+        }
+
+        return -1;
     }
 
     function labelShift(shift) {
@@ -167,7 +230,7 @@
         });
     }
 
-    function renderBarisMatrix(data, karyawanList) {
+    function renderBarisMatrix(data, karyawanList, todayIdx) {
         const tbody = el('tabelMatrixBody');
         tbody.innerHTML = '';
 
@@ -187,7 +250,7 @@
                 const tanggal = tanggalPlus(data.minggu_awal, i);
                 const shift = (data.peta[k.id] || {})[tanggal];
                 const scheduleId = (data.peta_id[k.id] || {})[tanggal] || '';
-                const kelas = shift ? 'shift-' + shift : 'shift-kosong';
+                const kelas = (shift ? 'shift-' + shift : 'shift-kosong') + (i === todayIdx ? ' matrix-today-col' : '');
                 const isi = shift || '-';
 
                 baris += '<td class="jadwal-cell ' + kelas + '" ' +
@@ -208,10 +271,24 @@
         el('labelMinggu').textContent =
             formatTanggalIndo(data.minggu_awal) + ' – ' + formatTanggalIndo(data.minggu_akhir);
 
-        const karyawanUrut = sortKaryawan(data.karyawan, state.sortKey, state.sortDir, data);
-        renderBarisMatrix(data, karyawanUrut);
+        const todayIdx = todayIndexDalamMinggu(data.minggu_awal, data.minggu_akhir);
 
-        renderStatistik(data.statistik);
+        // Default sort: kalau belum pernah ada sort manual sama sekali
+        // (state.sortKey masih null, cuma terjadi di render PERTAMA)
+        // dan hari ini ada di minggu yang tampil, langsung urutkan
+        // berdasarkan kolom hari ini. Setelah state.sortKey terisi
+        // (apa pun nilainya), blok ini tidak pernah jalan lagi --
+        // pilihan sort manual user selanjutnya tidak pernah ditimpa.
+        if (state.sortKey === null && todayIdx !== -1) {
+            state.sortKey = 'hari:' + todayIdx;
+            state.sortDir = 'asc';
+        }
+
+        renderHeaderMatrix(data, todayIdx);
+
+        const karyawanUrut = sortKaryawan(data.karyawan, state.sortKey, state.sortDir, data);
+        renderBarisMatrix(data, karyawanUrut, todayIdx);
+
         bindCellClicks();
         updateSortIndicator();
     }
@@ -227,35 +304,121 @@
         renderMatrix(state.matrix);
     }
 
+    // Event delegation di elemen <thead> itu sendiri (bukan bind
+    // per-<th>) -- perlu karena seluruh isi <thead> digenerate ulang
+    // tiap renderMatrix() (lihat renderHeaderMatrix()), jadi node
+    // <th> lama selalu dibuang & diganti. Dengan delegation, listener
+    // cukup dipasang SEKALI di elemen induk yang tidak pernah diganti.
     function bindSortHeaders() {
-        document.querySelectorAll('#tabelMatrix .sortable-header').forEach(function (th) {
-            th.addEventListener('click', function () {
-                terapkanSortMatrix(th.dataset.sortKey);
-            });
+        const thead = el('tabelMatrixHead');
+        if (!thead || thead.dataset.sortBound) return;
+
+        thead.addEventListener('click', function (e) {
+            const th = e.target.closest('.sortable-header');
+            if (!th || !thead.contains(th)) return;
+            terapkanSortMatrix(th.dataset.sortKey);
         });
+
+        thead.dataset.sortBound = '1';
     }
 
-    function renderStatistik(stat) {
-        const box = el('statistikMatrix');
-        if (!stat) {
-            box.innerHTML = '';
-            return;
+    // Baris 1: nama hari + tanggal aktual minggu yang sedang tampil,
+    // kolom "hari ini" (kalau ada di minggu yang tampil) diberi
+    // highlight (lihat CSS .matrix-today-col).
+    // Baris 2: ringkasan Ketersediaan, dikelompokkan PER SHIFT
+    // (Pagi/Siang/PM), tiap baris menampilkan jumlah per divisi
+    // (Wanita/Pria/Banner) dengan ikon -- menggantikan weekly summary
+    // lama di bawah tabel, sekarang jadi bagian <thead> supaya
+    // otomatis ikut sticky bersama header tanggal.
+    function renderHeaderMatrix(data, todayIdx) {
+        const availability = data.availability || {};
+
+        const baris1 = ['<tr class="matrix-date-header">',
+            '<th class="sortable-header matrix-sticky-th" data-sort-key="divisi">Karyawan ' +
+            '<i class="fas fa-sort sort-icon"></i></th>'];
+
+        const baris2 = ['<tr class="matrix-availability-header">',
+            '<th class="matrix-sticky-th">Ketersediaan</th>'];
+
+        for (let i = 0; i < 7; i++) {
+            const tanggal = tanggalPlus(data.minggu_awal, i);
+            const kelasHariIni = i === todayIdx ? ' matrix-today-col' : '';
+
+            baris1.push(
+                '<th class="text-center sortable-header matrix-sticky-th' + kelasHariIni + '" data-sort-key="hari:' + i + '">' +
+                HARI_LABEL[i] + '<br><small>' + formatTanggalPendek(tanggal) + '</small> ' +
+                '<i class="fas fa-sort sort-icon"></i></th>'
+            );
+
+            const hariAvail = availability[tanggal] || {};
+
+            // Dikelompokkan per shift (bukan per divisi lagi) --
+            // tiap baris: "<Shift> <ikon divisi 1>(n) - <ikon 2>(n) - <ikon 3>(n)".
+            const isiPerShift = SHIFT_KETERSEDIAAN.map(function (s) {
+                const bagianDivisi = DIVISI_KETERSEDIAAN.map(function (d) {
+                    const v = hariAvail[d] || { P: 0, S: 0, PM: 0 };
+                    const ikon = DIVISI_ICON[d] || d;
+
+                    return '<span title="' + escapeHtml(d) + '">' + ikon + '(' + v[s.key] + ')</span>';
+                }).join(' - ');
+
+                return '<span class="avail-line">' + escapeHtml(s.label) + ' ' + bagianDivisi + '</span>';
+            }).join('');
+
+            baris2.push('<th class="text-center matrix-sticky-th matrix-availability-cell' + kelasHariIni + '">' +
+                isiPerShift + '</th>');
         }
 
-        const kartu = [
-            ['Pagi', stat.P, 'warning'],
-            ['Siang', stat.S, 'primary'],
-            ['PM', stat.PM, 'success'],
-            ['Libur', stat.L, 'danger'],
-            ['Belum Dijadwalkan', stat.belum_dijadwalkan, 'secondary'],
-            ['Hari Kerja (P+S+PM)', stat.hari_kerja, 'dark'],
-        ];
+        baris1.push('</tr>');
+        baris2.push('</tr>');
 
-        box.innerHTML = kartu.map(function (k) {
-            return '<div class="col-6 col-md-2"><div class="card text-center border-' + k[2] + '">' +
-                '<div class="card-body p-2"><div class="fw-bold fs-5">' + k[1] + '</div>' +
-                '<small class="text-muted">' + k[0] + '</small></div></div></div>';
-        }).join('');
+        el('tabelMatrixHead').innerHTML = baris1.join('') + baris2.join('');
+
+        bindSortHeaders();
+        updateStickyOffsets();
+    }
+
+    // Jadikan wrapper tabel Matrix scroll container LOKAL (tinggi
+    // terbatas, overflow-y:auto) supaya `position: sticky; top: 0`
+    // pada <th> reliable lintas browser -- lihat catatan revisi di
+    // <style> jadwal/index.php untuk alasan kenapa pendekatan
+    // page-level sticky sebelumnya tidak dipakai.
+    //
+    // Tinggi maksimum dihitung dari SISA ruang viewport di bawah
+    // posisi wrapper saat ini (window.innerHeight - jarak wrapper ke
+    // atas viewport - buffer), bukan angka hardcode -- supaya tetap
+    // pas walau tinggi elemen di atasnya (top-header, judul, tab,
+    // filter) berubah. Minimum 240px dijaga supaya di layar sangat
+    // pendek tabel tetap punya ruang scroll yang wajar, bukan
+    // terjepit ke ~0px.
+    function updateStickyOffsets() {
+        const wrapper = document.querySelector('.matrix-table-responsive');
+        if (!wrapper) return;
+
+        const BUFFER_BAWAH = 24;
+        const rect = wrapper.getBoundingClientRect();
+        const tinggiMax = Math.max(240, Math.floor(window.innerHeight - rect.top - BUFFER_BAWAH));
+        wrapper.style.maxHeight = tinggiMax + 'px';
+
+        // top:0 relatif ke wrapper itu sendiri (scroll container lokal)
+        // untuk baris tanggal. Baris Ketersediaan menumpuk persis di
+        // bawah baris tanggal, offsetnya = tinggi baris tanggal.
+        const dateRow = document.querySelector('#tabelMatrixHead .matrix-date-header');
+        const availRow = document.querySelector('#tabelMatrixHead .matrix-availability-header');
+
+        if (dateRow) {
+            dateRow.querySelectorAll('th').forEach(function (th) {
+                th.style.top = '0px';
+            });
+        }
+
+        if (availRow) {
+            const dateRowHeight = dateRow ? Math.ceil(dateRow.getBoundingClientRect().height) : 0;
+
+            availRow.querySelectorAll('th').forEach(function (th) {
+                th.style.top = dateRowHeight + 'px';
+            });
+        }
     }
 
     function escapeHtml(str) {
@@ -407,6 +570,23 @@
 
     el('btnMingguBerikutnya') && el('btnMingguBerikutnya').addEventListener('click', function () {
         state.mingguAwal = tanggalPlus(state.mingguAwal, 7);
+        muatMatrix();
+    });
+
+    // ---- CARI TANGGAL (jump ke minggu yang memuat tanggal terpilih) ----
+    // Reuse muatMatrix() & endpoint matrix-data existing -- tidak ada
+    // endpoint baru. Filter Divisi/Shift/Search yang sedang aktif
+    // otomatis tetap terpakai karena muatMatrix() selalu membaca nilai
+    // filter langsung dari elemen form saat dipanggil.
+    el('btnCariTanggalMatrix') && el('btnCariTanggalMatrix').addEventListener('click', function () {
+        const tanggal = el('cariTanggalMatrix').value;
+
+        if (!tanggal) {
+            showToast('Pilih tanggal terlebih dahulu.', 'danger');
+            return;
+        }
+
+        state.mingguAwal = awalMingguDariTanggal(tanggal);
         muatMatrix();
     });
 
@@ -708,9 +888,23 @@
     // INIT
     // ================================================================
 
+    // Tinggi `.top-header` bisa berubah saat resize (mis. breakpoint
+    // mobile yang menumpuk elemen header jadi beberapa baris) --
+    // hitung ulang offset sticky Matrix supaya tetap presisi. Di-
+    // debounce ringan supaya tidak menghitung ulang di setiap event
+    // resize yang sangat sering ditembak browser.
+    let resizeTimer = null;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(updateStickyOffsets, 150);
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         initTabs();
-        bindSortHeaders();
+        // bindSortHeaders() TIDAK dipanggil di sini -- header Matrix
+        // digenerate sepenuhnya oleh renderHeaderMatrix() (dipanggil
+        // dari renderMatrix() di bawah), yang sudah membind sort
+        // listener via delegation setiap kali dijalankan.
         if (state.matrix) renderMatrix(state.matrix);
     });
 })();
