@@ -203,8 +203,25 @@
             font-size: 0.7rem;
             padding: 2px 8px;
             border-radius: 20px;
-            margin-top: 3px;
             transition: all 0.3s ease;
+        }
+
+        /* Menu "Tagihan Belum Lunas": label + badge sebagai satu baris
+           rapi. Label boleh turun baris kalau sempit; badge tetap di
+           kanan, sejajar vertikal, tidak ikut mengecil. */
+        .sidebar .nav-link.nav-link-tagihan {
+            align-items: center;
+        }
+
+        .sidebar .nav-link.nav-link-tagihan .label {
+            flex: 1 1 auto;
+            min-width: 0;
+            line-height: 1.2;
+        }
+
+        .sidebar .nav-link.nav-link-tagihan .badge {
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
 
         #badgeTagihan.bg-danger {
@@ -575,39 +592,50 @@
             <nav class="col-md-2 d-none d-md-block sidebar p-0">
                 <div class="brand"> <img src="<?= base_url('AuliaPos.png') ?>" alt="Logo" style="max-height: 60px; width: auto; margin-right: 8px;" onerror="this.style.display='none'"> <small>Kasir System V2.0</small> </div>
                 <?php
-                $__curr = current_url();
                 $__role = session()->get('role');
                 $__isAdmin = session()->get('isLoggedIn') && $__role == 'admin';
 
-                // Grup "Transaksi" TIDAK ikut aktif untuk /laporan-pembayaran
-                $isTransaksiMenu =
-                    strpos($__curr, '/transaksi') !== false;
+                // Path halaman saat ini RELATIF terhadap baseURL, tanpa
+                // slash pinggir -- mis. '', 'kasir', 'transaksi',
+                // 'transaksi/hari-ini'. Dipakai untuk menentukan menu aktif
+                // (lebih andal dari membandingkan current_url() apa adanya,
+                // yang bisa meleset gara-gara trailing slash / subfolder).
+                $__path = trim(uri_string(), '/');
 
+                // Aktif kalau path == segmen, ATAU path ada DI BAWAH segmen
+                // itu (mis. 'transaksi/hari-ini' di bawah 'transaksi').
+                $__seg = function (string ...$segs) use ($__path): bool {
+                    foreach ($segs as $s) {
+                        $s = trim($s, '/');
+                        if ($__path === $s || ($s !== '' && str_starts_with($__path, $s . '/'))) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+
+                $isKasirHome     = ($__path === '' || $__path === 'kasir');
+                $isTransaksiMenu = $__seg('transaksi');
                 // Grup "Pembayaran" -> Cek Pembayaran (route tetap /laporan-pembayaran)
-                $isPembayaranMenu =
-                    strpos($__curr, '/laporan-pembayaran') !== false;
+                $isPembayaranMenu = $__seg('laporan-pembayaran');
+                $isCashMenu      = $__seg('cash');
+                // Grup "Laporan" hanya untuk /laporan & /laporan/item-harian.
+                // 'laporan-pembayaran' TIDAK cocok dengan segmen 'laporan'
+                // (butuh 'laporan/'), jadi otomatis tidak ikut aktif.
+                $isLaporanMenu   = $__seg('laporan');
+                $isAdminMenu     = $__seg('user-management', 'ganti-password', 'migrasi-manual', 'archive-transaksi', 'kategori');
 
-                $isCashMenu = strpos($__curr, '/cash') !== false;
-
-                // Grup "Laporan" hanya untuk /laporan & /laporan/item-harian,
-                // bukan /laporan-pembayaran (itu masuk grup Pembayaran).
-                $isLaporanMenu =
-                    strpos($__curr, '/laporan') !== false &&
-                    strpos($__curr, '/laporan-pembayaran') === false;
-
-                $isAdminMenu =
-                    strpos($__curr, '/user-management') !== false ||
-                    strpos($__curr, '/ganti-password') !== false ||
-                    strpos($__curr, '/migrasi-manual') !== false ||
-                    strpos($__curr, '/archive-transaksi') !== false ||
-                    strpos($__curr, '/kategori') !== false;
+                // Boolean submenu yang dipakai di dalam closure di bawah.
+                $isKasActive       = ($__path === 'cash');
+                $isKasKeluarActive = $__seg('cash/pengeluaran');
+                $isPelangganActive = $__seg('pelanggan');
                 ?>
 
                 <ul class="nav flex-column mt-3" id="sidebarMenu">
 
                     <!-- KASIR -->
                     <li class="nav-item">
-                        <a class="nav-link <?= (current_url() == base_url('/') || current_url() == base_url('/kasir')) ? 'active' : '' ?>"
+                        <a class="nav-link <?= $isKasirHome ? 'active' : '' ?>"
                             href="<?= base_url('/') ?>">
                             <i class="fas fa-cash-register"></i>
                             <span>Kasir</span>
@@ -640,7 +668,7 @@
                             <ul class="nav flex-column submenu">
 
                                 <li class="nav-item">
-                                    <a class="nav-link <?= current_url() == base_url('/transaksi') ? 'active' : '' ?>"
+                                    <a class="nav-link <?= $__path === 'transaksi' ? 'active' : '' ?>"
                                         href="<?= base_url('/transaksi') ?>">
                                         <i class="fas fa-file-invoice"></i>
                                         Semua Transaksi
@@ -648,7 +676,7 @@
                                 </li>
 
                                 <li class="nav-item">
-                                    <a class="nav-link <?= strpos(current_url(), '/transaksi/hari-ini') !== false ? 'active' : '' ?>"
+                                    <a class="nav-link <?= $__seg('transaksi/hari-ini') ? 'active' : '' ?>"
                                         href="<?= base_url('/transaksi/hari-ini') ?>">
                                         <i class="fas fa-list"></i>
                                         Transaksi Hari Ini
@@ -664,11 +692,11 @@
 
                     <!-- TAGIHAN BELUM LUNAS -->
                     <li class="nav-item">
-                        <a class="nav-link <?= strpos(current_url(), '/tagihan') !== false ? 'active' : '' ?>"
+                        <a class="nav-link nav-link-tagihan <?= $__seg('tagihan') ? 'active' : '' ?>"
                             href="<?= base_url('/tagihan') ?>">
                             <i class="fas fa-file-invoice"></i>
-                            <span>Tagihan Belum Lunas</span>
-                            <span class="badge bg-warning text-dark ms-auto" id="badgeTagihan">0</span>
+                            <span class="label">Tagihan Belum Lunas</span>
+                            <span class="badge bg-warning text-dark" id="badgeTagihan">0</span>
                         </a>
                     </li>
 
@@ -698,7 +726,7 @@
                             <ul class="nav flex-column submenu">
 
                                 <li class="nav-item">
-                                    <a class="nav-link <?= strpos(current_url(), '/laporan-pembayaran') !== false ? 'active' : '' ?>"
+                                    <a class="nav-link <?= $__seg('laporan-pembayaran') ? 'active' : '' ?>"
                                         href="<?= base_url('/laporan-pembayaran') ?>">
                                         <i class="fas fa-money-check-alt"></i>
                                         Cek Pembayaran
@@ -715,7 +743,7 @@
                     // butuh ini untuk mencatat kas keluar harian; route
                     // /cash sudah dapat diakses kasir (bukan admin-only di
                     // AuthFilter), jadi tidak ada perubahan permission.
-                    $renderKeuangan = function () use ($isCashMenu) {
+                    $renderKeuangan = function () use ($isCashMenu, $isKasActive, $isKasKeluarActive) {
                         ?>
                         <li class="nav-item">
                             <a class="nav-link d-flex align-items-center"
@@ -732,14 +760,14 @@
                                 data-bs-parent="#sidebarMenu">
                                 <ul class="nav flex-column submenu">
                                     <li class="nav-item">
-                                        <a class="nav-link <?= current_url() == base_url('/cash') ? 'active' : '' ?>"
+                                        <a class="nav-link <?= $isKasActive ? 'active' : '' ?>"
                                             href="<?= base_url('/cash') ?>">
                                             <i class="fas fa-wallet"></i>
                                             Kas
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link <?= strpos(current_url(), '/cash/pengeluaran') !== false ? 'active' : '' ?>"
+                                        <a class="nav-link <?= $isKasKeluarActive ? 'active' : '' ?>"
                                             href="<?= base_url('/cash/pengeluaran') ?>">
                                             <i class="fas fa-money-bill-wave"></i>
                                             Kas Keluar
@@ -751,10 +779,10 @@
                         <?php
                     };
 
-                    $itemPelanggan = function () {
+                    $itemPelanggan = function () use ($isPelangganActive) {
                         ?>
                         <li class="nav-item">
-                            <a class="nav-link <?= strpos(current_url(), '/pelanggan') !== false ? 'active' : '' ?>"
+                            <a class="nav-link <?= $isPelangganActive ? 'active' : '' ?>"
                                 href="<?= base_url('/pelanggan') ?>">
                                 <i class="fas fa-users"></i>
                                 <span>Pelanggan</span>
@@ -774,7 +802,7 @@
 
                         <!-- KASIR: Jadwal Saya -->
                         <li class="nav-item">
-                            <a class="nav-link <?= strpos(current_url(), '/roster') !== false ? 'active' : '' ?>"
+                            <a class="nav-link <?= $__seg('roster') ? 'active' : '' ?>"
                                 href="<?= base_url('/roster') ?>">
                                 <i class="fas fa-calendar-alt"></i>
                                 <span>Jadwal Saya</span>
@@ -788,7 +816,7 @@
 
                         <!-- ADMIN: Produk -->
                         <li class="nav-item">
-                            <a class="nav-link <?= strpos(current_url(), '/produk') !== false ? 'active' : '' ?>"
+                            <a class="nav-link <?= $__seg('produk') ? 'active' : '' ?>"
                                 href="<?= base_url('/produk') ?>">
                                 <i class="fas fa-boxes"></i>
                                 <span>Produk</span>
@@ -814,14 +842,14 @@
                                 data-bs-parent="#sidebarMenu">
                                 <ul class="nav flex-column submenu">
                                     <li class="nav-item">
-                                        <a class="nav-link <?= current_url() == base_url('/laporan') ? 'active' : '' ?>"
+                                        <a class="nav-link <?= $__path === 'laporan' ? 'active' : '' ?>"
                                             href="<?= base_url('/laporan') ?>">
                                             <i class="fas fa-chart-bar"></i>
                                             Ringkasan
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link <?= strpos(current_url(), '/laporan/item-harian') !== false ? 'active' : '' ?>"
+                                        <a class="nav-link <?= $__seg('laporan/item-harian') ? 'active' : '' ?>"
                                             href="<?= base_url('/laporan/item-harian') ?>">
                                             <i class="fas fa-list-alt"></i>
                                             Item Harian
@@ -833,7 +861,7 @@
 
                         <!-- ADMIN: Jadwal Karyawan -->
                         <li class="nav-item">
-                            <a class="nav-link <?= strpos(current_url(), '/jadwal') !== false ? 'active' : '' ?>"
+                            <a class="nav-link <?= $__seg('jadwal') ? 'active' : '' ?>"
                                 href="<?= base_url('/jadwal') ?>">
                                 <i class="fas fa-calendar-alt"></i>
                                 <span>Jadwal Karyawan</span>
@@ -856,28 +884,28 @@
                                 data-bs-parent="#sidebarMenu">
                                 <ul class="nav flex-column submenu">
                                     <li class="nav-item">
-                                        <a class="nav-link <?= strpos(current_url(), '/user-management') !== false ? 'active' : '' ?>"
+                                        <a class="nav-link <?= $__seg('user-management') ? 'active' : '' ?>"
                                             href="<?= base_url('/user-management') ?>">
                                             <i class="fas fa-users-cog"></i>
                                             Manajemen User
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link <?= strpos(current_url(), '/kategori') !== false ? 'active' : '' ?>"
+                                        <a class="nav-link <?= $__seg('kategori') ? 'active' : '' ?>"
                                             href="<?= base_url('/kategori') ?>">
                                             <i class="fas fa-tags"></i>
                                             Kategori
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link <?= strpos(current_url(), '/migrasi-manual') !== false ? 'active' : '' ?>"
+                                        <a class="nav-link <?= $__seg('migrasi-manual') ? 'active' : '' ?>"
                                             href="<?= base_url('/migrasi-manual') ?>">
                                             <i class="fas fa-database"></i>
                                             Migrasi Database
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link <?= strpos(current_url(), '/archive-transaksi') !== false ? 'active' : '' ?>"
+                                        <a class="nav-link <?= $__seg('archive-transaksi') ? 'active' : '' ?>"
                                             href="<?= base_url('/archive-transaksi') ?>">
                                             <i class="fas fa-box-archive"></i>
                                             Arsip Transaksi
@@ -892,7 +920,7 @@
 
                     <!-- PROFIL SAYA -->
                     <li class="nav-item mt-3">
-                        <a class="nav-link <?= strpos(current_url(), '/profil') !== false ? 'active' : '' ?>"
+                        <a class="nav-link <?= $__seg('profil') ? 'active' : '' ?>"
                             href="<?= base_url('/profil') ?>">
                             <i class="fas fa-id-card"></i>
                             <span>Profil Saya</span>
@@ -969,9 +997,11 @@
                                         <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Preview Banner</span>
                                     </a>
 
-                                    <!-- Tagihan -->
-                                    <a href="<?= base_url('/tagihan') ?>" class="nav-icon position-relative text-decoration-none" style="color: #495057; font-size: 1.1rem;">
+                                    <!-- Tagihan Belum Lunas (akses cepat ke daftar tagihan) -->
+                                    <a href="<?= base_url('/tagihan') ?>" class="nav-icon position-relative text-decoration-none d-inline-flex align-items-center" style="color: #495057; font-size: 1.1rem;"
+                                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Tagihan Belum Lunas">
                                         <i class="fas fa-file-invoice"></i>
+                                        <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Tagihan</span>
                                         <span class="badge bg-danger" id="headerBadgeTagihan" style="font-size: 0.55rem; padding: 2px 6px; border-radius: 20px; position: absolute; top: -6px; right: -8px; display: none;">0</span>
                                     </a>
 
@@ -1321,10 +1351,13 @@
                             const jumlah = response.jumlah || 0;
                             badge.textContent = jumlah;
 
+                            // Tetap pakai class .badge (dipakai layout flex
+                            // menu Tagihan). Tanpa float-end -- posisi kanan
+                            // diatur oleh flexbox di CSS, bukan float.
                             if (jumlah > 0) {
-                                badge.className = 'badge bg-danger text-white float-end';
+                                badge.className = 'badge bg-danger text-white';
                             } else {
-                                badge.className = 'badge bg-success text-white float-end';
+                                badge.className = 'badge bg-success text-white';
                             }
                         }
                     }
