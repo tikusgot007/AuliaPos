@@ -36,10 +36,8 @@ $isAdminUser = session()->get('role') === 'admin';
                         <?php
                         $label = match ($st) {
                             '' => 'Semua',
-                            'proses' => 'Proses',
-                            'selesai' => 'Selesai',
-                            'batal' => 'Batal',
-                            'mangkrak' => 'Mangkrak',
+                            'aktif' => 'Aktif',
+                            'tidak_aktif' => 'Tidak Aktif',
                             default => ucfirst(
                                 str_replace(
                                     '_',
@@ -67,10 +65,34 @@ $isAdminUser = session()->get('role') === 'admin';
             <div class="col-md-2">
                 <label class="form-label">Status Pembayaran</label>
                 <select class="form-control" id="filterStatusPembayaran">
-                    <option value="">Semua</option>
-                    <option value="belum_bayar" <?= $status_pembayaran == 'belum_bayar' ? 'selected' : '' ?>>Belum Bayar</option>
-                    <option value="dp" <?= $status_pembayaran == 'dp' ? 'selected' : '' ?>>DP</option>
-                    <option value="lunas" <?= $status_pembayaran == 'lunas' ? 'selected' : '' ?>>Lunas</option>
+
+                    <?php foreach ($status_pembayaran_list as $sp): ?>
+
+                        <?php
+                        $labelSp = match ($sp) {
+                            '' => 'Semua',
+                            'belum_lunas' => 'Belum Lunas',
+                            'lunas' => 'Lunas',
+                            default => ucfirst(
+                                str_replace(
+                                    '_',
+                                    ' ',
+                                    $sp
+                                )
+                            ),
+                        };
+                        ?>
+
+                        <option
+                            value="<?= esc($sp) ?>"
+                            <?= ($status_pembayaran === $sp) ? 'selected' : '' ?>>
+
+                            <?= esc($labelSp) ?>
+
+                        </option>
+
+                    <?php endforeach; ?>
+
                 </select>
             </div>
 
@@ -314,7 +336,9 @@ $isAdminUser = session()->get('role') === 'admin';
     async function ubahStatus(id, status) {
         const label = status.toUpperCase();
 
-        if (!(await konfirmasi('Ubah status transaksi menjadi ' + label + '?', { okText: 'Ya, Ubah' }))) {
+        if (!(await konfirmasi('Ubah status transaksi menjadi ' + label + '?', {
+                okText: 'Ya, Ubah'
+            }))) {
             return;
         }
 
@@ -332,7 +356,10 @@ $isAdminUser = session()->get('role') === 'admin';
                 'menandai transaksi sebagai SELESAI.\n\n' +
                 'Lanjutkan menandai SELESAI?';
 
-            if (!(await konfirmasi(pesanKonfirmasi, { okText: 'Ya, Selesaikan', okClass: 'btn-success' }))) {
+            if (!(await konfirmasi(pesanKonfirmasi, {
+                    okText: 'Ya, Selesaikan',
+                    okClass: 'btn-success'
+                }))) {
                 return;
             }
         }
