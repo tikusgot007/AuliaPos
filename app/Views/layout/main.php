@@ -575,27 +575,35 @@
             <nav class="col-md-2 d-none d-md-block sidebar p-0">
                 <div class="brand"> <img src="<?= base_url('AuliaPos.png') ?>" alt="Logo" style="max-height: 60px; width: auto; margin-right: 8px;" onerror="this.style.display='none'"> <small>Kasir System V2.0</small> </div>
                 <?php
-                $isCashMenu = strpos(current_url(), '/cash') !== false;
+                $__curr = current_url();
+                $__role = session()->get('role');
+                $__isAdmin = session()->get('isLoggedIn') && $__role == 'admin';
 
+                // Grup "Transaksi" TIDAK ikut aktif untuk /laporan-pembayaran
                 $isTransaksiMenu =
-                    strpos(current_url(), '/transaksi') !== false;
+                    strpos($__curr, '/transaksi') !== false;
 
-                $isMasterMenu =
-                    strpos(current_url(), '/produk') !== false ||
-                    strpos(current_url(), '/kategori') !== false ||
-                    strpos(current_url(), '/pelanggan') !== false ||
-                    strpos(current_url(), '/ukuran') !== false;
+                // Grup "Pembayaran" -> Cek Pembayaran (route tetap /laporan-pembayaran)
+                $isPembayaranMenu =
+                    strpos($__curr, '/laporan-pembayaran') !== false;
+
+                $isCashMenu = strpos($__curr, '/cash') !== false;
+
+                // Grup "Laporan" hanya untuk /laporan & /laporan/item-harian,
+                // bukan /laporan-pembayaran (itu masuk grup Pembayaran).
+                $isLaporanMenu =
+                    strpos($__curr, '/laporan') !== false &&
+                    strpos($__curr, '/laporan-pembayaran') === false;
 
                 $isAdminMenu =
-                    strpos(current_url(), '/user-management') !== false ||
-                    strpos(current_url(), '/ganti-password') !== false ||
-                    strpos(current_url(), '/archive-transaksi') !== false;
-
-                $isLaporanMenu =
-                    strpos(current_url(), '/laporan') !== false;
+                    strpos($__curr, '/user-management') !== false ||
+                    strpos($__curr, '/ganti-password') !== false ||
+                    strpos($__curr, '/migrasi-manual') !== false ||
+                    strpos($__curr, '/archive-transaksi') !== false ||
+                    strpos($__curr, '/kategori') !== false;
                 ?>
 
-                <ul class="nav flex-column mt-3">
+                <ul class="nav flex-column mt-3" id="sidebarMenu">
 
                     <!-- KASIR -->
                     <li class="nav-item">
@@ -626,7 +634,8 @@
                         </a>
 
                         <div id="menuTransaksi"
-                            class="collapse <?= $isTransaksiMenu ? 'show' : '' ?>">
+                            class="collapse <?= $isTransaksiMenu ? 'show' : '' ?>"
+                            data-bs-parent="#sidebarMenu">
 
                             <ul class="nav flex-column submenu">
 
@@ -634,7 +643,7 @@
                                     <a class="nav-link <?= current_url() == base_url('/transaksi') ? 'active' : '' ?>"
                                         href="<?= base_url('/transaksi') ?>">
                                         <i class="fas fa-file-invoice"></i>
-                                        Transaksi
+                                        Semua Transaksi
                                     </a>
                                 </li>
 
@@ -646,14 +655,6 @@
                                     </a>
                                 </li>
 
-                                <li class="nav-item">
-                                    <a class="nav-link <?= strpos(current_url(), '/laporan-pembayaran') !== false ? 'active' : '' ?>"
-                                        href="<?= base_url('/laporan-pembayaran') ?>">
-                                        <i class="fas fa-money-check-alt"></i>
-                                        Laporan Pembayaran
-                                    </a>
-                                </li>
-
                             </ul>
 
                         </div>
@@ -661,53 +662,46 @@
                     </li>
 
 
-                    <!-- TAGIHAN -->
+                    <!-- TAGIHAN BELUM LUNAS -->
                     <li class="nav-item">
                         <a class="nav-link <?= strpos(current_url(), '/tagihan') !== false ? 'active' : '' ?>"
                             href="<?= base_url('/tagihan') ?>">
                             <i class="fas fa-file-invoice"></i>
-                            <span>Tagihan</span>
+                            <span>Tagihan Belum Lunas</span>
                             <span class="badge bg-warning text-dark ms-auto" id="badgeTagihan">0</span>
                         </a>
                     </li>
 
 
                     <!-- ================================= -->
-                    <!-- KEUANGAN -->
+                    <!-- PEMBAYARAN -->
                     <!-- ================================= -->
 
                     <li class="nav-item">
 
                         <a class="nav-link d-flex align-items-center"
                             data-bs-toggle="collapse"
-                            href="#menuKeuangan"
+                            href="#menuPembayaran"
                             role="button"
-                            aria-expanded="<?= $isCashMenu ? 'true' : 'false' ?>">
+                            aria-expanded="<?= $isPembayaranMenu ? 'true' : 'false' ?>">
 
-                            <i class="fas fa-wallet"></i>
-                            <span>Keuangan</span>
+                            <i class="fas fa-money-check-alt"></i>
+                            <span>Pembayaran</span>
 
                             <i class="fas fa-chevron-down ms-auto"></i>
                         </a>
 
-                        <div id="menuKeuangan"
-                            class="collapse <?= $isCashMenu ? 'show' : '' ?>">
+                        <div id="menuPembayaran"
+                            class="collapse <?= $isPembayaranMenu ? 'show' : '' ?>"
+                            data-bs-parent="#sidebarMenu">
 
                             <ul class="nav flex-column submenu">
 
                                 <li class="nav-item">
-                                    <a class="nav-link <?= current_url() == base_url('/cash') ? 'active' : '' ?>"
-                                        href="<?= base_url('/cash') ?>">
-                                        <i class="fas fa-wallet"></i>
-                                        Kas
-                                    </a>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a class="nav-link <?= strpos(current_url(), '/cash/pengeluaran') !== false ? 'active' : '' ?>"
-                                        href="<?= base_url('/cash/pengeluaran') ?>">
-                                        <i class="fas fa-money-bill-wave"></i>
-                                        Kas Keluar
+                                    <a class="nav-link <?= strpos(current_url(), '/laporan-pembayaran') !== false ? 'active' : '' ?>"
+                                        href="<?= base_url('/laporan-pembayaran') ?>">
+                                        <i class="fas fa-money-check-alt"></i>
+                                        Cek Pembayaran
                                     </a>
                                 </li>
 
@@ -716,66 +710,95 @@
                     </li>
 
 
-                    <!-- ================================= -->
-                    <!-- MASTER DATA -->
-                    <!-- ================================= -->
+                    <?php
+                    // Blok submenu Keuangan (Kas & Kas Keluar). Kasir juga
+                    // butuh ini untuk mencatat kas keluar harian; route
+                    // /cash sudah dapat diakses kasir (bukan admin-only di
+                    // AuthFilter), jadi tidak ada perubahan permission.
+                    $renderKeuangan = function () use ($isCashMenu) {
+                        ?>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center"
+                                data-bs-toggle="collapse"
+                                href="#menuKeuangan"
+                                role="button"
+                                aria-expanded="<?= $isCashMenu ? 'true' : 'false' ?>">
+                                <i class="fas fa-wallet"></i>
+                                <span>Keuangan</span>
+                                <i class="fas fa-chevron-down ms-auto"></i>
+                            </a>
+                            <div id="menuKeuangan"
+                                class="collapse <?= $isCashMenu ? 'show' : '' ?>"
+                                data-bs-parent="#sidebarMenu">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?= current_url() == base_url('/cash') ? 'active' : '' ?>"
+                                            href="<?= base_url('/cash') ?>">
+                                            <i class="fas fa-wallet"></i>
+                                            Kas
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?= strpos(current_url(), '/cash/pengeluaran') !== false ? 'active' : '' ?>"
+                                            href="<?= base_url('/cash/pengeluaran') ?>">
+                                            <i class="fas fa-money-bill-wave"></i>
+                                            Kas Keluar
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <?php
+                    };
 
-                    <li class="nav-item">
+                    $itemPelanggan = function () {
+                        ?>
+                        <li class="nav-item">
+                            <a class="nav-link <?= strpos(current_url(), '/pelanggan') !== false ? 'active' : '' ?>"
+                                href="<?= base_url('/pelanggan') ?>">
+                                <i class="fas fa-users"></i>
+                                <span>Pelanggan</span>
+                            </a>
+                        </li>
+                        <?php
+                    };
+                    ?>
 
-                        <a class="nav-link d-flex align-items-center"
-                            data-bs-toggle="collapse"
-                            href="#menuMaster"
-                            role="button"
-                            aria-expanded="<?= $isMasterMenu ? 'true' : 'false' ?>">
+                    <?php if (! $__isAdmin): ?>
 
-                            <i class="fas fa-database"></i>
-                            <span>Master Data</span>
+                        <!-- KASIR: Keuangan -->
+                        <?php $renderKeuangan(); ?>
 
-                            <i class="fas fa-chevron-down ms-auto"></i>
-                        </a>
+                        <!-- KASIR: Pelanggan -->
+                        <?php $itemPelanggan(); ?>
 
-                        <div id="menuMaster"
-                            class="collapse <?= $isMasterMenu ? 'show' : '' ?>">
+                        <!-- KASIR: Jadwal Saya -->
+                        <li class="nav-item">
+                            <a class="nav-link <?= strpos(current_url(), '/roster') !== false ? 'active' : '' ?>"
+                                href="<?= base_url('/roster') ?>">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span>Jadwal Saya</span>
+                            </a>
+                        </li>
 
-                            <ul class="nav flex-column submenu">
+                    <?php else: ?>
 
-                                <?php if (session()->get('role') == 'admin'): ?>
-                                <li class="nav-item">
-                                    <a class="nav-link <?= strpos(current_url(), '/produk') !== false ? 'active' : '' ?>"
-                                        href="<?= base_url('/produk') ?>">
-                                        <i class="fas fa-boxes"></i>
-                                        Produk
-                                    </a>
-                                </li>
+                        <!-- ADMIN: Pelanggan -->
+                        <?php $itemPelanggan(); ?>
 
-                                <li class="nav-item">
-                                    <a class="nav-link <?= strpos(current_url(), '/kategori') !== false ? 'active' : '' ?>"
-                                        href="<?= base_url('/kategori') ?>">
-                                        <i class="fas fa-tags"></i>
-                                        Kategori
-                                    </a>
-                                </li>
-                                <?php endif; ?>
+                        <!-- ADMIN: Produk -->
+                        <li class="nav-item">
+                            <a class="nav-link <?= strpos(current_url(), '/produk') !== false ? 'active' : '' ?>"
+                                href="<?= base_url('/produk') ?>">
+                                <i class="fas fa-boxes"></i>
+                                <span>Produk</span>
+                            </a>
+                        </li>
 
-                                <li class="nav-item">
-                                    <a class="nav-link <?= strpos(current_url(), '/pelanggan') !== false ? 'active' : '' ?>"
-                                        href="<?= base_url('/pelanggan') ?>">
-                                        <i class="fas fa-users"></i>
-                                        Pelanggan
-                                    </a>
-                                </li>
+                        <!-- ADMIN: Keuangan -->
+                        <?php $renderKeuangan(); ?>
 
-                            </ul>
-                        </div>
-                    </li>
-
-
-                    <!-- ================================= -->
-                    <!-- LAPORAN -->
-                    <!-- ================================= -->
-
-                    <?php if (session()->get('role') == 'admin'): ?>
-
+                        <!-- ADMIN: Laporan -->
                         <li class="nav-item">
                             <a class="nav-link d-flex align-items-center"
                                 data-bs-toggle="collapse"
@@ -786,115 +809,102 @@
                                 <span>Laporan</span>
                                 <i class="fas fa-chevron-down ms-auto"></i>
                             </a>
-
                             <div id="menuLaporan"
-                                class="collapse <?= $isLaporanMenu ? 'show' : '' ?>">
+                                class="collapse <?= $isLaporanMenu ? 'show' : '' ?>"
+                                data-bs-parent="#sidebarMenu">
                                 <ul class="nav flex-column submenu">
-
                                     <li class="nav-item">
                                         <a class="nav-link <?= current_url() == base_url('/laporan') ? 'active' : '' ?>"
                                             href="<?= base_url('/laporan') ?>">
                                             <i class="fas fa-chart-bar"></i>
-                                            Laporan
+                                            Ringkasan
                                         </a>
                                     </li>
-
                                     <li class="nav-item">
                                         <a class="nav-link <?= strpos(current_url(), '/laporan/item-harian') !== false ? 'active' : '' ?>"
                                             href="<?= base_url('/laporan/item-harian') ?>">
                                             <i class="fas fa-list-alt"></i>
-                                            Laporan Item Harian
+                                            Item Harian
                                         </a>
                                     </li>
-
                                 </ul>
                             </div>
                         </li>
 
-                    <?php endif; ?>
-
-
-                    <!-- ADMIN -->
-                    <!-- ================================= -->
-
-                    <?php if (session()->get('isLoggedIn') && session()->get('role') == 'admin'): ?>
-
+                        <!-- ADMIN: Jadwal Karyawan -->
                         <li class="nav-item">
+                            <a class="nav-link <?= strpos(current_url(), '/jadwal') !== false ? 'active' : '' ?>"
+                                href="<?= base_url('/jadwal') ?>">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span>Jadwal Karyawan</span>
+                            </a>
+                        </li>
 
+                        <!-- ADMIN: Administrasi -->
+                        <li class="nav-item">
                             <a class="nav-link d-flex align-items-center"
                                 data-bs-toggle="collapse"
                                 href="#menuAdmin"
                                 role="button"
                                 aria-expanded="<?= $isAdminMenu ? 'true' : 'false' ?>">
-
                                 <i class="fas fa-user-shield"></i>
                                 <span>Administrasi</span>
-
                                 <i class="fas fa-chevron-down ms-auto"></i>
-
                             </a>
-
                             <div id="menuAdmin"
-                                class="collapse <?= $isAdminMenu ? 'show' : '' ?>">
-
+                                class="collapse <?= $isAdminMenu ? 'show' : '' ?>"
+                                data-bs-parent="#sidebarMenu">
                                 <ul class="nav flex-column submenu">
-
                                     <li class="nav-item">
                                         <a class="nav-link <?= strpos(current_url(), '/user-management') !== false ? 'active' : '' ?>"
                                             href="<?= base_url('/user-management') ?>">
-
                                             <i class="fas fa-users-cog"></i>
                                             Manajemen User
-
                                         </a>
                                     </li>
-
                                     <li class="nav-item">
-                                        <a class="nav-link <?= strpos(current_url(), '/ganti-password') !== false ? 'active' : '' ?>"
-                                            href="<?= base_url('/ganti-password') ?>">
-
-                                            <i class="fas fa-key"></i>
-                                            Ganti Password
-
+                                        <a class="nav-link <?= strpos(current_url(), '/kategori') !== false ? 'active' : '' ?>"
+                                            href="<?= base_url('/kategori') ?>">
+                                            <i class="fas fa-tags"></i>
+                                            Kategori
                                         </a>
                                     </li>
-
                                     <li class="nav-item">
                                         <a class="nav-link <?= strpos(current_url(), '/migrasi-manual') !== false ? 'active' : '' ?>"
                                             href="<?= base_url('/migrasi-manual') ?>">
-
                                             <i class="fas fa-database"></i>
                                             Migrasi Database
-
                                         </a>
                                     </li>
-
                                     <li class="nav-item">
                                         <a class="nav-link <?= strpos(current_url(), '/archive-transaksi') !== false ? 'active' : '' ?>"
                                             href="<?= base_url('/archive-transaksi') ?>">
-
                                             <i class="fas fa-box-archive"></i>
-                                            Archive Transaksi
-
+                                            Arsip Transaksi
                                         </a>
                                     </li>
-
                                 </ul>
                             </div>
-
                         </li>
 
                     <?php endif; ?>
 
 
-                    <!-- LOGOUT -->
-                    <li class="nav-item mt-4">
+                    <!-- PROFIL SAYA -->
+                    <li class="nav-item mt-3">
+                        <a class="nav-link <?= strpos(current_url(), '/profil') !== false ? 'active' : '' ?>"
+                            href="<?= base_url('/profil') ?>">
+                            <i class="fas fa-id-card"></i>
+                            <span>Profil Saya</span>
+                        </a>
+                    </li>
+
+                    <!-- KELUAR -->
+                    <li class="nav-item">
                         <a class="nav-link text-danger"
                             href="<?= base_url('/logout') ?>">
-
                             <i class="fas fa-sign-out-alt"></i>
-                            Logout
-
+                            <span>Keluar</span>
                         </a>
                     </li>
 
@@ -924,7 +934,7 @@
                                         id="globalSearchInput"
                                         name="keyword"
                                         class="form-control"
-                                        placeholder="Cari invoice / no order / pelanggan..."
+                                        placeholder="Cari transaksi, nomor order, atau pelanggan..."
                                         value="<?= esc(service('request')->getGet('keyword') ?? '') ?>">
                                     <button type="submit" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #0d6efd; padding: 4px 8px;">
                                         <i class="fas fa-arrow-right"></i>
@@ -935,11 +945,12 @@
                             <div class="col-md-4 col-6 text-end">
                                 <div class="d-flex justify-content-end align-items-center gap-2 gap-md-3">
 
-                                    <!-- Skala Ukuran -->
-                                    <a href="<?= base_url('/ukuran') ?>" class="nav-icon text-decoration-none"
+                                    <!-- Alat Bantu Ukuran (skala/rasio -- dipakai Kasir & Admin) -->
+                                    <a href="<?= base_url('/ukuran') ?>" class="nav-icon text-decoration-none d-inline-flex align-items-center"
                                         style="color: #495057; font-size: 1.1rem;"
-                                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Skala Ukuran">
+                                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Alat Bantu Ukuran">
                                         <i class="fas fa-ruler-combined"></i>
+                                        <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Ukuran</span>
                                     </a>
 
                                     <!-- Jadwal Karyawan (admin -> /jadwal, kasir -> /roster) -->
@@ -950,11 +961,12 @@
                                         <i class="fas fa-calendar-alt"></i>
                                     </a>
 
-                                    <!-- Preview Banner -->
-                                    <a href="<?= base_url('/preview-banner') ?>" class="nav-icon text-decoration-none"
+                                    <!-- Preview Banner (alat bantu operasional -- dipakai Kasir & Admin) -->
+                                    <a href="<?= base_url('/preview-banner') ?>" class="nav-icon text-decoration-none d-inline-flex align-items-center"
                                         style="color: #495057; font-size: 1.1rem;"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Preview Banner">
                                         <i class="fas fa-image"></i>
+                                        <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Preview Banner</span>
                                     </a>
 
                                     <!-- Tagihan -->
@@ -1124,10 +1136,10 @@
         // AKTIFKAN TOOLTIP BOOTSTRAP
         // ==========================================
         // Bootstrap 5 TIDAK otomatis mengaktifkan tooltip, harus
-        // di-init manual. Dipakai oleh tombol ikon header (Skala
-        // Ukuran, Jadwal Karyawan, Preview Banner) yang sengaja
-        // hanya berupa ikon -- nama fiturnya muncul sebagai tooltip
-        // saat di-hover.
+        // di-init manual. Dipakai oleh tombol ikon header (Alat Bantu
+        // Ukuran, Jadwal Karyawan, Preview Banner) -- sebagian sudah
+        // punya label teks, tooltip tetap dipasang untuk layar sempit
+        // saat label disembunyikan.
         document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
             new bootstrap.Tooltip(el);
         });
