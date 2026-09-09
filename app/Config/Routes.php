@@ -56,6 +56,14 @@ $routes->get('/migrasi-manual', 'MigrasiManual::index', ['filter' => 'auth']);
 $routes->post('/migrasi-manual/jalankan', 'MigrasiManual::jalankan', ['filter' => 'auth']);
 
 // ==========================================
+// ROUTE ARCHIVE TRANSAKSI (ADMIN-ONLY) - pindahkan transaksi lama ke
+// SQLite terpisah. Lihat App\Services\TransaksiArchiveService.
+// ==========================================
+$routes->get('/archive-transaksi', 'ArchiveTransaksi::index', ['filter' => 'auth']);
+$routes->post('/archive-transaksi/preview', 'ArchiveTransaksi::preview', ['filter' => 'auth']);
+$routes->post('/archive-transaksi/jalankan', 'ArchiveTransaksi::jalankan', ['filter' => 'auth']);
+
+// ==========================================
 // ROUTE MANAJEMEN USER (HANYA ADMIN) - OTOMATIS KENA AUTH
 // ==========================================
 

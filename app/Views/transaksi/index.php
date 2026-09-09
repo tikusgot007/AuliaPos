@@ -161,10 +161,23 @@ $isAdminUser = session()->get('role') === 'admin';
 
                             // 🔥 Format No Order
                             $noOrderDisplay = $t['no_order'] ? format_no_order($t['no_order']) : '-';
+
+                            // Baris dari Archive (lihat App\Services\TransaksiArchiveService)
+                            // -- read-only, cuma boleh dilihat, tidak boleh
+                            // dibayar/diselesaikan/dibatalkan lewat operasi
+                            // transaksi normal (poin 9 spesifikasi Archive).
+                            $dariArchive = ($t['_sumber'] ?? 'aktif') === 'archive';
                         ?>
                             <tr>
                                 <td><?= $i + 1 ?></td>
-                                <td><strong><?= $t['kode_invoice'] ?></strong></td>
+                                <td>
+                                    <strong><?= $t['kode_invoice'] ?></strong>
+                                    <?php if ($dariArchive): ?>
+                                        <br><span class="badge bg-secondary" title="Data historis, sudah dipindahkan ke database archive">
+                                            <i class="fas fa-box-archive"></i> Archive
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= $noOrderDisplay ?></td> <!-- 🔥 NO ORDER -->
                                 <td data-order="<?= strtotime($t['tanggal']) ?>">
                                     <?= date('d/m/Y', strtotime($t['tanggal'])) ?>
@@ -200,28 +213,30 @@ $isAdminUser = session()->get('role') === 'admin';
                                         <i class="fas fa-eye"></i>
                                     </a>
 
-                                    <!-- 🔥 TOMBOL BAYAR (HANYA UNTUK BELUM LUNAS) -->
-                                    <?php if ($t['status_pembayaran'] != 'lunas' && $t['status'] != 'batal'): ?>
-                                        <button class="btn btn-sm btn-success"
-                                            onclick="bayarTransaksi(<?= $t['id'] ?>, <?= $t['grand_total'] ?>, <?= $sisa ?>, '<?= $t['kode_invoice'] ?>')">
-                                            <i class="fas fa-hand-holding-usd"></i>
-                                        </button>
-                                    <?php endif; ?>
+                                    <?php if (!$dariArchive): ?>
+                                        <!-- 🔥 TOMBOL BAYAR (HANYA UNTUK BELUM LUNAS) -->
+                                        <?php if ($t['status_pembayaran'] != 'lunas' && $t['status'] != 'batal'): ?>
+                                            <button class="btn btn-sm btn-success"
+                                                onclick="bayarTransaksi(<?= $t['id'] ?>, <?= $t['grand_total'] ?>, <?= $sisa ?>, '<?= $t['kode_invoice'] ?>')">
+                                                <i class="fas fa-hand-holding-usd"></i>
+                                            </button>
+                                        <?php endif; ?>
 
-                                    <?php if ($t['status'] === 'proses' && $isAdminUser): ?>
-                                        <button type="button" class="btn btn-sm btn-primary"
-                                            title="Tandai Selesai"
-                                            onclick="selesaikanTransaksi(<?= $t['id'] ?>, '<?= esc($t['status_pembayaran'], 'js') ?>')">
-                                            <i class="fas fa-check"></i>
-                                        </button>
-                                    <?php endif; ?>
+                                        <?php if ($t['status'] === 'proses' && $isAdminUser): ?>
+                                            <button type="button" class="btn btn-sm btn-primary"
+                                                title="Tandai Selesai"
+                                                onclick="selesaikanTransaksi(<?= $t['id'] ?>, '<?= esc($t['status_pembayaran'], 'js') ?>')">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        <?php endif; ?>
 
-                                    <?php if (in_array($t['status'], ['proses', 'selesai'], true)): ?>
-                                        <button type="button" class="btn btn-sm btn-danger"
-                                            title="<?= $t['status'] === 'selesai' ? 'Batalkan Transaksi (khusus admin)' : 'Batalkan Transaksi' ?>"
-                                            onclick="ubahStatus(<?= $t['id'] ?>, 'batal')">
-                                            <i class="fas fa-times"></i>
-                                        </button>
+                                        <?php if (in_array($t['status'], ['proses', 'selesai'], true)): ?>
+                                            <button type="button" class="btn btn-sm btn-danger"
+                                                title="<?= $t['status'] === 'selesai' ? 'Batalkan Transaksi (khusus admin)' : 'Batalkan Transaksi' ?>"
+                                                onclick="ubahStatus(<?= $t['id'] ?>, 'batal')">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -296,7 +311,9 @@ $isAdminUser = session()->get('role') === 'admin';
     async function ubahStatus(id, status) {
         const label = status.toUpperCase();
 
-        if (!(await konfirmasi('Ubah status transaksi menjadi ' + label + '?', { okText: 'Ya, Ubah' }))) {
+        if (!(await konfirmasi('Ubah status transaksi menjadi ' + label + '?', {
+                okText: 'Ya, Ubah'
+            }))) {
             return;
         }
 
@@ -314,7 +331,10 @@ $isAdminUser = session()->get('role') === 'admin';
                 'menandai transaksi sebagai SELESAI.\n\n' +
                 'Lanjutkan menandai SELESAI?';
 
-            if (!(await konfirmasi(pesanKonfirmasi, { okText: 'Ya, Selesaikan', okClass: 'btn-success' }))) {
+            if (!(await konfirmasi(pesanKonfirmasi, {
+                    okText: 'Ya, Selesaikan',
+                    okClass: 'btn-success'
+                }))) {
                 return;
             }
         }
@@ -458,6 +478,7 @@ $isAdminUser = session()->get('role') === 'admin';
             startDate: moment(startDate),
             endDate: moment(endDate),
             opens: 'left',
+            showDropdowns: true,
             ranges: {
                 'Hari Ini': [moment(), moment()],
                 'Kemarin': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],

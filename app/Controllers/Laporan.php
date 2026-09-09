@@ -132,6 +132,31 @@ class Laporan extends BaseController
         // 🔥 LOG query
         log_message('debug', 'Jumlah Transaksi (findAll): ' . count($transaksi));
 
+        // =========================================================
+        // LENGKAPI DENGAN ARCHIVE
+        // =========================================================
+        // Rentang tanggal laporan (Periode/Per Kategori) bebas dipilih
+        // user, jadi bisa saja melewati bulan yang sudah di-archive.
+        // MySQL tidak bisa JOIN ke SQLite, jadi archive di-query
+        // terpisah lalu digabung di sini SEBELUM masuk ke processData()
+        // -- supaya seluruh logic olah-data di bawah (processData,
+        // processDetailTransaksi, processBulanan, processPerKategori,
+        // calculateSummary) tetap berjalan sama persis tanpa diubah,
+        // baik untuk data live maupun archive.
+        try {
+            $archiveService = new \App\Services\TransaksiArchiveService();
+            $awalDt = $tanggal_awal . ' 00:00:00';
+            $akhirDt = $tanggal_akhir . ' 23:59:59';
+            $transaksiArchive = $archiveService->getTransaksiMentah($awalDt, $akhirDt);
+
+            if (!empty($transaksiArchive)) {
+                $transaksi = array_merge($transaksi, $transaksiArchive);
+                log_message('debug', 'Jumlah Transaksi dari archive: ' . count($transaksiArchive));
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'Laporan getData() gagal baca archive: ' . $e->getMessage());
+        }
+
         if (empty($transaksi)) {
             log_message('debug', '⚠️ TIDAK ADA TRANSAKSI!');
             return $this->response->setJSON([
@@ -153,6 +178,19 @@ class Laporan extends BaseController
 
         $details = $detailModel->whereIn('transaksi_id', $transaksiIds)->findAll();
         log_message('debug', 'Jumlah Detail: ' . count($details));
+
+        // Detail utk baris yang sumbernya archive tidak akan ketemu di
+        // atas (whereIn ke tabel MySQL) -- lengkapi dari archive juga.
+        try {
+            $idArchive = array_column($transaksiArchive ?? [], 'id');
+            if (!empty($idArchive)) {
+                $detailArchive = $archiveService->getDetailTransaksiMentah($idArchive);
+                $details = array_merge($details, $detailArchive);
+                log_message('debug', 'Jumlah Detail dari archive: ' . count($detailArchive));
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'Laporan getData() gagal baca detail archive: ' . $e->getMessage());
+        }
 
         // 🔥 Group detail per transaksi
         $detailGroup = [];
@@ -232,6 +270,29 @@ class Laporan extends BaseController
             ->orderBy('id', 'ASC')
             ->get()
             ->getResultArray();
+
+        // Lengkapi dengan archive -- Pemasukan Harian sumbernya
+        // pembayaran.tanggal, jadi rentang tanggal laporan ini bisa
+        // saja masuk ke bulan yang sudah di-archive. MySQL tidak bisa
+        // JOIN ke SQLite, jadi digabung di PHP di sini (kolom yang
+        // dipilih SENGAJA disamakan persis: id, transaksi_id, tanggal,
+        // jumlah, metode) sebelum masuk ke logic alokasi di bawah,
+        // supaya logic itu tidak perlu diubah sama sekali.
+        $archiveService = null;
+
+        try {
+            $archiveService = new \App\Services\TransaksiArchiveService();
+            $pembayaranArchive = $archiveService->getPembayaranMentah(
+                $tanggalAwal . ' 00:00:00',
+                $tanggalAkhir . ' 23:59:59'
+            );
+
+            if (!empty($pembayaranArchive)) {
+                $pembayaranRows = array_merge($pembayaranRows, $pembayaranArchive);
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'getPemasukanHarianData gagal baca archive: ' . $e->getMessage());
+        }
 
         // =========================================================
         // GROUP PEMBAYARAN PER TANGGAL + TRANSAKSI
@@ -348,6 +409,20 @@ class Laporan extends BaseController
                 )
                 ->get()
                 ->getResultArray();
+
+            // Lengkapi dengan archive -- IDs di $transaksiIds sudah
+            // gabungan live+archive (dibangun dari $pembayaranRows yang
+            // sudah digabung di atas), jadi list ID yang sama aman
+            // dikirim ke archive juga -- ID yang tidak ada di sana
+            // otomatis tidak menghasilkan baris tambahan (bukan error).
+            try {
+                $detailArchive = $archiveService ? $archiveService->getDetailTransaksiMentah(array_keys($transaksiIds)) : [];
+                if (!empty($detailArchive)) {
+                    $detailRows = array_merge($detailRows, $detailArchive);
+                }
+            } catch (\Throwable $e) {
+                log_message('error', 'getPemasukanHarianData gagal baca detail archive: ' . $e->getMessage());
+            }
 
             foreach ($detailRows as $detail) {
 
@@ -653,6 +728,24 @@ class Laporan extends BaseController
             ->get()
             ->getResultArray();
 
+        // Lengkapi dengan archive -- pola sama seperti getPemasukanHarianData(),
+        // lihat komentar lengkap di sana.
+        $archiveService = null;
+
+        try {
+            $archiveService = new \App\Services\TransaksiArchiveService();
+            $pembayaranArchive = $archiveService->getPembayaranMentah(
+                $tanggalAwal . ' 00:00:00',
+                $tanggalAkhir . ' 23:59:59'
+            );
+
+            if (!empty($pembayaranArchive)) {
+                $pembayaranRows = array_merge($pembayaranRows, $pembayaranArchive);
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'getLaporanBulananData gagal baca archive: ' . $e->getMessage());
+        }
+
         $transaksiIds = [];
         $pembayaranPerTanggalTransaksi = [];
 
@@ -698,6 +791,15 @@ class Laporan extends BaseController
                 ->orderBy('id', 'ASC')
                 ->get()
                 ->getResultArray();
+
+            try {
+                $detailArchive = $archiveService ? $archiveService->getDetailTransaksiMentah(array_keys($transaksiIds)) : [];
+                if (!empty($detailArchive)) {
+                    $rows = array_merge($rows, $detailArchive);
+                }
+            } catch (\Throwable $e) {
+                log_message('error', 'getLaporanBulananData gagal baca detail archive: ' . $e->getMessage());
+            }
 
             foreach ($rows as $r) {
                 $tid = (int) ($r['transaksi_id'] ?? 0);
@@ -1350,12 +1452,38 @@ class Laporan extends BaseController
             ->orderBy('transaksi.tanggal', 'ASC')
             ->findAll();
 
+        // Lengkapi dengan archive -- sama seperti getData(), supaya
+        // export Excel/CSV tidak "bolong" untuk periode yang sudah
+        // di-archive. Lihat komentar lengkap di getData().
+        $transaksiArchive = [];
+        try {
+            $archiveService = new \App\Services\TransaksiArchiveService();
+            $awalDt = $tanggal_awal . ' 00:00:00';
+            $akhirDt = $tanggal_akhir . ' 23:59:59';
+            $transaksiArchive = $archiveService->getTransaksiMentah($awalDt, $akhirDt);
+
+            if (!empty($transaksiArchive)) {
+                $transaksi = array_merge($transaksi, $transaksiArchive);
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'Laporan exportExcel() gagal baca archive: ' . $e->getMessage());
+        }
+
         if (empty($transaksi)) {
             return redirect()->back()->with('error', 'Tidak ada data untuk diexport.');
         }
 
         $transaksiIds = array_column($transaksi, 'id');
         $details = $detailModel->whereIn('transaksi_id', $transaksiIds)->findAll();
+
+        if (!empty($transaksiArchive)) {
+            try {
+                $idArchive = array_column($transaksiArchive, 'id');
+                $details = array_merge($details, $archiveService->getDetailTransaksiMentah($idArchive));
+            } catch (\Throwable $e) {
+                log_message('error', 'Laporan exportExcel() gagal baca detail archive: ' . $e->getMessage());
+            }
+        }
 
         $detailGroup = [];
         foreach ($details as $d) {
@@ -1649,6 +1777,39 @@ class Laporan extends BaseController
             ->get()
             ->getResultArray();
 
+        // =========================================================
+        // LENGKAPI DENGAN ARCHIVE
+        // =========================================================
+        // VIEW live tidak menjangkau data yang sudah di-archive. Query
+        // & agregasi (GROUP BY/SUM) yang SAMA PERSIS dijalankan di
+        // SQLite archive (lihat TransaksiArchiveService::getItemHarianMentah()),
+        // hasilnya sudah teragregasi jadi tinggal digabung (bukan
+        // dijumlah ulang -- satu transaksi cuma ada di satu sumber).
+        try {
+            $archiveService = new \App\Services\TransaksiArchiveService();
+            $rowsArchive = $archiveService->getItemHarianMentah(
+                $tanggalMulai,
+                $tanggalSampai,
+                $kategoriId !== '' ? (int) $kategoriId : null,
+                $keyword !== '' ? $keyword : null,
+                $metode !== '' ? $metode : null
+            );
+
+            if (!empty($rowsArchive)) {
+                $rows = array_merge($rows, $rowsArchive);
+
+                // Urutkan ulang gabungannya (masing-masing sumber sudah
+                // terurut sendiri, tapi gabungan keduanya belum tentu).
+                usort($rows, function ($a, $b) {
+                    $cmpTanggal = strcmp($a['tanggal_pembayaran'], $b['tanggal_pembayaran']);
+                    if ($cmpTanggal !== 0) return $cmpTanggal;
+                    return $b['total_teralokasi'] <=> $a['total_teralokasi'];
+                });
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'Laporan itemHarian() gagal baca archive: ' . $e->getMessage());
+        }
+
 
         // =========================================================
         // MAP KATEGORI
@@ -1867,6 +2028,35 @@ class Laporan extends BaseController
         ->orderBy('pembayaran_id', 'DESC')        // <-- diubah dari ASC
         ->get()
         ->getResultArray();
+
+    // =========================================================
+    // LENGKAPI DENGAN ARCHIVE
+    // =========================================================
+    // Sama pola dengan itemHarian(): VIEW live tidak menjangkau data
+    // yang sudah di-archive, jadi archive di-query terpisah dengan
+    // filter yang sama (metode/keyword) lalu digabung & diurutkan
+    // ulang di sini.
+    try {
+        $archiveService = new \App\Services\TransaksiArchiveService();
+        $rowsArchive = $archiveService->getDaftarPembayaranMentah(
+            $tanggalMulai . ' 00:00:00',
+            $tanggalSampai . ' 23:59:59',
+            $metode !== '' ? $metode : null,
+            $keyword !== '' ? $keyword : null
+        );
+
+        if (!empty($rowsArchive)) {
+            $rows = array_merge($rows, $rowsArchive);
+
+            usort($rows, function ($a, $b) {
+                $cmpTanggal = strcmp($b['tanggal_pembayaran'], $a['tanggal_pembayaran']);
+                if ($cmpTanggal !== 0) return $cmpTanggal;
+                return $b['pembayaran_id'] <=> $a['pembayaran_id'];
+            });
+        }
+    } catch (\Throwable $e) {
+        log_message('error', 'Laporan pembayaran() gagal baca archive: ' . $e->getMessage());
+    }
 
     // =========================================================
     // SUMMARY

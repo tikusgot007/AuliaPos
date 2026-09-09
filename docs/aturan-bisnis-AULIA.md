@@ -1,15 +1,18 @@
 # AULIA — Dokumentasi Aturan Bisnis & Keputusan Teknis
 
 **Status:** Baseline aktif  
-**Tanggal:** 2026-09-05 (update terakhir)  
+**Tanggal:** 2026-09-09 (update terakhir)  
 **Project:** AULIA — PHP CodeIgniter 4 POS
 
 > **Ringkasan update terbaru:** dokumen ini sekarang juga mencakup
-> Modul Jadwal Karyawan (baru, lihat Section 20) yang sepenuhnya
-> terpisah dari domain transaksi/kasir di Section 1-19. Section 19
-> juga bertambah 6 entri pekerjaan (P9-P14): UI/error-handling tombol
-> Selesai, filter status transaksi eksplisit, fitur Pelunasan
-> Terlambat/Backdate, dan beberapa perbaikan UI kecil.
+> fitur **Archive Transaksi** (baru, lihat Section 28) — memindahkan
+> transaksi lama (≥6 bulan penuh) ke database SQLite terpisah supaya
+> database utama tetap ramping tanpa kehilangan histori. Modul Jadwal
+> Karyawan (Section 20) sepenuhnya terpisah dari domain transaksi/
+> kasir di Section 1-19. Section 19 juga bertambah 6 entri pekerjaan
+> (P9-P14): UI/error-handling tombol Selesai, filter status transaksi
+> eksplisit, fitur Pelunasan Terlambat/Backdate, dan beberapa
+> perbaikan UI kecil.
 
 ---
 
@@ -1595,3 +1598,120 @@ BELUM BAYAR
 ```
 
 Kedua lifecycle tersebut **tidak boleh dicampur**.
+
+---
+
+# 28. Archive Transaksi (2026-09-09)
+
+## 28.1 Tujuan & prinsip
+
+Mengurangi beban database utama (MySQL) dan menghilangkan transaksi
+historis dari Tagihan/badge notifikasi, **tanpa kehilangan histori**
+transaksi & pembayaran yang masih dibutuhkan untuk laporan dan
+pencarian. Bersifat **manual sepenuhnya** — admin yang menjalankan
+lewat UI, **tidak ada cron/scheduler**.
+
+Prinsip utama: **integritas data di atas segalanya**. Data hanya boleh
+dihapus dari MySQL setelah terbukti tersalin lengkap & valid di
+archive.
+
+## 28.2 Aturan cutoff bulan eligible
+
+> **Bulan X eligible untuk di-archive kalau X berjarak ≥ 6 bulan PENUH
+> dari bulan berjalan** (perbandingan granularitas BULAN, bukan
+> tanggal persis).
+
+Contoh (hari ini 8 September 2026): Januari/Februari/Maret 2026
+eligible, April 2026 belum.
+
+**Catatan rekonsiliasi**: spesifikasi awal fitur ini menyebut aturan
+level tanggal ("tanggal terakhir bulan < hari ini dikurangi 6 bulan"),
+tapi itu tidak cocok dengan contoh konkret yang sama-sama diberikan di
+spesifikasi (Maret seharusnya belum eligible kalau dihitung literal
+per-tanggal). Aturan final di atas mengikuti **contoh konkretnya**
+(lebih presisi & bisa diuji), diimplementasikan di
+`TransaksiArchiveService::isBulanEligible()`.
+
+Yang di-archive: **semua transaksi pada bulan eligible**, tanpa filter
+status transaksi/pembayaran (proses/selesai/batal, belum_bayar/dp/
+lunas semua ikut). Status & nilai transaksi **tidak pernah diubah**
+saat archive.
+
+## 28.3 Database archive
+
+SQLite terpisah, koneksi CodeIgniter grup `archive` (lihat
+`Config\Database::$archive`). Path default
+`WRITEPATH . 'archive/aulia_pos_archive.db'`, bisa di-override lewat
+`.env` (`database.archive.database=...`) tanpa ubah kode — database
+utama (MySQL, grup `default`) **tidak pernah diganti/disentuh
+strukturnya**.
+
+Tabel: `transaksi_archive`, `detail_transaksi_archive`,
+`pembayaran_archive` — skema di-generate otomatis saat pertama kali
+dipakai (`TransaksiArchiveService::pastikanSkemaArchive()`, self-
+initializing, tidak butuh langkah migrate terpisah). `id` di archive
+**sama persis** dengan `id` asli di MySQL (bukan autoincrement baru),
+supaya relasi & referensi lama tetap konsisten.
+
+Nama pelanggan (`pelanggan_nama`) dan kasir (`kasir_nama`,
+`kasir_username`, `kasir_inisial`) di-**snapshot** langsung ke archive
+saat archive dijalankan — pola yang sama dengan `nama_produk` yang
+sudah lebih dulu ada di `detail_transaksi`. Ini supaya archive
+tetap self-contained (bisa dibaca sendiri) walau baris
+pelanggan/users di DB utama nanti berubah, **tanpa** perlu menyalin
+seluruh tabel master `pelanggan`/`produk`/`kategori`/`users` (audit
+kode: tidak ditemukan hard-delete pada kedua tabel itu, tapi snapshot
+tetap dipilih untuk keamanan jangka panjang).
+
+## 28.4 Alur eksekusi (destruktif, wajib berurutan)
+
+```text
+Admin buka /archive-transaksi (admin-only)
+        ↓
+Sistem tampilkan bulan eligible (dari data yang benar-benar ada di MySQL)
+        ↓
+Admin pilih 1+ bulan → Preview (read-only)
+        ↓
+Admin ketik "ARCHIVE" (unlock tombol) → modal konfirmasi
+        ↓
+1. Tulis backup JSON mentah ke writable/archive/backups/
+2. Salin ke SQLite archive (INSERT OR REPLACE — idempotent,
+   retry setelah gagal sebagian TIDAK menduplikasi baris)
+3. VALIDASI: jumlah baris (transaksi/detail/pembayaran) & total
+   grand_total archive harus cocok PERSIS dengan sumber
+        ↓
+   Validasi gagal?  →  STOP. MySQL tidak tersentuh sama sekali.
+        ↓ (valid)
+4. Hapus dari MySQL (satu transaksi DB; detail_transaksi &
+   pembayaran ikut lewat FK ON DELETE CASCADE yang sudah ada,
+   tidak perlu DELETE terpisah per tabel anak)
+```
+
+Kalau langkah hapus dari MySQL sendiri gagal (setelah archive
+tervalidasi lengkap): data **tetap ada di kedua tempat** (tidak
+hilang), admin tinggal jalankan archive lagi untuk bulan yang sama —
+aman diulang karena `INSERT OR REPLACE`.
+
+## 28.5 Integrasi ke modul lain
+
+| Modul | Dampak |
+|---|---|
+| **Tagihan + badge notifikasi** | Otomatis aman, **tanpa perubahan kode** — query-nya (`status_pembayaran != lunas AND status != batal`) tidak pernah dibatasi tanggal, jadi begitu baris dihapus dari MySQL langsung hilang dari Tagihan. |
+| **Kas** (`CashBalanceService`) | Terbukti **tidak perlu diubah** — saldo kas selalu query `pembayaran` untuk tanggal target saja (same-day), dan cutoff archive minimal 6 bulan lalu tidak mungkin overlap. |
+| **Pencarian transaksi** (`Transaksi::index()` dgn keyword) | Dual-source: keyword yang diisi memicu query tambahan ke archive (`TransaksiArchiveService::cariUntukDaftarTransaksi()`), hasil digabung & ditandai `_sumber` (`aktif`/`archive`, badge di UI). |
+| **Detail transaksi** (`Transaksi::detail()`) | Fallback ke archive kalau ID tidak ketemu di MySQL. Halaman jadi **read-only**: semua tombol aksi (edit/bayar/selesai/batal/**cetak**) disembunyikan lewat flag `$dariArchive`. |
+| **`Tagihan::detail()`** | **BELUM** di-fallback ke archive (beda dari `Transaksi::detail()`) — risiko kecil karena Tagihan tidak punya fitur cari-lewat-histori, kemungkinan hit ID archive di sini cuma dari bookmark lama. |
+| **Cetak ulang/reprint** | **Sengaja tidak didukung** untuk transaksi archive (dikonfirmasi tidak diperlukan). |
+| **Laporan** (`Laporan.php`) | Dual-source penuh di semua jalur: `getData()` (Periode/Per Kategori), `getPemasukanHarianData()`, `getLaporanBulananData()`, `itemHarian()`, `pembayaran()`, `exportExcel()`. Karena MySQL tidak bisa JOIN ke SQLite, tiap sumber di-query terpisah lalu digabung di PHP **sebelum** masuk ke logic olah-data yang sudah ada — logic aggregasi asli tidak diubah. `LaporanTest.php` **sengaja tidak disentuh** (dikonfirmasi tidak dipakai). |
+| **`Api::searchGlobal()`** | Dibuat dual-source juga, tapi ternyata **dead code** — tidak dipanggil frontend mana pun (search box asli submit form biasa ke `/transaksi?keyword=`). Dibiarkan siap pakai kalau suatu saat diaktifkan. |
+
+## 28.6 Keterbatasan yang diketahui
+
+- Tidak ada UI restore otomatis (archive → MySQL) — data tetap bisa
+  dikembalikan manual dari SQLite archive atau file backup JSON kalau
+  benar-benar dibutuhkan.
+- File backup JSON di `writable/archive/backups/` menumpuk tanpa
+  pembersihan otomatis (sengaja, karena tidak ada scheduler) — perlu
+  dibersihkan manual sesekali.
+- Belum ada test end-to-end dengan MySQL sungguhan (disarankan dites
+  di staging dengan data dummy dulu sebelum dipakai di production).

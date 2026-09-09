@@ -367,6 +367,44 @@ class Transaksi extends BaseController
         $transaksi =
             $builder->findAll();
 
+        // Tandai eksplisit sebagai data aktif -- supaya bentuknya
+        // konsisten dengan hasil dari archive di bawah (poin 9: UI
+        // bisa menampilkan sumber Aktif/Archive per baris).
+        foreach ($transaksi as &$row) {
+            $row['_sumber'] = 'aktif';
+        }
+        unset($row);
+
+        /*
+    |--------------------------------------------------------------------------
+    | LENGKAPI DENGAN HASIL ARCHIVE (HANYA SAAT ADA KEYWORD)
+    |--------------------------------------------------------------------------
+    |
+    | Tanpa keyword, daftar ini memang dibatasi periode tanggal aktif
+    | (lihat blok FILTER TANGGAL di atas) -- archive TIDAK ikut di sini
+    | karena bukan pencarian, murni daftar transaksi berjalan.
+    |
+    | Dengan keyword, pencarian "berlaku ke seluruh histori" (sudah jadi
+    | komentar existing di atas) -- supaya itu benar-benar utuh, hasil
+    | dari database archive ikut digabung di sini (poin 9 spesifikasi
+    | Archive Transaksi: transaksi lama yang sudah di-archive tetap
+    | harus bisa ditemukan lewat pencarian yang sama).
+    |
+    */
+
+        if ($keyword !== '') {
+            try {
+                $archiveService = new \App\Services\TransaksiArchiveService();
+                $dariArchive = $archiveService->cariUntukDaftarTransaksi($keyword, $parsedNoOrder ?: null);
+                $transaksi = array_merge($transaksi, $dariArchive);
+            } catch (\Throwable $e) {
+                // Archive gagal diakses TIDAK boleh mematikan pencarian
+                // transaksi aktif -- log saja dan lanjut dengan hasil
+                // dari DB utama.
+                log_message('error', 'Transaksi::index keyword archive gagal: ' . $e->getMessage());
+            }
+        }
+
 
         /*
     |--------------------------------------------------------------------------
@@ -741,7 +779,53 @@ class Transaksi extends BaseController
             ->find($id);
 
         if (!$transaksi) {
-            return redirect()->to('/transaksi')->with('error', 'Transaksi tidak ditemukan.');
+            // Tidak ada di DB utama -- coba cari di archive sebelum
+            // menyerah (poin 9: transaksi yang sudah di-archive tetap
+            // boleh dilihat, cuma read-only).
+            try {
+                $dariArchive = (new \App\Services\TransaksiArchiveService())->cariById((int) $id);
+            } catch (\Throwable $e) {
+                log_message('error', 'Transaksi::detail fallback archive gagal: ' . $e->getMessage());
+                $dariArchive = null;
+            }
+
+            if (!$dariArchive) {
+                return redirect()->to('/transaksi')->with('error', 'Transaksi tidak ditemukan.');
+            }
+
+            $transaksi = $dariArchive['transaksi'];
+            $detailItems = $dariArchive['detail_items'];
+            $pembayaran = $dariArchive['pembayaran'];
+            $pelanggan = $transaksi['pelanggan_id']
+                ? $pelangganModel->find($transaksi['pelanggan_id'])
+                : null;
+
+            // Kalau baris pelanggan sudah tidak ada/berubah di DB utama,
+            // tetap tampilkan nama hasil snapshot archive supaya
+            // halaman ini tetap informatif & self-contained.
+            if (!$pelanggan && !empty($transaksi['pelanggan_nama'])) {
+                $pelanggan = ['nama' => $transaksi['pelanggan_nama']];
+            }
+
+            $total_dibayar = array_sum(array_column($pembayaran, 'jumlah'));
+            $sisa_tagihan = max(0, $transaksi['grand_total'] - $total_dibayar);
+            $kelebihan_bayar = max(0, $total_dibayar - $transaksi['grand_total']);
+
+            $data = [
+                'title'   => 'Detail Transaksi (Archive) | AULIA',
+                'content' => 'transaksi/detail',
+                'transaksi' => $transaksi,
+                'detail_items' => $detailItems,
+                'pembayaran' => $pembayaran,
+                'pelanggan' => $pelanggan,
+                'total_dibayar' => $total_dibayar,
+                'sisa_tagihan' => $sisa_tagihan,
+                'kelebihan_bayar' => $kelebihan_bayar,
+                'dariTagihan' => false,
+                'dariArchive' => true,
+            ];
+
+            return view('layout/main', $data);
         }
 
         // Ambil detail item
@@ -776,7 +860,8 @@ class Transaksi extends BaseController
             'total_dibayar' => $total_dibayar,
             'sisa_tagihan' => $sisa_tagihan,
             'kelebihan_bayar' => $kelebihan_bayar,
-            'dariTagihan' => false
+            'dariTagihan' => false,
+            'dariArchive' => false,
         ];
 
         return view('layout/main', $data);

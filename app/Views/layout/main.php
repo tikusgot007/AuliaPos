@@ -588,7 +588,8 @@
 
                 $isAdminMenu =
                     strpos(current_url(), '/user-management') !== false ||
-                    strpos(current_url(), '/ganti-password') !== false;
+                    strpos(current_url(), '/ganti-password') !== false ||
+                    strpos(current_url(), '/archive-transaksi') !== false;
 
                 $isLaporanMenu =
                     strpos(current_url(), '/laporan') !== false;
@@ -862,6 +863,16 @@
 
                                             <i class="fas fa-database"></i>
                                             Migrasi Database
+
+                                        </a>
+                                    </li>
+
+                                    <li class="nav-item">
+                                        <a class="nav-link <?= strpos(current_url(), '/archive-transaksi') !== false ? 'active' : '' ?>"
+                                            href="<?= base_url('/archive-transaksi') ?>">
+
+                                            <i class="fas fa-box-archive"></i>
+                                            Archive Transaksi
 
                                         </a>
                                     </li>

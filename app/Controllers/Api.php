@@ -915,6 +915,8 @@ class Api extends BaseController
             ]);
         }
 
+        $limit = 10;
+
         $transaksiModel = new \App\Models\TransaksiModel();
 
         $builder = $transaksiModel
@@ -935,8 +937,37 @@ class Api extends BaseController
 
         $data = $builder
             ->orderBy('transaksi.tanggal', 'DESC')
-            ->limit(10)
+            ->limit($limit)
             ->findAll();
+
+        // Tandai eksplisit sebagai data aktif, supaya bentuknya sama
+        // dengan hasil dari archive (poin 9: UI bisa menampilkan
+        // sumber Aktif/Archive).
+        foreach ($data as &$row) {
+            $row['_sumber'] = 'aktif';
+        }
+        unset($row);
+
+        // Kalau hasil dari DB utama belum penuh, lengkapi sisanya dari
+        // Archive -- supaya transaksi lama yang sudah di-archive tetap
+        // bisa ditemukan lewat search yang sama (bukan fitur terpisah).
+        // Tidak menyentuh archive kalau slot sudah penuh dari data
+        // aktif (kasus paling umum), jadi tidak menambah beban query
+        // untuk pencarian sehari-hari yang hasilnya sudah cukup.
+        if (count($data) < $limit) {
+            try {
+                $archiveService = new \App\Services\TransaksiArchiveService();
+                $sisaSlot = $limit - count($data);
+                $dariArchive = $archiveService->cariTransaksi($keyword, $no_order, $sisaSlot);
+                $data = array_merge($data, $dariArchive);
+            } catch (\Throwable $e) {
+                // Archive gagal diakses (mis. file belum ada / belum
+                // pernah archive sama sekali) TIDAK boleh mematikan
+                // search transaksi aktif -- log saja dan lanjut dengan
+                // hasil dari DB utama.
+                log_message('error', 'searchGlobal: gagal query archive: ' . $e->getMessage());
+            }
+        }
 
         return $this->response->setJSON([
             'status' => 'success',

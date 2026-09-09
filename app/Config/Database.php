@@ -158,6 +158,48 @@ class Database extends Config
     //    ];
 
     /**
+     * Koneksi terpisah untuk Archive Transaksi (lihat
+     * App\Services\TransaksiArchiveService). SQLite mandiri, TIDAK
+     * pernah dipakai sebagai $defaultGroup -- database utama MySQL
+     * tidak berubah sama sekali.
+     *
+     * Path default ada di WRITEPATH (folder `writable/`, sudah
+     * gitignored & writable secara standar CI4), bukan hardcode ke
+     * lokasi environment tertentu. Bisa di-override lewat .env tanpa
+     * ubah kode, mis.:
+     *   database.archive.database = /path/lain/aulia_archive.db
+     *
+     * @var array<string, mixed>
+     */
+    public array $archive = [
+        'DSN'         => '',
+        'hostname'    => '',
+        'username'    => '',
+        'password'    => '',
+        'database'    => WRITEPATH . 'archive/aulia_pos_archive.db',
+        'DBDriver'    => 'SQLite3',
+        'DBPrefix'    => '',
+        'pConnect'    => false,
+        'DBDebug'     => true,
+        'charset'     => 'utf8',
+        'DBCollat'    => '',
+        'swapPre'     => '',
+        'encrypt'     => false,
+        'compress'    => false,
+        'strictOn'    => false,
+        'failover'    => [],
+        'port'        => 3306,
+        'foreignKeys' => true,
+        'busyTimeout' => 2000,
+        'synchronous' => null,
+        'dateFormat'  => [
+            'date'     => 'Y-m-d',
+            'datetime' => 'Y-m-d H:i:s',
+            'time'     => 'H:i:s',
+        ],
+    ];
+
+    /**
      * This database connection is used when running PHPUnit database tests.
      *
      * @var array<string, mixed>

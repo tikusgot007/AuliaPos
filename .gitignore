@@ -18,6 +18,8 @@
 /writable/debugbar/*
 !/writable/debugbar/index.html
 !/writable/uploads/index.html
+/writable/archive/*
+!/writable/archive/index.html
 
 # === OS/editor ===
 .DS_Store

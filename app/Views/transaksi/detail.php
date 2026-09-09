@@ -5,6 +5,11 @@
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Detail Transaksi</h5>
                 <div>
+                    <?php if (!empty($dariArchive)): ?>
+                        <span class="badge bg-secondary" title="Data historis, sudah dipindahkan ke database archive">
+                            <i class="fas fa-box-archive"></i> Archive (read-only)
+                        </span>
+                    <?php endif; ?>
                     <span class="badge bg-<?= $transaksi['status'] == 'batal' ? 'secondary' : ($transaksi['status'] == 'proses' ? 'warning' : ($transaksi['status'] == 'selesai' ? 'primary' : 'success')) ?>">
                         <?= strtoupper($transaksi['status']) ?>
                     </span>
@@ -198,6 +203,16 @@
         <!-- ========================================== -->
         <div class="mt-3">
 
+            <?php if (!empty($dariArchive)): ?>
+
+                <div class="alert alert-secondary mb-0">
+                    <i class="fas fa-box-archive"></i>
+                    Transaksi ini sudah dipindahkan ke database archive (data historis).
+                    Hanya bisa dilihat -- tidak bisa diedit, dibayar, diselesaikan, atau
+                    dibatalkan lewat halaman ini.
+                </div>
+
+            <?php else: ?>
 
             <!-- TOMBOL EDIT: HANYA TRANSAKSI PROSES -->
             <?php if (($transaksi['status'] ?? '') === 'proses'): ?>
@@ -244,6 +259,8 @@
                 </button>
             <?php endif; ?>
 
+            <?php endif; ?>
+
 
         </div>
 
@@ -273,7 +290,11 @@
             </a>
 
             <!-- Tombol Cetak -->
-            <?php if ($transaksi['status'] != 'batal'): ?>
+            <!-- Tidak tersedia untuk transaksi archive: Cetak.php baca
+                 langsung dari DB utama, dan reprint archive sengaja
+                 TIDAK diimplementasikan (dikonfirmasi tidak diperlukan
+                 saat audit fitur Archive Transaksi). -->
+            <?php if ($transaksi['status'] != 'batal' && empty($dariArchive)): ?>
 
                 <div class="d-flex flex-wrap gap-2">
 

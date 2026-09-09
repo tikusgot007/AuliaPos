@@ -31,7 +31,7 @@ class AuthFilter implements FilterInterface
         $uri = service('uri')->getPath();
 
         // Route yang hanya boleh diakses admin
-        $adminRoutes = ['laporan', 'user-management', 'auth/tambah-user', 'auth/edit-user', 'auth/hapus-user', 'jadwal', 'migrasi-manual'];
+        $adminRoutes = ['laporan', 'user-management', 'auth/tambah-user', 'auth/edit-user', 'auth/hapus-user', 'jadwal', 'migrasi-manual', 'archive-transaksi'];
 
         foreach ($adminRoutes as $route) {
             if (strpos($uri, $route) === 0 && session()->get('role') != 'admin') {
