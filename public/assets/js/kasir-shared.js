@@ -559,8 +559,15 @@ function hitungPembulatan(subtotal, diskon = 0) {
 }
 
 function resetDiskon() {
+    const checkbox = document.getElementById('diskonPelangganCheckbox');
+    if (checkbox) {
+        checkbox.checked = false;
+    }
+
     document.getElementById('diskonInput').value = 0;
+    document.getElementById('diskonInput').disabled = false;
     document.getElementById('diskonTipe').value = 'percent';
+    document.getElementById('diskonTipe').disabled = false;
     diskonValue = 0;
     hitungDiskon();
 }
@@ -746,6 +753,7 @@ function handleCustomerNameInput(keyword) {
     // Ketika nama diubah manual,
     // pelanggan lama tidak lagi dianggap terpilih.
     pelangganTerpilih = null;
+    terapkanUIDiskonPelanggan();
 
     const telp = document.getElementById('telpPelanggan');
     const btnEdit = document.getElementById('btnEditTelpPelanggan');
@@ -801,7 +809,8 @@ function searchPelanggan(keyword) {
                     pilihPelanggan(
                         exact.id,
                         exact.nama || '',
-                        document.getElementById('telpPelanggan').value || exact.no_hp || ''
+                        document.getElementById('telpPelanggan').value || exact.no_hp || '',
+                        exact.diskon || 0
                     );
 
                     list.style.display = 'none';
@@ -825,7 +834,7 @@ function searchPelanggan(keyword) {
 
                     option.addEventListener('click', function (event) {
                         event.preventDefault();
-                        pilihPelanggan(p.id, p.nama || '', p.no_hp || '');
+                        pilihPelanggan(p.id, p.nama || '', p.no_hp || '', p.diskon || 0);
                     });
                     list.appendChild(option);
                 });
@@ -874,6 +883,7 @@ function restorePelangganFromUrl() {
     const pelangganId = params.get('pelanggan_id');
     const pelangganNama = params.get('pelanggan_nama');
     const pelangganTelp = params.get('pelanggan_telp');
+    const pelangganDiskon = params.get('pelanggan_diskon');
 
     if (!pelangganId || !pelangganNama) {
         return;
@@ -882,7 +892,8 @@ function restorePelangganFromUrl() {
     pilihPelanggan(
         pelangganId,
         pelangganNama,
-        pelangganTelp || ''
+        pelangganTelp || '',
+        pelangganDiskon || 0
     );
 
     // Bersihkan parameter URL setelah berhasil dipakai.
@@ -893,7 +904,7 @@ function restorePelangganFromUrl() {
     window.history.replaceState({}, document.title, cleanUrl);
 }
 
-function pilihPelanggan(id, nama, no_hp) {
+function pilihPelanggan(id, nama, no_hp, diskon, autoTerapkan) {
     customerSearchSequence++;
 
     if (customerSearchRequest) {
@@ -927,8 +938,84 @@ function pilihPelanggan(id, nama, no_hp) {
     pelangganTerpilih = {
         id: parseInt(id),
         nama: nama,
-        no_hp: no_hp || ''
+        no_hp: no_hp || '',
+        // 🔥 Diskon Pelanggan -- persen dari master pelanggan.diskon,
+        // dipakai untuk mengisi checkbox "Diskon Pelanggan" secara
+        // otomatis (lihat terapkanUIDiskonPelanggan()). Nilai final
+        // yang benar-benar dipakai transaksi TETAP diresolusi ulang
+        // di backend dari DB saat disimpan -- ini murni untuk UI/preview.
+        diskon: parseFloat(diskon) || 0
     };
+
+    // autoTerapkan=false (dipakai kasir/edit.php saat prefill) berarti
+    // cuma tampilkan/sembunyikan box sesuai diskon pelanggan SAAT INI,
+    // TANPA memaksa checkbox & field diskonInput -- supaya state
+    // checkbox/nilai yang SUDAH tersimpan di transaksi (mungkin beda
+    // dari diskon pelanggan saat ini) tidak keburu tertimpa sebelum
+    // sempat di-set manual oleh halaman pemanggil.
+    terapkanUIDiskonPelanggan(autoTerapkan === undefined ? true : autoTerapkan);
+}
+
+// ---------------------------------------------------------------
+// 6b. DISKON PELANGGAN OTOMATIS
+// ---------------------------------------------------------------
+// Reuse mekanisme diskon manual yang sudah ada (diskonInput/
+// diskonTipe/hitungDiskon()) -- checkbox ini cuma MODE baru untuk
+// field yang sama, BUKAN sistem diskon kedua. Dua mode TIDAK PERNAH
+// aktif bersamaan (mencegah double discount):
+//   - checkbox ON  -> diskonInput dikunci ke persen pelanggan
+//   - checkbox OFF -> diskonInput manual seperti sebelum fitur ini ada
+function terapkanUIDiskonPelanggan(autoTerapkan) {
+    if (autoTerapkan === undefined) autoTerapkan = true;
+
+    const box = document.getElementById('diskonPelangganBox');
+    const checkbox = document.getElementById('diskonPelangganCheckbox');
+    const label = document.getElementById('diskonPelangganPersenLabel');
+
+    if (!box || !checkbox) return;
+
+    const persen = pelangganTerpilih ? (parseFloat(pelangganTerpilih.diskon) || 0) : 0;
+
+    if (persen > 0) {
+        box.style.display = 'flex';
+        checkbox.dataset.persen = String(persen);
+        if (label) label.textContent = persen + '%';
+        // Default aktif begitu pelanggan dgn diskon dipilih (sesuai
+        // spesifikasi: "Checkbox menjadi aktif/default sesuai nilai
+        // diskon pelanggan") -- HANYA kalau autoTerapkan (lihat
+        // catatan di pilihPelanggan()).
+        if (autoTerapkan) checkbox.checked = true;
+    } else {
+        box.style.display = 'none';
+        if (autoTerapkan) checkbox.checked = false;
+        checkbox.dataset.persen = '';
+    }
+
+    if (autoTerapkan) toggleDiskonPelanggan();
+}
+
+function toggleDiskonPelanggan() {
+    const checkbox = document.getElementById('diskonPelangganCheckbox');
+    const diskonInput = document.getElementById('diskonInput');
+    const diskonTipe = document.getElementById('diskonTipe');
+
+    if (!diskonInput || !diskonTipe) return;
+
+    const aktif = !!(checkbox && checkbox.checked);
+
+    if (aktif) {
+        const persen = parseFloat(checkbox.dataset.persen || '0') || 0;
+        diskonInput.value = persen;
+        diskonTipe.value = 'percent';
+        diskonInput.disabled = true;
+        diskonTipe.disabled = true;
+    } else {
+        diskonInput.value = 0;
+        diskonInput.disabled = false;
+        diskonTipe.disabled = false;
+    }
+
+    hitungDiskon();
 }
 $(document).on('click', function (e) {
     if (!$(e.target).closest('#namaPelanggan, #listPelanggan').length) {

@@ -411,6 +411,16 @@
                         <span id="previewSubtotal">Rp 0</span>
                     </div>
 
+                    <!-- 🔥 DISKON PELANGGAN OTOMATIS (lihat kasir/index.php) -->
+                    <div class="d-flex justify-content-between align-items-center mt-1"
+                        id="diskonPelangganBox" style="display: none; font-size: 0.85rem;">
+                        <label class="d-flex align-items-center gap-1 mb-0" style="cursor: pointer;">
+                            <input type="checkbox" id="diskonPelangganCheckbox" onchange="toggleDiskonPelanggan()">
+                            <span class="text-muted">Diskon Pelanggan</span>
+                        </label>
+                        <span id="diskonPelangganPersenLabel" class="text-muted">0%</span>
+                    </div>
+
                     <div class="d-flex justify-content-between align-items-center mt-1" style="font-size: 0.9rem;">
                         <span class="text-muted">Diskon</span>
                         <div class="d-flex align-items-center gap-1">
@@ -565,8 +575,52 @@
         pilihPelanggan(
             <?= (int) $pelanggan['id'] ?>,
             <?= json_encode($pelanggan['nama'] ?? '') ?>,
-            <?= json_encode($pelanggan['no_hp'] ?? '') ?>
+            <?= json_encode($pelanggan['no_hp'] ?? '') ?>,
+            <?= (float) ($pelanggan['diskon'] ?? 0) ?>,
+            false
         );
+
+        // pilihPelanggan() di atas otomatis meng-CENTANG checkbox kalau
+        // pelanggan SAAT INI punya diskon > 0 -- tapi transaksi ini
+        // mungkin dulu dibuat TANPA diskon pelanggan (manual/tidak
+        // dicentang), atau pelanggan.diskon sudah berubah sejak saat
+        // itu. Paksa state checkbox mengikuti nilai yang BENERAN
+        // tersimpan di transaksi ini (diskon_pelanggan_persen),
+        // supaya reopen halaman edit tidak diam-diam mengubah dasar
+        // perhitungan diskonnya.
+        (function () {
+            const persenTersimpan = <?= $transaksi['diskon_pelanggan_persen'] !== null
+                ? (float) $transaksi['diskon_pelanggan_persen']
+                : 'null' ?>;
+            const checkbox = document.getElementById('diskonPelangganCheckbox');
+            const box = document.getElementById('diskonPelangganBox');
+            const label = document.getElementById('diskonPelangganPersenLabel');
+
+            if (!checkbox) return;
+
+            if (persenTersimpan !== null) {
+                // Diskon pelanggan memang aktif saat transaksi ini
+                // dibuat -- percayai nilai yang TERSIMPAN (bukan
+                // diskon pelanggan SAAT INI, yang bisa saja sudah
+                // berubah di master sejak transaksi dibuat). Paksa
+                // box tetap terlihat & interaktif meski pelanggan
+                // saat ini kebetulan diskon-nya 0 (tetap transparan
+                // ke kasir bahwa transaksi ini pakai diskon pelanggan).
+                if (box) box.style.display = 'flex';
+                if (label) label.textContent = persenTersimpan + '%';
+                checkbox.dataset.persen = String(persenTersimpan);
+                checkbox.checked = true;
+                toggleDiskonPelanggan();
+            } else {
+                // Diskon pelanggan TIDAK aktif saat itu -- biarkan
+                // diskonInput tetap seperti nilai nominal Rp yang
+                // sudah di-prefill lewat atribut value="" di HTML,
+                // JANGAN dipanggil toggleDiskonPelanggan() di sini
+                // (itu akan mereset field ke 0, menghapus diskon
+                // manual yang sudah tersimpan).
+                checkbox.checked = false;
+            }
+        })();
     <?php endif; ?>
 
     // ================================================================
@@ -596,7 +650,8 @@
             pelanggan_nama: pelangganNama,
             pelanggan_telp: pelangganTelp,
             no_order: noOrderAsli,
-            diskon: diskonValue || 0
+            diskon: diskonValue || 0,
+            diskon_pelanggan_aktif: !!(document.getElementById('diskonPelangganCheckbox')?.checked)
         };
     }
 

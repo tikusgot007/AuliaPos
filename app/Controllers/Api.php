@@ -97,6 +97,12 @@ class Api extends BaseController
         $pelangganNama = trim((string) ($request['pelanggan_nama'] ?? ''));
         $pelangganTelp = trim((string) ($request['pelanggan_telp'] ?? ''));
         $diskon = (float)($request['diskon'] ?? 0);
+        // 🔥 Diskon Pelanggan: HANYA sebuah flag "pakai diskon pelanggan
+        // yang sedang terpilih" dari client -- persennya sendiri TIDAK
+        // dipercaya dari request (lihat resolusi di bawah, setelah
+        // pelanggan final diketahui), supaya tidak bisa dipalsukan
+        // lewat request tanpa menyentuh pelanggan.diskon sama sekali.
+        $diskonPelangganAktif = !empty($request['diskon_pelanggan_aktif']);
         $jumlahDp = (float)($request['jumlah_dp'] ?? 0);
         $noOrder = $request['no_order'] ?? null;
         $uangDiterima = (float)($request['uang_diterima'] ?? 0);
@@ -217,11 +223,31 @@ class Api extends BaseController
         }
 
         // ==========================================
+        // 🔥 RESOLUSI DISKON PELANGGAN (server-side, read-only
+        // terhadap master) -- lihat App\Services\KalkulasiDiskonTransaksi
+        // untuk aturan lengkapnya.
         // ==========================================
 
-        $grandTotalSebelumPembulatan = $subtotal - $diskon;
-        $grandTotal = floor($grandTotalSebelumPembulatan / 100) * 100;
-        $selisihPembulatan = $grandTotalSebelumPembulatan - $grandTotal;
+        $persenDiskonPelanggan = null;
+
+        if ($diskonPelangganAktif && $finalPelangganId !== null) {
+            $pelangganModel = $pelangganModel ?? new \App\Models\PelangganModel();
+            $pelangganUntukDiskon = $pelangganModel->find($finalPelangganId);
+            $persenMaster = $pelangganUntukDiskon ? (float) ($pelangganUntukDiskon['diskon'] ?? 0) : 0;
+
+            // Kalau ternyata pelanggan tidak (lagi) punya diskon > 0,
+            // perlakukan sebagai diskon manual biasa (fallback aman --
+            // tidak menolak transaksi hanya karena flag ini "basi").
+            if ($persenMaster > 0) {
+                $persenDiskonPelanggan = $persenMaster;
+            }
+        }
+
+        $kalkulasi = \App\Services\KalkulasiDiskonTransaksi::hitung($subtotal, $persenDiskonPelanggan, $diskon);
+        $diskon = $kalkulasi['diskon'];
+        $grandTotal = $kalkulasi['grand_total'];
+        $selisihPembulatan = $kalkulasi['selisih_pembulatan'];
+        $diskonPelangganPersenTersimpan = $kalkulasi['diskon_pelanggan_persen'];
 
         // ==========================================
         // ==========================================
@@ -273,6 +299,7 @@ class Api extends BaseController
             'kasir_id' => $kasirId,
             'subtotal' => $subtotal,
             'diskon' => $diskon,
+            'diskon_pelanggan_persen' => $diskonPelangganPersenTersimpan,
             'pajak' => 0,
             'grand_total' => $grandTotal,
             'selisih_pembulatan' => $selisihPembulatan,
@@ -348,7 +375,7 @@ class Api extends BaseController
                 'invoice' => $dataTransaksi['kode_invoice'],
                 'transaksi_id' => $transaksiId,
                 'grand_total' => $grandTotal,
-                'grand_total_sebelum_pembulatan' => $grandTotalSebelumPembulatan,
+                'grand_total_sebelum_pembulatan' => $grandTotal + $selisihPembulatan,
                 'selisih_pembulatan' => $selisihPembulatan,
                 'total_dibayar' => $jumlahBayar,
                 'sisa_tagihan' => $grandTotal - $jumlahBayar,
@@ -621,10 +648,14 @@ class Api extends BaseController
         $id = $request->id ?? 0;
         $status = $request->status ?? '';
 
-        // Lifecycle transaksi: proses -> selesai atau batal.
-        // 'selesai' adalah status final pekerjaan, sedangkan 'lunas'
-        // hanya merupakan status pembayaran.
-        $validStatus = ['proses', 'selesai', 'batal'];
+        // Lifecycle transaksi: proses -> selesai/batal/mangkrak,
+        // mangkrak -> proses (aktifkan kembali). 'selesai' adalah
+        // status final pekerjaan, 'mangkrak' adalah transaksi yang
+        // beneran terjadi tapi macet (beda dari 'batal' yang berarti
+        // dianggap tidak pernah terjadi), sedangkan 'lunas' hanya
+        // merupakan status pembayaran. Validasi transisi sesungguhnya
+        // ada di TransaksiModel::ubahStatus(), ini cuma gate awal.
+        $validStatus = ['proses', 'selesai', 'batal', 'mangkrak'];
 
         if (!in_array($status, $validStatus, true)) {
             return $this->response->setJSON([
@@ -828,8 +859,12 @@ class Api extends BaseController
     {
         $transaksiModel = new \App\Models\TransaksiModel();
 
+        // 'batal' & 'mangkrak' sama-sama dikeluarkan dari radar aktif
+        // (beda alasan: batal dianggap tidak pernah terjadi, mangkrak
+        // sengaja "dilepas" dari radar meski transaksinya nyata --
+        // lihat TransaksiModel::ubahStatus() & docs Section 28).
         $jumlah = $transaksiModel->where('status_pembayaran !=', 'lunas')
-            ->where('status !=', 'batal')
+            ->whereNotIn('status', ['batal', 'mangkrak'])
             ->countAllResults();
 
         return $this->response->setJSON([

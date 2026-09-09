@@ -393,6 +393,21 @@
                         <span id="previewSubtotal">Rp 0</span>
                     </div>
 
+                    <!-- 🔥 DISKON PELANGGAN OTOMATIS -->
+                    <!-- Tersembunyi sampai pelanggan dgn diskon > 0
+                         terpilih (lihat terapkanUIDiskonPelanggan() di
+                         kasir-shared.js). Reuse field diskonInput/
+                         diskonTipe di bawah -- BUKAN sistem diskon
+                         terpisah. -->
+                    <div class="d-flex justify-content-between align-items-center mt-1"
+                        id="diskonPelangganBox" style="display: none; font-size: 0.85rem;">
+                        <label class="d-flex align-items-center gap-1 mb-0" style="cursor: pointer;">
+                            <input type="checkbox" id="diskonPelangganCheckbox" onchange="toggleDiskonPelanggan()">
+                            <span class="text-muted">Diskon Pelanggan</span>
+                        </label>
+                        <span id="diskonPelangganPersenLabel" class="text-muted">0%</span>
+                    </div>
+
                     <div class="d-flex justify-content-between align-items-center mt-1" style="font-size: 0.9rem;">
                         <span class="text-muted">Diskon</span>
                         <div class="d-flex align-items-center gap-1">
@@ -608,6 +623,7 @@
             pelanggan_telp: pelangganTelp,
             no_order: noOrderAsli,
             diskon: diskonValue || 0,
+            diskon_pelanggan_aktif: !!(document.getElementById('diskonPelangganCheckbox')?.checked),
             ...extras
         };
     }
@@ -667,6 +683,7 @@
         showModalSukses(response, payment.kembalian || 0);
         resetCartAfterTransaction();
         pelangganTerpilih = null;
+        terapkanUIDiskonPelanggan();
 
         const namaInput = document.getElementById('namaPelanggan');
         const telpInput = document.getElementById('telpPelanggan');
@@ -718,6 +735,9 @@
         html += `
         </div>
         <div class="d-grid gap-2">
+            <button class="btn btn-outline-dark" onclick="cetakTicket(${transaksiId})">
+                <i class="fas fa-id-card"></i> Ticket
+            </button>
             <button class="btn btn-primary" onclick="cetakNota(${transaksiId})">
                 <i class="fas fa-print"></i> Nota
             </button>
@@ -734,10 +754,50 @@
     }
 
     // ---------------------------------------------------------------
-    // CETAK NOTA & THERMAL
+    // CETAK NOTA, THERMAL, & TICKET
     // ---------------------------------------------------------------
     function cetakNota(id) {
         window.open('<?= base_url('/cetak/nota/') ?>' + id, '_blank', 'width=700');
+    }
+
+    // 🔥 Ticket (handover antar-karyawan) -- BUKAN transaksi/pembayaran
+    // baru, murni cetak langsung ke printer thermal (server-side,
+    // reuse infrastructure yang sama dengan cetakThermal()) untuk ID
+    // transaksi yang beneran baru saja tersimpan. Klik berkali-kali/
+    // double-click aman -- tidak ada request yang menulis apa pun
+    // ke DB, cuma kirim ulang perintah cetak.
+    function cetakTicket(id) {
+        showToast('⏳ Mencetak ticket...', 'info');
+
+        $.ajax({
+            url: '<?= base_url('/cetak/ticket/') ?>' + id,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    showToast('✅ ' + (response.message || 'Ticket berhasil dicetak.'), 'success');
+                } else {
+                    showToast('❌ ' + (response.message || 'Gagal mencetak ticket.'), 'danger');
+                }
+            },
+            error: function(xhr) {
+                // Sama seperti cetakThermal() -- request GAGAL di level
+                // HTTP (status bukan 2xx) walau body-nya tetap JSON valid
+                // berisi pesan asli dari controller. jQuery menganggap
+                // status non-2xx sebagai error TANPA mem-parsing body ke
+                // `success`, jadi pesan aslinya harus diambil manual dari
+                // xhr.responseJSON di sini -- kalau tidak, yang tampil
+                // cuma fallback generik dan penyebab sebenarnya (mis.
+                // gagal konek ke printer) jadi tidak kelihatan.
+                let message = 'Gagal mencetak ticket.';
+
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    message = xhr.responseJSON.message;
+                }
+
+                showToast('❌ ' + message, 'danger');
+            }
+        });
     }
 
     function cetakThermal(id) {

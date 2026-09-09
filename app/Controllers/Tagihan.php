@@ -28,9 +28,12 @@ class Tagihan extends BaseController
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             // Tagihan ditentukan oleh status pembayaran, bukan status pekerjaan.
             // Transaksi PROSES maupun SELESAI tetap dapat memiliki tagihan.
-            // Transaksi BATAL tidak boleh masuk daftar tagihan.
+            // Transaksi BATAL & MANGKRAK tidak masuk daftar tagihan --
+            // batal dianggap tidak pernah terjadi, mangkrak sengaja
+            // "dilepas" dari radar aktif meski transaksinya nyata
+            // (lihat TransaksiModel::ubahStatus() & docs Section 28).
             ->where('transaksi.status_pembayaran !=', 'lunas')
-            ->where('transaksi.status !=', 'batal');
+            ->whereNotIn('transaksi.status', ['batal', 'mangkrak']);
 
         if ($hanyaSaya) {
             $query->where('transaksi.kasir_id', (int) session()->get('id_user'));

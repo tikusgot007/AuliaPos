@@ -10,7 +10,12 @@
                             <i class="fas fa-box-archive"></i> Archive (read-only)
                         </span>
                     <?php endif; ?>
-                    <span class="badge bg-<?= $transaksi['status'] == 'batal' ? 'secondary' : ($transaksi['status'] == 'proses' ? 'warning' : ($transaksi['status'] == 'selesai' ? 'primary' : 'success')) ?>">
+                    <span class="badge bg-<?= [
+                                                'proses' => 'warning',
+                                                'selesai' => 'primary',
+                                                'batal' => 'secondary',
+                                                'mangkrak' => 'dark',
+                                            ][$transaksi['status']] ?? 'success' ?>">
                         <?= strtoupper($transaksi['status']) ?>
                     </span>
                     <span class="badge bg-<?= [
@@ -233,8 +238,13 @@
 
             <!-- ========================================== -->
             <!-- 🔥 TOMBOL PEMBAYARAN (JIKA BELUM LUNAS)   -->
+            <!-- Tidak muncul untuk status MANGKRAK -- harus     -->
+            <!-- diaktifkan kembali ke PROSES dulu (lihat tombol -->
+            <!-- "Aktifkan Kembali" di bawah), supaya pembayaran -->
+            <!-- transaksi yang sedang "dilepas" dari radar aktif -->
+            <!-- tetap melalui alur normal, bukan jalan pintas.  -->
             <!-- ========================================== -->
-            <?php if ($sisa_tagihan > 0 && $transaksi['status'] != 'batal'): ?>
+            <?php if ($sisa_tagihan > 0 && !in_array($transaksi['status'] ?? '', ['batal', 'mangkrak'], true)): ?>
 
 
                 <button
@@ -246,11 +256,77 @@
 
                 </button>
             <?php endif; ?>
+
+            <!-- ========================================== -->
+            <!-- 🔥 TOMBOL MANGKRAK / AKTIFKAN KEMBALI     -->
+            <!-- ========================================== -->
+            <!-- Beda dari Batalkan: transaksi ini BENERAN terjadi
+                 (ada order, mungkin sudah ada DP/pekerjaan berjalan)
+                 tapi macet tanpa kejelasan -- belum dibayar, tidak
+                 diambil, dst. Menandai mangkrak melepas transaksi ini
+                 dari Tagihan/badge/reminder (radar aktif) TANPA
+                 menganggapnya tidak pernah terjadi seperti Batalkan --
+                 dan tetap ikut proses Archive normal setelah 6 bulan
+                 seperti transaksi lain (lihat docs Section 28).
+
+                 ADMIN-ONLY (baik menandai maupun mengaktifkan
+                 kembali) -- lihat TransaksiModel::ubahStatus(). Muncul
+                 untuk PROSES, atau untuk SELESAI yang belum lunas
+                 (bisa terjadi kalau pembayarannya di-reversal lewat
+                 koreksi setelah transaksi sempat ditandai selesai). -->
+            <?php $isAdminUser = session()->get('role') === 'admin'; ?>
+            <?php
+                $bolehMangkrakDariProses = $isAdminUser && ($transaksi['status'] ?? '') === 'proses';
+                $bolehMangkrakDariSelesai = $isAdminUser
+                    && ($transaksi['status'] ?? '') === 'selesai'
+                    && ($transaksi['status_pembayaran'] ?? '') !== 'lunas';
+            ?>
+            <?php if ($bolehMangkrakDariProses || $bolehMangkrakDariSelesai): ?>
+                <button class="btn btn-outline-dark w-100 mb-2"
+                    onclick="(async () => {
+                        if (await konfirmasi(
+                            <?= $bolehMangkrakDariSelesai
+                                ? "'Transaksi ini sudah SELESAI tapi belum lunas (kemungkinan pembayarannya sempat dikoreksi/dibatalkan). Menandai MANGKRAK akan melepasnya dari Tagihan/notifikasi tanpa mengubah histori pengerjaannya. Lanjutkan?'"
+                                : "'Transaksi ini akan ditandai MANGKRAK -- hilang dari Tagihan/notifikasi, tapi datanya tetap ada dan bisa diaktifkan kembali kapan saja. Beda dari Batalkan (yang menganggap transaksi tidak pernah terjadi). Lanjutkan?'" ?>,
+                            { title: 'Tandai Mangkrak', okText: 'Ya, Tandai Mangkrak', okClass: 'btn-dark' }
+                        )) { kirimUbahStatusAjax(<?= $transaksi['id'] ?>, 'mangkrak'); }
+                    })()">
+                    <i class="fas fa-box"></i> Tandai Mangkrak (khusus admin)
+                </button>
+            <?php endif; ?>
+
+            <?php if ($isAdminUser && ($transaksi['status'] ?? '') === 'mangkrak'): ?>
+                <div class="alert alert-dark mb-2">
+                    <i class="fas fa-box"></i>
+                    Transaksi ini ditandai <strong>MANGKRAK</strong> -- tidak muncul di Tagihan/
+                    notifikasi. Aktifkan kembali kalau pelanggan akhirnya muncul lagi.
+                </div>
+                <button class="btn btn-outline-primary w-100 mb-2"
+                    onclick="(async () => {
+                        if (await konfirmasi('Aktifkan kembali transaksi ini ke status PROSES?', { okText: 'Ya, Aktifkan Kembali', okClass: 'btn-primary' })) {
+                            kirimUbahStatusAjax(<?= $transaksi['id'] ?>, 'proses');
+                        }
+                    })()">
+                    <i class="fas fa-rotate-left"></i> Aktifkan Kembali (khusus admin)
+                </button>
+            <?php elseif (($transaksi['status'] ?? '') === 'mangkrak'): ?>
+                <!-- Non-admin yang buka transaksi mangkrak: cuma info,
+                     tidak ada tombol aksi apa pun (sesuai keputusan
+                     admin-only). -->
+                <div class="alert alert-dark mb-2">
+                    <i class="fas fa-box"></i>
+                    Transaksi ini ditandai <strong>MANGKRAK</strong>. Hubungi admin untuk
+                    mengaktifkannya kembali.
+                </div>
+            <?php endif; ?>
+
             <!-- BATAL adalah status terminal; tidak ada tombol aktifkan kembali. -->
             <!-- ========================================== -->
             <!-- 🔥 TOMBOL BATAL                           -->
             <!-- Muncul untuk 'proses' (semua role) dan     -->
             <!-- 'selesai' (backend menolak jika bukan admin) -->
+            <!-- MANGKRAK tidak bisa langsung ke Batal -- harus  -->
+            <!-- diaktifkan kembali ke PROSES dulu.              -->
             <!-- ========================================== -->
             <?php if (in_array($transaksi['status'] ?? '', ['proses', 'selesai'], true)): ?>
                 <button class="btn btn-danger w-100 mb-2" onclick="(async () => { if (await konfirmasi('Yakin ingin membatalkan transaksi ini?', { okText: 'Ya, Batalkan' })) { kirimUbahStatusAjax(<?= $transaksi['id'] ?>, 'batal'); } })()">
@@ -297,6 +373,16 @@
             <?php if ($transaksi['status'] != 'batal' && empty($dariArchive)): ?>
 
                 <div class="d-flex flex-wrap gap-2">
+
+                    <button
+                        type="button"
+                        class="btn btn-outline-dark"
+                        onclick="cetakTicket(<?= $transaksi['id'] ?>)">
+
+                        <i class="fas fa-id-card"></i>
+                        Cetak Ticket
+
+                    </button>
 
                     <button
                         class="btn btn-primary"
@@ -570,6 +656,32 @@
 
     function cetakNota(id) {
         window.open('<?= base_url('/cetak/nota/') ?>' + id, '_blank', 'width=700');
+    }
+
+    function cetakTicket(id) {
+        showToast('⏳ Mencetak ticket...', 'info');
+
+        $.ajax({
+            url: '<?= base_url('/cetak/ticket/') ?>' + id,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    showToast('✅ ' + (response.message || 'Ticket berhasil dicetak.'), 'success');
+                } else {
+                    showToast('❌ ' + (response.message || 'Gagal mencetak ticket.'), 'danger');
+                }
+            },
+            error: function(xhr) {
+                let message = 'Gagal mencetak ticket.';
+
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    message = xhr.responseJSON.message;
+                }
+
+                showToast('❌ ' + message, 'danger');
+            }
+        });
     }
 
     function cetakThermal(id) {

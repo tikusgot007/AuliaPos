@@ -125,9 +125,10 @@ class Pelanggan extends BaseController
 
                 return redirect()->to(
                     '/kasir?' . http_build_query([
-                        'pelanggan_id'   => $id,
-                        'pelanggan_nama' => $nama,
-                        'pelanggan_telp' => $data['no_hp'] ?? ''
+                        'pelanggan_id'     => $id,
+                        'pelanggan_nama'   => $nama,
+                        'pelanggan_telp'   => $data['no_hp'] ?? '',
+                        'pelanggan_diskon' => $data['diskon'] ?? 0,
                     ])
                 );
             }

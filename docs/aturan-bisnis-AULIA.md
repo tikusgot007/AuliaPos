@@ -1715,3 +1715,71 @@ aman diulang karena `INSERT OR REPLACE`.
   dibersihkan manual sesekali.
 - Belum ada test end-to-end dengan MySQL sungguhan (disarankan dites
   di staging dengan data dummy dulu sebelum dipakai di production).
+
+---
+
+# 29. Status Transaksi MANGKRAK (2026-09-09)
+
+## 29.1 Latar belakang & beda dengan BATAL
+
+`batal` berarti **"transaksi ini dianggap tidak pernah terjadi"**.
+Tapi ada kasus nyata: transaksi yang **beneran terjadi** (ada order,
+kadang sudah ada DP/pekerjaan berjalan) tapi macet tanpa kejelasan --
+belum dibayar, pelanggan tidak mengambil, barang entah kemana. Pakai
+`batal` untuk kasus ini salah secara makna (mengklaim transaksi tidak
+pernah terjadi, padahal terjadi).
+
+**`mangkrak`** dibuat khusus untuk kasus ini: transaksi tetap diakui
+pernah terjadi (data tidak diubah/dihapus), tapi **dilepas dari radar
+aktif** (Tagihan, badge notifikasi, reminder kasir) supaya tidak terus
+mengganggu meski belum jelas ujungnya.
+
+## 29.2 Aturan transisi (`TransaksiModel::ubahStatus()`)
+
+```
+PROSES ──(tandai mangkrak, ADMIN)──> MANGKRAK
+SELESAI + belum lunas ──(tandai mangkrak, ADMIN)──> MANGKRAK
+MANGKRAK ──(aktifkan kembali, ADMIN)──> PROSES
+```
+
+- Bisa ditandai mangkrak dari **PROSES** (kasus paling umum), atau
+  dari **SELESAI** kalau `status_pembayaran` **bukan** `lunas` --
+  ini bisa terjadi kalau transaksi sempat SELESAI (mensyaratkan lunas
+  saat itu) tapi kemudian pembayarannya di-reversal lewat
+  `Api::koreksiPembayaran()`, membuat `status_pembayaran` turun lagi
+  tanpa status transaksi ikut berubah (tidak ada mekanisme otomatis
+  yang mengembalikan SELESAI ke PROSES). Kalau SELESAI + lunas
+  (kondisi normal), tidak bisa ditandai mangkrak -- tidak ada yang
+  perlu dilepas dari radar.
+- Dari MANGKRAK, **satu-satunya jalan keluar adalah balik ke PROSES**
+  (tidak bisa langsung ke SELESAI/BATAL) -- supaya tetap melalui
+  validasi normal (pelunasan, dst) kalau nanti dilanjutkan.
+- **Admin-only** (baik menandai maupun mengaktifkan kembali) --
+  keputusan "lepas dari radar aktif" maupun "masukkan lagi" sengaja
+  tidak dibuka untuk semua role, beda dari PROSES→BATAL yang terbuka
+  untuk siapa saja.
+- Tidak ada syarat status pembayaran untuk menandai mangkrak dari
+  PROSES (justru kasus paling umum adalah belum dibayar sama sekali).
+- `no_order` **TIDAK** dikosongkan (beda dari BATAL) -- transaksi ini
+  masih bisa dilanjutkan kapan saja.
+
+## 29.3 Dampak ke modul lain
+
+| Modul | Perlakuan |
+|---|---|
+| Tagihan (`Tagihan::index()`) | Dikeluarkan (`whereNotIn('status', ['batal','mangkrak'])`) |
+| Badge notifikasi (`Api::getJumlahTagihan()`) | Dikeluarkan |
+| Widget tagihan di dashboard Kasir | Dikeluarkan |
+| Reminder tagihan 3 hari (`Kasir::getReminderTagihanSaya()`) | Dikeluarkan |
+| Tombol Bayar (list & detail transaksi) | Disembunyikan -- harus "Aktifkan Kembali" ke PROSES dulu |
+| Laporan | **TIDAK dikecualikan** -- transaksi mangkrak tetap tercatat di laporan (data historis nyata, beda dari batal yang juga tetap muncul di laporan existing) |
+| **Archive Transaksi** (Section 28) | **Tidak ada perlakuan khusus** -- transaksi mangkrak ikut ter-archive normal begitu bulan-nya eligible (≥6 bulan), sama seperti status lain. Archive memang sengaja tidak membatasi berdasarkan status transaksi (lihat Section 28.2). |
+
+## 29.4 Migration
+
+`2026-09-09-000001_AddStatusMangkrakTransaksi.php` -- menambah
+`'mangkrak'` ke enum `transaksi`.`status` (mempertahankan `diambil`
+yang sudah tidak dipakai di level aplikasi, lihat Section 1). Wajib
+dijalankan (lewat `/migrasi-manual` atau `php spark migrate`) sebelum
+fitur ini bisa dipakai -- tanpa migration, transaksi tidak bisa
+diubah ke `mangkrak` (MySQL akan menolak nilai enum yang tidak valid).

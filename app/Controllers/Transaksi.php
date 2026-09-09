@@ -488,7 +488,7 @@ class Transaksi extends BaseController
             ],
 
             /*
-         * 4 pilihan eksplisit status transaksi (2026-09-05).
+         * 5 pilihan eksplisit status transaksi (2026-09-05, +mangkrak 2026-09-09).
          * '' = Semua.
          */
             'status_transaksi_list' =>
@@ -496,7 +496,8 @@ class Transaksi extends BaseController
                 '',
                 'proses',
                 'selesai',
-                'batal'
+                'batal',
+                'mangkrak'
             ],
 
             /*
@@ -1074,6 +1075,9 @@ class Transaksi extends BaseController
         $pelangganNama = trim((string) ($request['pelanggan_nama'] ?? ''));
         $pelangganTelp = trim((string) ($request['pelanggan_telp'] ?? ''));
         $diskon = (float) ($request['diskon'] ?? 0);
+        // Sama seperti Api::simpanTransaksi() -- flag saja, persennya
+        // diresolusi ulang dari master pelanggan di bawah (read-only).
+        $diskonPelangganAktif = !empty($request['diskon_pelanggan_aktif']);
         $noOrderInput = trim((string) ($request['no_order'] ?? ''));
 
         // ==========================================
@@ -1180,18 +1184,29 @@ class Transaksi extends BaseController
         }
 
         // ==========================================
-        // 8. HITUNG GRAND TOTAL
-        // SAMA DENGAN SIMPAN TRANSAKSI
+        // 8. RESOLUSI DISKON PELANGGAN + HITUNG GRAND TOTAL
+        // Pakai App\Services\KalkulasiDiskonTransaksi -- SATU SUMBER
+        // KEBENARAN yang sama dengan Api::simpanTransaksi(), supaya
+        // kedua alur (buat baru & edit) tidak lagi punya kalkulasi
+        // yang terduplikasi/berpotensi mencong satu sama lain.
         // ==========================================
 
-        $grandTotalSebelumPembulatan = $subtotal - $diskon;
+        $persenDiskonPelanggan = null;
 
-        $grandTotal = floor(
-            $grandTotalSebelumPembulatan / 100
-        ) * 100;
+        if ($diskonPelangganAktif && $finalPelangganId !== null) {
+            $pelangganUntukDiskon = $pelangganModel->find($finalPelangganId);
+            $persenMaster = $pelangganUntukDiskon ? (float) ($pelangganUntukDiskon['diskon'] ?? 0) : 0;
 
-        $selisihPembulatan =
-            $grandTotalSebelumPembulatan - $grandTotal;
+            if ($persenMaster > 0) {
+                $persenDiskonPelanggan = $persenMaster;
+            }
+        }
+
+        $kalkulasi = \App\Services\KalkulasiDiskonTransaksi::hitung($subtotal, $persenDiskonPelanggan, $diskon);
+        $diskon = $kalkulasi['diskon'];
+        $grandTotal = $kalkulasi['grand_total'];
+        $selisihPembulatan = $kalkulasi['selisih_pembulatan'];
+        $diskonPelangganPersenTersimpan = $kalkulasi['diskon_pelanggan_persen'];
 
         // ==========================================
         // 9. BENTUK DETAIL TRANSAKSI
@@ -1243,13 +1258,14 @@ class Transaksi extends BaseController
             // --------------------------------------
 
             $transaksiModel->update($id, [
-                'no_order'           => $noOrder,
-                'pelanggan_id'       => $finalPelangganId,
-                'subtotal'           => $subtotal,
-                'diskon'             => $diskon,
-                'pajak'              => 0,
-                'grand_total'        => $grandTotal,
-                'selisih_pembulatan' => $selisihPembulatan,
+                'no_order'                 => $noOrder,
+                'pelanggan_id'             => $finalPelangganId,
+                'subtotal'                 => $subtotal,
+                'diskon'                   => $diskon,
+                'diskon_pelanggan_persen'  => $diskonPelangganPersenTersimpan,
+                'pajak'                    => 0,
+                'grand_total'              => $grandTotal,
+                'selisih_pembulatan'       => $selisihPembulatan,
             ]);
 
             // --------------------------------------
@@ -1309,7 +1325,7 @@ class Transaksi extends BaseController
                 'transaksi_id'                   => (int) $id,
                 'invoice'                        => $transaksi['kode_invoice'],
                 'grand_total'                    => $grandTotal,
-                'grand_total_sebelum_pembulatan' => $grandTotalSebelumPembulatan,
+                'grand_total_sebelum_pembulatan' => $grandTotal + $selisihPembulatan,
                 'selisih_pembulatan'             => $selisihPembulatan,
                 'total_dibayar'                  => $totalDibayar,
                 'sisa_tagihan'                   => $sisaTagihan,

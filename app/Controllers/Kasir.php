@@ -45,7 +45,7 @@ class Kasir extends BaseController
             'content'  => 'kasir/index',
             'produk' => $produk,
             'tagihan'  => $transaksiModel->where('status_pembayaran !=', 'lunas')
-                ->where('status !=', 'batal')
+                ->whereNotIn('status', ['batal', 'mangkrak'])
                 ->orderBy('tanggal', 'DESC')
                 ->limit(10)
                 ->findAll(),
@@ -94,7 +94,7 @@ class Kasir extends BaseController
         $count = $transaksiModel
             ->where('kasir_id', $userId)
             ->whereIn('status_pembayaran', ['belum_bayar', 'dp'])
-            ->where('status !=', 'batal')
+            ->whereNotIn('status', ['batal', 'mangkrak'])
             ->where('tanggal >=', date('Y-m-d H:i:s', strtotime('-3 days')))
             ->countAllResults();
 

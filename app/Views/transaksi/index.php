@@ -39,6 +39,7 @@ $isAdminUser = session()->get('role') === 'admin';
                             'proses' => 'Proses',
                             'selesai' => 'Selesai',
                             'batal' => 'Batal',
+                            'mangkrak' => 'Mangkrak',
                             default => ucfirst(
                                 str_replace(
                                     '_',
@@ -150,13 +151,15 @@ $isAdminUser = session()->get('role') === 'admin';
                             $statusClass = [
                                 'proses' => 'warning',
                                 'selesai' => 'primary',
-                                'batal' => 'secondary'
+                                'batal' => 'secondary',
+                                'mangkrak' => 'dark'
                             ][$t['status']] ?? 'secondary';
 
                             $statusLabel = [
                                 'proses' => 'Proses',
                                 'selesai' => 'Selesai',
-                                'batal' => 'Batal'
+                                'batal' => 'Batal',
+                                'mangkrak' => 'Mangkrak'
                             ][$t['status']] ?? strtoupper($t['status']);
 
                             // 🔥 Format No Order
@@ -214,8 +217,8 @@ $isAdminUser = session()->get('role') === 'admin';
                                     </a>
 
                                     <?php if (!$dariArchive): ?>
-                                        <!-- 🔥 TOMBOL BAYAR (HANYA UNTUK BELUM LUNAS) -->
-                                        <?php if ($t['status_pembayaran'] != 'lunas' && $t['status'] != 'batal'): ?>
+                                        <!-- 🔥 TOMBOL BAYAR (HANYA UNTUK BELUM LUNAS, tidak untuk MANGKRAK -- lihat transaksi/detail.php) -->
+                                        <?php if ($t['status_pembayaran'] != 'lunas' && !in_array($t['status'], ['batal', 'mangkrak'], true)): ?>
                                             <button class="btn btn-sm btn-success"
                                                 onclick="bayarTransaksi(<?= $t['id'] ?>, <?= $t['grand_total'] ?>, <?= $sisa ?>, '<?= $t['kode_invoice'] ?>')">
                                                 <i class="fas fa-hand-holding-usd"></i>
@@ -311,9 +314,7 @@ $isAdminUser = session()->get('role') === 'admin';
     async function ubahStatus(id, status) {
         const label = status.toUpperCase();
 
-        if (!(await konfirmasi('Ubah status transaksi menjadi ' + label + '?', {
-                okText: 'Ya, Ubah'
-            }))) {
+        if (!(await konfirmasi('Ubah status transaksi menjadi ' + label + '?', { okText: 'Ya, Ubah' }))) {
             return;
         }
 
@@ -331,10 +332,7 @@ $isAdminUser = session()->get('role') === 'admin';
                 'menandai transaksi sebagai SELESAI.\n\n' +
                 'Lanjutkan menandai SELESAI?';
 
-            if (!(await konfirmasi(pesanKonfirmasi, {
-                    okText: 'Ya, Selesaikan',
-                    okClass: 'btn-success'
-                }))) {
+            if (!(await konfirmasi(pesanKonfirmasi, { okText: 'Ya, Selesaikan', okClass: 'btn-success' }))) {
                 return;
             }
         }

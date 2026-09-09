@@ -52,6 +52,125 @@ class Cetak extends BaseController
         // }
         return view('cetak/nota', $data);
     }
+    /**
+     * TICKET / HANDOVER -- bukan invoice/struk lengkap. Tujuannya
+     * murni identifikasi transaksi saat pelanggan pindah tangan
+     * antar-karyawan (lihat docs/aturan-bisnis-AULIA.md). Sengaja
+     * hanya cetak info minimal (invoice paling menonjol, tanggal,
+     * pelanggan) -- BUKAN daftar item/pembayaran.
+     *
+     * Cetak LANGSUNG ke printer thermal (server-side ESC/POS) --
+     * REUSE PENUH infrastructure yang sama dengan thermal(): connector
+     * SMB yang sama, class Printer yang sama, helper garisThermal()/
+     * formatUang() yang sama. Bukan sistem cetak baru, cuma isi yang
+     * jauh lebih ringkas. Read-only murni (SELECT saja, tidak ada
+     * write ke DB) -- aman dipanggil berkali-kali/double-click.
+     */
+    public function ticket($id)
+    {
+        $transaksiModel = new TransaksiModel();
+        $pelangganModel = new PelangganModel();
+
+        $transaksi = $transaksiModel
+            ->select('transaksi.*, users.username as kasir_nama')
+            ->join('users', 'users.id = transaksi.kasir_id', 'left')
+            ->find($id);
+
+        if (!$transaksi) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status' => 'error',
+                'message' => 'Transaksi tidak ditemukan.'
+            ]);
+        }
+
+        $pelanggan = $transaksi['pelanggan_id']
+            ? $pelangganModel->find($transaksi['pelanggan_id'])
+            : null;
+
+        try {
+            $connector = new WindowsPrintConnector("smb://guest@aulia6/POS-58");
+            $printer = new Printer($connector);
+
+            $this->cetakTicketThermal($printer, $transaksi, $pelanggan);
+
+            $printer->close();
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'message' => 'Ticket berhasil dicetak.'
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => $e->getMessage()
+                ]);
+        }
+    }
+
+    private function cetakTicketThermal(
+        Printer $printer,
+        array $transaksi,
+        ?array $pelanggan
+    ): void {
+        $printer->setJustification(Printer::JUSTIFY_CENTER);
+
+        $printer->setEmphasis(true);
+        $printer->text("AULIA POS\n");
+        $printer->text("TICKET / HANDOVER\n");
+        $printer->setEmphasis(false);
+        $printer->feed();
+
+        $printer->text($this->garisThermal());
+
+        // No. Invoice -- HARUS paling menonjol (spesifikasi eksplisit
+        // minta ini), jadi dibesarkan + emphasis, satu-satunya elemen
+        // di ticket ini yang diperlakukan begitu.
+        $printer->setTextSize(2, 2);
+        $printer->setEmphasis(true);
+        $printer->text(($transaksi['kode_invoice'] ?? '-') . "\n");
+        $printer->setEmphasis(false);
+        $printer->setTextSize(1, 1);
+
+        $printer->text($this->garisThermal());
+
+        $printer->setJustification(Printer::JUSTIFY_LEFT);
+
+        if (!empty($transaksi['no_order'])) {
+            $printer->text(
+                $this->lineThermal('Order', (string) $transaksi['no_order']) . "\n"
+            );
+        }
+
+        $printer->text(
+            $this->lineThermal('Tanggal', date('d-m-Y', strtotime($transaksi['tanggal']))) . "\n"
+        );
+
+        $printer->text(
+            $this->lineThermal('Pelanggan', $pelanggan['nama'] ?? '-') . "\n"
+        );
+
+        $printer->text(
+            $this->lineThermal('Total', $this->formatUang($transaksi['grand_total'] ?? 0)) . "\n"
+        );
+
+        if (!empty($transaksi['kasir_nama'])) {
+            $printer->text(
+                $this->lineThermal('Kasir', $transaksi['kasir_nama']) . "\n"
+            );
+        }
+
+        $printer->text($this->garisThermal());
+
+        $printer->setJustification(Printer::JUSTIFY_CENTER);
+        $printer->text("Tunjukkan ticket ini untuk\n");
+        $printer->text("melanjutkan transaksi\n");
+
+        $printer->feed(2);
+        $printer->cut();
+    }
+
     public function struk($id)
     {
         $transaksiModel = new TransaksiModel();

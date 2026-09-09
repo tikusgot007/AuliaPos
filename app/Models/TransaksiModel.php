@@ -17,6 +17,7 @@ class TransaksiModel extends Model
         'kasir_id',
         'subtotal',
         'diskon',
+        'diskon_pelanggan_persen',
         'pajak',
         'grand_total',
         'selisih_pembulatan',
@@ -56,7 +57,7 @@ class TransaksiModel extends Model
     {
         $status = strtolower(trim((string) $status));
 
-        $validStatus = ['proses', 'selesai', 'batal'];
+        $validStatus = ['proses', 'selesai', 'batal', 'mangkrak'];
 
         if (!in_array($status, $validStatus, true)) {
             throw new \Exception('Status transaksi tidak valid.');
@@ -72,7 +73,14 @@ class TransaksiModel extends Model
 
         // Status final tidak boleh dipindahkan ke status lain,
         // KECUALI: admin membatalkan transaksi yang sudah SELESAI
-        // (lihat docs/aturan-bisnis-AULIA.md Section 2).
+        // (lihat docs/aturan-bisnis-AULIA.md Section 2), ATAU admin
+        // menandainya MANGKRAK -- ini bisa terjadi kalau transaksi
+        // sempat SELESAI (mensyaratkan lunas saat itu) tapi kemudian
+        // pembayarannya di-reversal lewat Api::koreksiPembayaran(),
+        // membuat status_pembayaran turun lagi ke belum_bayar/dp tanpa
+        // status transaksi ikut berubah (tidak ada mekanisme otomatis
+        // yang mengembalikan SELESAI ke PROSES). Sama seperti
+        // PROSES->MANGKRAK, ini admin-only.
         if ($statusSaatIni === 'selesai') {
             if ($status === 'selesai') {
                 return true;
@@ -86,6 +94,28 @@ class TransaksiModel extends Model
 
                 if (!$this->update($id, $data)) {
                     throw new \Exception('Gagal mengubah status transaksi.');
+                }
+
+                return true;
+            }
+
+            if ($status === 'mangkrak') {
+                if (!$isAdmin) {
+                    throw new \Exception(
+                        'Hanya admin yang dapat menandai transaksi SELESAI sebagai mangkrak.'
+                    );
+                }
+
+                $statusBayar = strtolower(trim((string) ($transaksi['status_pembayaran'] ?? '')));
+
+                if ($statusBayar === 'lunas') {
+                    throw new \Exception(
+                        'Transaksi ini sudah SELESAI dan LUNAS -- tidak ada yang perlu ditandai mangkrak.'
+                    );
+                }
+
+                if (!$this->update($id, ['status' => 'mangkrak'])) {
+                    throw new \Exception('Gagal menandai transaksi sebagai mangkrak.');
                 }
 
                 return true;
@@ -108,11 +138,65 @@ class TransaksiModel extends Model
             );
         }
 
+        // MANGKRAK: transaksi yang BENERAN terjadi (beda dari 'batal'
+        // yang berarti "dianggap tidak pernah terjadi") tapi macet
+        // tanpa kejelasan -- belum dibayar, tidak diambil, dst. Satu-
+        // satunya jalan keluar dari status ini adalah diaktifkan
+        // kembali ke 'proses' (mis. pelanggan akhirnya muncul lagi) --
+        // TIDAK bisa langsung ke 'selesai'/'batal' dari sini, harus
+        // lewat 'proses' dulu supaya tetap melalui validasi normal
+        // (pelunasan, dst). Admin-only (baik menandai maupun
+        // mengaktifkan kembali) -- keputusan "lepas dari radar aktif"
+        // maupun "masukkan lagi" sengaja tidak dibuka untuk semua role.
+        if ($statusSaatIni === 'mangkrak') {
+            if ($status === 'mangkrak') {
+                return true;
+            }
+
+            if ($status === 'proses') {
+                if (!$isAdmin) {
+                    throw new \Exception(
+                        'Hanya admin yang dapat mengaktifkan kembali transaksi MANGKRAK.'
+                    );
+                }
+
+                if (!$this->update($id, ['status' => 'proses'])) {
+                    throw new \Exception('Gagal mengaktifkan kembali transaksi.');
+                }
+
+                return true;
+            }
+
+            throw new \Exception(
+                'Transaksi MANGKRAK harus diaktifkan kembali ke PROSES dulu sebelum diubah ke status lain.'
+            );
+        }
+
         // Hanya transaksi PROSES yang boleh menuju status berikutnya.
         if ($statusSaatIni !== 'proses') {
             throw new \Exception(
                 'Status transaksi saat ini tidak dapat diubah.'
             );
+        }
+
+        // PROSES -> MANGKRAK: admin-only (beda dari PROSES -> BATAL
+        // yang terbuka untuk semua role) -- keputusan melepas
+        // transaksi dari radar aktif Tagihan/notifikasi sengaja
+        // dipegang admin, bukan sembarang kasir. Tidak ada syarat
+        // status pembayaran (justru kasus paling umum adalah belum
+        // dibayar sama sekali).
+        if ($status === 'mangkrak') {
+            if (!$isAdmin) {
+                throw new \Exception(
+                    'Hanya admin yang dapat menandai transaksi sebagai mangkrak.'
+                );
+            }
+
+            if (!$this->update($id, ['status' => 'mangkrak'])) {
+                throw new \Exception('Gagal menandai transaksi sebagai mangkrak.');
+            }
+
+            return true;
         }
 
         // PROSES -> SELESAI mensyaratkan garapan benar-benar clear:
