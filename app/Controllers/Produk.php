@@ -225,16 +225,7 @@ class Produk extends BaseController
         $id = (int) $id;
 
         // Field yang boleh diedit dari spreadsheet
-        $allowedFields = [
-            'barcode',
-            'nama',
-            'kategori_id',
-            'satuan',
-            'harga_jual',
-            'harga_beli'
-        ];
-
-        if (!in_array($field, $allowedFields, true)) {
+        if (!in_array($field, ProdukModel::INLINE_EDITABLE_FIELDS, true)) {
             return $this->response
                 ->setStatusCode(400)
                 ->setJSON([

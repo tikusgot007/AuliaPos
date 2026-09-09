@@ -20,6 +20,20 @@ class ProdukModel extends Model
         'is_locked'
     ];
 
+    /**
+     * Field yang boleh diubah lewat mode edit spreadsheet (inline edit).
+     * Satu-satunya sumber kebenaran: dipakai model updateInline() dan
+     * Produk::updateInline().
+     */
+    public const INLINE_EDITABLE_FIELDS = [
+        'barcode',
+        'nama',
+        'kategori_id',
+        'satuan',
+        'harga_jual',
+        'harga_beli',
+    ];
+
     // Fungsi untuk mengambil produk yang aktif saja (default untuk kasir)
     public function getProdukAktif()
     {
@@ -97,27 +111,12 @@ class ProdukModel extends Model
     /**
      * UPDATE PRODUK DARI MODE EDIT SPREADSHEET
      *
-     * Field yang boleh diedit:
-     * - barcode
-     * - nama
-     * - kategori_id
-     * - satuan
-     * - harga_jual
-     * - harga_beli
+     * Field yang boleh diedit: lihat self::INLINE_EDITABLE_FIELDS.
      */
     public function updateInline($id, $field, $value)
     {
-        $allowed = [
-            'barcode',
-            'nama',
-            'kategori_id',
-            'satuan',
-            'harga_jual',
-            'harga_beli',
-        ];
-
         // Pastikan field memang boleh diedit
-        if (!in_array($field, $allowed, true)) {
+        if (!in_array($field, self::INLINE_EDITABLE_FIELDS, true)) {
             throw new \InvalidArgumentException(
                 'Field produk tidak boleh diubah.'
             );
