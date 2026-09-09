@@ -34,9 +34,12 @@ class Kasir extends BaseController
         // 🔥 AMBIL SEMUA KATEGORI UNTUK DROPDOWN MANUAL INPUT
         $semuaKategori = $kategoriModel->orderBy('nama', 'ASC')->findAll();
 
-        // 🔥 AMBIL SEMUA PRODUK AKTIF SEKALI SAJA.
-        // Filter kategori dan pencarian dilakukan di browser (JavaScript).
-        $produk = $produkModel->getProdukAktifWithPopularity();
+        // 🔥 AMBIL SEMUA PRODUK AKTIF SEKALI SAJA, diurutkan nama A -> Z.
+        // Filter kategori dan pencarian dilakukan di browser (JavaScript) dan
+        // mempertahankan urutan array ini, jadi "Semua"/filter kategori/hasil
+        // search semuanya ikut alfabetis. Popularitas tidak lagi dipakai untuk
+        // urutan produk kasir.
+        $produk = $produkModel->getProdukAktif();
 
         $reminderTagihan = $this->getReminderTagihanSaya();
 

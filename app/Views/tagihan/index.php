@@ -4,6 +4,33 @@
         <span class="badge bg-dark"><?= count($tagihan) ?> tagihan</span>
     </div>
     <div class="card-body">
+        <!-- ========================================== -->
+        <!-- FILTER RENTANG TANGGAL                     -->
+        <!-- Default (halaman baru dibuka): 7 hari lalu s/d hari ini -->
+        <!-- ========================================== -->
+        <form method="get" class="row g-2 mb-3 align-items-end">
+            <?php if (service('request')->getGet('saya') == '1'): ?>
+                <input type="hidden" name="saya" value="1">
+            <?php endif; ?>
+            <div class="col-6 col-md-3">
+                <label class="form-label mb-1">Dari Tanggal</label>
+                <input type="date" name="tanggal_awal" class="form-control form-control-sm"
+                    value="<?= esc($tanggal_awal, 'attr') ?>">
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label mb-1">Sampai Tanggal</label>
+                <input type="date" name="tanggal_akhir" class="form-control form-control-sm"
+                    value="<?= esc($tanggal_akhir, 'attr') ?>">
+            </div>
+            <div class="col-12 col-md-auto">
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+                <a href="<?= base_url('/tagihan' . (service('request')->getGet('saya') == '1' ? '?saya=1' : '')) ?>"
+                    class="btn btn-sm btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+
         <?php if (service('request')->getGet('saya') == '1'): ?>
             <div class="alert alert-secondary d-flex justify-content-between align-items-center py-2">
                 <span><i class="fas fa-filter"></i> Menampilkan tagihan atas nama Anda saja.</span>

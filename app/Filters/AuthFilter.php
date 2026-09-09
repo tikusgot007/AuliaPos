@@ -27,15 +27,27 @@ class AuthFilter implements FilterInterface
         // 🔥 Update last activity
         session()->set('last_activity', time());
 
-        // 🔥 Cek role untuk route tertentu (opsional)
-        $uri = service('uri')->getPath();
+        // 🔥 Cek role untuk route tertentu
+        // getRoutePath() = path bersih relatif baseURL ('produk/tambah'), tidak
+        // ikut terpengaruh subfolder / index.php seperti getPath(), jadi cocok
+        // untuk match prefix di bawah ini.
+        $uri = ltrim(service('uri')->getRoutePath(), '/');
 
-        // Route yang hanya boleh diakses admin
-        $adminRoutes = ['laporan', 'user-management', 'auth/tambah-user', 'auth/edit-user', 'auth/hapus-user', 'jadwal', 'migrasi-manual', 'archive-transaksi'];
+        // Route yang hanya boleh diakses admin.
+        // Master data Produk & Kategori: hanya admin. Prefix 'produk'/'kategori'
+        // menutup seluruh CRUD + endpoint mutasi (simpan, update, hapus,
+        // update-inline, get-produk-data, maintenance, import). Halaman kasir
+        // tidak memakai URL ini (produk & kategori di-load lewat model di
+        // Kasir::index), jadi flow kasir tidak terganggu. Endpoint transaksi di
+        // /api/* sengaja tidak dibatasi karena itu jalur pemakaian, bukan
+        // pengelolaan master.
+        $adminRoutes = ['laporan', 'user-management', 'auth/tambah-user', 'auth/edit-user', 'auth/hapus-user', 'jadwal', 'migrasi-manual', 'archive-transaksi', 'produk', 'kategori'];
 
-        foreach ($adminRoutes as $route) {
-            if (strpos($uri, $route) === 0 && session()->get('role') != 'admin') {
-                return redirect()->to('/kasir')->with('error', 'Akses ditolak. Hanya untuk admin.');
+        if (session()->get('role') != 'admin') {
+            foreach ($adminRoutes as $route) {
+                if ($uri === $route || strpos($uri, $route . '/') === 0) {
+                    return redirect()->to('/kasir')->with('error', 'Akses ditolak. Hanya untuk admin.');
+                }
             }
         }
     }

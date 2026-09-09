@@ -739,6 +739,7 @@
 
                             <ul class="nav flex-column submenu">
 
+                                <?php if (session()->get('role') == 'admin'): ?>
                                 <li class="nav-item">
                                     <a class="nav-link <?= strpos(current_url(), '/produk') !== false ? 'active' : '' ?>"
                                         href="<?= base_url('/produk') ?>">
@@ -754,6 +755,7 @@
                                         Kategori
                                     </a>
                                 </li>
+                                <?php endif; ?>
 
                                 <li class="nav-item">
                                     <a class="nav-link <?= strpos(current_url(), '/pelanggan') !== false ? 'active' : '' ?>"

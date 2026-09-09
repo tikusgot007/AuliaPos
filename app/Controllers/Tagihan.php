@@ -22,10 +22,30 @@ class Tagihan extends BaseController
         // semua tagihan) tidak berubah sama sekali.
         $hanyaSaya = $this->request->getGet('saya') == '1';
 
+        // Filter rentang tanggal transaksi. Default saat halaman dibuka
+        // tanpa parameter: 7 hari lalu s/d hari ini. Kalau input tidak
+        // valid, jatuh ke default (jangan percaya isi query string).
+        $tanggalAwal  = $this->request->getGet('tanggal_awal');
+        $tanggalAkhir = $this->request->getGet('tanggal_akhir');
+
+        if (empty($tanggalAwal) || strtotime($tanggalAwal) === false) {
+            $tanggalAwal = date('Y-m-d', strtotime('-7 days'));
+        }
+
+        if (empty($tanggalAkhir) || strtotime($tanggalAkhir) === false) {
+            $tanggalAkhir = date('Y-m-d');
+        }
+
+        // Batas atas dibuat eksklusif (+1 hari) supaya transaksi pada
+        // tanggal_akhir sampai 23:59:59 tetap ikut terhitung.
+        $akhirEksklusif = date('Y-m-d 00:00:00', strtotime($tanggalAkhir . ' +1 day'));
+
         $query = $transaksiModel
             ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama')
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
+            ->where('transaksi.tanggal >=', $tanggalAwal . ' 00:00:00')
+            ->where('transaksi.tanggal <', $akhirEksklusif)
             // Tagihan ditentukan oleh status pembayaran, bukan status pekerjaan.
             // Transaksi PROSES maupun SELESAI tetap dapat memiliki tagihan.
             // Transaksi BATAL & MANGKRAK tidak masuk daftar tagihan --
@@ -42,9 +62,11 @@ class Tagihan extends BaseController
         $tagihan = $query->orderBy('transaksi.tanggal', 'DESC')->findAll();
 
         $data = [
-            'title'   => 'Tagihan | AULIA',
-            'content' => 'tagihan/index',
-            'tagihan' => $tagihan
+            'title'         => 'Tagihan | AULIA',
+            'content'       => 'tagihan/index',
+            'tagihan'       => $tagihan,
+            'tanggal_awal'  => $tanggalAwal,
+            'tanggal_akhir' => $tanggalAkhir,
         ];
 
         return view('layout/main', $data);
@@ -91,7 +113,10 @@ class Tagihan extends BaseController
             'pelanggan'     => $pelanggan,
             'total_dibayar' => $total_dibayar,
             'sisa_tagihan'  => $sisa_tagihan,
-            //'dariTagihan'   => $dariTagihan // 🔥 Flag untuk menampilkan tombol lunasi
+            // Flag: dipakai view transaksi/detail untuk (1) tombol "Kembali"
+            // mengarah ke /tagihan, bukan /transaksi, dan (2) menampilkan
+            // tombol "Lunasi" saat masih ada sisa tagihan.
+            'dariTagihan'   => $dariTagihan,
         ];
 
         return view('layout/main', $data);
