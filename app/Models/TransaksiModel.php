@@ -30,6 +30,13 @@ class TransaksiModel extends Model
     protected $useTimestamps = true;
     protected $createdField = 'created_at';
     protected $updatedField = 'updated_at';
+
+    /**
+     * Semua nilai kolom `status` transaksi yang valid.
+     * Dipakai sebagai gate validasi awal di ubahStatus() dan
+     * Api::ubahStatus(); validasi transisi lifecycle tetap di ubahStatus().
+     */
+    public const STATUS = ['proses', 'selesai', 'batal', 'mangkrak'];
     /**
      * Ubah status transaksi sesuai lifecycle bisnis.
      *
@@ -57,9 +64,7 @@ class TransaksiModel extends Model
     {
         $status = strtolower(trim((string) $status));
 
-        $validStatus = ['proses', 'selesai', 'batal', 'mangkrak'];
-
-        if (!in_array($status, $validStatus, true)) {
+        if (!in_array($status, self::STATUS, true)) {
             throw new \Exception('Status transaksi tidak valid.');
         }
 

@@ -655,9 +655,7 @@ class Api extends BaseController
         // dianggap tidak pernah terjadi), sedangkan 'lunas' hanya
         // merupakan status pembayaran. Validasi transisi sesungguhnya
         // ada di TransaksiModel::ubahStatus(), ini cuma gate awal.
-        $validStatus = ['proses', 'selesai', 'batal', 'mangkrak'];
-
-        if (!in_array($status, $validStatus, true)) {
+        if (!in_array($status, \App\Models\TransaksiModel::STATUS, true)) {
             return $this->response->setJSON([
                 'status'  => 'error',
                 'message' => 'Status tidak valid.'
