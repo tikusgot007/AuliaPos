@@ -162,6 +162,7 @@ $routes->post('/api/tambah-pelanggan', 'Api::tambahPelanggan', ['filter' => 'aut
 $routes->get('/api/get-produk-cetak', 'Api::getProdukCetak', ['filter' => 'auth']);
 // Route Cetak Nota (alias)
 $routes->get('/cetak/nota/(:num)', 'Cetak::index/$1', ['filter' => 'auth']);
+$routes->get('/cetak/nota-langsung/(:num)', 'Cetak::notaLangsung/$1', ['filter' => 'auth']);
 $routes->get('/cetak/thermal/(:num)', 'Cetak::thermal/$1', ['filter' => 'auth']);
 $routes->get('/cetak/ticket/(:num)', 'Cetak::ticket/$1', ['filter' => 'auth']);
 // Route API untuk cari atau buat produk (Manual Input)

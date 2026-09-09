@@ -384,14 +384,26 @@
 
                     </button>
 
-                    <button
-                        class="btn btn-primary"
-                        onclick="cetakNota(<?= $transaksi['id'] ?>)">
-
-                        <i class="fas fa-file-pdf"></i>
-                        Cetak PDF
-
-                    </button>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-file-pdf"></i>
+                            Cetak Nota
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="cetakNotaLangsung(<?= $transaksi['id'] ?>); return false;">
+                                    <i class="fas fa-bolt"></i> Cetak Langsung
+                                    <small class="text-muted d-block">Epson L300</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="cetakNota(<?= $transaksi['id'] ?>); return false;">
+                                    <i class="fas fa-sliders-h"></i> Pilih Printer
+                                    <small class="text-muted d-block">Tentukan sendiri lewat dialog print</small>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
 
 
                     <button
@@ -656,6 +668,32 @@
 
     function cetakNota(id) {
         window.open('<?= base_url('/cetak/nota/') ?>' + id, '_blank', 'width=700');
+    }
+
+    function cetakNotaLangsung(id) {
+        showToast('⏳ Mencetak nota (Epson L300)...', 'info');
+
+        $.ajax({
+            url: '<?= base_url('/cetak/nota-langsung/') ?>' + id,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    showToast('✅ ' + (response.message || 'Nota berhasil dicetak.'), 'success');
+                } else {
+                    showToast('❌ ' + (response.message || 'Nota gagal dikirim ke printer.'), 'danger');
+                }
+            },
+            error: function(xhr) {
+                let message = 'Nota gagal dikirim ke printer.';
+
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    message = xhr.responseJSON.message;
+                }
+
+                showToast('❌ ' + message, 'danger');
+            }
+        });
     }
 
     function cetakTicket(id) {

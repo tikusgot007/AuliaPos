@@ -368,7 +368,7 @@
 
                 <div class="logo">
                     <img
-                        src="<?= base_url('logo-no-background.png') ?>"
+                        src="<?= esc($logoSrc ?? base_url('logo-no-background.png')) ?>"
                         alt="Logo AULIA">
                 </div>
 

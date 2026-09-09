@@ -738,9 +738,25 @@
             <button class="btn btn-outline-dark" onclick="cetakTicket(${transaksiId})">
                 <i class="fas fa-id-card"></i> Ticket
             </button>
-            <button class="btn btn-primary" onclick="cetakNota(${transaksiId})">
-                <i class="fas fa-print"></i> Nota
-            </button>
+            <div class="btn-group">
+                <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-print"></i> Cetak Nota
+                </button>
+                <ul class="dropdown-menu w-100">
+                    <li>
+                        <a class="dropdown-item" href="#" onclick="cetakNotaLangsung(${transaksiId}); return false;">
+                            <i class="fas fa-bolt"></i> Cetak Langsung
+                            <small class="text-muted d-block">Epson L300</small>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="#" onclick="cetakNota(${transaksiId}); return false;">
+                            <i class="fas fa-sliders-h"></i> Pilih Printer
+                            <small class="text-muted d-block">Tentukan sendiri lewat dialog print</small>
+                        </a>
+                    </li>
+                </ul>
+            </div>
             <button class="btn btn-success" onclick="cetakThermal(${transaksiId})">
                 <i class="fas fa-receipt"></i> Thermal
             </button>
@@ -758,6 +774,37 @@
     // ---------------------------------------------------------------
     function cetakNota(id) {
         window.open('<?= base_url('/cetak/nota/') ?>' + id, '_blank', 'width=700');
+    }
+
+    // 🔥 "Cetak Langsung" -- server-side, TANPA dialog print browser,
+    // ke printer yang ditentukan server (App\Config\PrintNota, bukan
+    // dari sini). Pola AJAX-nya identik dengan cetakThermal()/
+    // cetakTicket() (termasuk fallback xhr.responseJSON.message untuk
+    // menampilkan pesan error asli, bukan cuma teks generik).
+    function cetakNotaLangsung(id) {
+        showToast('⏳ Mencetak nota (Epson L300)...', 'info');
+
+        $.ajax({
+            url: '<?= base_url('/cetak/nota-langsung/') ?>' + id,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    showToast('✅ ' + (response.message || 'Nota berhasil dicetak.'), 'success');
+                } else {
+                    showToast('❌ ' + (response.message || 'Nota gagal dikirim ke printer.'), 'danger');
+                }
+            },
+            error: function(xhr) {
+                let message = 'Nota gagal dikirim ke printer.';
+
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    message = xhr.responseJSON.message;
+                }
+
+                showToast('❌ ' + message, 'danger');
+            }
+        });
     }
 
     // 🔥 Ticket (handover antar-karyawan) -- BUKAN transaksi/pembayaran

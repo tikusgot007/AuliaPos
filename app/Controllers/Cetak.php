@@ -52,6 +52,291 @@ class Cetak extends BaseController
         // }
         return view('cetak/nota', $data);
     }
+
+    /**
+     * CETAK LANGSUNG -- server-side, tanpa dialog print browser, ke
+     * printer yang SUDAH DITENTUKAN SERVER (App\Config\PrintNota),
+     * BUKAN dari request browser (lihat audit keamanan di docs
+     * Section 30). Reuse penuh: data & view yang SAMA dengan index()
+     * ("Pilih Printer" / Nota biasa), cuma dikonversi ke PDF di server
+     * (Dompdf, sudah dipakai di tempat lain di controller ini) lalu
+     * dikirim lewat command-line tool -- bukan template/sumber data
+     * kedua.
+     *
+     * Read-only murni terhadap transaksi (SELECT saja). Kalau
+     * generate PDF atau kirim ke printer gagal, transaksi yang SUDAH
+     * tersimpan TIDAK terpengaruh sama sekali -- endpoint ini
+     * dipanggil SETELAH transaksi disimpan, tidak pernah menulis ke
+     * tabel transaksi/detail_transaksi/pembayaran.
+     */
+    public function notaLangsung($id)
+    {
+        $transaksiModel = new TransaksiModel();
+        $detailModel = new DetailTransaksiModel();
+        $pembayaranModel = new PembayaranModel();
+        $pelangganModel = new PelangganModel();
+
+        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama')
+            ->join('users', 'users.id = transaksi.kasir_id', 'left')
+            ->find($id);
+
+        if (!$transaksi) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status' => 'error',
+                'message' => 'Transaksi tidak ditemukan.'
+            ]);
+        }
+
+        $detail = $detailModel->where('transaksi_id', $id)->findAll();
+        $pembayaran = $pembayaranModel
+            ->where('transaksi_id', $id)
+            ->where('status', 'aktif')
+            ->findAll();
+        $pelanggan = $transaksi['pelanggan_id'] ? $pelangganModel->find($transaksi['pelanggan_id']) : null;
+
+        $totalDibayar = array_sum(array_column($pembayaran, 'jumlah'));
+        $sisa = $transaksi['grand_total'] - $totalDibayar;
+
+        // Data & view SAMA PERSIS dengan index() -- satu sumber
+        // kebenaran tampilan nota untuk kedua mode cetak.
+        //
+        // logoSrc SENGAJA dibedakan dari jalur browser (index()):
+        // di sana logo dimuat lewat base_url() (URL HTTP, wajar untuk
+        // <img> di browser sungguhan). Dompdf di jalur INI sengaja
+        // di-set isRemoteEnabled=false (keamanan), dan ternyata
+        // pendekatan path/file:// juga masih bermasalah (kemungkinan
+        // resolusi path Windows di dalam Dompdf) -- jadi logo di sini
+        // di-EMBED LANGSUNG sebagai data:base64 di dalam HTML. Ini
+        // menghilangkan SEMUA masalah resolusi path/URL sekaligus:
+        // Dompdf tidak perlu "mengambil" file dari mana pun, PHP yang
+        // baca file-nya sendiri (baca file lokal, bukan Dompdf yang
+        // baca), datanya sudah nempel langsung di HTML sebagai teks.
+        $logoPath = FCPATH . 'logo-no-background.png';
+        $logoSrc = base_url('logo-no-background.png'); // fallback kalau file tidak ketemu
+
+        if (is_file($logoPath)) {
+            $logoBinary = file_get_contents($logoPath);
+
+            if ($logoBinary !== false) {
+                $logoSrc = 'data:image/png;base64,' . base64_encode($logoBinary);
+            } else {
+                log_message('warning', 'notaLangsung: file logo ada tapi gagal dibaca: ' . $logoPath);
+            }
+        } else {
+            log_message('warning', 'notaLangsung: file logo tidak ditemukan di: ' . $logoPath);
+        }
+
+        $data = [
+            'transaksi' => $transaksi,
+            'detail'    => $detail,
+            'pelanggan' => $pelanggan,
+            'total_dibayar' => $totalDibayar,
+            'sisa' => $sisa,
+            'title' => 'Nota Transaksi',
+            'logoSrc' => $logoSrc,
+        ];
+
+        try {
+            $pdfBinary = $this->generateNotaPdfBinary($data);
+        } catch (\Throwable $e) {
+            log_message('error', 'notaLangsung: gagal generate PDF transaksi #' . $id . ': ' . $e->getMessage());
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => 'error',
+                'message' => 'Gagal membuat PDF nota: ' . $e->getMessage()
+            ]);
+        }
+
+        try {
+            $this->kirimPdfKePrinter($pdfBinary, $transaksi['kode_invoice']);
+        } catch (\Throwable $e) {
+            log_message('error', 'notaLangsung: gagal cetak transaksi #' . $id . ': ' . $e->getMessage());
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => 'error',
+                'message' => 'Nota gagal dikirim ke printer: ' . $e->getMessage()
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Nota berhasil dikirim ke printer.'
+        ]);
+    }
+
+    /**
+     * Render view cetak/nota (SAMA dengan yang dipakai index()) lalu
+     * konversi ke PDF A6 landscape via Dompdf -- Dompdf & Options
+     * sudah di-import di atas (dipakai juga oleh struk()/generatePDF()
+     * yang lama), method ini SENGAJA ditulis bersih terpisah (bukan
+     * reuse generatePDF() yang lama) karena method itu punya bug
+     * variabel undefined pre-existing dan tidak pernah punya
+     * route/tidak pernah dipanggil -- di luar scope perbaikan ini,
+     * tidak disentuh.
+     */
+    private function generateNotaPdfBinary(array $data): string
+    {
+        // Dompdf butuh ekstensi GD (atau Imagick) untuk memproses
+        // gambar (logo PNG di nota ini termasuk) -- tanpa ini, PDF
+        // tetap bisa dibuat tapi gambar gagal dirender walau data
+        // base64-nya sudah benar, biasanya tanpa pesan error yang
+        // jelas. Dicek eksplisit di sini supaya kalau GD ke-nonaktif
+        // lagi suatu saat (mis. setelah update PHP/server), errornya
+        // langsung jelas -- bukan gagal diam-diam.
+        if (!extension_loaded('gd') && !extension_loaded('imagick')) {
+            throw new \Exception(
+                'Ekstensi PHP "gd" (atau "imagick") tidak aktif -- diperlukan Dompdf ' .
+                    'untuk merender gambar (logo) di PDF. Aktifkan lewat php.ini ' .
+                    '(uncomment/tambahkan "extension=gd") lalu restart web server.'
+            );
+        }
+
+        $html = view('cetak/nota', $data);
+
+        $options = new Options();
+        $options->set('defaultFont', 'Courier');
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', false);
+
+        // 🔥 PENTING: tanpa ini, Dompdf render pakai CSS mode "screen"
+        // (default), jadi aturan `@media print { .no-print { display:
+        // none; } }` yang sudah ada di cetak/nota.php (untuk sembunyikan
+        // tombol "Cetak Nota"/"Tutup" saat dicetak beneran) TIDAK ikut
+        // diterapkan -- tombol-tombol itu ikut tercetak di PDF. Browser
+        // print (window.print(), dipakai jalur "Pilih Printer") selalu
+        // otomatis pakai mode print, makanya cuma jalur "Cetak Langsung"
+        // (lewat Dompdf) yang kena masalah ini. `defaultMediaType`
+        // memaksa Dompdf berperilaku sama seperti browser print: pakai
+        // aturan @media print, bukan @media screen.
+        $options->set('defaultMediaType', 'print');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A6', 'landscape');
+        $dompdf->render();
+
+        return $dompdf->output();
+    }
+
+    /**
+     * Simpan PDF ke file sementara lalu kirim ke printer lewat tool
+     * command-line (default: SumatraPDF `-print-to <printer> -silent
+     * <file>`, lihat App\Config\PrintNota). Printer & tool SELALU
+     * dari konfigurasi server -- parameter ini TIDAK PERNAH menerima
+     * input dari request/browser.
+     *
+     * proc_open() dipakai (bukan shell_exec/exec) supaya argumen
+     * dilewatkan sebagai array literal (tidak lewat shell sama
+     * sekali) dan exit code + stdout/stderr bisa ditangkap untuk
+     * logging/troubleshooting, sesuai permintaan spesifikasi.
+     */
+    private function kirimPdfKePrinter(string $pdfBinary, string $namaFileHint): void
+    {
+        $config = config('PrintNota');
+
+        if (!is_file($config->sumatraPdfPath)) {
+            throw new \Exception(
+                'Tool cetak tidak ditemukan di "' . $config->sumatraPdfPath . '". ' .
+                'Periksa konfigurasi App\\Config\\PrintNota (bisa di-override lewat .env).'
+            );
+        }
+
+        $dir = WRITEPATH . 'uploads/nota_print';
+
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $namaAman = preg_replace('/[^A-Za-z0-9_-]/', '', $namaFileHint) ?: 'nota';
+        $path = $dir . '/' . $namaAman . '_' . uniqid() . '.pdf';
+
+        if (file_put_contents($path, $pdfBinary) === false) {
+            throw new \Exception('Gagal menyimpan file PDF sementara sebelum dicetak.');
+        }
+
+        $cmd = [
+            $config->sumatraPdfPath,
+            '-print-to', $config->printerLangsung,
+            '-print-settings', $config->printSettings,
+            '-silent',
+            $path,
+        ];
+
+        // Dikonfirmasi bekerja (2026-09-09) dengan target printer
+        // berupa UNC path yang valid, mis. \\aan-pc\L3210 (printer
+        // lokal yang di-share) atau \\AULIA-DP1\L300. Kegagalan
+        // sebelumnya ("ParseFlags") ternyata bukan karena flag ini
+        // tidak dikenali SumatraPDF, tapi karena path/nama printer
+        // yang dicoba waktu itu belum benar -- bukan bug di flag ini.
+
+        $descriptorspec = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $process = proc_open($cmd, $descriptorspec, $pipes);
+
+        if (!is_resource($process)) {
+            @unlink($path);
+            throw new \Exception('Gagal menjalankan proses cetak (tool: ' . $config->sumatraPdfPath . ').');
+        }
+
+        fclose($pipes[0]);
+
+        // Batas waktu sederhana: kalau proses belum selesai sampai
+        // timeout, paksa hentikan supaya request AJAX tidak menggantung
+        // selamanya kalau tool/printer hang.
+        $mulai = time();
+        $status = proc_get_status($process);
+
+        while ($status['running'] && (time() - $mulai) < $config->timeoutDetik) {
+            usleep(200000); // 0.2 detik
+            $status = proc_get_status($process);
+        }
+
+        if ($status['running']) {
+            proc_terminate($process);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            proc_close($process);
+            @unlink($path);
+
+            throw new \Exception(
+                'Proses cetak melebihi batas waktu (' . $config->timeoutDetik . ' detik) -- ' .
+                'kemungkinan printer/tool tidak merespons.'
+            );
+        }
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        $exitCode = proc_close($process);
+
+        // File sementara selalu dihapus setelah proses selesai
+        // (berhasil maupun gagal) -- detail error sudah di-log
+        // lengkap di bawah untuk troubleshooting, filenya sendiri
+        // tidak perlu dipertahankan.
+        @unlink($path);
+
+        log_message(
+            'info',
+            'notaLangsung print: cmd=' . implode(' ', $cmd) .
+                ' | exit=' . $exitCode .
+                ' | stdout=' . trim((string) $stdout) .
+                ' | stderr=' . trim((string) $stderr)
+        );
+
+        if ($exitCode !== 0) {
+            throw new \Exception(
+                'Command cetak gagal (exit code ' . $exitCode . '): ' .
+                    trim($stderr ?: $stdout ?: 'tidak ada detail dari tool cetak.')
+            );
+        }
+    }
+
     /**
      * TICKET / HANDOVER -- bukan invoice/struk lengkap. Tujuannya
      * murni identifikasi transaksi saat pelanggan pindah tangan

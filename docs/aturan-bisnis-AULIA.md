@@ -1783,3 +1783,85 @@ yang sudah tidak dipakai di level aplikasi, lihat Section 1). Wajib
 dijalankan (lewat `/migrasi-manual` atau `php spark migrate`) sebelum
 fitur ini bisa dipakai -- tanpa migration, transaksi tidak bisa
 diubah ke `mangkrak` (MySQL akan menolak nilai enum yang tidak valid).
+
+---
+
+# 30. Cetak Nota: "Cetak Langsung" & "Pilih Printer" (2026-09-09)
+
+## 30.1 Konsep
+
+Tombol "Cetak Nota" (setelah transaksi disimpan, maupun cetak ulang
+dari detail transaksi) sekarang jadi dropdown dua pilihan:
+
+- **Cetak Langsung** -- server-side, langsung ke `\\AULIA-DP1\L300`
+  (Epson L300), TANPA dialog print browser.
+- **Pilih Printer** -- perilaku LAMA yang sudah ada (buka PDF/HTML di
+  window baru, user pilih printer sendiri lewat dialog print browser)
+  -- **tidak diubah sama sekali**, cuma dipindah jadi salah satu opsi
+  dropdown (sebelumnya tombol "Nota" berdiri sendiri).
+
+## 30.2 Audit yang mendasari desain ini
+
+- Tidak ditemukan mekanisme command-line PDF printing apa pun di
+  codebase sebelumnya (`grep` untuk SumatraPDF/PDFtoPrinter/exec/
+  shell_exec/proc_open: nihil, kecuali `WindowsPrintConnector` untuk
+  Thermal yang MURNI ESC/POS raw text, bukan PDF).
+- Karena itu, mekanisme Thermal (`smb://guest@aulia6/POS-58` via
+  `Mike42\Escpos`) **tidak bisa** dipakai ulang untuk mengirim PDF --
+  library itu cuma bicara protokol printer struk/receipt, tidak
+  kompatibel dengan printer PDF biasa seperti Epson L300.
+- **"Pilih Printer" justru SUDAH ADA** -- itu literally perilaku
+  tombol "Nota"/"Cetak PDF" yang sudah lama berjalan (buka window,
+  browser print dialog otomatis menampilkan semua printer yang
+  ter-install di komputer kasir). Tidak ada kode baru untuk opsi ini.
+- Untuk "Cetak Langsung", satu-satunya jalan adalah tool command-line
+  PDF-to-printer -- ini **genuinely baru**, tidak ada yang bisa
+  di-reuse untuk bagian pengiriman-nya (generate PDF-nya tetap reuse
+  Dompdf + view `cetak/nota.php` yang sama persis dengan "Pilih
+  Printer", cuma jalur pengiriman ke printernya yang beda).
+
+## 30.3 Konfigurasi (`App\Config\PrintNota`)
+
+Printer tujuan & path tool cetak **sepenuhnya di sisi server**, tidak
+pernah diterima dari request browser (mencegah browser mengirim
+command/path printer sembarangan):
+
+```php
+public string $printerLangsung  = '\\\\AULIA-DP1\\L300';
+public string $sumatraPdfPath   = 'C:\\Tools\\SumatraPDF\\SumatraPDF.exe';
+public int    $timeoutDetik     = 25;
+```
+
+Override lewat `.env` (`printnota.printerLangsung`,
+`printnota.sumatraPdfPath`) tanpa ubah kode -- default mengasumsikan
+tool **SumatraPDF** (portable, gratis, mendukung
+`-print-to <printer> -silent <file>`). Kalau server production pakai
+tool lain, sesuaikan `.env` DAN format argumen di
+`Cetak::kirimPdfKePrinter()`.
+
+## 30.4 Flow "Cetak Langsung"
+
+```
+Klik "Cetak Langsung"
+  -> GET /cetak/nota-langsung/{id} (AJAX, read-only)
+  -> fetch transaksi (SAMA persis dengan "Pilih Printer")
+  -> render view cetak/nota.php -> HTML (SAMA template)
+  -> Dompdf -> PDF A6 landscape
+  -> simpan PDF sementara di writable/uploads/nota_print/
+  -> proc_open([SumatraPDF, -print-to, <printer>, -silent, <file>])
+  -> tunggu proses selesai (timeout 25 detik default)
+  -> hapus file sementara (berhasil maupun gagal)
+  -> log exit code + stdout + stderr
+  -> JSON {status, message} ke browser (toast, TANPA dialog print)
+```
+
+Endpoint ini **read-only** terhadap transaksi (SELECT saja) -- gagal
+generate PDF atau gagal kirim ke printer TIDAK PERNAH mempengaruhi
+transaksi yang sudah tersimpan (endpoint dipanggil SETELAH simpan,
+tidak pernah menulis ke `transaksi`/`detail_transaksi`/`pembayaran`).
+
+## 30.5 Regression Thermal
+
+`Cetak::thermal()` **tidak disentuh sama sekali** -- target
+`smb://guest@aulia6/POS-58` dan seluruh implementasinya tetap persis
+seperti sebelumnya.
