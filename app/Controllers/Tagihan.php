@@ -25,16 +25,9 @@ class Tagihan extends BaseController
         // Filter rentang tanggal transaksi. Default saat halaman dibuka
         // tanpa parameter: 7 hari lalu s/d hari ini. Kalau input tidak
         // valid, jatuh ke default (jangan percaya isi query string).
-        $tanggalAwal  = $this->request->getGet('tanggal_awal');
-        $tanggalAkhir = $this->request->getGet('tanggal_akhir');
-
-        if (empty($tanggalAwal) || strtotime($tanggalAwal) === false) {
-            $tanggalAwal = date('Y-m-d', strtotime('-7 days'));
-        }
-
-        if (empty($tanggalAkhir) || strtotime($tanggalAkhir) === false) {
-            $tanggalAkhir = date('Y-m-d');
-        }
+        // Lihat Tagihan::getRentangTanggal() -- logic tidak berubah,
+        // hanya dipindah supaya index() lebih ringkas.
+        [$tanggalAwal, $tanggalAkhir] = $this->getRentangTanggal();
 
         // Batas atas dibuat eksklusif (+1 hari) supaya transaksi pada
         // tanggal_akhir sampai 23:59:59 tetap ikut terhitung.
@@ -70,6 +63,37 @@ class Tagihan extends BaseController
         ];
 
         return view('layout/main', $data);
+    }
+
+    /**
+     * Rentang tanggal filter daftar tagihan dari query string.
+     *
+     * Dipindah verbatim dari index() -- behavior TIDAK berubah:
+     * - baca GET tanggal_awal / tanggal_akhir;
+     * - kalau kosong ATAU strtotime() === false -> pakai default;
+     * - default tanggal_awal: date('Y-m-d', strtotime('-7 days'));
+     * - default tanggal_akhir: date('Y-m-d');
+     * - masing-masing tanggal divalidasi/di-default independen.
+     *
+     * Tidak menyentuh model/DB/session dan tidak mengubah timezone.
+     * Perhitungan batas atas eksklusif ($akhirEksklusif) tetap di index().
+     *
+     * @return array{0: string, 1: string} [tanggal_awal, tanggal_akhir]
+     */
+    private function getRentangTanggal(): array
+    {
+        $tanggalAwal  = $this->request->getGet('tanggal_awal');
+        $tanggalAkhir = $this->request->getGet('tanggal_akhir');
+
+        if (empty($tanggalAwal) || strtotime($tanggalAwal) === false) {
+            $tanggalAwal = date('Y-m-d', strtotime('-7 days'));
+        }
+
+        if (empty($tanggalAkhir) || strtotime($tanggalAkhir) === false) {
+            $tanggalAkhir = date('Y-m-d');
+        }
+
+        return [$tanggalAwal, $tanggalAkhir];
     }
 
     public function detail($id)
