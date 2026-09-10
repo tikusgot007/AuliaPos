@@ -27,19 +27,7 @@ class Transaksi extends BaseController
     |
     */
 
-        $tanggal_awal = $this->request->getGet('tanggal_awal');
-        $tanggal_akhir = $this->request->getGet('tanggal_akhir');
-
-        if (empty($tanggal_awal)) {
-            $tanggal_awal = date(
-                'Y-m-d',
-                strtotime('-0 days')
-            );
-        }
-
-        if (empty($tanggal_akhir)) {
-            $tanggal_akhir = date('Y-m-d');
-        }
+        [$tanggal_awal, $tanggal_akhir] = $this->getDateRange();
 
 
         /*
@@ -580,6 +568,40 @@ class Transaksi extends BaseController
             $data
         );
     }
+
+    /**
+     * Tentukan rentang tanggal filter untuk index() dari query string.
+     *
+     * Behavior dipertahankan persis seperti sebelumnya:
+     * - tanggal_awal / tanggal_akhir diambil dari GET;
+     * - nilai kosong (null / '' / empty()) -> default "hari ini"
+     *   (date('Y-m-d'); tanggal_awal lewat strtotime('-0 days') yang
+     *   ekuivalen hari ini);
+     * - nilai non-kosong dipakai apa adanya, tanpa normalisasi.
+     *
+     * Tidak menyentuh model/DB/session dan tidak mengubah timezone.
+     *
+     * @return array{0: string, 1: string} [tanggal_awal, tanggal_akhir]
+     */
+    private function getDateRange(): array
+    {
+        $tanggal_awal = $this->request->getGet('tanggal_awal');
+        $tanggal_akhir = $this->request->getGet('tanggal_akhir');
+
+        if (empty($tanggal_awal)) {
+            $tanggal_awal = date(
+                'Y-m-d',
+                strtotime('-0 days')
+            );
+        }
+
+        if (empty($tanggal_akhir)) {
+            $tanggal_akhir = date('Y-m-d');
+        }
+
+        return [$tanggal_awal, $tanggal_akhir];
+    }
+
     public function hariIni()
     {
         $db = \Config\Database::connect();
