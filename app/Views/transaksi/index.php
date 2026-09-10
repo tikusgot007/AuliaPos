@@ -187,6 +187,11 @@ $isAdminUser = session()->get('role') === 'admin';
                             // 🔥 Format No Order
                             $noOrderDisplay = $t['no_order'] ? format_no_order($t['no_order']) : '-';
 
+                            // 🔥 Format tanggal: "29 Sept 2026" (nama bulan singkat ID)
+                            $ts = strtotime($t['tanggal']);
+                            $blnId = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                            $tanggalDisplay = date('d', $ts) . ' ' . $blnId[(int) date('n', $ts)] . ' ' . date('y', $ts);
+
                             // Baris dari Archive (lihat App\Services\TransaksiArchiveService)
                             // -- read-only, cuma boleh dilihat, tidak boleh
                             // dibayar/diselesaikan/dibatalkan lewat operasi
@@ -204,8 +209,8 @@ $isAdminUser = session()->get('role') === 'admin';
                                     <?php endif; ?>
                                 </td>
                                 <td><?= $noOrderDisplay ?></td> <!-- 🔥 NO ORDER -->
-                                <td data-order="<?= strtotime($t['tanggal']) ?>">
-                                    <?= date('d/m/Y', strtotime($t['tanggal'])) ?>
+                                <td data-order="<?= $ts ?>">
+                                    <?= $tanggalDisplay ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? '-' ?></td>
                                 <td><?= $t['kasir_nama'] ?? '-' ?></td>

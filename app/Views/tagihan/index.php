@@ -80,13 +80,18 @@
 
                             // 🔥 Format No Order
                             $noOrderDisplay = !empty($t['no_order']) ? format_no_order($t['no_order']) : '-';
+
+                            // 🔥 Format tanggal: "29 Sept 2026" (nama bulan singkat ID)
+                            $ts = strtotime($t['tanggal']);
+                            $blnId = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sept', 'Okt', 'Nov', 'Des'];
+                            $tanggalDisplay = date('d', $ts) . ' ' . $blnId[(int) date('n', $ts)] . ' ' . date('Y', $ts);
                         ?>
                             <tr>
                                 <td><?= $i + 1 ?></td>
                                 <td><strong><?= $t['kode_invoice'] ?? $t['invoice'] ?? '-' ?></strong></td>
                                 <td><?= $noOrderDisplay ?></td>
-                                <td data-order="<?= strtotime($t['tanggal']) ?>">
-                                    <?= date('d/m/Y', strtotime($t['tanggal'])) ?>
+                                <td data-order="<?= $ts ?>">
+                                    <?= $tanggalDisplay ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? $t['nama_pelanggan'] ?? '-' ?></td>
                                 <td><?= $t['kasir_nama'] ?? $t['nama_kasir'] ?? '-' ?></td>
