@@ -87,13 +87,16 @@ if (!function_exists('status_pembayaran_badge_class')) {
 if (!function_exists('status_pembayaran_label')) {
     /**
      * Label tampilan status_pembayaran: underscore jadi spasi, huruf
-     * besar. Persis `strtoupper(str_replace('_', ' ', $status))` yang
-     * sebelumnya diulang di tiga view. Tidak ada special-case untuk
-     * status tak dikenal (mengikuti perilaku existing). Escaping tetap
+     * besar (`strtoupper(str_replace('_', ' ', $status))`), KECUALI
+     * 'belum_bayar' yang disingkat 'BM' atas permintaan. Escaping tetap
      * tanggung jawab view.
      */
     function status_pembayaran_label(string $status): string
     {
+        if ($status === 'belum_bayar') {
+            return 'BM';
+        }
+
         return strtoupper(str_replace('_', ' ', $status));
     }
 }

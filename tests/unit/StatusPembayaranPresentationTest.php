@@ -38,7 +38,7 @@ final class StatusPembayaranPresentationTest extends TestCase
 
     public function testLabelTigaStatusUtama(): void
     {
-        $this->assertSame('BELUM BAYAR', status_pembayaran_label('belum_bayar'));
+        $this->assertSame('BM', status_pembayaran_label('belum_bayar'));
         $this->assertSame('DP', status_pembayaran_label('dp'));
         $this->assertSame('LUNAS', status_pembayaran_label('lunas'));
     }
