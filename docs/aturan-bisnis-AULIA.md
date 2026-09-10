@@ -1,18 +1,22 @@
 # AULIA — Dokumentasi Aturan Bisnis & Keputusan Teknis
 
 **Status:** Baseline aktif  
-**Tanggal:** 2026-09-09 (update terakhir)  
+**Tanggal:** 2026-09-10 (update terakhir)  
 **Project:** AULIA — PHP CodeIgniter 4 POS
 
-> **Ringkasan update terbaru:** dokumen ini sekarang juga mencakup
-> fitur **Archive Transaksi** (baru, lihat Section 28) — memindahkan
-> transaksi lama (≥6 bulan penuh) ke database SQLite terpisah supaya
-> database utama tetap ramping tanpa kehilangan histori. Modul Jadwal
-> Karyawan (Section 20) sepenuhnya terpisah dari domain transaksi/
-> kasir di Section 1-19. Section 19 juga bertambah 6 entri pekerjaan
-> (P9-P14): UI/error-handling tombol Selesai, filter status transaksi
-> eksplisit, fitur Pelunasan Terlambat/Backdate, dan beberapa
-> perbaikan UI kecil.
+> **Ringkasan update terbaru:** Phase 2 menambah **Section 4.2** —
+> kapabilitas SELESAI terbatas untuk kasir lewat workflow Kasir/POS
+> (transaksi miliknya sendiri yang sudah `lunas`), tanpa melonggarkan
+> jalur status umum yang tetap admin-only. Lihat juga Section 19 P15.
+> Sebelumnya dokumen ini juga sudah mencakup fitur **Archive
+> Transaksi** (Section 28) — memindahkan transaksi lama (≥6 bulan
+> penuh) ke database SQLite terpisah supaya database utama tetap
+> ramping tanpa kehilangan histori. Modul Jadwal Karyawan (Section 20)
+> sepenuhnya terpisah dari domain transaksi/kasir di Section 1-19.
+> Section 19 memuat entri pekerjaan P9-P15: UI/error-handling tombol
+> Selesai, filter status transaksi eksplisit, fitur Pelunasan
+> Terlambat/Backdate, beberapa perbaikan UI kecil, dan kapabilitas
+> SELESAI dari workflow Kasir/POS.
 
 ---
 
@@ -62,7 +66,8 @@ Transaksi masih berjalan.
 
 - Boleh Edit.
 - Boleh Batal.
-- Boleh Selesai.
+- Boleh Selesai — hanya jika `status_pembayaran = lunas`, dan hanya
+  lewat jalur yang diizinkan untuk role terkait (Section 4.1 & 4.2).
 - Bisa `belum_bayar`, `dp`, atau `lunas`.
 
 **Penting:** `proses + lunas` tetap `proses`.
@@ -79,12 +84,18 @@ Syarat transisi `proses → selesai`:
 
 1. Status transaksi saat ini harus `proses`.
 2. `status_pembayaran` harus `lunas`.
-3. User yang melakukan perubahan harus `admin` (kasir tidak boleh).
+3. Jalur + role sesuai konteks:
+   - **Workflow umum** (Daftar/Detail Transaksi, endpoint
+     `/api/ubah-status`): hanya `admin`. Kasir selalu ditolak backend.
+   - **Workflow Kasir/POS** (endpoint `/api/kasir/selesaikan-transaksi`):
+     `admin`, atau `kasir` untuk transaksi **miliknya sendiri** yang
+     berasal dari POS — lihat Section 4.2.
 
 **`lunas` ≠ otomatis `selesai`.** Pembayaran lunas hanya membuat
-transaksi *memenuhi syarat* untuk diselesaikan. Admin tetap harus
-menekan tombol Selesai secara eksplisit setelah memastikan garapan
-benar-benar clear — lihat Section 4.1.
+transaksi *memenuhi syarat* untuk diselesaikan. Tombol Selesai tetap
+harus ditekan secara eksplisit — oleh admin di workflow umum, atau
+oleh kasir pemilik di workflow POS (Section 4.2) — setelah memastikan
+garapan benar-benar clear. Lihat Section 4.1.
 
 Perilaku lain tidak berubah:
 - Tidak boleh Edit.
@@ -141,6 +152,12 @@ Menjawab kondisi pembayaran:
 | selesai | lunas | pekerjaan final dan lunas |
 | batal | apa pun | transaksi dibatalkan |
 
+> Baris `selesai + belum_bayar` dan `selesai + dp` **tidak bisa dibentuk**
+> lewat transisi normal — transisi `proses → selesai` selalu mewajibkan
+> `lunas` (Section 4.1 & 4.2). Kombinasi itu hanya mungkin jika pembayaran
+> transaksi yang sudah `selesai` kemudian di-reversal lewat Koreksi
+> Pembayaran (Section 6).
+
 ---
 
 # 4. Transaksi baru
@@ -185,16 +202,24 @@ dan tidak melakukan update apa pun. Pesan error dibedakan:
   `"Transaksi belum dapat diselesaikan karena pembayaran belum lunas.
   Sisa pembayaran: Rp<nominal>"`
 
-**Siapa yang boleh menyelesaikan:**
+**Siapa yang boleh menyelesaikan (per konteks):**
 
-| Role | Boleh set SELESAI |
-|---|---|
-| admin | Ya (dengan syarat lunas) |
-| kasir | Tidak, selalu ditolak backend |
+| Role | Workflow umum — Daftar/Detail, `/api/ubah-status` | Workflow Kasir/POS — `/api/kasir/selesaikan-transaksi` |
+|---|---|---|
+| admin | Ya, jika `lunas` | Ya, jika `lunas` |
+| kasir | **Tidak** — selalu ditolak backend | Ya, jika `lunas` **dan** transaksi miliknya sendiri dari POS (Section 4.2) |
+
+Syarat `lunas` identik di kedua jalur; yang berbeda hanya siapa yang
+boleh memicunya dan dari mana. Rumusan permission kasir bukan
+"kasir boleh mengubah status menjadi selesai", melainkan
+**"kasir boleh menyelesaikan transaksi lewat workflow Kasir/POS untuk
+transaksi miliknya yang sudah lunas"** (Section 4.2).
 
 Role SPV belum dibuat; jika dibutuhkan nanti, ditambahkan sebagai
 perubahan terpisah. Restriction diterapkan di backend
-(`TransaksiModel::ubahStatus()`), bukan hanya disembunyikan di UI.
+(`TransaksiModel::ubahStatus()` untuk syarat status/`lunas`;
+controller endpoint untuk role, kepemilikan, dan `sumber`), bukan
+hanya disembunyikan di UI.
 
 ### Contoh kasus
 
@@ -248,9 +273,12 @@ lagi bisa terbentuk lewat jalur normal aplikasi.
                 SELESAI
 ```
 
-Dua syarat untuk `SELESAI`: (A) pembayaran sudah `lunas`, (B) admin
-secara eksplisit menandai transaksi selesai. `LUNAS` sendirian tidak
-pernah cukup.
+Dua syarat untuk `SELESAI`: (A) pembayaran sudah `lunas`, (B) transaksi
+ditandai selesai secara eksplisit. `LUNAS` sendirian tidak pernah
+cukup. Penanda pada diagram di atas adalah **admin** (jalur umum);
+sejak Phase 2, **kasir pemilik** juga bisa menandai lewat workflow
+Kasir/POS untuk transaksinya sendiri (Section 4.2) — syarat (A) tetap
+berlaku sama.
 
 ### Cakupan perubahan ini
 
@@ -263,6 +291,52 @@ pernah cukup.
   seperti sebelumnya.
 - **Tidak** mengubah alur Edit (Section 5) — Edit tetap hanya untuk
   `status = proses`, tidak bergantung pada syarat SELESAI yang baru.
+
+---
+
+## 4.2 Kapabilitas SELESAI dari workflow Kasir/POS (2026-09-10, Phase 2)
+
+**Keputusan resmi:** kasir boleh menyelesaikan transaksi **hanya**
+lewat workflow Kasir/POS (`kasir/index.php`), untuk transaksi miliknya
+sendiri yang sudah lunas. Tujuannya mengurangi beban admin: kasir yang
+membuat transaksi sekaligus menerima pembayaran dapat langsung
+menuntaskannya tanpa menunggu admin.
+
+Bukan: "kasir boleh mengubah status menjadi `selesai`".
+Melainkan: **"kasir boleh menyelesaikan transaksi lewat workflow
+Kasir/POS untuk transaksi miliknya yang sudah `lunas`."**
+
+**Syarat (semua wajib, dicek backend):**
+
+| # | Syarat | Diperiksa di |
+|---|---|---|
+| a | `sumber = 'kasir_pos'` | controller endpoint |
+| b | `kasir_id === id_user` (transaksi dibuat kasir tersebut) — admin dikecualikan dari syarat ini | controller endpoint |
+| c | status transaksi masih `proses` | controller endpoint + `TransaksiModel::ubahStatus()` |
+| d | `status_pembayaran = lunas` | `TransaksiModel::ubahStatus()` (sama persis dengan Section 4.1) |
+
+**Jalur:** hanya endpoint khusus POS
+`POST /api/kasir/selesaikan-transaksi`. Endpoint ini meneruskan
+kapabilitas konteks ke `TransaksiModel::ubahStatus()` sehingga gate
+"harus admin" dilewati untuk kasir pemilik — **tetapi syarat `lunas`
+tidak pernah dilewati**. `belum_bayar` / `dp` tetap ditolak untuk
+semua role di semua jalur.
+
+**Yang tetap TIDAK boleh untuk kasir:** menyelesaikan transaksi lewat
+workflow umum — halaman Daftar Transaksi, halaman Detail Transaksi,
+dan endpoint `/api/ubah-status`. Di sana kasir selalu ditolak backend
+(Section 4.1), tak berubah oleh Phase 2.
+
+**Admin** tetap dapat menyelesaikan transaksi lewat workflow umum
+(jika `lunas`) maupun lewat endpoint POS. Transaksi yang belum lunas /
+DP tetap tidak boleh menjadi `selesai` untuk admin sekalipun.
+
+**UI bukan enforcement.** Tombol "Tandai Selesai" di modal sukses
+kasir dan penyembunyian tombol Selesai untuk kasir di Daftar/Detail
+hanyalah lapis pertama. Sumber kebenaran enforcement ada di backend
+untuk: **role, kepemilikan (`kasir_id`), `sumber` transaksi, status
+pembayaran, dan status transaksi**. Melewati UI dan memanggil endpoint
+langsung tetap tunduk pada semua pemeriksaan di atas.
 
 ---
 
@@ -540,16 +614,19 @@ transaksi/index
 ```
 
 Action:
-- `proses` → Edit, Selesai (khusus admin, hanya jika `lunas` — lihat
-  Section 4.1), Batal.
+- `proses` → Edit, Selesai (di halaman ini: **khusus admin**, hanya
+  jika `lunas` — lihat Section 4.1; kasir menyelesaikan transaksinya
+  sendiri lewat workflow Kasir/POS, Section 4.2), Batal.
 - `selesai` → lihat detail dan bayar jika masih ada sisa.
 - `batal` → tidak Edit dan tidak menerima pembayaran baru.
 - `diambil` → tidak digunakan.
 
-Tombol Selesai tetap tampil untuk kasir maupun admin (tidak
-disembunyikan berdasarkan role di frontend), tetapi backend selalu
-memvalidasi ulang role dan status pembayaran sebelum eksekusi —
-lihat Section 4.1 dan Section 16.
+Di halaman Daftar/Detail Transaksi, tombol Selesai **hanya
+ditampilkan untuk admin** (P9). Kasir tidak melihatnya di sini, dan
+`/api/ubah-status` menolak kasir di backend (Section 4.1).
+Penyembunyian tombol hanyalah lapis pertama — backend selalu
+memvalidasi ulang role, kepemilikan, `sumber`, status pembayaran, dan
+status transaksi sebelum eksekusi (Section 4.1, 4.2, 16).
 
 ---
 
@@ -785,9 +862,11 @@ Status: **Selesai / Stabil**.
 konfirmasi generik yang sama untuk semua kondisi.
 
 **Perubahan (UI/error-handling saja, tidak menyentuh business rule):**
-- Tombol digating `session()->get('role') === 'admin'` — kasir tidak
-  melihat tombol ini sama sekali (lapis 1). Backend P8 tetap jadi
-  lapis 2 yang otoritatif.
+- Tombol digating `session()->get('role') === 'admin'` di halaman
+  Daftar/Detail — kasir tidak melihat tombol ini di sana (lapis 1).
+  Backend P8 tetap jadi lapis 2 yang otoritatif. (Diperluas oleh
+  Phase 2 / Section 4.2: kasir kini bisa menyelesaikan transaksinya
+  sendiri lewat workflow Kasir/POS — bukan lewat halaman Daftar/Detail.)
 - JS dipecah: `ubahStatus()` (untuk Batal, tidak berubah) vs
   `selesaikanTransaksi(id, statusPembayaran)` (khusus Selesai) —
   kalau `lunas`, tampil `confirm()` peringatan garapan sebelum kirim;
@@ -952,6 +1031,33 @@ File: `kasir/index.php`, `kasir/edit.php` (treatment identik, kedua
 file memang byte-identik untuk bagian ini), `kasir-shared.js`
 (`renderProdukKasir()` disederhanakan, tidak perlu lagi
 "preserve" kartu spesial saat render ulang).
+
+## P15 — Kapabilitas SELESAI dari workflow Kasir/POS (2026-09-10, Phase 2)
+
+**Konteks:** setelah P8/P9 mengunci `proses → selesai` ke admin, semua
+transaksi tetap harus dituntaskan admin — termasuk transaksi POS yang
+dibuat kasir sendiri dan sudah lunas di tempat. Diputuskan memberi
+kasir kapabilitas terbatas untuk kasus itu **tanpa** melonggarkan
+jalur status umum.
+
+**Aturan final:** lihat **Section 4.2**. Ringkas: kasir boleh
+menyelesaikan transaksi hanya lewat endpoint POS
+`/api/kasir/selesaikan-transaksi`, untuk transaksi `sumber='kasir_pos'`
++ `kasir_id === id_user` + `status='proses'` + `status_pembayaran='lunas'`.
+Jalur umum (`/api/ubah-status`, Daftar/Detail) tidak berubah — kasir
+tetap ditolak.
+
+**Enforcement:** `TransaksiModel::ubahStatus()` dapat parameter
+kapabilitas-konteks yang melewati gate "harus admin" tetapi **tidak**
+melewati syarat `lunas`. Cek role/kepemilikan/`sumber` ada di
+controller endpoint. Bukan disembunyikan di UI — panggilan langsung ke
+endpoint tetap tunduk semua cek.
+
+**Tidak mengubah** business rule Section 2/3/4.1: status transaksi &
+pembayaran tetap 3 nilai masing-masing; `lunas` tetap bukan `selesai`
+otomatis; `belum_bayar`/`dp` tetap tidak boleh jadi `selesai`.
+
+File: `TransaksiModel.php`, `Api.php`, `Routes.php`, `kasir/index.php`.
 
 ---
 
@@ -1566,8 +1672,11 @@ pilih cara penyesuaian sebelum dicetak.
 
 > **`selesai` adalah final transaksi/pekerjaan. `lunas` hanya final pembayaran.**
 > **Sejak 2026-09-05: `selesai` HANYA boleh dicapai jika `lunas` DAN
-> ditandai eksplisit oleh admin. `lunas` sendirian tidak pernah cukup
-> untuk menjadi `selesai`.**
+> ditandai eksplisit. `lunas` sendirian tidak pernah cukup untuk
+> menjadi `selesai`.** Penanda eksplisit itu: **admin** lewat workflow
+> umum, atau — sejak Phase 2 (2026-09-10) — **kasir pemilik** lewat
+> workflow Kasir/POS untuk transaksinya sendiri yang sudah lunas
+> (Section 4.2). Syarat `lunas` tidak pernah bisa dilewati siapa pun.
 
 > **Tagihan ditentukan berdasarkan status pembayaran, bukan status transaksi; transaksi `batal` selalu dikecualikan.** (Tidak berubah oleh perubahan 2026-09-05 — Tagihan tetap tidak melihat status transaksi maupun role.)
 
