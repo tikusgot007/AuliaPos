@@ -451,6 +451,21 @@
                     <strong>Total:</strong>
                     <span id="totalBayar">Rp 0</span>
                 </div>
+
+                <?php $sudahDibayarEdit = (float) ($transaksi['total_dibayar'] ?? 0); ?>
+                <?php if ($sudahDibayarEdit > 0): ?>
+                    <?php // Indikator LIVE: sisa vs LEBIH BAYAR mengikuti total keranjang.
+                    // Kondisi "lebih bayar" TIDAK disamarkan sebagai "Lunas". ?>
+                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.85rem;">
+                        <span>Sudah dibayar</span>
+                        <span id="editSudahDibayar" data-nilai="<?= $sudahDibayarEdit ?>">Rp <?= number_format($sudahDibayarEdit, 0, ',', '.') ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between fw-bold" id="editSelisihRow" style="font-size: 0.9rem;">
+                        <span id="editSelisihLabel">Sisa</span>
+                        <span id="editSelisihNilai">Rp 0</span>
+                    </div>
+                <?php endif; ?>
+
                 <div class="d-grid gap-2 mt-2">
                     <button class="btn btn-success" onclick="simpanPerubahanTransaksi()" style="font-size: 0.9rem;">
                         <i class="fas fa-save"></i> Simpan Perubahan
@@ -701,6 +716,61 @@
             }
         });
     }
+
+    // ================================================================
+    // INDIKATOR LIVE: SISA vs LEBIH BAYAR
+    // ================================================================
+    // Total keranjang (#totalBayar) di-update oleh kasir-shared.js.
+    // Di sini kita ikut menghitung selisih terhadap "sudah dibayar"
+    // (total pembayaran aktif yang TIDAK berubah dari halaman edit):
+    //   total >= dibayar  -> "Sisa: Rp X"
+    //   total <  dibayar   -> "Lebih Bayar: Rp Y"  (gaya warning, TIDAK
+    //                          disamarkan sebagai "Lunas")
+    // Sama seperti angka yang dihitung backend
+    // (Transaksi::updateTransaksi -> kelebihan_bayar). Tidak mengubah
+    // route/logic apa pun; murni tampilan.
+    (function () {
+        const elDibayar = document.getElementById('editSudahDibayar');
+        const elTotal = document.getElementById('totalBayar');
+        const row = document.getElementById('editSelisihRow');
+        const label = document.getElementById('editSelisihLabel');
+        const nilai = document.getElementById('editSelisihNilai');
+
+        // Blok hanya dirender kalau transaksi memang sudah ada pembayaran.
+        if (!elDibayar || !elTotal || !row || !label || !nilai) return;
+
+        const sudahDibayar = parseFloat(elDibayar.dataset.nilai || '0') || 0;
+
+        const keRupiah = (n) => 'Rp ' + Math.round(Math.abs(n)).toLocaleString('id-ID');
+        const dariRupiah = (teks) => {
+            const digits = String(teks).replace(/[^\d]/g, '');
+            return digits ? parseInt(digits, 10) : 0;
+        };
+
+        function render() {
+            const total = dariRupiah(elTotal.textContent);
+            const selisih = total - sudahDibayar;
+
+            if (selisih < 0) {
+                label.textContent = '⚠️ Lebih Bayar';
+                nilai.textContent = keRupiah(selisih);
+                row.classList.remove('text-danger');
+                row.classList.add('text-warning');
+            } else {
+                label.textContent = 'Sisa';
+                nilai.textContent = keRupiah(selisih);
+                row.classList.remove('text-warning');
+                row.classList.toggle('text-danger', selisih > 0);
+            }
+        }
+
+        render();
+        new MutationObserver(render).observe(elTotal, {
+            childList: true,
+            characterData: true,
+            subtree: true
+        });
+    })();
 </script>
 
 <?= $this->endSection() ?>

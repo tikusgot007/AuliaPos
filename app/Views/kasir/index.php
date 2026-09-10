@@ -732,12 +732,22 @@
         }
 
         const transaksiId = Number(response.transaksi_id) || 0;
+        // Tandai Selesai langsung dari kasir: hanya jika pembayaran
+        // LUNAS. Backend (Api::selesaikanTransaksiKasir) tetap
+        // memvalidasi ulang lunas + kepemilikan; tombol ini hanya
+        // jalan pintas UI, bukan satu-satunya pengaman.
+        const bolehSelesaiDariKasir = status === 'lunas' && transaksiId > 0;
         html += `
         </div>
         <div class="d-grid gap-2">
+            ${bolehSelesaiDariKasir ? `
+            <button class="btn btn-primary" id="btnTandaiSelesaiKasir" onclick="selesaikanDariKasir(${transaksiId}, this)">
+                <i class="fas fa-check-circle"></i> Tandai Selesai
+            </button>` : ''}
             <button class="btn btn-outline-dark" onclick="cetakTicket(${transaksiId})">
                 <i class="fas fa-id-card"></i> Ticket
-            </button>
+            </button>`;
+        html += `
             <div class="btn-group">
                 <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fas fa-print"></i> Cetak Nota
@@ -767,6 +777,48 @@
         $('#modalSukses').modal('show');
 
         resetNoOrder();
+    }
+
+    // ---------------------------------------------------------------
+    // TANDAI SELESAI DARI KASIR (khusus transaksi LUNAS)
+    // ---------------------------------------------------------------
+    // Kapabilitas konteks: kasir yang membuat & menerima pembayaran
+    // boleh langsung menyelesaikan transaksi TANPA menunggu admin,
+    // asal sudah LUNAS. Backend (Api::selesaikanTransaksiKasir)
+    // memvalidasi ulang lunas + kepemilikan; endpoint status umum
+    // (/api/ubah-status) tidak menerima kapabilitas ini.
+    function selesaikanDariKasir(id, btn) {
+        if (btn) btn.disabled = true;
+        showToast('⏳ Menyelesaikan transaksi...', 'info');
+
+        $.ajax({
+            url: '<?= base_url('/api/kasir/selesaikan-transaksi') ?>',
+            type: 'POST',
+            data: JSON.stringify({ transaksi_id: id }),
+            contentType: 'application/json',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    showToast('✅ ' + response.message, 'success');
+                    if (btn) {
+                        btn.classList.remove('btn-primary');
+                        btn.classList.add('btn-success');
+                        btn.innerHTML = '<i class="fas fa-check-circle"></i> Sudah Selesai';
+                    }
+                } else {
+                    if (btn) btn.disabled = false;
+                    showToast('❌ ' + response.message, 'danger');
+                }
+            },
+            error: function(xhr) {
+                if (btn) btn.disabled = false;
+                let message = 'Gagal menyelesaikan transaksi.';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    message = xhr.responseJSON.message;
+                }
+                showToast('❌ ' + message, 'danger');
+            }
+        });
     }
 
     // ---------------------------------------------------------------
