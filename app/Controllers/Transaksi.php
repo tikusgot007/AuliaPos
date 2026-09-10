@@ -1552,32 +1552,6 @@ class Transaksi extends BaseController
         }
     }
 
-    /**
-     * 🔥 DEKONSTRUKSI BANNER DARI NAMA
-     */
-    private function dekonstruksiBanner($nama, $harga, $qty)
-    {
-        // Contoh nama: "Banner 1.0mx1.0m (1.00 m²)"
-        $pattern = '/Banner\s+([\d.]+)mx([\d.]+)m\s*\(([\d.]+)\s*m²\)/';
-        if (preg_match($pattern, $nama, $matches)) {
-            $p = (float)$matches[1] * 100; // konversi ke cm
-            $l = (float)$matches[2] * 100;
-            $luas = (float)$matches[3];
-
-            // Harga per m² = harga / luas
-            $hargaPerM2 = $luas > 0 ? round($harga / $luas) : 22000;
-
-            return [
-                'p' => $p,
-                'l' => $l,
-                'luas' => $luas,
-                'qty' => $qty,
-                'harga_per_m2' => $hargaPerM2
-            ];
-        }
-
-        return null;
-    }
     public function aktifkan($id)
     {
         $model = new TransaksiModel();
