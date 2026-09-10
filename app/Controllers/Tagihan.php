@@ -150,7 +150,14 @@ class Tagihan extends BaseController
         }
 
         $request = $this->request->getJSON();
-        $metode = $request->metode ?? 'tunai';
+        $metode = strtolower(trim((string) ($request->metode ?? 'tunai')));
+
+        if (!in_array($metode, PembayaranModel::METODE, true)) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Metode pembayaran tidak valid.'
+            ])->setStatusCode(422);
+        }
 
         $isAdmin = session()->get('role') === 'admin';
         $kasirIdSesi = session()->get('id_user') ?? 1;

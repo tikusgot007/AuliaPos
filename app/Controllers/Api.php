@@ -255,6 +255,8 @@ class Api extends BaseController
         $jumlahBayar = 0;
         $statusPembayaran = 'belum_bayar';
 
+        $metodeDp = null;
+
         if ($metode === 'dp') {
             $jumlahBayar = $jumlahDp;
             if ($jumlahBayar <= 0) {
@@ -269,6 +271,16 @@ class Api extends BaseController
                     'message' => 'DP tidak boleh melebihi total belanja.'
                 ]);
             }
+            // Metode pembayaran DP divalidasi di awal supaya transaksi
+            // tidak terlanjur tersimpan lalu pembayarannya ditolak
+            // (orphan). Nilai ini dipakai kembali saat mencatat pembayaran.
+            $metodeDp = strtolower(trim((string) ($request['metode_dp'] ?? 'tunai')));
+            if (!in_array($metodeDp, \App\Models\PembayaranModel::METODE, true)) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'message' => 'Metode pembayaran DP tidak valid.'
+                ]);
+            }
             $statusPembayaran = 'dp';
         } elseif ($metode === 'piutang') {
             $jumlahBayar = 0;
@@ -276,9 +288,17 @@ class Api extends BaseController
         } elseif ($metode === 'draft') {
             $jumlahBayar = 0;
             $statusPembayaran = 'belum_bayar';
-        } elseif ($metode !== 'belum_bayar') {
+        } elseif (in_array($metode, \App\Models\PembayaranModel::METODE, true)) {
             $jumlahBayar = $grandTotal;
             $statusPembayaran = 'lunas';
+        } elseif ($metode !== 'belum_bayar') {
+            // Bukan pseudo-metode yang dikenal (dp/piutang/draft/belum_bayar)
+            // dan bukan metode pembayaran riil -> tolak, jangan diam-diam
+            // dianggap lunas.
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Metode pembayaran tidak dikenal.'
+            ]);
         }
 
         // ==========================================
@@ -334,7 +354,8 @@ class Api extends BaseController
             if ($jumlahBayar > 0) {
                 $metodeBayar = $metode;
                 if ($metode === 'dp') {
-                    $metodeBayar = $request['metode_dp'] ?? 'tunai';
+                    // Sudah divalidasi di atas terhadap PembayaranModel::METODE.
+                    $metodeBayar = $metodeDp;
                 }
 
                 $keterangan = 'Lunas';
@@ -519,9 +540,7 @@ class Api extends BaseController
         $metodeBaru = strtolower(trim((string) ($request['metode_baru'] ?? '')));
         $keterangan = trim((string) ($request['keterangan'] ?? ''));
 
-        $metodeValid = ['tunai', 'qris', 'transfer'];
-
-        if ($transaksiId <= 0 || $pembayaranId <= 0 || !in_array($metodeBaru, $metodeValid, true)) {
+        if ($transaksiId <= 0 || $pembayaranId <= 0 || !in_array($metodeBaru, \App\Models\PembayaranModel::METODE, true)) {
             return $this->response->setJSON([
                 'status' => 'error',
                 'message' => 'Data koreksi pembayaran tidak valid.'
@@ -680,6 +699,85 @@ class Api extends BaseController
             return $this->response->setJSON([
                 'status'  => 'success',
                 'message' => 'Status berhasil diubah menjadi ' . strtoupper($status)
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Selesaikan transaksi langsung dari workflow Kasir (POS).
+     *
+     * Kapabilitas KHUSUS KONTEKS: kasir boleh menyelesaikan transaksi
+     * yang DIA buat lewat kasir_pos, HANYA jika pembayaran sudah lunas.
+     * Endpoint status umum (Api::ubahStatus, dipakai Detail/Daftar
+     * Transaksi) TIDAK diberi kapabilitas ini -- kasir tetap ditolak
+     * di sana.
+     *
+     * Gate berlapis:
+     *  1. transaksi harus PROSES & sumber 'kasir_pos';
+     *  2. non-admin: transaksi.kasir_id harus == kasir yang login
+     *     (hanya transaksi buatan sendiri);
+     *  3. syarat LUNAS diperiksa otoritatif di TransaksiModel::ubahStatus()
+     *     (DP / belum_bayar tetap ditolak).
+     */
+    public function selesaikanTransaksiKasir()
+    {
+        $request = $this->request->getJSON(true) ?? [];
+        $id = (int) ($request['transaksi_id'] ?? 0);
+
+        if ($id <= 0) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'ID transaksi tidak valid.'
+            ]);
+        }
+
+        $transaksiModel = new \App\Models\TransaksiModel();
+        $transaksi = $transaksiModel->find($id);
+
+        if (!$transaksi) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Transaksi tidak ditemukan.'
+            ]);
+        }
+
+        if (($transaksi['status'] ?? '') !== 'proses') {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Hanya transaksi PROSES yang dapat diselesaikan.'
+            ]);
+        }
+
+        if (($transaksi['sumber'] ?? '') !== 'kasir_pos') {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Transaksi ini tidak dapat diselesaikan dari kasir.'
+            ]);
+        }
+
+        $isAdmin = session()->get('role') === 'admin';
+        $userId  = (int) (session()->get('id_user') ?? 0);
+
+        if (!$isAdmin && (int) ($transaksi['kasir_id'] ?? 0) !== $userId) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Kasir hanya dapat menyelesaikan transaksi yang dibuatnya sendiri.'
+            ]);
+        }
+
+        try {
+            // izinSelesaikanKonteks = true: lolos gate role di model,
+            // TAPI syarat pembayaran 'lunas' tetap diperiksa model.
+            $transaksiModel->ubahStatus($id, 'selesai', $isAdmin, true);
+
+            return $this->response->setJSON([
+                'status'  => 'success',
+                'message' => 'Transaksi berhasil diselesaikan.'
             ]);
         } catch (\Throwable $e) {
             return $this->response->setJSON([

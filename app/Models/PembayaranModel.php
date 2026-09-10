@@ -6,6 +6,14 @@ use CodeIgniter\Model;
 
 class PembayaranModel extends Model
 {
+    /**
+     * Metode pembayaran yang valid — satu-satunya sumber kebenaran.
+     * Cocok dengan kolom DB `pembayaran.metode ENUM('tunai','qris','transfer')`.
+     * Dipakai untuk validasi di TransaksiModel::tambahPembayaran(),
+     * Api::simpanTransaksi/koreksiPembayaran(), dan Tagihan::lunasi().
+     */
+    public const METODE = ['tunai', 'qris', 'transfer'];
+
     protected $table            = 'pembayaran';
     protected $primaryKey       = 'id';
     protected $useTimestamps    = false;

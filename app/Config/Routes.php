@@ -106,6 +106,10 @@ $routes->get('/kategori/hapus/(:num)', 'Kategori::hapus/$1', ['filter' => 'auth'
 
 $routes->post('/api/simpan-transaksi', 'Api::simpanTransaksi', ['filter' => 'auth']);
 $routes->get('/api/modal/pembayaran', 'Api::modalPembayaran', ['filter' => 'auth']);
+// Selesaikan transaksi dari workflow Kasir (POS) — kapabilitas khusus
+// konteks, TERPISAH dari /api/ubah-status. Enforcement di controller +
+// TransaksiModel::ubahStatus (syarat lunas).
+$routes->post('/api/kasir/selesaikan-transaksi', 'Api::selesaikanTransaksiKasir', ['filter' => 'auth']);
 
 
 

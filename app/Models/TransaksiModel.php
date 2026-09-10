@@ -60,7 +60,7 @@ class TransaksiModel extends Model
      *                        (lihat docs/aturan-bisnis-AULIA.md Section 2
      *                        dan perubahan-alur-status-transaksi.md).
      */
-    public function ubahStatus($id, $status, bool $isAdmin = false)
+    public function ubahStatus($id, $status, bool $isAdmin = false, bool $izinSelesaikanKonteks = false)
     {
         $status = strtolower(trim((string) $status));
 
@@ -207,11 +207,20 @@ class TransaksiModel extends Model
         // PROSES -> SELESAI mensyaratkan garapan benar-benar clear:
         // hanya admin yang boleh menyelesaikan, DAN pembayaran harus
         // sudah LUNAS. 'lunas' tidak pernah otomatis menjadi 'selesai';
-        // admin tetap harus menekan tombol Selesai secara eksplisit.
+        // tombol Selesai tetap harus ditekan secara eksplisit.
         // (lihat docs/aturan-bisnis-AULIA.md Section 5 & 22, serta
         // perubahan-alur-status-transaksi.md)
+        //
+        // $izinSelesaikanKonteks = kapabilitas KHUSUS KONTEKS: kasir
+        // boleh menyelesaikan transaksi lewat workflow kasir/index.php
+        // (POS) untuk transaksi buatannya sendiri. Diberikan HANYA oleh
+        // Api::selesaikanTransaksiKasir() yang sudah memeriksa
+        // sumber/kepemilikan. Endpoint status umum (Api::ubahStatus,
+        // dipakai Detail/Daftar) memakai default false -> kasir tetap
+        // ditolak di sana. Syarat LUNAS di bawah berlaku untuk SEMUA
+        // jalur, tanpa kecuali.
         if ($status === 'selesai') {
-            if (!$isAdmin) {
+            if (!$isAdmin && !$izinSelesaikanKonteks) {
                 throw new \Exception(
                     'Hanya admin yang dapat menyelesaikan transaksi.'
                 );
@@ -593,6 +602,13 @@ class TransaksiModel extends Model
 
         if ($jumlah < 0) {
             throw new \Exception('Jumlah pembayaran tidak boleh negatif.');
+        }
+
+        // Chokepoint tunggal semua penulisan pembayaran (POS, tambah
+        // pembayaran, pelunasan tagihan, koreksi metode). Metode wajib
+        // salah satu nilai yang dikenal aplikasi = kolom ENUM DB.
+        if (!in_array($metode, PembayaranModel::METODE, true)) {
+            throw new \Exception('Metode pembayaran tidak valid.');
         }
 
         $totalSebelum = (float) $pembayaranModel->getTotalDibayar($transaksi_id);
