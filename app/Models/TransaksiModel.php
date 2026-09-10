@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use CodeIgniter\Model;
+use App\Services\KalkulasiStatusPembayaran;
 
 class TransaksiModel extends Model
 {
@@ -535,9 +536,7 @@ class TransaksiModel extends Model
         $totalDibayar = (float) $pembayaranModel->getTotalDibayar($transaksi_id);
         $grandTotal = (float) ($transaksi['grand_total'] ?? 0);
 
-        $status = $totalDibayar >= $grandTotal
-            ? 'lunas'
-            : ($totalDibayar > 0 ? 'dp' : 'belum_bayar');
+        $status = KalkulasiStatusPembayaran::hitung($totalDibayar, $grandTotal);
 
         $this->update($transaksi_id, [
             'total_dibayar' => $totalDibayar,

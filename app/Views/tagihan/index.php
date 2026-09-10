@@ -67,16 +67,16 @@
 
                             // Status di halaman Tagihan mengikuti kondisi pembayaran.
                             // Status pekerjaan transaksi (proses/selesai/batal) ditentukan di modul transaksi.
-                            if ($sisa <= 0) {
-                                $statusPembayaran = 'lunas';
-                                $paymentClass = 'success';
-                            } elseif ($totalDibayar > 0 && $sisa > 0) {
-                                $statusPembayaran = 'dp';      // atau 'cicilan'
-                                $paymentClass = 'warning';
-                            } else {
-                                $statusPembayaran = 'belum_bayar';
-                                $paymentClass = 'danger';
-                            }
+                            // Logic sama dengan TransaksiModel::sinkronkanPembayaran() -- dipusatkan di service.
+                            $statusPembayaran = \App\Services\KalkulasiStatusPembayaran::hitung(
+                                (float) $totalDibayar,
+                                (float) $grandTotal
+                            );
+                            $paymentClass = [
+                                'lunas' => 'success',
+                                'dp' => 'warning',
+                                'belum_bayar' => 'danger',
+                            ][$statusPembayaran] ?? 'secondary';
 
                             // 🔥 Format No Order
                             $noOrderDisplay = !empty($t['no_order']) ? format_no_order($t['no_order']) : '-';

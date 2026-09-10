@@ -4,6 +4,7 @@ namespace App\Commands;
 
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
+use App\Services\KalkulasiStatusPembayaran;
 use Config\Database;
 
 class RepairTotalDibayar extends BaseCommand
@@ -60,9 +61,7 @@ class RepairTotalDibayar extends BaseCommand
         foreach ($rows as $row) {
             $actual = (float) $row['actual_total'];
             $grandTotal = (float) $row['grand_total'];
-            $status = $actual >= $grandTotal
-                ? 'lunas'
-                : ($actual > 0 ? 'dp' : 'belum_bayar');
+            $status = KalkulasiStatusPembayaran::hitung($actual, $grandTotal);
 
             $db->table('transaksi')
                 ->where('id', (int) $row['id'])
