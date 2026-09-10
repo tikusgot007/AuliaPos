@@ -698,6 +698,41 @@ class Transaksi extends BaseController
 
     public function hariIni()
     {
+        $transaksi = $this->ambilItemTerjualHariIni();
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Kirim ke view
+    |--------------------------------------------------------------------------
+    */
+
+        $data = [
+            'title'     => 'Item Terjual Hari Ini | AULIA',
+            'content'   => 'transaksi/hari_ini',
+            'transaksi' => $transaksi,
+            'tanggal'   => date('Y-m-d'),
+        ];
+
+        return view(
+            'layout/main',
+            $data
+        );
+    }
+
+    /**
+     * Query laporan "Item Terjual Hari Ini".
+     *
+     * Dipindah verbatim dari hariIni() -- satu baris = satu item
+     * detail_transaksi hari ini (batas [00:00:00 hari ini, 00:00:00
+     * besok)), transaksi induk di-join, status 'batal' dikecualikan.
+     * SELECT/alias/JOIN/WHERE/ORDER BY dan perilaku date()/timezone
+     * TIDAK berubah.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function ambilItemTerjualHariIni(): array
+    {
         $db = \Config\Database::connect();
 
         /*
@@ -845,29 +880,11 @@ class Transaksi extends BaseController
     |--------------------------------------------------------------------------
     */
 
-        $transaksi = $builder
+        return $builder
             ->get()
             ->getResultArray();
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | Kirim ke view
-    |--------------------------------------------------------------------------
-    */
-
-        $data = [
-            'title'     => 'Item Terjual Hari Ini | AULIA',
-            'content'   => 'transaksi/hari_ini',
-            'transaksi' => $transaksi,
-            'tanggal'   => date('Y-m-d'),
-        ];
-
-        return view(
-            'layout/main',
-            $data
-        );
     }
+
     private function getAvailableNoOrdersForEdit(?int $selectedNoOrder = null): array
     {
         $transaksiModel = new \App\Models\TransaksiModel();
