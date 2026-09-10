@@ -166,19 +166,8 @@ $isAdminUser = session()->get('role') === 'admin';
                             $paymentClass = status_pembayaran_badge_class($t['status_pembayaran']);
 
                             // Status transaksi
-                            $statusClass = [
-                                'proses' => 'warning',
-                                'selesai' => 'primary',
-                                'batal' => 'secondary',
-                                'mangkrak' => 'dark'
-                            ][$t['status']] ?? 'secondary';
-
-                            $statusLabel = [
-                                'proses' => 'Proses',
-                                'selesai' => 'Selesai',
-                                'batal' => 'Batal',
-                                'mangkrak' => 'Mangkrak'
-                            ][$t['status']] ?? strtoupper($t['status']);
+                            $statusClass = status_transaksi_badge_class($t['status']);
+                            $statusLabel = status_transaksi_label($t['status']);
 
                             // 🔥 Format No Order
                             $noOrderDisplay = $t['no_order'] ? format_no_order($t['no_order']) : '-';

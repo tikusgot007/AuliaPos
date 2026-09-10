@@ -10,13 +10,8 @@
                             <i class="fas fa-box-archive"></i> Archive (read-only)
                         </span>
                     <?php endif; ?>
-                    <span class="badge bg-<?= [
-                                                'proses' => 'warning',
-                                                'selesai' => 'primary',
-                                                'batal' => 'secondary',
-                                                'mangkrak' => 'dark',
-                                            ][$transaksi['status']] ?? 'success' ?>">
-                        <?= strtoupper($transaksi['status']) ?>
+                    <span class="badge bg-<?= status_transaksi_badge_class($transaksi['status']) ?>">
+                        <?= status_transaksi_label($transaksi['status']) ?>
                     </span>
                     <span class="badge bg-<?= status_pembayaran_badge_class($transaksi['status_pembayaran']) ?>">
                         <?= status_pembayaran_label($transaksi['status_pembayaran']) ?>

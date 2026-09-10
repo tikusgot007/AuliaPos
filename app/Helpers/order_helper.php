@@ -98,6 +98,54 @@ if (!function_exists('status_pembayaran_label')) {
     }
 }
 
+if (!function_exists('status_transaksi_badge_class')) {
+    /**
+     * Kelas warna Bootstrap untuk badge status transaksi
+     * (proses/selesai/batal/mangkrak). Presentation-only.
+     *
+     * Daftar status domain yang valid tetap milik
+     * App\Models\TransaksiModel::STATUS -- map di sini SENGAJA eksplisit
+     * (bukan turunan constant itu) karena warna adalah metadata tampilan,
+     * bukan bagian dari daftar status.
+     *
+     * Status tak dikenal -> 'secondary' (mengikuti perilaku existing di
+     * transaksi/index.php; transaksi/detail.php sebelumnya memakai
+     * 'success' sebagai fallback untuk status non-domain -- disatukan ke
+     * 'secondary' sebagai keputusan presentation yang disengaja).
+     */
+    function status_transaksi_badge_class(string $status): string
+    {
+        return [
+            'proses'   => 'warning',
+            'selesai'  => 'primary',
+            'batal'    => 'secondary',
+            'mangkrak' => 'dark',
+        ][$status] ?? 'secondary';
+    }
+}
+
+if (!function_exists('status_transaksi_label')) {
+    /**
+     * Label tampilan status transaksi. Empat status domain memakai map
+     * Title Case eksplisit (seperti di transaksi/index.php); status tak
+     * dikenal jatuh ke `strtoupper(str_replace('_', ' ', $status))`.
+     *
+     * Catatan: transaksi/detail.php sebelumnya selalu `strtoupper($status)`
+     * (mis. "PROSES"); setelah refactor ikut memakai bentuk Title Case
+     * ("Proses") -- perubahan presentation yang disengaja demi konsistensi
+     * dengan daftar transaksi. Escaping tetap tanggung jawab view.
+     */
+    function status_transaksi_label(string $status): string
+    {
+        return [
+            'proses'   => 'Proses',
+            'selesai'  => 'Selesai',
+            'batal'    => 'Batal',
+            'mangkrak' => 'Mangkrak',
+        ][$status] ?? strtoupper(str_replace('_', ' ', $status));
+    }
+}
+
 if (!function_exists('parse_no_order')) {
     /**
      * Kebalikan dari format_no_order(): mengubah "B0001" kembali ke integer asli.
