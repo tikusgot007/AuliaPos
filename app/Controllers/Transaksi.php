@@ -246,64 +246,14 @@ class Transaksi extends BaseController
     |--------------------------------------------------------------------------
     | FILTER KEYWORD
     |--------------------------------------------------------------------------
+    |
+    | Lihat Transaksi::applyKeywordFilter() -- kondisi pencarian tidak
+    | berubah, hanya dipindah. Nilai balik ($parsedNoOrder) dipakai lagi
+    | di blok LENGKAPI DENGAN HASIL ARCHIVE di bawah.
+    |
     */
 
-        if ($keyword !== '') {
-
-            $parsedNoOrder =
-                $this->parseNoOrder(
-                    $keyword
-                );
-
-
-            $builder->groupStart();
-
-            /*
-         * Invoice
-         */
-            $builder->like(
-                'transaksi.kode_invoice',
-                $keyword
-            );
-
-            /*
-         * No Order
-         */
-            $builder->orLike(
-                'transaksi.no_order',
-                $keyword
-            );
-
-            /*
-         * Nama Pelanggan
-         */
-            $builder->orLike(
-                'pelanggan.nama',
-                $keyword
-            );
-
-
-            /*
-         * Jika keyword dapat diparse
-         * menjadi nomor order numerik,
-         * cari juga secara exact number.
-         */
-
-            if ($parsedNoOrder) {
-
-                $builder->orWhere(
-                    'transaksi.no_order',
-                    (int) $parsedNoOrder
-                );
-
-                $builder->orLike(
-                    'transaksi.no_order',
-                    (string) $parsedNoOrder
-                );
-            }
-
-            $builder->groupEnd();
-        }
+        $parsedNoOrder = $this->applyKeywordFilter($builder, $keyword);
 
 
         /*
@@ -638,6 +588,83 @@ class Transaksi extends BaseController
          * transaksi sama sekali; proses + selesai + batal + mangkrak
          * semua tampil.
          */
+    }
+
+    /**
+     * Terapkan pencarian keyword ke query builder daftar transaksi.
+     *
+     * Dipindah verbatim dari index() -- kondisi pencarian TIDAK berubah:
+     * grup OR atas kode_invoice / no_order / pelanggan.nama, plus exact
+     * & LIKE atas no_order numerik bila keyword bisa diparse.
+     *
+     * Keyword kosong -> builder tidak disentuh, return null.
+     *
+     * @return int|null Nomor order hasil parse (dipakai lagi di index()
+     *                  untuk pencarian archive), null jika tidak ada.
+     */
+    private function applyKeywordFilter(
+        \CodeIgniter\Model $builder,
+        string $keyword
+    ): ?int {
+        if ($keyword === '') {
+            return null;
+        }
+
+        $parsedNoOrder =
+            $this->parseNoOrder(
+                $keyword
+            );
+
+
+        $builder->groupStart();
+
+        /*
+     * Invoice
+     */
+        $builder->like(
+            'transaksi.kode_invoice',
+            $keyword
+        );
+
+        /*
+     * No Order
+     */
+        $builder->orLike(
+            'transaksi.no_order',
+            $keyword
+        );
+
+        /*
+     * Nama Pelanggan
+     */
+        $builder->orLike(
+            'pelanggan.nama',
+            $keyword
+        );
+
+
+        /*
+     * Jika keyword dapat diparse
+     * menjadi nomor order numerik,
+     * cari juga secara exact number.
+     */
+
+        if ($parsedNoOrder) {
+
+            $builder->orWhere(
+                'transaksi.no_order',
+                (int) $parsedNoOrder
+            );
+
+            $builder->orLike(
+                'transaksi.no_order',
+                (string) $parsedNoOrder
+            );
+        }
+
+        $builder->groupEnd();
+
+        return $parsedNoOrder;
     }
 
     public function hariIni()
