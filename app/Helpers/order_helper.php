@@ -146,6 +146,30 @@ if (!function_exists('status_transaksi_label')) {
     }
 }
 
+if (!function_exists('tanggal_singkat')) {
+    /**
+     * Tanggal singkat Indonesia untuk tampilan: "29 Sep 2026" (format
+     * `d M Y` dengan nama bulan 3 huruf). Presentation-only, pure --
+     * tidak menyentuh DB/session/request, tidak mengubah timezone
+     * (memakai default `date()` yang sama dengan pemakaian inline
+     * sebelumnya di transaksi/index.php & tagihan/index.php).
+     *
+     * Menerima datetime/date string (di-`strtotime()` seperti kode lama)
+     * atau Unix timestamp integer (dipakai apa adanya).
+     *
+     * Nama bulan SELALU 3 huruf:
+     *   Jan Feb Mar Apr Mei Jun Jul Agt Sep Okt Nov Des
+     */
+    function tanggal_singkat(string|int $tanggal): string
+    {
+        static $bulan = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+
+        $ts = is_int($tanggal) ? $tanggal : (int) strtotime($tanggal);
+
+        return date('d', $ts) . ' ' . $bulan[(int) date('n', $ts)] . ' ' . date('Y', $ts);
+    }
+}
+
 if (!function_exists('parse_no_order')) {
     /**
      * Kebalikan dari format_no_order(): mengubah "B0001" kembali ke integer asli.

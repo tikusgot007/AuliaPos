@@ -172,10 +172,10 @@ $isAdminUser = session()->get('role') === 'admin';
                             // 🔥 Format No Order
                             $noOrderDisplay = $t['no_order'] ? format_no_order($t['no_order']) : '-';
 
-                            // 🔥 Format tanggal: "29 Sept 2026" (nama bulan singkat ID)
+                            // 🔥 Format tanggal singkat "29 Sep 2026" (helper order_helper.php).
+                            // $ts tetap dipakai untuk data-order (sorting DataTables).
                             $ts = strtotime($t['tanggal']);
-                            $blnId = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-                            $tanggalDisplay = date('d', $ts) . ' ' . $blnId[(int) date('n', $ts)] . ' ' . date('y', $ts);
+                            $tanggalDisplay = tanggal_singkat($t['tanggal']);
 
                             // Baris dari Archive (lihat App\Services\TransaksiArchiveService)
                             // -- read-only, cuma boleh dilihat, tidak boleh
