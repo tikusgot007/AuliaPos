@@ -211,117 +211,20 @@ class Transaksi extends BaseController
 
         /*
     |--------------------------------------------------------------------------
-    | FILTER STATUS PEMBAYARAN
+    | FILTER STATUS PEMBAYARAN + STATUS TRANSAKSI
     |--------------------------------------------------------------------------
+    |
+    | Lihat Transaksi::applyStatusFilters() -- pemetaan nilai filter
+    | (termasuk kompatibilitas mundur & arti "Semua") tidak berubah,
+    | hanya dipindah supaya index() lebih ringkas.
+    |
     */
 
-        if ($status_pembayaran === 'belum_lunas') {
-
-            /*
-         * Kelompok Belum Lunas: belum_bayar ATAU dp.
-         */
-
-            $builder->whereIn(
-                'transaksi.status_pembayaran',
-                ['belum_bayar', 'dp']
-            );
-        } elseif ($status_pembayaran === 'lunas') {
-
-            $builder->where(
-                'transaksi.status_pembayaran',
-                'lunas'
-            );
-        } elseif ($status_pembayaran !== '') {
-
-            /*
-         * Kompatibilitas mundur: value individual lama
-         * ('belum_bayar' atau 'dp' dikirim langsung, exact match).
-         */
-
-            $builder->where(
-                'transaksi.status_pembayaran',
-                $status_pembayaran
-            );
-        }
-
-        /*
-         * $status_pembayaran === '' (Semua) -> tidak ada filter.
-         */
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | FILTER STATUS TRANSAKSI
-    |--------------------------------------------------------------------------
-    */
-
-        if ($status_transaksi === 'aktif') {
-
-            /*
-         * Kelompok Aktif: proses ATAU selesai.
-         */
-
-            $builder->whereIn(
-                'transaksi.status',
-                ['proses', 'selesai']
-            );
-        } elseif ($status_transaksi === 'tidak_aktif') {
-
-            /*
-         * Kelompok Tidak Aktif: batal ATAU mangkrak.
-         */
-
-            $builder->whereIn(
-                'transaksi.status',
-                ['batal', 'mangkrak']
-            );
-        } elseif ($status_transaksi === 'batal') {
-
-            /*
-         * Kompatibilitas mundur: hanya transaksi batal.
-         */
-
-            $builder->where(
-                'transaksi.status',
-                'batal'
-            );
-        } elseif ($status_transaksi === 'proses') {
-
-            /*
-         * Kompatibilitas mundur: hanya transaksi proses.
-         */
-
-            $builder->where(
-                'transaksi.status',
-                'proses'
-            );
-        } elseif ($status_transaksi === 'selesai') {
-
-            /*
-         * Kompatibilitas mundur: hanya transaksi selesai.
-         */
-
-            $builder->where(
-                'transaksi.status',
-                'selesai'
-            );
-        } elseif ($status_transaksi === 'mangkrak') {
-
-            /*
-         * Kompatibilitas mundur: hanya transaksi mangkrak.
-         */
-
-            $builder->where(
-                'transaksi.status',
-                'mangkrak'
-            );
-        }
-
-        /*
-         * $status_transaksi === '' (Semua) -> tidak ada filter status
-         * transaksi sama sekali; proses + selesai + batal + mangkrak
-         * semua tampil.
-         */
+        $this->applyStatusFilters(
+            $builder,
+            $status_pembayaran,
+            $status_transaksi
+        );
 
 
         /*
@@ -600,6 +503,141 @@ class Transaksi extends BaseController
         }
 
         return [$tanggal_awal, $tanggal_akhir];
+    }
+
+    /**
+     * Terjemahkan pilihan filter status (pembayaran + transaksi) menjadi
+     * kondisi WHERE pada query builder daftar transaksi.
+     *
+     * Dipindah verbatim dari index() -- pemetaan nilai TIDAK berubah:
+     *
+     *   status_pembayaran:
+     *     'belum_lunas' -> status_pembayaran IN (belum_bayar, dp)
+     *     'lunas'       -> status_pembayaran = lunas
+     *     lainnya != '' -> status_pembayaran = <nilai>  (kompat mundur)
+     *     ''            -> tidak difilter (Semua)
+     *
+     *   status_transaksi:
+     *     'aktif'       -> status IN (proses, selesai)
+     *     'tidak_aktif' -> status IN (batal, mangkrak)
+     *     'batal' | 'proses' | 'selesai' | 'mangkrak' -> status = <nilai>  (kompat mundur)
+     *     ''            -> tidak difilter (Semua)
+     *
+     * $builder adalah instance Model (di CI4 Model::__call mengembalikan
+     * $this saat memproxy method builder), dimutasi by-handle.
+     */
+    private function applyStatusFilters(
+        \CodeIgniter\Model $builder,
+        string $statusPembayaran,
+        string $statusTransaksi
+    ): void {
+        /*
+         * FILTER STATUS PEMBAYARAN
+         */
+        if ($statusPembayaran === 'belum_lunas') {
+
+            /*
+         * Kelompok Belum Lunas: belum_bayar ATAU dp.
+         */
+
+            $builder->whereIn(
+                'transaksi.status_pembayaran',
+                ['belum_bayar', 'dp']
+            );
+        } elseif ($statusPembayaran === 'lunas') {
+
+            $builder->where(
+                'transaksi.status_pembayaran',
+                'lunas'
+            );
+        } elseif ($statusPembayaran !== '') {
+
+            /*
+         * Kompatibilitas mundur: value individual lama
+         * ('belum_bayar' atau 'dp' dikirim langsung, exact match).
+         */
+
+            $builder->where(
+                'transaksi.status_pembayaran',
+                $statusPembayaran
+            );
+        }
+
+        /*
+         * $statusPembayaran === '' (Semua) -> tidak ada filter.
+         */
+
+
+        /*
+         * FILTER STATUS TRANSAKSI
+         */
+        if ($statusTransaksi === 'aktif') {
+
+            /*
+         * Kelompok Aktif: proses ATAU selesai.
+         */
+
+            $builder->whereIn(
+                'transaksi.status',
+                ['proses', 'selesai']
+            );
+        } elseif ($statusTransaksi === 'tidak_aktif') {
+
+            /*
+         * Kelompok Tidak Aktif: batal ATAU mangkrak.
+         */
+
+            $builder->whereIn(
+                'transaksi.status',
+                ['batal', 'mangkrak']
+            );
+        } elseif ($statusTransaksi === 'batal') {
+
+            /*
+         * Kompatibilitas mundur: hanya transaksi batal.
+         */
+
+            $builder->where(
+                'transaksi.status',
+                'batal'
+            );
+        } elseif ($statusTransaksi === 'proses') {
+
+            /*
+         * Kompatibilitas mundur: hanya transaksi proses.
+         */
+
+            $builder->where(
+                'transaksi.status',
+                'proses'
+            );
+        } elseif ($statusTransaksi === 'selesai') {
+
+            /*
+         * Kompatibilitas mundur: hanya transaksi selesai.
+         */
+
+            $builder->where(
+                'transaksi.status',
+                'selesai'
+            );
+        } elseif ($statusTransaksi === 'mangkrak') {
+
+            /*
+         * Kompatibilitas mundur: hanya transaksi mangkrak.
+         */
+
+            $builder->where(
+                'transaksi.status',
+                'mangkrak'
+            );
+        }
+
+        /*
+         * $statusTransaksi === '' (Semua) -> tidak ada filter status
+         * transaksi sama sekali; proses + selesai + batal + mangkrak
+         * semua tampil.
+         */
     }
 
     public function hariIni()
