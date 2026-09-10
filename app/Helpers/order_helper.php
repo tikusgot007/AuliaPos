@@ -64,6 +64,40 @@ if (!function_exists('angka_ke_huruf')) {
     }
 }
 
+if (!function_exists('status_pembayaran_badge_class')) {
+    /**
+     * Kelas warna Bootstrap untuk badge status_pembayaran.
+     * Presentation-only -- business rule (total, dibayar) -> status ada
+     * di App\Services\KalkulasiStatusPembayaran, bukan di sini.
+     *
+     * Status tak dikenal -> 'secondary' (persis perilaku existing di
+     * transaksi/index.php, transaksi/detail.php, tagihan/index.php yang
+     * memakai map + `?? 'secondary'`).
+     */
+    function status_pembayaran_badge_class(string $status): string
+    {
+        return [
+            'belum_bayar' => 'danger',
+            'dp'          => 'warning',
+            'lunas'       => 'success',
+        ][$status] ?? 'secondary';
+    }
+}
+
+if (!function_exists('status_pembayaran_label')) {
+    /**
+     * Label tampilan status_pembayaran: underscore jadi spasi, huruf
+     * besar. Persis `strtoupper(str_replace('_', ' ', $status))` yang
+     * sebelumnya diulang di tiga view. Tidak ada special-case untuk
+     * status tak dikenal (mengikuti perilaku existing). Escaping tetap
+     * tanggung jawab view.
+     */
+    function status_pembayaran_label(string $status): string
+    {
+        return strtoupper(str_replace('_', ' ', $status));
+    }
+}
+
 if (!function_exists('parse_no_order')) {
     /**
      * Kebalikan dari format_no_order(): mengubah "B0001" kembali ke integer asli.

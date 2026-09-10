@@ -18,12 +18,8 @@
                                             ][$transaksi['status']] ?? 'success' ?>">
                         <?= strtoupper($transaksi['status']) ?>
                     </span>
-                    <span class="badge bg-<?= [
-                                                'belum_bayar' => 'danger',
-                                                'dp' => 'warning',
-                                                'lunas' => 'success'
-                                            ][$transaksi['status_pembayaran']] ?? 'secondary' ?>">
-                        <?= strtoupper(str_replace('_', ' ', $transaksi['status_pembayaran'])) ?>
+                    <span class="badge bg-<?= status_pembayaran_badge_class($transaksi['status_pembayaran']) ?>">
+                        <?= status_pembayaran_label($transaksi['status_pembayaran']) ?>
                     </span>
                 </div>
             </div>

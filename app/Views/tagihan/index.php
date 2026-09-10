@@ -72,11 +72,7 @@
                                 (float) $totalDibayar,
                                 (float) $grandTotal
                             );
-                            $paymentClass = [
-                                'lunas' => 'success',
-                                'dp' => 'warning',
-                                'belum_bayar' => 'danger',
-                            ][$statusPembayaran] ?? 'secondary';
+                            $paymentClass = status_pembayaran_badge_class($statusPembayaran);
 
                             // 🔥 Format No Order
                             $noOrderDisplay = !empty($t['no_order']) ? format_no_order($t['no_order']) : '-';
@@ -103,7 +99,7 @@
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
                                         <span class="badge bg-<?= $paymentClass ?>">
-                                            <?= strtoupper(str_replace('_', ' ', $statusPembayaran)) ?>
+                                            <?= status_pembayaran_label($statusPembayaran) ?>
                                         </span>
                                     </div>
                                 </td>

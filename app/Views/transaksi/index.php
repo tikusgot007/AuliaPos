@@ -163,11 +163,7 @@ $isAdminUser = session()->get('role') === 'admin';
                             $kelebihan = max(0, $totalDibayar - $t['grand_total']);
 
                             // Status pembayaran
-                            $paymentClass = [
-                                'belum_bayar' => 'danger',
-                                'dp' => 'warning',
-                                'lunas' => 'success'
-                            ][$t['status_pembayaran']] ?? 'secondary';
+                            $paymentClass = status_pembayaran_badge_class($t['status_pembayaran']);
 
                             // Status transaksi
                             $statusClass = [
@@ -229,7 +225,7 @@ $isAdminUser = session()->get('role') === 'admin';
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
                                         <span class="badge bg-<?= $paymentClass ?>">
-                                            <?= strtoupper(str_replace('_', ' ', $t['status_pembayaran'])) ?>
+                                            <?= status_pembayaran_label($t['status_pembayaran']) ?>
                                         </span>
                                         <span class="badge bg-<?= $statusClass ?>">
                                             <?= $statusLabel ?>
