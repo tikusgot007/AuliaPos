@@ -170,43 +170,12 @@ class Transaksi extends BaseController
     |
     */
 
-        if ($keyword === '') {
-
-            $awalDatetime =
-                $tanggal_awal . ' 00:00:00';
-
-            /*
-         * Tambahkan 1 hari untuk menjadikan batas atas eksklusif.
-         *
-         * Contoh:
-         * tanggal_akhir = 2026-08-31
-         *
-         * menjadi:
-         * < 2026-09-01 00:00:00
-         *
-         * sehingga transaksi sampai
-         * 2026-08-31 23:59:59 tetap masuk.
-         */
-
-            $akhirDatetime =
-                date(
-                    'Y-m-d 00:00:00',
-                    strtotime(
-                        $tanggal_akhir . ' +1 day'
-                    )
-                );
-
-
-            $builder
-                ->where(
-                    'transaksi.tanggal >=',
-                    $awalDatetime
-                )
-                ->where(
-                    'transaksi.tanggal <',
-                    $akhirDatetime
-                );
-        }
+        $this->applyDateFilter(
+            $builder,
+            $keyword,
+            $tanggal_awal,
+            $tanggal_akhir
+        );
 
 
         /*
@@ -453,6 +422,66 @@ class Transaksi extends BaseController
         }
 
         return [$tanggal_awal, $tanggal_akhir];
+    }
+
+    /**
+     * Terapkan filter rentang tanggal ke query builder daftar transaksi.
+     *
+     * Dipindah verbatim dari index() -- behavior TIDAK berubah:
+     * - hanya diterapkan saat $keyword === '' (kalau ada keyword,
+     *   pencarian berlaku ke seluruh histori tanpa batas tanggal);
+     * - batas bawah: $tanggalAwal . ' 00:00:00';
+     * - batas atas eksklusif: $tanggalAkhir + 1 hari, di-normalisasi ke
+     *   'Y-m-d 00:00:00' lewat strtotime();
+     * - where('transaksi.tanggal >=', awal) lalu
+     *   where('transaksi.tanggal <', akhir).
+     *
+     * $awalDatetime / $akhirDatetime sengaja lokal -- tidak dipakai lagi
+     * oleh index() setelah filter diterapkan. $builder dimutasi by-handle.
+     */
+    private function applyDateFilter(
+        \CodeIgniter\Model $builder,
+        string $keyword,
+        string $tanggalAwal,
+        string $tanggalAkhir
+    ): void {
+        if ($keyword === '') {
+
+            $awalDatetime =
+                $tanggalAwal . ' 00:00:00';
+
+            /*
+         * Tambahkan 1 hari untuk menjadikan batas atas eksklusif.
+         *
+         * Contoh:
+         * tanggal_akhir = 2026-08-31
+         *
+         * menjadi:
+         * < 2026-09-01 00:00:00
+         *
+         * sehingga transaksi sampai
+         * 2026-08-31 23:59:59 tetap masuk.
+         */
+
+            $akhirDatetime =
+                date(
+                    'Y-m-d 00:00:00',
+                    strtotime(
+                        $tanggalAkhir . ' +1 day'
+                    )
+                );
+
+
+            $builder
+                ->where(
+                    'transaksi.tanggal >=',
+                    $awalDatetime
+                )
+                ->where(
+                    'transaksi.tanggal <',
+                    $akhirDatetime
+                );
+        }
     }
 
     /**
