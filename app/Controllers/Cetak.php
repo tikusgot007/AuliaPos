@@ -167,12 +167,8 @@ class Cetak extends BaseController
     /**
      * Render view cetak/nota (SAMA dengan yang dipakai index()) lalu
      * konversi ke PDF A6 landscape via Dompdf -- Dompdf & Options
-     * sudah di-import di atas (dipakai juga oleh struk()/generatePDF()
-     * yang lama), method ini SENGAJA ditulis bersih terpisah (bukan
-     * reuse generatePDF() yang lama) karena method itu punya bug
-     * variabel undefined pre-existing dan tidak pernah punya
-     * route/tidak pernah dipanggil -- di luar scope perbaikan ini,
-     * tidak disentuh.
+     * di-import di atas dipakai di sini. Ini satu-satunya generator
+     * PDF nota di controller; jalur cetaknya lewat notaLangsung().
      */
     private function generateNotaPdfBinary(array $data): string
     {
@@ -454,74 +450,6 @@ class Cetak extends BaseController
 
         $printer->feed(2);
         $printer->cut();
-    }
-
-    public function struk($id)
-    {
-        $transaksiModel = new TransaksiModel();
-        $detailModel = new DetailTransaksiModel();
-        $pembayaranModel = new PembayaranModel();
-        $pelangganModel = new PelangganModel();
-
-        // Ambil data transaksi
-        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama')
-            ->join('users', 'users.id = transaksi.kasir_id', 'left')
-            ->find($id);
-
-        if (!$transaksi) {
-            return redirect()->back()->with('error', 'Transaksi tidak ditemukan.');
-        }
-
-        $detail = $detailModel->where('transaksi_id', $id)->findAll();
-        $pembayaran = $pembayaranModel
-            ->where('transaksi_id', $id)
-            ->where('status', 'aktif')
-            ->findAll();
-        $pelanggan = $transaksi['pelanggan_id'] ? $pelangganModel->find($transaksi['pelanggan_id']) : null;
-
-        $totalDibayar = array_sum(array_column($pembayaran, 'jumlah'));
-        $sisa = $transaksi['grand_total'] - $totalDibayar;
-
-        // 🔥 Data untuk view
-        $data = [
-            'transaksi' => $transaksi,
-            'detail'    => $detail,
-            'pelanggan' => $pelanggan,
-            'total_dibayar' => $totalDibayar,
-            'sisa' => $sisa,
-            'title' => 'Struk Transaksi'
-        ];
-        $view = ($transaksi['status_pembayaran'] != 'lunas')
-            ? 'cetak/nota_2bagian'
-            : 'cetak/nota';
-
-        $html = view($view, $data);
-
-        // 🔥 Generate PDF
-        return $this->generatePDF($data);
-    }
-
-    private function generatePDF($data)
-    {
-        // 🔥 Load view struk
-        $html = view('cetak/nota', $data);
-
-        $options = new \Dompdf\Options();
-        $options->set('defaultFont', 'Courier');
-        $options->set('isHtml5ParserEnabled', true);
-        $options->set('isRemoteEnabled', true);
-
-        $dompdf = new \Dompdf\Dompdf($options);
-        $dompdf->loadHtml($html);
-
-        // 🔥 UKURAN A6 LANDSCAPE
-        $dompdf->setPaper('A6', 'landscape');
-
-        $dompdf->render();
-        $dompdf->stream('Nota_' . $transaksi['kode_invoice'] . '.pdf', [
-            'Attachment' => false
-        ]);
-        exit;
     }
 
     // ==========================================
