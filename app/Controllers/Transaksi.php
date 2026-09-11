@@ -1552,24 +1552,4 @@ class Transaksi extends BaseController
         }
     }
 
-    public function aktifkan($id)
-    {
-        $model = new TransaksiModel();
-
-        $transaksi = $model->find($id);
-
-        if (!$transaksi) {
-            return redirect()
-                ->to('/transaksi')
-                ->with('error', 'Transaksi tidak ditemukan.');
-        }
-
-        // BATAL adalah status terminal dan tidak dapat diaktifkan kembali.
-        return redirect()
-            ->to('/transaksi/detail/' . $id)
-            ->with(
-                'error',
-                'Transaksi BATAL bersifat final dan tidak dapat diaktifkan kembali.'
-            );
-    }
 }
