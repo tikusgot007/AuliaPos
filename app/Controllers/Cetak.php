@@ -47,9 +47,6 @@ class Cetak extends BaseController
             'sisa' => $sisa,
             'title' => 'Nota Transaksi'
         ];
-        //  if ($transaksi['status_pembayaran'] != 'lunas') {
-        //     return view('cetak/nota_2bagian', $data);
-        // }
         return view('cetak/nota', $data);
     }
 
