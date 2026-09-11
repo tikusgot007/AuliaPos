@@ -1338,7 +1338,7 @@ Area terkait yang masih terbuka untuk pembahasan terpisah:
 - Cetak Nota langsung ke Epson L3210 — **ditahan (belum dikerjakan)**,
   lihat Section 22.1.
 
-## 22.1 Cetak Nota langsung ke Epson L3210 (ditahan, 2026-09-05)
+## 22.1 Cetak Nota langsung ke Epson L3210 (rencana 2026-09-05, terealisasi -- lihat Section 30)
 
 **Masalah:** Tombol "Nota" saat ini (`Cetak::index()`) hanya membuka
 window baru berisi HTML nota (`cetak/nota.php`) — user harus cetak
@@ -1355,8 +1355,8 @@ mencapai "langsung cetak tanpa dialog".
 
 **Opsi yang dipertimbangkan:**
 - **Opsi A (dipilih):** server generate PDF nota (Dompdf, A6
-  landscape — generator-nya sudah ada di `Cetak::generatePDF()`/
-  `struk()`, tinggal disambungkan) lalu kirim langsung ke share
+  landscape — generator final ditulis sebagai
+  `Cetak::generateNotaPdfBinary()`) lalu kirim langsung ke share
   Epson L3210 pakai tool cetak PDF command-line (mis. SumatraPDF),
   pola yang sama persis dengan `Cetak::thermal()` yang sudah jalan.
   Konsisten di semua komputer kasir, tidak butuh setting per-browser.
@@ -1373,8 +1373,9 @@ mencapai "langsung cetak tanpa dialog".
   yang bertindak sebagai print server, dan akun yang menjalankan
   PHP/web server punya akses ke share printer tersebut.
 
-**Status:** Ditahan atas permintaan — dicatat di sini supaya tidak
-hilang, belum ada perubahan kode.
+**Status:** Sudah diimplementasikan — lihat Section 30 untuk desain
+dan flow final (`Cetak::notaLangsung()` -> `generateNotaPdfBinary()`
+-> `kirimPdfKePrinter()`).
 
 ---
 
