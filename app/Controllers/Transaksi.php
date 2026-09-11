@@ -1084,11 +1084,6 @@ class Transaksi extends BaseController
         }
     }
 
-    public function cetakStruk($id)
-    {
-        return redirect()->to('/transaksi/detail/' . $id)->with('info', 'Fitur cetak struk sedang dalam pengembangan.');
-    }
-
     /**
      * Halaman Edit Transaksi (Menggunakan tampilan kasir)
      */

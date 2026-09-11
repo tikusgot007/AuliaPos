@@ -125,7 +125,6 @@ $routes->get('/pelanggan/hapus/(:num)', 'Pelanggan::hapus/$1', ['filter' => 'aut
 $routes->get('/transaksi', 'Transaksi::index', ['filter' => 'auth']);
 $routes->get('/transaksi/detail/(:num)', 'Transaksi::detail/$1', ['filter' => 'auth']);
 $routes->get('/transaksi/batal/(:num)', 'Transaksi::batal/$1', ['filter' => 'auth']);
-$routes->get('/transaksi/cetak-struk/(:num)', 'Transaksi::cetakStruk/$1', ['filter' => 'auth']);
 $routes->get('/transaksi/hari-ini', 'Transaksi::hariIni', ['filter' => 'auth']);
 
 // Route Edit Transaksi
