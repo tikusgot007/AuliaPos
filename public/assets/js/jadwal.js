@@ -756,7 +756,7 @@
             for (let h = 1; h <= 7; h++) {
                 const shift = detailKaryawan.hari[h];
                 const kelas = shift ? 'shift-' + shift : 'shift-kosong';
-                baris += '<td class="jadwal-cell ' + kelas + '" data-karyawan-id="' + k.id + '" data-hari="' + h + '" data-shift="' + (shift || '') + '">' + (shift || '-') + '</td>';
+                baris += '<td class="jadwal-cell ' + kelas + '" data-karyawan-id="' + k.id + '" data-nama="' + escapeHtml(k.nama) + '" data-hari="' + h + '" data-shift="' + (shift || '') + '">' + (shift || '-') + '</td>';
             }
 
             const tr = document.createElement('tr');
@@ -771,41 +771,47 @@
         });
     }
 
-    async function bukaEditMasterCell(cell) {
-        const shiftSaatIni = cell.dataset.shift;
-        const opsi = ['P', 'S', 'PM', 'L', '(kosongkan)'];
-        const pilihan = prompt(
-            'Shift untuk ' + HARI_LABEL[cell.dataset.hari - 1] + ' (P/S/PM/L, kosongkan input untuk hapus):',
-            shiftSaatIni
-        );
+    function bukaEditMasterCell(cell) {
+        el('masterCellNamaKaryawan').textContent = cell.dataset.nama;
+        el('masterCellHariLabel').textContent = HARI_LABEL[cell.dataset.hari - 1];
+        el('masterCellKaryawanId').value = cell.dataset.karyawanId;
+        el('masterCellHari').value = cell.dataset.hari;
+        el('masterCellShift').value = cell.dataset.shift || 'P';
+        el('btnHapusMasterCell').classList.toggle('d-none', !cell.dataset.shift);
 
-        if (pilihan === null) return;
+        openModal('modalMasterCell');
+    }
 
-        if (pilihan.trim() === '') {
-            await apiPost(cfg.urls.masterHapusCell, {
-                master_id: state.masterId,
-                karyawan_id: cell.dataset.karyawanId,
-                hari: cell.dataset.hari,
-            }, 'DELETE');
-            loadMaster();
-            return;
-        }
-
-        const shift = pilihan.trim().toUpperCase();
-        if (!['P', 'S', 'PM', 'L'].includes(shift)) {
-            showToast('Shift tidak valid.', 'danger');
-            return;
-        }
-
-        await apiPost(cfg.urls.masterSimpanCell, {
+    el('btnSimpanMasterCell') && el('btnSimpanMasterCell').addEventListener('click', async function () {
+        const res = await apiPost(cfg.urls.masterSimpanCell, {
             master_id: state.masterId,
-            karyawan_id: cell.dataset.karyawanId,
-            hari: cell.dataset.hari,
-            shift: shift,
+            karyawan_id: el('masterCellKaryawanId').value,
+            hari: el('masterCellHari').value,
+            shift: el('masterCellShift').value,
         });
 
-        loadMaster();
-    }
+        if (res.status === 'success') {
+            closeModal('modalMasterCell');
+            loadMaster();
+        } else {
+            showToast(res.message || 'Gagal menyimpan.', 'danger');
+        }
+    });
+
+    el('btnHapusMasterCell') && el('btnHapusMasterCell').addEventListener('click', async function () {
+        const res = await apiPost(cfg.urls.masterHapusCell, {
+            master_id: state.masterId,
+            karyawan_id: el('masterCellKaryawanId').value,
+            hari: el('masterCellHari').value,
+        }, 'DELETE');
+
+        if (res.status === 'success') {
+            closeModal('modalMasterCell');
+            loadMaster();
+        } else {
+            showToast(res.message || 'Gagal menghapus.', 'danger');
+        }
+    });
 
     el('btnApplyMaster') && el('btnApplyMaster').addEventListener('click', function () {
         el('applyConflictResult').innerHTML = '';

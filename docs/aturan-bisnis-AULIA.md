@@ -1289,8 +1289,11 @@ Diubah: `Routes.php`, `Filters/AuthFilter.php`, `Models/UserModel.php`,
   murni (standalone, tanpa DB) untuk algoritma paling berisiko
   (validasi waktu shift, grouping hari-ini, pairing analisis, offset
   tanggal apply-master, sort comparator).
-- UI edit cell di tab Master Jadwal masih pakai `prompt()` browser
-  (placeholder kasar), belum modal proper seperti di Matrix.
+- ~~UI edit cell di tab Master Jadwal masih pakai `prompt()` browser
+  (placeholder kasar), belum modal proper seperti di Matrix.~~ Sudah
+  diganti modal (`modalMasterCell`, 2026-09-11) — pola sama dengan
+  `modalCell` di Matrix (select shift + tombol Hapus terpisah,
+  bukan input teks kosong).
 - Staffing conflict (configurable, warning-only, bukan hard block)
   ada di requirement tapi **belum diimplementasikan** — perlu sesi
   terpisah kalau mau dilanjutkan.

@@ -484,6 +484,38 @@
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- MODAL: EDIT CELL MASTER JADWAL -->
+<!-- ============================================================ -->
+<div class="modal fade" id="modalMasterCell" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Shift Master</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1"><strong>Karyawan:</strong> <span id="masterCellNamaKaryawan"></span></p>
+                <p class="mb-3"><strong>Hari:</strong> <span id="masterCellHariLabel"></span></p>
+                <input type="hidden" id="masterCellKaryawanId">
+                <input type="hidden" id="masterCellHari">
+                <label class="form-label">Shift</label>
+                <select class="form-select" id="masterCellShift">
+                    <option value="P">Pagi (08:00–15:00)</option>
+                    <option value="S">Siang (13:30–20:30)</option>
+                    <option value="PM">PM (08:00–12:30 & 18:00–20:30)</option>
+                    <option value="L">Libur</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger d-none" id="btnHapusMasterCell">Hapus</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" id="btnSimpanMasterCell">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script>
