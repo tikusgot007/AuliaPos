@@ -204,32 +204,6 @@ $routes->post(
 );
 $routes->delete('/cash/hapus-pengeluaran/(:num)', 'Cash::hapusPengeluaran/$1', ['filter' => 'auth']);
 
-
-
-$routes->get(
-    '/test-laporan-penjualan-umum',
-    'LaporanTest::penjualanUmum',
-    ['filter' => 'auth']
-);
-
-$routes->get(
-    '/sum-kategori-harian',
-    'LaporanTest::sumkategoriharian',
-    ['filter' => 'auth']
-);
-// LAPORAN CEK GANTI / EDIT
-$routes->get(
-    '/laporan-ganti-edit',
-    'LaporanTest::gantiEdit',
-    ['filter' => 'auth']
-);
-
-$routes->get(
-    '/laporan-pemasukan-harian',
-    'LaporanTest::pemasukanHarian',
-    ['filter' => 'auth']
-);
-
 $routes->get(
     '/laporan/item-harian',
     'Laporan::itemHarian'

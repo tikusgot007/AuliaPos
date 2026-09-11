@@ -671,9 +671,8 @@ class Laporan extends BaseController
      *   berdasarkan subtotal detail / total subtotal transaksi
      *   (mekanisme yang sama dengan Harian).
      * - Ganti/Edit diidentifikasi dari nama produk (LIKE '%ganti%'
-     *   OR '%edit%'), SAMA seperti LaporanTest::gantiedit() dan
-     *   Harian -- TIDAK ada flag/kategori khusus di database untuk
-     *   ini.
+     *   OR '%edit%'), SAMA seperti Harian -- TIDAK ada flag/kategori
+     *   khusus di database untuk ini.
      * - PENTING (beda dari Harian): nilai Ganti/Edit TETAP masuk ke
      *   bucket kategorinya (Digital Foto, karena produk Ganti/Edit
      *   memang berkategori Digital Foto) -- TIDAK dikeluarkan/
