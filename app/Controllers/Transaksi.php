@@ -925,39 +925,27 @@ class Transaksi extends BaseController
         return $available;
     }
     /**
-     * 🔥 Parse No Order dari format huruf (contoh: A4295 → 104295)
-     * Jika input bukan format huruf, return null
+     * Decode format tampilan no_order (mis. "A0003") ke nomor internal,
+     * KHUSUS untuk keyword global search (Transaksi::applyKeywordFilter()).
+     *
+     * Beda kontrak dari helper global parse_no_order() (dipakai form
+     * input no_order di Api::simpanTransaksi()/Transaksi::updateTransaksi()):
+     * di sini keyword angka polos SENGAJA dikembalikan null -- ditangani
+     * cukup lewat LIKE biasa di applyKeywordFilter(), bukan exact
+     * no_order. Jangan hapus guard is_numeric() ini / delegasikan
+     * langsung ke parse_no_order() tanpanya -- keyword angka dengan
+     * leading zero (mis. "0001") akan mulai match no_order lama
+     * bernilai kecil kalau guard ini dilepas (lihat riwayat commit).
      */
     private function parseNoOrder($formatted)
     {
-        $ambang = 100000;
-        $siklus = 9999;
+        $formatted = trim((string) $formatted);
 
-        $formatted = strtoupper(trim($formatted));
-
-        // 🔥 Jika angka murni, return null (tidak perlu parsing)
         if (is_numeric($formatted)) {
             return null;
         }
 
-        // 🔥 Jika format huruf + angka (contoh: A4295, A0001, B0001)
-        if (preg_match('/^([A-Z]+)(\d+)$/', $formatted, $matches)) {
-            $hurufStr = $matches[1];
-            $angkaStr = $matches[2];
-            $nomorDalamSiklus = (int)$angkaStr;
-
-            // Konversi huruf ke angka (A=0, B=1, ...)
-            $indexSiklus = 0;
-            for ($i = 0; $i < strlen($hurufStr); $i++) {
-                $indexSiklus = $indexSiklus * 26 + (ord($hurufStr[$i]) - 64);
-            }
-            $indexSiklus -= 1;
-
-            $posisi = ($indexSiklus * $siklus) + $nomorDalamSiklus;
-            return $ambang + $posisi;
-        }
-
-        return null;
+        return parse_no_order($formatted);
     }
 
 
@@ -1551,5 +1539,4 @@ class Transaksi extends BaseController
                 ]);
         }
     }
-
 }
