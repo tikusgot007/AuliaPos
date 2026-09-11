@@ -935,11 +935,10 @@ transaksi yang **sudah ada** (Bayar Sekarang / Tagihan → Lunasi).
 
 **Efek samping yang sudah benar tanpa kode tambahan:**
 `CashBalanceService::getCashSales()` sudah filter berdasarkan
-`pembayaran.tanggal`, dan semua query laporan
-(`LaporanPenjualan.php`, `LaporanTest.php`) sudah pakai
-`pembayaran.tanggal` bukan `created_at` — begitu backdate aktif, uang
-otomatis "jatuh" ke tanggal yang benar di kas & laporan tanpa
-perubahan kode di area itu.
+`pembayaran.tanggal`, dan semua query laporan (`Laporan.php`) sudah
+pakai `pembayaran.tanggal` bukan `created_at` — begitu backdate
+aktif, uang otomatis "jatuh" ke tanggal yang benar di kas & laporan
+tanpa perubahan kode di area itu.
 
 **Risiko yang didokumentasikan (bukan bug, konsekuensi inheren):**
 kalau `cash_opname` untuk suatu tanggal **sudah** dilakukan sebelum
@@ -1308,18 +1307,20 @@ Diubah: `Routes.php`, `Filters/AuthFilter.php`, `Models/UserModel.php`,
 Dikonfirmasi via audit (grep referensi + cek routing) bahwa 3 file
 berikut **tidak dipakai di mana pun** dan aman dihapus:
 
-| File | Bukti tidak terpakai |
-|---|---|
-| `app/Controllers/LaporanPenjualan.php` | Tidak ada route yang mengarah ke sana di `Routes.php`; `$autoRoute = false` di `Config/Routing.php` sehingga tidak mungkin ke-hit lewat URL konvensi otomatis CI4. |
-| `public/assets/js/banner.js` | File 0 byte (kosong), tidak direferensikan `<script src>` di view manapun. |
-| `public/js/modal_banner.js` | File 0 byte (kosong), tidak direferensikan di view manapun. |
+| File | Bukti tidak terpakai | Status |
+|---|---|---|
+| `app/Controllers/LaporanPenjualan.php` | Tidak ada route yang mengarah ke sana di `Routes.php`; `$autoRoute = false` di `Config/Routing.php` sehingga tidak mungkin ke-hit lewat URL konvensi otomatis CI4. | **Sudah dihapus.** |
+| `public/assets/js/banner.js` | File 0 byte (kosong), tidak direferensikan `<script src>` di view manapun. | Sudah tidak ada di repo (tidak tercatat di git history sama sekali -- kemungkinan sudah dihapus sebelum baseline `d90aa23`). |
+| `public/js/modal_banner.js` | File 0 byte (kosong), tidak direferensikan di view manapun. | Sudah tidak ada di repo (tidak tercatat di git history sama sekali -- kemungkinan sudah dihapus sebelum baseline `d90aa23`). |
 
 Fitur Banner di Kasir **tidak terpengaruh** — logic-nya ada inline di
 `app/Views/kasir/modal_banner.php` (`bukaModalBanner()`,
 `kelolaBanner()`), bukan di kedua file JS kosong di atas.
 
-Belum dieksekusi penghapusannya (menunggu konfirmasi/dilakukan manual
-oleh tim).
+Ketiga item di atas sudah selesai (tereksekusi atau memang sudah
+tidak ada). Housekeeping lanjutan (removal `LaporanTest.php` dan
+view cetak lama) dicatat terpisah di riwayat commit, bukan di
+section ini.
 
 ---
 
@@ -1812,7 +1813,7 @@ aman diulang karena `INSERT OR REPLACE`.
 | **Detail transaksi** (`Transaksi::detail()`) | Fallback ke archive kalau ID tidak ketemu di MySQL. Halaman jadi **read-only**: semua tombol aksi (edit/bayar/selesai/batal/**cetak**) disembunyikan lewat flag `$dariArchive`. |
 | **`Tagihan::detail()`** | **BELUM** di-fallback ke archive (beda dari `Transaksi::detail()`) — risiko kecil karena Tagihan tidak punya fitur cari-lewat-histori, kemungkinan hit ID archive di sini cuma dari bookmark lama. |
 | **Cetak ulang/reprint** | **Sengaja tidak didukung** untuk transaksi archive (dikonfirmasi tidak diperlukan). |
-| **Laporan** (`Laporan.php`) | Dual-source penuh di semua jalur: `getData()` (Periode/Per Kategori), `getPemasukanHarianData()`, `getLaporanBulananData()`, `itemHarian()`, `pembayaran()`, `exportExcel()`. Karena MySQL tidak bisa JOIN ke SQLite, tiap sumber di-query terpisah lalu digabung di PHP **sebelum** masuk ke logic olah-data yang sudah ada — logic aggregasi asli tidak diubah. `LaporanTest.php` **sengaja tidak disentuh** (dikonfirmasi tidak dipakai). |
+| **Laporan** (`Laporan.php`) | Dual-source penuh di semua jalur: `getData()` (Periode/Per Kategori), `getPemasukanHarianData()`, `getLaporanBulananData()`, `itemHarian()`, `pembayaran()`, `exportExcel()`. Karena MySQL tidak bisa JOIN ke SQLite, tiap sumber di-query terpisah lalu digabung di PHP **sebelum** masuk ke logic olah-data yang sudah ada — logic aggregasi asli tidak diubah. |
 | **`Api::searchGlobal()`** | Dibuat dual-source juga, tapi ternyata **dead code** — tidak dipanggil frontend mana pun (search box asli submit form biasa ke `/transaksi?keyword=`). Dibiarkan siap pakai kalau suatu saat diaktifkan. |
 
 ## 28.6 Keterbatasan yang diketahui
