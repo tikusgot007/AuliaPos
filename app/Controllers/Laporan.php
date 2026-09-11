@@ -1171,19 +1171,6 @@ class Laporan extends BaseController
             ->orderBy('tanggal', 'ASC')
             ->findAll();
     }
-    /**
-     * Ambil metode pembayaran dari transaksi
-     */
-    private function getMetodePembayaran($transaksiId)
-    {
-        $pembayaranModel = new \App\Models\PembayaranModel();
-        $pembayaran = $pembayaranModel->where('transaksi_id', $transaksiId)
-            ->where('status', 'aktif')
-            ->orderBy('tanggal', 'ASC')
-            ->first();
-
-        return $pembayaran ? $pembayaran['metode'] : 'tunai';
-    }
 
     /**
      * Proses Laporan per Kategori
