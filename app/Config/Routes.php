@@ -156,7 +156,6 @@ $routes->get('/api/kasir-list', 'Api::kasirList', ['filter' => 'auth']);
 
 // Route API No Order
 $routes->get('/api/generate-order', 'Api::generateOrder', ['filter' => 'auth']);
-$routes->get('/api/search-order', 'Api::searchOrder', ['filter' => 'auth']);
 $routes->get('/api/get-available-no-orders', 'Api::getAvailableNoOrders', ['filter' => 'auth']);
 
 // Route API Pelanggan

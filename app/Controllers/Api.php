@@ -786,44 +786,6 @@ class Api extends BaseController
             ]);
         }
     }
-    // No Order
-    public function searchOrder()
-    {
-        $noOrder = $this->request->getGet('no_order');
-        $keyword = $this->request->getGet('keyword');
-
-        $transaksiModel = new \App\Models\TransaksiModel();
-
-        if ($noOrder) {
-            $data = $transaksiModel->where('no_order', $noOrder)->first();
-            if ($data) {
-                return $this->response->setJSON([
-                    'status' => 'success',
-                    'data' => [
-                        'no_order' => $data['no_order'],
-                        'nama_pelanggan' => $data['nama_pelanggan'] ?? '',
-                    ]
-                ]);
-            }
-        }
-
-        if ($keyword) {
-            $data = $transaksiModel->like('nama_pelanggan', $keyword)
-                ->orderBy('tanggal', 'DESC')
-                ->limit(10)
-                ->findAll();
-            return $this->response->setJSON([
-                'status' => 'success',
-                'data' => $data
-            ]);
-        }
-
-        return $this->response->setJSON([
-            'status' => 'error',
-            'message' => 'Parameter tidak valid.'
-        ]);
-    }
-
     public function generateOrder()
     {
         $transaksiModel = new \App\Models\TransaksiModel();
