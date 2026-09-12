@@ -217,7 +217,7 @@
             <!-- PANEL KANAN: RIWAYAT PESAN + FORM KIRIM        -->
             <!-- ============================================ -->
             <div class="inbox-thread-panel">
-                <div class="inbox-thread-header" id="threadHeader">
+                <div class="inbox-thread-header d-flex justify-content-between align-items-center" id="threadHeader">
                     <span class="text-muted">Pilih percakapan di sebelah kiri untuk mulai.</span>
                 </div>
 
@@ -287,6 +287,34 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL KONFIRMASI HAPUS PERCAKAPAN              -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalHapusPercakapan" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger"><i class="fas fa-trash-alt"></i> Hapus Percakapan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger small mb-0">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Percakapan dengan <strong id="namaHapusPercakapan"></strong> beserta
+                    <strong>SEMUA riwayat pesannya</strong> akan dihapus permanen dan
+                    <strong>tidak bisa dikembalikan</strong>. Yakin lanjutkan?
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-danger" id="btnKonfirmasiHapusPercakapan" onclick="konfirmasiHapusPercakapan()">
+                    <i class="fas fa-trash-alt"></i> Ya, Hapus Permanen
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -367,8 +395,11 @@
 
         const conv = daftarConversation.find(function(c) { return c.id === id; });
         document.getElementById('threadHeader').innerHTML =
-            '<strong>' + escapeHtmlInbox(conv ? (conv.contact_name || conv.phone || conv.chat_id) : ('#' + id)) + '</strong>' +
-            (conv && conv.phone ? ' <span class="text-muted small">(' + escapeHtmlInbox(conv.phone) + ')</span>' : '');
+            '<span><strong>' + escapeHtmlInbox(conv ? (conv.contact_name || conv.phone || conv.chat_id) : ('#' + id)) + '</strong>' +
+            (conv && conv.phone ? ' <span class="text-muted small">(' + escapeHtmlInbox(conv.phone) + ')</span>' : '') +
+            '</span>' +
+            '<button type="button" class="btn btn-sm btn-outline-danger" title="Hapus percakapan" onclick="bukaModalHapusPercakapan()">' +
+            '<i class="fas fa-trash-alt"></i></button>';
 
         document.getElementById('teksBalasan').disabled = false;
         document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
@@ -534,6 +565,59 @@
             '<div class="bubble-meta">' + formatWaktuInbox(m.message_timestamp) + '</div>' +
             '</div>');
         container.scrollTop = container.scrollHeight;
+    }
+
+    // ================================================================
+    // HAPUS PERCAKAPAN (beserta semua pesannya, permanen)
+    // ================================================================
+    function bukaModalHapusPercakapan() {
+        if (!conversationAktif) return;
+
+        const conv = daftarConversation.find(function(c) { return c.id === conversationAktif; });
+        const nama = conv ? (conv.contact_name || conv.phone || conv.chat_id) : ('#' + conversationAktif);
+        document.getElementById('namaHapusPercakapan').textContent = nama;
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHapusPercakapan')).show();
+    }
+
+    function konfirmasiHapusPercakapan() {
+        if (!conversationAktif) return;
+
+        const idDihapus = conversationAktif;
+        const btn = document.getElementById('btnKonfirmasiHapusPercakapan');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menghapus...';
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + idDihapus + '/hapus', { method: 'POST' })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHapusPercakapan')).hide();
+                    showToast('Percakapan berhasil dihapus.', 'success');
+
+                    // Reset panel kanan, hapus dari daftar tanpa menunggu polling.
+                    conversationAktif = null;
+                    daftarConversation = daftarConversation.filter(function(c) { return c.id !== idDihapus; });
+                    renderDaftarConversation();
+
+                    document.getElementById('threadHeader').innerHTML = '<span class="text-muted">Pilih percakapan di sebelah kiri untuk mulai.</span>';
+                    document.getElementById('threadMessages').innerHTML = '<div class="inbox-thread-empty"><i class="fas fa-comments fa-2x me-2"></i> Belum ada percakapan dipilih.</div>';
+                    document.getElementById('teksBalasan').disabled = true;
+                    document.getElementById('teksBalasan').placeholder = 'Pilih percakapan dulu...';
+                    document.getElementById('btnKirimBalasan').disabled = true;
+                    document.getElementById('btnLampirkanMedia').disabled = true;
+                    batalkanMediaBalasan();
+                } else {
+                    showToast(json.message || 'Gagal menghapus percakapan.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-trash-alt"></i> Ya, Hapus Permanen';
+            });
     }
 
     // ================================================================

@@ -626,6 +626,48 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/percakapan/(:num)/hapus
+     *
+     * Hapus satu conversation BESERTA SEMUA pesannya dari
+     * aulia_inboxdb. Ini penghapusan PERMANEN dari sisi POS/CI4 saja
+     * -- TIDAK menghapus/mempengaruhi apa pun di WhatsApp maupun di
+     * Gateway (Gateway tidak menyimpan riwayat percakapan sama
+     * sekali, jadi tidak ada yang perlu disinkronkan ke sana).
+     *
+     * SENGAJA hard delete (bukan soft delete/arsip) -- tabel ini
+     * tidak punya kolom deleted_at ($useSoftDeletes = false di kedua
+     * model), dan tidak ada spec yang minta riwayat hapus disimpan.
+     * Semua baris `messages` milik conversation ini ikut terhapus
+     * otomatis lewat FK `ON DELETE CASCADE` (lihat migration
+     * `2026-09-07-000001_CreateInboxTables.php`) -- tidak perlu query
+     * DELETE terpisah untuk messages.
+     */
+    public function hapusPercakapan($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $conversationModel->delete($conversationId);
+
+        $userId = (int) session()->get('id_user');
+        log_message('info', "Inbox::hapusPercakapan sukses. conversation_id={$conversationId}, chat_id={$conversation['chat_id']}, dihapus_oleh_user_id={$userId}");
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'          => 'success',
+            'conversation_id' => $conversationId,
+        ]);
+    }
+
+    /**
      * Logic inti kirim pesan (dipakai bersama oleh kirim() dan
      * mulaiPercakapan(), supaya tidak duplikat kode).
      *

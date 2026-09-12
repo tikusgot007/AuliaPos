@@ -43,6 +43,7 @@ $routes->get('/inbox/media/(:num)', 'Inbox::media/$1', ['filter' => 'auth']);
 $routes->get('/inbox/test', 'Inbox::testPage', ['filter' => 'auth']);
 $routes->post('/inbox/kirim', 'Inbox::kirim', ['filter' => 'auth']);
 $routes->post('/inbox/kirim-media', 'Inbox::kirimMedia', ['filter' => 'auth']);
+$routes->post('/inbox/percakapan/(:num)/hapus', 'Inbox::hapusPercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/mulai-percakapan', 'Inbox::mulaiPercakapan', ['filter' => 'auth']);
 
 // ==========================================
