@@ -1356,18 +1356,223 @@ tampil = `manual_phone ?: phone`.
   saat verifikasi (`Table 'bonus_rule' already exists`). Ini murni
   soal cara memanggil CLI-nya, bukan bug di migration/kode Task Group
   ini -- gunakan `php spark migrate` polos atau `/migrasi-manual`.
-- Kirim pesan sungguhan dari HP dengan skenario nyata "JID berubah
-  @lid <-> @pn, nomor sama" -- yang saya verifikasi adalah LOGIKA-nya
-  lewat pemanggilan langsung `resolveConversationId()` dengan data
-  yang meniru persis skenario itu, BUKAN lewat WhatsApp/Gateway
-  sungguhan (butuh koneksi live yang tidak tersedia di lingkungan
-  saya).
+- ~~Kirim pesan sungguhan dari HP dengan skenario nyata "JID berubah
+  @lid <-> @pn, nomor sama"~~ -- **TEMUAN AUDIT (2026-09-12)**: versi
+  §11.3 ini SEBENARNYA TIDAK MENANGANI kasus LID-FIRST -> PN-LATER
+  yang sebenarnya (`@lid` datang duluan dengan phone=NULL selamanya,
+  lalu PN asli baru datang belakangan) -- langkah 2 lama HANYA bisa
+  mencocokkan 2 conversation yang SAMA-SAMA sudah punya `phone`
+  terisi, yang tidak pernah terjadi untuk `@lid` murni. Diperbaiki di
+  **Section 12** (revisi LID-FIRST -> PN-LATER) -- lihat di sana untuk
+  status verifikasi yang benar & terkini.
 - Reconciliation untuk pasangan conversation duplikat YANG SUDAH ADA
   sebelumnya di `aulia_inboxdb` (lihat batasan di §11.4) -- silakan
   cek manual apakah ada pasangan seperti itu di data production
   sebelum/sesudah migration, dan putuskan sendiri apakah perlu
   digabung manual (di luar scope Task Group ini).
 - UI edit profil (modal, tombol) belum dites klik langsung di browser.
+
+---
+
+# 12. Revisi LID-FIRST -> PN-LATER (2026-09-12, Task Group 1.5 lanjutan)
+
+## 12.1 Temuan audit (root cause)
+
+Setelah Section 11 selesai, ditemukan lewat audit: reconciliation
+langkah 2 (`resolveConversationId()` versi lama) HANYA bisa
+mencocokkan 2 conversation yang **sama-sama** sudah punya `phone`
+ter-verifikasi. Kasus nyata yang justru paling sering terjadi (LID
+datang DULUAN -> conversation dibuat dengan `phone=NULL` SELAMANYA,
+sesuai desain "jangan menebak dari @lid" -> baru KEMUDIAN nomor PN
+asli yang SAMA muncul) tidak pernah bisa ketemu lewat pencocokan
+`phone`, karena `phone` conversation @lid itu memang tidak pernah
+terisi. Akibatnya kasus yang justru ingin dicegah (2 conversation
+untuk 1 customer yang sama) tetap bisa terjadi.
+
+## 12.2 Audit kapabilitas Baileys (SEBELUM memilih solusi)
+
+Diperiksa LANGSUNG dari source code Baileys yang ter-install di
+`WA-Gateway/node_modules/baileys` (versi 6.7.24) -- BUKAN ditebak dari
+dokumentasi/memori:
+
+1. **Apakah event `messages.upsert` membawa mapping LID<->PN?** TIDAK.
+   `WAProto.proto` -- `message MessageKey` di versi ini HANYA punya
+   `remoteJid, fromMe, id, participant`. Field `remoteJidAlt`/
+   `participantAlt` (yang ada di versi protokol WhatsApp lebih baru)
+   TIDAK ADA sama sekali di skema protobuf versi ini -- bukan cuma
+   tidak dipakai, field-nya memang tidak didefinisikan.
+2. **Apakah ada mekanisme mapping yang sah?** YA, satu -- fungsi
+   `sock.onWhatsApp(phoneJid)` (`lib/Socket/chats.js`), yang mengirim
+   **USync query resmi ke server WhatsApp** (`.withContactProtocol().withLIDProtocol()`,
+   parser di `lib/WAUSync/Protocols/UsyncLIDProtocol.js` membaca node
+   `<lid val="...">` dari **respons server**, bukan tebakan client).
+3. **Arahnya SATU ARAH SAJA: PN -> LID.** Tidak ditemukan
+   `lidMapping`/`LIDMappingStore` atau mekanisme sebaliknya (LID -> PN)
+   di versi library ini (di-grep, nihil). Konsekuensi: **mustahil**
+   secara teknis untuk resolve nomor dari sebuah `@lid` yang datang
+   duluan -- satu-satunya jalan adalah menunggu PN asli muncul, lalu
+   MEMPERKAYA event PN itu dengan LID terkaitnya (arah terbalik dari
+   yang dibutuhkan kalau ingin "menebak" dari lid, makanya tidak
+   pernah dicoba).
+4. **Siapa yang query, siapa yang putuskan?** Gateway yang query
+   (dia yang pegang koneksi socket), tapi Gateway HANYA mengirim hasil
+   mentahnya (`identity_hint.lid`) ke AuliaPos sebagai metadata
+   tambahan -- sama seperti `phone`/`media` yang sudah ada. AuliaPos
+   yang memutuskan mau dipakai untuk apa (business logic tetap di
+   AuliaPos, Gateway tetap transport-only).
+
+**CATATAN KEJUJURAN**: `sock.onWhatsApp()` **belum pernah dipanggil
+terhadap koneksi WhatsApp sungguhan** di lingkungan pengembangan ini
+(tidak ada akses jaringan ke server WhatsApp). Signature & parser-nya
+diverifikasi dari source code, TAPI format PERSIS nilai `lid` yang
+benar-benar dikembalikan server (mis. sudah `"123@lid"` atau cuma
+`"123"`) **belum terverifikasi live**. Kode dibuat defensif
+(normalisasi format) dan bagian ini **WAJIB diverifikasi ulang**
+begitu ada koneksi WhatsApp nyata -- lihat §12.7.
+
+## 12.3 Solusi yang dipilih (dan alasannya)
+
+**Solusi ganda** (bukan salah satu A/B/C dari opsi yang ditawarkan,
+tapi kombinasi A+C -- karena B, "AuliaPos menyimpan mapping", TIDAK
+relevan lagi begitu diketahui bahwa Gateway sendiri yang harus query,
+bukan menerima dari event pasif):
+
+1. **Otomatis (best-effort)**: Gateway meng-enrich SETIAP pesan masuk
+   `jid_type='pn'` dengan `identity_hint.lid` (hasil `onWhatsApp()`,
+   di-cache in-memory per nomor supaya tidak query berulang-ulang).
+   AuliaPos (`resolveConversationId()`) memakainya sebagai langkah
+   PENCARIAN BARU (langkah 2, sebelum cocok nomor) -- kalau LID hasil
+   query itu SUDAH dikenal sebagai conversation yang ada (kasus
+   LID-FIRST), chat_id PN baru ditempelkan sebagai alias ke
+   conversation itu. **Alasan dipilih**: ini SATU-SATUNYA sumber
+   bukti yang benar-benar berasal dari server WhatsApp sendiri (bukan
+   tebakan), jadi aman dipercaya untuk auto-reconcile TANPA melanggar
+   "jangan auto-merge agresif" -- ini bukan heuristik, ini fakta dari
+   WhatsApp.
+2. **Manual (fallback aman, karena #1 belum terverifikasi live)**:
+   `Inbox::konfirmasiNomorWhatsapp()` -- kasir/admin secara SADAR
+   mengkonfirmasi nomor pada conversation `@lid`, mengisi `phone`
+   (kolom yang sama dipakai reconciliation), sehingga PN berikutnya
+   otomatis nyambung lewat langkah 3 (phone-match) YANG SUDAH ADA
+   sejak Section 11 -- TIDAK ADA logic baru untuk jalur ini, murni
+   "isi phone dengan sengaja oleh manusia". **Alasan dipilih**: ini
+   yang BISA saya verifikasi penuh end-to-end (tidak bergantung
+   koneksi WhatsApp live), dan tetap 100% konsisten dengan "kalau
+   solusi teknis membutuhkan tindakan user, buat desain minimal &
+   aman" -- tidak ada mekanisme merge terpisah yang perlu dibangun.
+
+**Ditolak**: menyimpan mapping LID<->PN di tabel terpisah khusus
+("LID mapping store") -- tidak perlu, `conversation_identities` yang
+SUDAH ADA sejak Section 11 sudah cukup jadi "peta" itu (setiap
+chat_id yang pernah dikenal, LID maupun PN, sudah ada di sana);
+menambah tabel lagi cuma duplikasi data yang sama.
+
+## 12.4 Perubahan Gateway (repo `WA-Gateway`, transport-only)
+
+- `connectionManager.js`:
+  - `_resolveLidForPhoneJid(phoneJid)` (baru) -- panggil
+    `sock.onWhatsApp()`, cache in-memory per JID PN, non-fatal (try/
+    catch, return null kalau gagal/tidak connected/tidak ada hasil).
+    **TIDAK PERNAH dipanggil untuk `@lid`** (tidak ada gunanya/tidak
+    didukung arahnya, lihat §12.2).
+  - `_handleIncomingMessage()` sekarang `async` (perlu `await` hasil
+    resolve di atas untuk pesan `jid_type='pn'`); `_onMessagesUpsert()`
+    meng-await tiap pesan satu per satu (bukan paralel, supaya tidak
+    membanjiri koneksi WhatsApp).
+  - `normalized.identityHint` (baru) -- `{lid: "..."}` atau `null`.
+- `incomingBuffer.js` -- kolom baru `identity_hint_json` (migrasi
+  ringan ALTER TABLE, pola sama dengan `media_json` sebelumnya).
+- `incomingDelivery.js` -- field baru `identity_hint` di payload POST
+  ke CI4 (opsional, `null` kalau tidak ada).
+- `test/simulate-identity-hint.js` (baru) -- 8 skenario, `onWhatsApp()`
+  DI-MOCK (lihat CATATAN KEJUJURAN di §12.2).
+- **Regresi**: `test/simulate-lid-conversation.js` dan
+  `test/simulate-audio-video.js` diperbaiki -- helper `simulateIncoming`
+  di kedua file HARUS di-`await` sekarang (async function TETAP
+  menunda minimal 1 microtask di titik `await`, WALAU tidak ada
+  operasi async nyata yang tereksekusi di baliknya -- ini semantik JS
+  standar, bukan bug). Tanpa perbaikan ini, assertion di kedua test
+  lama gagal karena urutan `messageStore.add()` untuk pesan
+  `jid_type='pn'` jadi tidak deterministik.
+
+## 12.5 Perubahan AuliaPos
+
+- `ConversationModel::resolveConversationId()` -- parameter baru
+  `?string $knownLid = null`, langkah BARU disisipkan sebagai langkah
+  2 (exact chat_id tetap langkah 1, cocok nomor jadi langkah 3, buat
+  baru jadi langkah 4). Logic "tempelkan alias + mutakhirkan chat_id"
+  diekstrak jadi method privat `attachAliasToConversation()` (dipakai
+  bersama langkah 2 & 3, DRY).
+- `InboxGatewayApi::messages()` -- ekstrak `payload.identity_hint.lid`
+  jadi `$knownLid`, HANYA dipercaya kalau pesan itu SENDIRI
+  `jid_type==='pn'` (defense in depth, walau Gateway seharusnya sudah
+  tidak pernah mengisi ini untuk `@lid`).
+- `Inbox::konfirmasiNomorWhatsapp()` (baru, `POST
+  /inbox/percakapan/(:num)/konfirmasi-nomor`) -- isi `phone` (BUKAN
+  `manual_phone`) dari konfirmasi sadar kasir/admin. Menolak (409)
+  kalau nomor itu SUDAH dipakai conversation lain (mencegah 2
+  conversation punya `phone` sama/ambigu) -- TIDAK menggabungkan
+  message apa pun, murni menolak & mengarahkan.
+- UI (`inbox/index.php`) -- tombol "Konfirmasi Nomor" (ikon shield)
+  muncul HANYA kalau `jid_type==='lid'` DAN `phone` masih kosong,
+  modal dengan peringatan eksplisit sebelum submit.
+
+## 12.6 Keamanan data
+
+Migration TIDAK berubah dari Section 11 (tidak ada kolom/tabel
+tambahan untuk revisi ini -- `identity_hint` murni payload transient
+Gateway->CI4, tidak disimpan sebagai kolom baru di `conversations`/
+`messages`). Reconciliation langkah 2 & 3 SAMA-SAMA hanya menambah
+baris `conversation_identities` + update `conversations.chat_id` --
+TIDAK PERNAH menghapus/memindah `messages`. `konfirmasiNomorWhatsapp()`
+juga TIDAK menyentuh `messages` sama sekali.
+
+## 12.7 Yang SUDAH saya verifikasi sendiri
+
+- **Test 1-10 (persis sesuai spec revisi) + skenario BONUS
+  (unconfirmed -> confirmed)** dijalankan sebagai assertion NYATA
+  terhadap **MySQL sungguhan** di database disposable KEDUA
+  (`aulia_inboxdb_migrationtest2`, terpisah dari yang dipakai Section
+  11, dibuat & dihapus khusus untuk ini) -- **SEMUA LULUS**, termasuk
+  TEST 2 (skenario INTI bug: LID-first lalu PN-later dengan
+  `knownLid` yang cocok -> menyatu ke conversation yang sama, chat_id
+  termutakhirkan, histori pesan lama utuh) dan TEST 6/7/8 (LID tanpa
+  mapping/manual_phone/nama sama TIDAK PERNAH memicu merge). Database
+  test dihapus, `.env` dikembalikan persis semula, `aulia_inboxdb`
+  live diverifikasi ulang TIDAK tersentuh (kolom baru dari Section 11
+  pun masih belum ada di sana -- migration real memang belum
+  dijalankan, lihat §11.8).
+- `test/simulate-identity-hint.js` (Gateway, `onWhatsApp()` di-MOCK) --
+  8/8 lulus, termasuk: cache bekerja (query 1x per nomor), non-fatal
+  saat error/tidak connected, normalisasi format defensif, **`@lid`
+  TIDAK PERNAH memicu query** (dibuktikan dengan spy, bukan asumsi).
+- Regresi: `test/simulate-lid-conversation.js`, `test/simulate-audio-video.js`,
+  `test/simulate-send-media.js` dijalankan ulang setelah perbaikan
+  `await` -- SEMUA TETAP LULUS, termasuk dijalankan berkali-kali
+  berturut-turut (membuktikan ID unik per-run, bukan cuma kebetulan
+  lulus sekali).
+- Seluruh test suite AuliaPos (119 test, `phpunit.dist.xml`)
+  dijalankan ulang -- LULUS, tidak ada regresi.
+- `php -l`/`node --check` pada semua file yang diubah/dibuat.
+
+## 12.8 Yang BELUM bisa saya verifikasi (perlu kamu jalankan)
+
+- **`sock.onWhatsApp()` belum pernah dipanggil terhadap server
+  WhatsApp sungguhan** (lihat CATATAN KEJUJURAN §12.2/§12.3) --
+  **JANGAN mengklaim "LID<->PN resolved" sampai ini benar-benar
+  dicoba dengan koneksi live**: kirim pesan dari HP customer yang
+  akunnya diketahui muncul sebagai `@lid` di Gateway, cek log
+  `[IDENTITY]`/`identityHint` untuk pesan PN dari nomor yang sama,
+  pastikan `lid` yang di-resolve PERSIS SAMA dengan JID `@lid` yang
+  sebelumnya diterima Gateway (bukan cuma "ada isinya", tapi harus
+  cocok persis supaya reconciliation langkah 2 benar-benar kena).
+- Migration Section 11 (termasuk kebutuhan revisi ini) **masih belum
+  diterapkan ke `aulia_inboxdb` yang sebenarnya** -- lihat §11.8,
+  status tidak berubah oleh revisi ini.
+- UI "Konfirmasi Nomor" belum diklik langsung di browser.
+- Endpoint `POST /send-media` milik Gateway (fitur Task Group
+  sebelumnya) TIDAK disentuh/diverifikasi ulang di sesi ini -- di luar
+  scope revisi ini.
 
 ---
 

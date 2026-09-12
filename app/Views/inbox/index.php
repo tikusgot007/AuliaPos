@@ -353,6 +353,45 @@
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- MODAL KONFIRMASI NOMOR WHATSAPP (Task Group 1.5 -->
+<!-- revisi LID-FIRST -> PN-LATER)                  -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalKonfirmasiNomor" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-shield-alt"></i> Konfirmasi Nomor WhatsApp</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formKonfirmasiNomor" onsubmit="return simpanKonfirmasiNomor(event)">
+                <div class="modal-body">
+                    <div class="alert alert-warning small">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Percakapan ini belum punya nomor WhatsApp yang terverifikasi
+                        (identitas teknisnya <code>@lid</code>, WhatsApp tidak
+                        membocorkan nomornya ke Gateway). Isi nomor ini HANYA kalau
+                        Anda BENAR-BENAR YAKIN ini nomor WhatsApp customer yang sama
+                        -- pesan berikutnya dari nomor ini akan otomatis masuk ke
+                        percakapan ini.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nomor WhatsApp yang Dikonfirmasi</label>
+                        <input type="text" class="form-control" id="konfirmasiNomorInput" placeholder="Contoh: 08123456789" required>
+                        <small class="text-muted">Format 08xx, 62xx, atau +62xx.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-warning" id="btnKonfirmasiNomor">
+                        <i class="fas fa-shield-alt"></i> Ya, Konfirmasi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     // ================================================================
     // STATE
@@ -454,11 +493,21 @@
                 '<i class="fas fa-user-plus"></i> Ambil</button>';
         }
 
+        // Revisi LID-FIRST -> PN-LATER: tombol konfirmasi nomor manual
+        // HANYA relevan kalau conversation ini @lid DAN belum punya
+        // `phone` ter-verifikasi (kalau sudah ada, reconciliation
+        // otomatis/sebelumnya sudah menanganinya).
+        const tombolKonfirmasiNomor = (conv && conv.jid_type === 'lid' && !conv.phone)
+            ? ' <button type="button" class="btn btn-sm btn-link p-0 text-warning" style="font-size:0.75rem;" title="Konfirmasi nomor WhatsApp customer ini" onclick="bukaModalKonfirmasiNomor()">' +
+              '<i class="fas fa-shield-alt"></i> Konfirmasi Nomor</button>'
+            : '';
+
         document.getElementById('threadHeader').innerHTML =
             '<span><strong>' + escapeHtmlInbox(nama) + '</strong>' +
             (nomorTampil ? ' <span class="text-muted small">(' + escapeHtmlInbox(nomorTampil) + ')</span>' : '') +
             ' <button type="button" class="btn btn-sm btn-link p-0" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="bukaModalEditProfil()">' +
             '<i class="fas fa-pen"></i> Edit</button>' +
+            tombolKonfirmasiNomor +
             infoAssign +
             '</span>' +
             '<span>' + tombolAssign +
@@ -796,6 +845,63 @@
             .finally(function() {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-save"></i> Simpan';
+            });
+
+        return false;
+    }
+
+    // ================================================================
+    // KONFIRMASI NOMOR WHATSAPP (revisi LID-FIRST -> PN-LATER)
+    // ================================================================
+    function bukaModalKonfirmasiNomor() {
+        if (!conversationAktif) return;
+
+        document.getElementById('konfirmasiNomorInput').value = '';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKonfirmasiNomor')).show();
+    }
+
+    function simpanKonfirmasiNomor(e) {
+        e.preventDefault();
+        if (!conversationAktif) return false;
+
+        const nomor = document.getElementById('konfirmasiNomorInput').value.trim();
+        const btn = document.getElementById('btnKonfirmasiNomor');
+
+        if (!nomor) {
+            showToast('Nomor wajib diisi.', 'warning');
+            return false;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/konfirmasi-nomor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'phone=' + encodeURIComponent(nomor)
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKonfirmasiNomor')).hide();
+                    showToast('Nomor WhatsApp dikonfirmasi. Pesan berikutnya dari nomor ini akan otomatis masuk ke sini.', 'success');
+
+                    const idx = daftarConversation.findIndex(function(c) { return c.id === conversationAktif; });
+                    if (idx !== -1) {
+                        daftarConversation[idx] = json.conversation;
+                    }
+                    renderDaftarConversation();
+                    renderThreadHeader();
+                } else {
+                    showToast(json.message || 'Gagal konfirmasi nomor.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-shield-alt"></i> Ya, Konfirmasi';
             });
 
         return false;

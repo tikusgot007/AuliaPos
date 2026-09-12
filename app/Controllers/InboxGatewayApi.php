@@ -184,12 +184,23 @@ class InboxGatewayApi extends BaseController
         }
         $whatsappNameFromPayload = !empty($payload['contact_name']) ? (string) $payload['contact_name'] : null;
 
-        $resolved = $conversationModel->resolveConversationId($chatId, $jidType, $canonicalPhone, $whatsappNameFromPayload);
+        // Revisi LID-FIRST -> PN-LATER (Task Group 1.5): $identity_hint.lid
+        // HANYA dipercaya kalau pesan ini sendiri jid_type='pn' -- defense in
+        // depth (Gateway seharusnya sudah tidak pernah mengisi ini untuk
+        // pesan @lid, tapi CI4 tidak boleh bergantung buta ke situ). Lihat
+        // ConversationModel::resolveConversationId() untuk cara pemakaiannya.
+        $knownLid = null;
+        if ($jidType === 'pn' && !empty($payload['identity_hint']['lid'])) {
+            $knownLid = (string) $payload['identity_hint']['lid'];
+        }
+
+        $resolved = $conversationModel->resolveConversationId($chatId, $jidType, $canonicalPhone, $whatsappNameFromPayload, $knownLid);
         $conversationId = $resolved['conversation_id'];
         $conversation   = $conversationModel->find($conversationId);
 
         if ($resolved['reconciled']) {
-            log_message('info', "InboxGatewayApi::messages() reconciliation: chat_id={$chatId} (jid_type={$jidType}) ditempelkan ke conversation_id={$conversationId} yang sudah ada lewat kecocokan nomor {$canonicalPhone}.");
+            $viaApa = $knownLid !== null ? "LID hint ({$knownLid})" : "nomor ({$canonicalPhone})";
+            log_message('info', "InboxGatewayApi::messages() reconciliation: chat_id={$chatId} (jid_type={$jidType}) ditempelkan ke conversation_id={$conversationId} yang sudah ada lewat {$viaApa}.");
         }
 
         // whatsapp_name SELALU dimutakhirkan (push name boleh berubah kapan

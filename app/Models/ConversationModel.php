@@ -33,21 +33,38 @@ use CodeIgniter\Model;
  *   menang kalau ada).
  *
  * `phone` vs `manual_phone`:
- * - `phone` = nomor TER-VERIFIKASI, HANYA diisi dari JID
- *   `@s.whatsapp.net` asli yang di-derive Gateway. SATU-SATUNYA kolom
- *   yang dipakai untuk reconciliation (lihat resolveConversationId())
- *   -- TIDAK PERNAH diisi dari input manual, supaya tidak ada
- *   auto-merge yang salah hanya karena kasir mengetik nomor yang
- *   keliru.
- * - `manual_phone` = nomor yang diketik MANUAL kasir, informasional
- *   saja, TIDAK PERNAH dipakai untuk mencari/menggabungkan
- *   conversation.
+ * - `phone` = nomor TER-VERIFIKASI. Diisi dari 2 sumber SAJA: (a) JID
+ *   `@s.whatsapp.net` asli yang di-derive Gateway (otomatis), atau
+ *   (b) `Inbox::konfirmasiNomorWhatsapp()` -- tindakan MANUAL tapi
+ *   SADAR/eksplisit oleh kasir/admin ("saya konfirmasi nomor ini
+ *   benar milik WhatsApp customer ini", beda dari sekadar mengetik
+ *   nomor di form edit profil biasa). Kolom inilah yang dipakai untuk
+ *   reconciliation (lihat resolveConversationId()) -- TIDAK PERNAH
+ *   diisi diam-diam/otomatis dari input manual biasa.
+ * - `manual_phone` = nomor yang diketik MANUAL kasir lewat edit
+ *   profil biasa, informasional saja, TIDAK PERNAH dipakai untuk
+ *   mencari/menggabungkan conversation.
  *
  * `conversation_identities` (tabel terpisah, lihat
  * ConversationIdentityModel) menyimpan SEMUA JID (chat_id) yang
  * pernah dikenali sebagai milik satu conversation -- `chat_id` di
  * tabel ini TETAP jadi "JID aktif saat ini" (dipakai untuk kirim
  * balasan), tapi JID lama tidak pernah dilupakan.
+ *
+ * --- Revisi LID-FIRST -> PN-LATER (2026-09-12) ---
+ * Masalah yang ditemukan setelah audit: kalau `@lid` datang DULUAN
+ * (conversation dibuat dengan phone=NULL, sesuai desain -- @lid tidak
+ * boleh ditebak), lalu BARU KEMUDIAN nomor PN asli yang SAMA muncul,
+ * langkah cocok-nomor lama TIDAK PERNAH bisa menemukan match, karena
+ * `phone` conversation @lid itu memang NULL selamanya (tidak pernah
+ * ditebak). Diselesaikan dengan menambah langkah BARU (langkah 2 di
+ * resolveConversationId(), sebelum cocok nomor) yang memakai
+ * `$knownLid` -- HANYA diisi kalau Gateway berhasil menanyakan
+ * LANGSUNG ke server WhatsApp (`sock.onWhatsApp()`, query USync
+ * resmi, BUKAN tebakan) "JID @lid apa yang berkaitan dengan nomor PN
+ * ini". Lihat docs/aturan-bisnis-CHAT.md Section 12 untuk audit
+ * kapabilitas lengkap & CATATAN KEJUJURAN (belum diverifikasi
+ * terhadap koneksi WhatsApp live).
  */
 class ConversationModel extends Model
 {
@@ -111,7 +128,7 @@ class ConversationModel extends Model
      * mengetik nomor untuk memulai chat baru).
      *
      * URUTAN PENCARIAN (JANGAN diubah urutannya -- lihat
-     * docs/aturan-bisnis-CHAT.md Section 11 untuk pembahasan penuh):
+     * docs/aturan-bisnis-CHAT.md Section 11 & 12 untuk pembahasan penuh):
      *
      * 1. chat_id ini SUDAH dikenal (ada baris di
      *    conversation_identities) -> pakai conversation itu apa
@@ -119,24 +136,37 @@ class ConversationModel extends Model
      *    berikutnya dari JID yang sama, termasuk setelah Gateway
      *    restart (chat_id tidak berubah).
      *
-     * 2. BELUM dikenal, TAPI $canonicalPhone diisi -- HANYA BOLEH
-     *    diisi kalau berasal dari JID @s.whatsapp.net ASLI yang
-     *    di-derive Gateway (pemanggil bertanggung jawab memastikan
-     *    ini; TIDAK PERNAH ditebak dari angka @lid, dan TIDAK PERNAH
-     *    dari nomor yang diketik manual kasir lewat fitur edit
-     *    profil -- lihat catatan phone vs manual_phone di atas) ->
-     *    cari conversation lain yang `phone`-nya SUDAH cocok. Kalau
-     *    ketemu, berarti ini nomor WhatsApp yang SAMA muncul dengan
-     *    JID baru -> chat_id baru didaftarkan sebagai alias TAMBAHAN
-     *    ke conversation yang sudah ada (BUKAN bikin conversation
-     *    baru, histori pesan lama tetap utuh), dan
-     *    conversations.chat_id dimutakhirkan ke JID baru ini (JID
-     *    yang baru diverifikasi dianggap lebih bisa diandalkan untuk
-     *    kirim balasan berikutnya dibanding JID lama yang mungkin
-     *    sudah basi) -- JID lama TETAP ada di conversation_identities
-     *    (kalau muncul lagi nanti, tetap dikenali lewat langkah 1).
+     * 2. BELUM dikenal, TAPI $knownLid diisi -- HANYA BOLEH diisi
+     *    kalau Gateway sendiri yang menanyakan LANGSUNG ke server
+     *    WhatsApp (sock.onWhatsApp(), query USync resmi, BUKAN
+     *    tebakan dari angka @lid) "JID @lid apa yang berkaitan dengan
+     *    nomor PN yang baru datang ini". Kalau JID @lid itu SUDAH
+     *    dikenal (sudah pernah jadi conversation tersendiri -- kasus
+     *    LID-FIRST -> PN-LATER, lihat revisi di docblock class ini),
+     *    chat_id PN baru ini ditempelkan sebagai alias TAMBAHAN ke
+     *    conversation @lid itu (BUKAN bikin conversation baru),
+     *    persis seperti langkah 3 di bawah.
      *
-     * 3. Keduanya gagal -> identity yang benar-benar baru -> buat
+     * 3. BELUM dikenal (langkah 1 & 2 gagal), TAPI $canonicalPhone
+     *    diisi -- HANYA BOLEH diisi kalau berasal dari JID
+     *    @s.whatsapp.net ASLI yang di-derive Gateway, ATAU dari
+     *    konfirmasi manual eksplisit kasir/admin lewat
+     *    Inbox::konfirmasiNomorWhatsapp() (pemanggil bertanggung jawab
+     *    memastikan ini; TIDAK PERNAH ditebak dari angka @lid, dan
+     *    TIDAK PERNAH dari `manual_phone`/edit profil biasa -- lihat
+     *    catatan phone vs manual_phone di atas) -> cari conversation
+     *    lain yang `phone`-nya SUDAH cocok.
+     *
+     * Langkah 2 & 3 sama-sama berarti "chat_id baru ini adalah JID
+     * WhatsApp yang SAMA dengan conversation yang sudah ada" -> chat_id
+     * baru didaftarkan sebagai alias TAMBAHAN (histori pesan lama
+     * tetap utuh, TIDAK ADA yang dihapus/dipindah), dan
+     * conversations.chat_id dimutakhirkan ke JID baru ini (dianggap
+     * lebih bisa diandalkan untuk kirim balasan berikutnya) -- JID
+     * lama TETAP ada di conversation_identities (kalau muncul lagi
+     * nanti, tetap dikenali lewat langkah 1).
+     *
+     * 4. Ketiganya gagal -> identity yang benar-benar baru -> buat
      *    conversation baru + 1 baris alias untuk chat_id ini.
      *
      * SENGAJA TIDAK PERNAH mencocokkan berdasarkan nama
@@ -144,13 +174,18 @@ class ConversationModel extends Model
      * hanya karena nama kebetulan sama (aturan bisnis: "jangan
      * auto-merge history secara agresif").
      *
+     * @param string|null $knownLid JID @lid yang di-resolve Gateway
+     *   dari onWhatsApp() untuk pesan jid_type='pn' (opsional -- null
+     *   kalau tidak tersedia/gagal/tidak relevan). TIDAK PERNAH diisi
+     *   untuk pesan yang jid_type-nya sendiri 'lid' (tidak ada
+     *   gunanya, lihat docblock class).
      * @return array{conversation_id: int, created: bool, reconciled: bool}
-     *   created=true kalau conversation baru dibuat (langkah 3).
+     *   created=true kalau conversation baru dibuat (langkah 4).
      *   reconciled=true kalau chat_id ini "ditempelkan" ke
-     *   conversation LAMA lewat kecocokan nomor (langkah 2) --
-     *   berguna untuk logging/observability.
+     *   conversation LAMA lewat langkah 2/3 -- berguna untuk
+     *   logging/observability.
      */
-    public function resolveConversationId(string $chatId, string $jidType, ?string $canonicalPhone, ?string $whatsappName = null): array
+    public function resolveConversationId(string $chatId, string $jidType, ?string $canonicalPhone, ?string $whatsappName = null, ?string $knownLid = null): array
     {
         $identityModel = new ConversationIdentityModel();
 
@@ -160,24 +195,26 @@ class ConversationModel extends Model
             return ['conversation_id' => $existingId, 'created' => false, 'reconciled' => false];
         }
 
-        // --- Langkah 2: cocokkan lewat nomor ter-verifikasi ------------
+        // --- Langkah 2: cocokkan lewat LID yang di-resolve Gateway -----
+        // (revisi LID-FIRST -> PN-LATER -- lihat docblock class/method)
+        if ($knownLid !== null) {
+            $existingConversationId = $identityModel->findConversationIdByChatId($knownLid);
+
+            if ($existingConversationId !== null) {
+                return $this->attachAliasToConversation($identityModel, $existingConversationId, $chatId, $jidType);
+            }
+        }
+
+        // --- Langkah 3: cocokkan lewat nomor ter-verifikasi ------------
         if ($canonicalPhone !== null) {
             $existing = $this->where('phone', $canonicalPhone)->first();
 
             if ($existing) {
-                $identityModel->insert([
-                    'conversation_id' => $existing['id'],
-                    'chat_id'         => $chatId,
-                    'jid_type'        => $jidType,
-                ]);
-
-                $this->update($existing['id'], ['chat_id' => $chatId, 'jid_type' => $jidType]);
-
-                return ['conversation_id' => (int) $existing['id'], 'created' => false, 'reconciled' => true];
+                return $this->attachAliasToConversation($identityModel, (int) $existing['id'], $chatId, $jidType);
             }
         }
 
-        // --- Langkah 3: benar-benar baru ---------------------------------
+        // --- Langkah 4: benar-benar baru ---------------------------------
         $this->insert([
             'chat_id'       => $chatId,
             'jid_type'      => $jidType,
@@ -197,5 +234,24 @@ class ConversationModel extends Model
         ]);
 
         return ['conversation_id' => $newId, 'created' => true, 'reconciled' => false];
+    }
+
+    /**
+     * Helper bersama untuk langkah 2 & 3 resolveConversationId():
+     * tempelkan $chatId sebagai alias TAMBAHAN ke conversation yang
+     * SUDAH ADA ($conversationId), dan mutakhirkan conversations.chat_id
+     * ke JID baru ini. Tidak pernah menghapus/mengubah alias lama.
+     */
+    private function attachAliasToConversation(ConversationIdentityModel $identityModel, int $conversationId, string $chatId, string $jidType): array
+    {
+        $identityModel->insert([
+            'conversation_id' => $conversationId,
+            'chat_id'         => $chatId,
+            'jid_type'        => $jidType,
+        ]);
+
+        $this->update($conversationId, ['chat_id' => $chatId, 'jid_type' => $jidType]);
+
+        return ['conversation_id' => $conversationId, 'created' => false, 'reconciled' => true];
     }
 }

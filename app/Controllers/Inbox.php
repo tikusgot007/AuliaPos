@@ -913,6 +913,109 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/percakapan/(:num)/konfirmasi-nomor
+     *
+     * Revisi LID-FIRST -> PN-LATER (Task Group 1.5) -- jalur FALLBACK
+     * MANUAL untuk kasus @lid yang belum bisa direkonsiliasi otomatis
+     * (Gateway tidak berhasil resolve LID lewat onWhatsApp(), atau
+     * belum ada pesan PN yang masuk sama sekali dari nomor itu).
+     * Kasir/admin secara SADAR & EKSPLISIT mengkonfirmasi "nomor ini
+     * benar-benar nomor WhatsApp customer di percakapan ini".
+     *
+     * BEDA PENTING dari updateCustomerProfile() (edit nama/nomor
+     * biasa): endpoint itu menulis ke `manual_phone` (informasional,
+     * TIDAK PERNAH dipakai reconciliation). Endpoint INI menulis ke
+     * `phone` (kolom yang SAMA dipakai reconciliation otomatis) --
+     * begitu dikonfirmasi, PESAN PN BERIKUTNYA dengan nomor yang sama
+     * akan otomatis nyambung ke conversation ini (lewat
+     * ConversationModel::resolveConversationId() langkah 3), TANPA
+     * perlu logic baru -- endpoint ini murni "isi phone dengan sengaja
+     * oleh manusia", bukan mekanisme merge terpisah.
+     *
+     * SENGAJA TIDAK menggabungkan/memindahkan message dari conversation
+     * lain mana pun -- kalau nomor ini KEBETULAN sudah terpakai di
+     * conversation lain, request ini DITOLAK (409) dengan info
+     * conversation itu, supaya kasir bisa pindah ke sana sendiri
+     * (mencegah 2 conversation punya `phone` yang sama, yang akan
+     * membuat pencarian nomor jadi ambigu).
+     */
+    public function konfirmasiNomorWhatsapp($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
+            ]);
+        }
+
+        $phoneRaw = trim((string) ($this->request->getPost('phone') ?? ''));
+
+        if ($phoneRaw === '') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Nomor telepon wajib diisi untuk konfirmasi.',
+            ]);
+        }
+
+        $canonicalPhone = PhoneNumber::normalize($phoneRaw);
+
+        if ($canonicalPhone === null) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Format nomor telepon tidak dikenali. Gunakan format 08xx, 62xx, atau +62xx.',
+            ]);
+        }
+
+        // Cegah 2 conversation punya `phone` ter-verifikasi yang sama --
+        // kalau sudah dipakai conversation LAIN, tolak & arahkan ke sana
+        // (bukan menggabungkan otomatis -- kasir yang putuskan sendiri).
+        $existingWithPhone = $conversationModel->where('phone', $canonicalPhone)
+            ->where('id !=', $conversationId)
+            ->first();
+
+        if ($existingWithPhone) {
+            $namaLain = $existingWithPhone['contact_name'] ?: $existingWithPhone['whatsapp_name'] ?: $existingWithPhone['chat_id'];
+
+            return $this->response->setStatusCode(409)->setJSON([
+                'status'  => 'error',
+                'message' => "Nomor ini sudah terhubung ke percakapan lain ({$namaLain}, #{$existingWithPhone['id']}). Pindah ke percakapan itu, jangan konfirmasi dobel.",
+                'conversation_id_lain' => (int) $existingWithPhone['id'],
+            ]);
+        }
+
+        $userId = (int) session()->get('id_user');
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        $conversationModel->update($conversationId, [
+            'phone'              => $canonicalPhone,
+            'profile_updated_at' => $now,
+            'profile_updated_by' => $userId,
+        ]);
+
+        log_message('info', "Inbox::konfirmasiNomorWhatsapp sukses (KONFIRMASI MANUAL). conversation_id={$conversationId}, phone={$canonicalPhone}, user_id={$userId}");
+
+        $updated = $this->attachAssignedNames([$conversationModel->find($conversationId)])[0];
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'       => 'success',
+            'conversation' => $updated,
+        ]);
+    }
+
+    /**
      * Logic inti kirim pesan (dipakai bersama oleh kirim() dan
      * mulaiPercakapan(), supaya tidak duplikat kode).
      *
