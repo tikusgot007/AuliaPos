@@ -1019,3 +1019,151 @@ dianggap "selesai" sepenuhnya.
 
 ---
 
+# 10. Incoming Audio/Video/Voice Note (2026-09-12, Task Group 1)
+
+## 10.1 Apa ini
+
+Menyusul §7.9 lama ("jenis media lain -- audio, video, sticker,
+lokasi, kontak -- masih di luar scope"): `audio` dan `video` sekarang
+didukung untuk arah **masuk** (customer kirim ke toko). Sticker,
+lokasi, kontak TETAP di luar scope (tidak disentuh sesi ini). Outbound
+audio/video (kasir kirim dari POS) JUGA TETAP di luar scope -- itu
+Task Group terpisah.
+
+## 10.2 Keputusan desain PALING PENTING: beda prinsip dari image/document
+
+Image/document (§7) menyimpan REFERENSI (`direct_path` + `media_key`)
+supaya bisa didekripsi ulang ON-DEMAND dari server WhatsApp kapan pun
+kasir membuka pesannya. **Audio/video TIDAK memakai pola itu sama
+sekali** -- binary-nya TIDAK PERNAH diambil, baik oleh Gateway maupun
+AuliaPos, titik. Yang disimpan cuma metadata pesan (`message_type`,
+caption/`text`, `media_mime_type`, `media_size`, timestamp,
+`wa_message_id`, `sender_jid`, `conversation_id`) -- `media_path` dan
+`media_metadata` SELALU NULL untuk audio/video. UI cukup menampilkan
+placeholder "Customer mengirim audio/video — cek WhatsApp Web.";
+kasir yang perlu dengar/lihat isinya buka langsung dari WhatsApp
+Web/HP toko.
+
+Konsekuensinya: TIDAK ADA endpoint download media baru untuk
+audio/video (beda dari image/document yang punya `GET
+/inbox/media/(:num)` + `POST /media/download` Gateway) -- memang
+sengaja tidak dibuat, sesuai instruksi eksplisit Task Group ini.
+
+## 10.3 Voice note = audio, bukan tipe baru
+
+WhatsApp mengirim voice note sebagai `audioMessage` dengan flag
+`ptt: true` di level Baileys. Gateway TIDAK membuat cabang/tipe baru
+untuk ini -- voice note masuk sebagai `message_type = audio` persis
+sama dengan audio biasa (musik/rekaman yang dikirim sebagai file).
+Flag `ptt` diperiksa TIDAK diteruskan ke AuliaPos sama sekali (tidak
+ada kolom/kebutuhan untuk itu) -- murni supaya tidak ada business
+logic bercabang berdasarkan itu, sesuai instruksi eksplisit.
+
+## 10.4 Sisi Gateway (`connectionManager.js`)
+
+`_handleIncomingMessage()` sekarang punya cabang `audioMsg || videoMsg`
+sejajar dengan cabang `imageMsg`/`documentMsg` yang sudah ada -- BUKAN
+transport/abstraction baru. BEDA dari cabang image/document: tidak
+memanggil `buildMediaRef()` sama sekali (tidak butuh
+`directPath`/`mediaKey`), cukup ekstrak `mimetype` dan `fileLength`
+langsung dari `audioMessage`/`videoMessage`. `caption` diambil untuk
+video (WhatsApp mengizinkannya); audio TIDAK PERNAH punya caption di
+WhatsApp, jadi `text` selalu `null` untuk audio. **Beda penting
+lainnya**: kalau `mimetype`/`fileLength` kosong, pesan **TETAP
+diteruskan** (tidak di-drop) -- beda dari image/document yang WAJIB
+punya `directPath`/`mediaKey` lengkap atau pesannya dibuang, karena
+audio/video tidak punya syarat referensi apa pun untuk berguna nanti.
+
+Payload ke CI4 (lewat `incomingBuffer`/`incomingDelivery.js`, TIDAK
+ADA perubahan kontrak/nama field -- `media` tetap object generik yang
+sudah ada, cuma sekarang bisa berisi bentuk lebih ringan):
+
+```json
+{
+  "wa_message_id": "...",
+  "chat_id": "...",
+  "jid_type": "pn",
+  "message_type": "audio",
+  "direction": "incoming",
+  "sender_jid": "...",
+  "text": null,
+  "message_timestamp": "...",
+  "media": { "mimetype": "audio/ogg; codecs=opus", "file_length": 12345 }
+}
+```
+
+Video sama persis, `message_type: "video"`, `text` boleh berisi
+caption.
+
+## 10.5 Sisi CI4 (`InboxGatewayApi::messages()`)
+
+Cabang baru `elseif (in_array($messageType, ['audio', 'video'], true))`
+sejajar dengan cabang `image`/`document` yang sudah ada. BEDA
+kritisnya: `media` di payload SEPENUHNYA opsional untuk audio/video
+(tidak ada validasi yang menolak request kalau `media` kosong/tidak
+ada) -- kalau ada, cuma `mimetype`/`file_length` yang diambil ke
+`media_mime_type`/`media_size`; `media_path`, `media_filename`,
+`media_sha256`, `media_metadata` SELALU tetap NULL (tidak pernah
+diisi apa pun untuk audio/video). Tidak ada migration baru -- kolom
+`messages.message_type` sudah `VARCHAR(30)` tanpa `ENUM`/constraint
+yang membatasi nilainya (lihat migration Phase 1), jadi `audio`/
+`video` diterima begitu saja seperti string bebas lainnya.
+
+Idempotency (`existsByWaMessageId()`) dan status-transition
+(`incoming` selalu membuka conversation jadi `open`, `last_message_at`/
+`last_message_direction` ter-update) TIDAK diubah SAMA SEKALI --
+logic itu sudah generik terhadap `message_type` sejak awal, jadi
+otomatis berlaku sama untuk audio/video tanpa perlu disentuh.
+
+## 10.6 UI (`inbox/index.php`)
+
+`renderIsiPesan()` (JS) dapat cabang baru untuk `message_type ===
+'audio'` / `'video'`: ikon (mikrofon/video) + teks placeholder
+`"Customer mengirim audio/video — cek WhatsApp Web."`, caption (kalau
+ada, dari `text`) ditampilkan di bawahnya sama seperti pola
+image/document. SENGAJA TIDAK ADA `<audio controls>`/`<video
+controls>`, thumbnail, atau link download apa pun -- sesuai instruksi
+eksplisit.
+
+## 10.7 Yang SUDAH saya verifikasi sendiri
+
+- `node --check` pada semua file Gateway yang diubah.
+- Skrip simulasi baru `test/simulate-audio-video.js` (pola sama
+  dengan simulasi image/document yang sudah ada) LULUS: audio biasa,
+  voice note (`ptt=true` tetap `audio`), video dengan/tanpa caption,
+  MIME/ukuran kosong tidak bikin crash, tidak tertukar dengan
+  text/image/document dalam satu chat yang sama, dan idempotency
+  `incomingBuffer.enqueue()` (SQLite, `INSERT OR IGNORE` + UNIQUE
+  `wa_message_id`) untuk event audio yang dikirim 2x persis sama.
+- Regression: skrip simulasi LAMA (`simulate-lid-conversation.js`,
+  `simulate-send-media.js`) dijalankan ulang setelah perubahan, TETAP
+  LULUS -- text/image/document/outgoing tidak terpengaruh.
+- `php -l` pada `InboxGatewayApi.php` dan `inbox/index.php`.
+
+## 10.8 Yang BELUM bisa saya verifikasi (perlu kamu jalankan)
+
+- **Idempotency di level AuliaPos/CI4** (`existsByWaMessageId()`)
+  untuk audio/video SPESIFIK belum di-test dengan database sungguhan
+  -- `aulia_inboxdb` di lingkungan pengembangan berisi data LIVE
+  (bukan database test kosong), jadi sengaja TIDAK dijalankan test
+  otomatis yang menulis ke sana untuk sesi ini (repo ini juga belum
+  punya infrastruktur test DB terpisah untuk connection group
+  `inbox` -- ini keterbatasan/gap yang sudah ada sebelum Task Group
+  ini, bukan sesuatu yang diperbaiki di sini supaya perubahan tetap
+  minimal). Logic-nya sama persis dengan yang sudah dipakai
+  text/image/document sejak awal (tidak diubah), jadi risiko rendah,
+  tapi tetap **WAJIB ditest langsung**: kirim webhook/audio yang sama
+  2x (atau simulasikan retry Gateway) dan pastikan cuma 1 baris
+  `messages` yang tercipta.
+- **Kirim audio/voice note/video SUNGGUHAN dari HP** ke nomor toko,
+  pastikan muncul di `/inbox` sebagai placeholder yang benar
+  (`audio`/`video`, bukan `text` kosong atau error), caption (untuk
+  video) tampil, dan conversation ter-`open`/`last_message_at`
+  ter-update seperti pesan lain.
+- Skenario "conversation CLOSED lalu incoming audio/video -> OPEN
+  lagi" -- logic-nya identik dengan incoming text/image/document yang
+  sudah ada (tidak diubah), tapi belum ditest ULANG spesifik untuk
+  audio/video.
+
+---
+

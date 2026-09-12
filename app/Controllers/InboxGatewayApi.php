@@ -26,7 +26,8 @@ class InboxGatewayApi extends BaseController
     /**
      * POST /api/inbox/gateway/messages
      *
-     * Menerima 1 pesan (teks) dari Gateway. Idempotent berdasarkan
+     * Menerima 1 pesan (text/image/document/audio/video) dari Gateway.
+     * Idempotent berdasarkan
      * wa_message_id -- request yang sama dikirim ulang (mis. karena
      * Gateway retry setelah timeout) TIDAK akan membuat baris message
      * kedua.
@@ -123,6 +124,24 @@ class InboxGatewayApi extends BaseController
                 'direct_path'      => $directPath,
                 'media_key_base64' => $mediaKeyBase64,
             ]);
+        } elseif (in_array($messageType, ['audio', 'video'], true)) {
+            // BEDA PRINSIP dari image/document: audio/video TIDAK PERNAH
+            // dibuka ulang lewat Inbox (lihat keputusan desain Task Group
+            // 1 -- UI cuma menampilkan placeholder "cek WhatsApp Web"),
+            // jadi TIDAK ADA referensi (direct_path/media_key) yang perlu
+            // disimpan sama sekali -- media_metadata TETAP NULL. 'media'
+            // di sini SEPENUHNYA opsional, cuma metadata ringan
+            // (mimetype/ukuran) kalau Gateway kebetulan mengirimkannya --
+            // request TETAP diterima walau 'media' kosong/tidak ada.
+            $media = $payload['media'] ?? null;
+
+            if (is_array($media)) {
+                $mimetype   = $media['mimetype'] ?? null;
+                $fileLength = $media['file_length'] ?? $media['fileLength'] ?? null;
+
+                $mediaColumns['media_mime_type'] = $mimetype !== null ? (string) $mimetype : null;
+                $mediaColumns['media_size']      = $fileLength !== null ? (int) $fileLength : null;
+            }
         }
 
         $messageTimestamp = $this->parseTimestamp($payload['message_timestamp']);

@@ -503,6 +503,21 @@
                 (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
         }
 
+        // Audio (termasuk voice note -- tidak dibedakan, lihat catatan
+        // desain di InboxGatewayApi::messages()) dan video: SENGAJA TIDAK
+        // ADA player/download sama sekali -- binary-nya tidak pernah
+        // diambil AuliaPos maupun Gateway, cukup placeholder yang jelas
+        // + caption (kalau ada). Kasir yang perlu dengar/lihat isinya
+        // buka langsung dari WhatsApp Web/HP toko.
+        if (m.message_type === 'audio' || m.message_type === 'video') {
+            const label = m.message_type === 'audio' ? 'audio' : 'video';
+            const icon = m.message_type === 'audio' ? 'fa-microphone' : 'fa-video';
+            return '<div class="inbox-media-unavailable" style="font-style:normal;">' +
+                '<i class="fas ' + icon + '"></i> Customer mengirim ' + label + ' — cek WhatsApp Web.' +
+                '</div>' +
+                (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+        }
+
         return escapeHtmlInbox(m.text);
     }
 
