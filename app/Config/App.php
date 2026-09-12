@@ -31,7 +31,7 @@ class App extends BaseConfig
      * E.g., http://example.com/
      */
 
-    public string $baseURL = 'http://localhost/aulia/';
+    public string $baseURL = 'http://localhost/aulia-v3/';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.

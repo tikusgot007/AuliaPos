@@ -1,6 +1,6 @@
 Options -Indexes
 RewriteEngine On
-RewriteBase /aulia/
+RewriteBase /aulia-v3/
 
 # Redirect root ke public/index.php
 
@@ -10,7 +10,7 @@ RewriteRule ^$ public/index.php [L]
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.\*)$ public/index.php/$1 [L]
+RewriteRule ^(.*)$ public/index.php/$1 [L]
 <IfModule mod_rewrite.c>
 RewriteEngine On
 
