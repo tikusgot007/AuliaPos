@@ -43,11 +43,23 @@ class Inbox extends BaseConfig
      */
     public int $heartbeatStaleSeconds = 30;
 
+    /**
+     * Batas ukuran file media KELUAR (kasir upload dari POS) dalam MB,
+     * dicek di sisi CI4 SEBELUM file di-base64-encode dan dikirim ke
+     * Gateway. SENGAJA dibuat <= MAX_MEDIA_UPLOAD_MB milik Gateway
+     * (default Gateway 20MB) supaya CI4 menolak lebih dulu dengan
+     * pesan jelas, bukan menunggu Gateway menolak lewat HTTP 413.
+     *
+     * Diisi lewat .env: inbox.maxMediaUploadMb (opsional, default 15).
+     */
+    public int $maxMediaUploadMb = 15;
+
     public function __construct()
     {
         parent::__construct();
 
-        $this->gatewayToken   = (string) (env('inbox.gatewayToken') ?? '');
-        $this->gatewayBaseUrl = rtrim((string) (env('inbox.gatewayBaseUrl') ?? ''), '/');
+        $this->gatewayToken     = (string) (env('inbox.gatewayToken') ?? '');
+        $this->gatewayBaseUrl   = rtrim((string) (env('inbox.gatewayBaseUrl') ?? ''), '/');
+        $this->maxMediaUploadMb = (int) (env('inbox.maxMediaUploadMb') ?? $this->maxMediaUploadMb);
     }
 }

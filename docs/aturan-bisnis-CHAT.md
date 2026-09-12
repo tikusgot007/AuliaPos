@@ -841,19 +841,67 @@ Customer kirim gambar/dokumen
    placeholder "tidak tersedia", itu WAJAR sesuai desain (media sudah
    kadaluarsa di WhatsApp), bukan bug.
 
-## 7.8 Belum dikerjakan (di luar scope sesi ini)
+## 7.8 Outgoing media (kasir kirim gambar/dokumen dari POS) -- SELESAI (2026-09-12)
 
-- **Outgoing** media (kasir kirim gambar/dokumen dari POS) -- baru
-  incoming yang dikerjakan, sesuai kesepakatan ("sekarang incoming
-  dulu, tapi dipersiapkan untuk nantinya dua arah"). Struktur
-  `media_metadata` & pola referensi-saja yang sama bisa dipakai ulang
-  untuk outgoing nanti.
+Menyusul catatan di §7.8 versi sebelumnya ("baru incoming yang
+dikerjakan"): arah keluar sekarang juga didukung, memakai persis pola
+referensi-saja yang sama seperti incoming -- bukan mekanisme baru.
+
+**Kunci implementasinya**: setelah Gateway (`sendMediaMessage()` di
+`connectionManager.js`, repo `WA-Gateway` terpisah) berhasil upload
+file ke server WhatsApp lewat `sock.sendMessage()`, hasilnya SUDAH
+berisi `directPath`/`mediaKey` asli untuk file yang baru diunggah --
+persis strukturnya seperti `imageMessage`/`documentMessage` pada
+pesan masuk. Referensi ini diekstrak dengan `buildMediaRef()` yang
+SAMA (fungsi yang sudah ada untuk incoming, dipakai ulang apa
+adanya), lalu dikembalikan sebagai `media_ref` di response
+`POST /send-media`.
+
+Alur sisi CI4 (`Inbox::kirimMedia()`, `POST /inbox/kirim-media`):
+kasir upload file dari form Inbox -> CI4 baca isi file ke memory
+(TIDAK PERNAH ditulis ke disk CI4) -> base64-encode -> kirim ke
+Gateway lewat `POST /send-media` (Bearer token) -> kalau sukses,
+simpan `messages.media_metadata` dari `media_ref` yang dikembalikan
+Gateway (kalau ada) -- format JSON-nya SAMA PERSIS dengan incoming
+(`direct_path` + `media_key_base64` + `media_type`), sehingga
+`Inbox::media($messageId)` (endpoint `GET /inbox/media/(:num)` yang
+sudah ada) otomatis bisa membuka ulang media KELUAR ini juga, tanpa
+endpoint atau logic tambahan apa pun.
+
+Kalau Gateway tidak mengembalikan `media_ref` (kasus jarang -- mis.
+Baileys tidak menyertakan `directPath`/`mediaKey` di respons untuk
+alasan tertentu), pesan tetap tersimpan sebagai terkirim (sudah
+terlanjur sampai ke WhatsApp), hanya saja tidak bisa dibuka ulang
+nanti dari Inbox -- bukan kegagalan kirim, cuma keterbatasan tampil
+ulang.
+
+UI (`inbox/index.php`): tombol lampiran (ikon peniti) di sebelah
+textarea balasan, aktif begitu satu conversation dipilih. File yang
+dipilih ditampilkan sebagai badge kecil (bisa dibatalkan) sebelum
+dikirim; textarea jadi caption opsional. Bubble outgoing media
+memakai fungsi render yang SAMA (`renderIsiPesan()`) dengan incoming
+-- gambar tampil `<img>`, dokumen tampil sebagai link.
+
+Batas ukuran: `Config\Inbox::$maxMediaUploadMb` (default 15MB,
+`.env`: `inbox.maxMediaUploadMb`) dicek di CI4 SEBELUM base64-encode,
+sengaja lebih kecil dari `MAX_MEDIA_UPLOAD_MB` Gateway (default 20MB)
+supaya CI4 menolak lebih dulu dengan pesan jelas.
+
+**Belum diverifikasi end-to-end nyata** (kirim media sungguhan dari
+form Inbox ke nomor WhatsApp asli, lalu buka lagi bubble-nya) --
+hanya lolos `php -l`/`node --check`. Perlu ditest langsung sebelum
+dianggap "selesai" sepenuhnya.
+
+## 7.9 Belum dikerjakan (di luar scope sesi ini)
+
 - Jenis media lain (audio, video, sticker, lokasi, kontak) -- masih
   di luar scope, dilewati & di-log debug di Gateway.
 - Preview thumbnail di daftar conversation (list masih menampilkan
   nomor telepon sebagai preview, bukan "📷 Gambar"/"📄 Dokumen") --
   butuh perubahan skema tambahan (`last_message_type` di
   `conversations`) yang belum dikerjakan, murni polish tampilan.
+- "Mulai chat baru" (`mulaiPercakapan()`) masih hanya menerima teks --
+  kirim media hanya bisa ke conversation yang sudah ada.
 
 ---
 

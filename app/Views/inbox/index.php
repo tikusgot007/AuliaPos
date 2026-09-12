@@ -228,9 +228,19 @@
                 </div>
 
                 <div class="inbox-thread-form">
+                    <div id="previewMediaBalasan" class="mb-2" style="display:none;">
+                        <span class="badge bg-light text-dark border">
+                            <i class="fas fa-paperclip"></i> <span id="previewMediaNama"></span>
+                            <button type="button" class="btn-close btn-sm ms-1" style="font-size:0.6rem;" onclick="batalkanMediaBalasan()"></button>
+                        </span>
+                    </div>
                     <form id="formBalas" onsubmit="return kirimBalasan(event)">
                         <div class="input-group">
-                            <textarea class="form-control" id="teksBalasan" rows="1" placeholder="Pilih percakapan dulu..." disabled required></textarea>
+                            <button class="btn btn-outline-secondary" type="button" id="btnLampirkanMedia" disabled onclick="document.getElementById('inputMediaBalasan').click()">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <input type="file" id="inputMediaBalasan" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="pilihMediaBalasan(event)">
+                            <textarea class="form-control" id="teksBalasan" rows="1" placeholder="Pilih percakapan dulu..." disabled></textarea>
                             <button class="btn btn-success" type="submit" id="btnKirimBalasan" disabled>
                                 <i class="fas fa-paper-plane"></i>
                             </button>
@@ -363,6 +373,7 @@
         document.getElementById('teksBalasan').disabled = false;
         document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
         document.getElementById('btnKirimBalasan').disabled = false;
+        document.getElementById('btnLampirkanMedia').disabled = false;
 
         muatUlangPesan(true);
         return false;
@@ -490,7 +501,43 @@
     }
 
     // ================================================================
-    // KIRIM BALASAN
+    // LAMPIRAN MEDIA (dipilih, siap dikirim bareng pesan berikutnya)
+    // ================================================================
+    let fileMediaBalasan = null;
+
+    function pilihMediaBalasan(e) {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        fileMediaBalasan = file;
+        document.getElementById('previewMediaNama').textContent = file.name;
+        document.getElementById('previewMediaBalasan').style.display = 'block';
+        document.getElementById('teksBalasan').placeholder = 'Caption (opsional)...';
+    }
+
+    function batalkanMediaBalasan() {
+        fileMediaBalasan = null;
+        document.getElementById('inputMediaBalasan').value = '';
+        document.getElementById('previewMediaBalasan').style.display = 'none';
+        document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
+    }
+
+    function tampilkanBubbleOutgoing(m) {
+        const container = document.getElementById('threadMessages');
+        const emptyState = container.querySelector('.inbox-thread-empty');
+        if (emptyState) container.innerHTML = '';
+
+        container.insertAdjacentHTML('beforeend',
+            '<div class="inbox-bubble outgoing">' +
+            '<div class="bubble-sender">' + escapeHtmlInbox(m.sender_name) + '</div>' +
+            renderIsiPesan(m) +
+            '<div class="bubble-meta">' + formatWaktuInbox(m.message_timestamp) + '</div>' +
+            '</div>');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // ================================================================
+    // KIRIM BALASAN (teks, atau media kalau ada lampiran dipilih)
     // ================================================================
     function kirimBalasan(e) {
         e.preventDefault();
@@ -498,6 +545,10 @@
         if (!conversationAktif) {
             showToast('Pilih percakapan dulu.', 'warning');
             return false;
+        }
+
+        if (fileMediaBalasan) {
+            return kirimMediaBalasan();
         }
 
         const textarea = document.getElementById('teksBalasan');
@@ -523,19 +574,7 @@
                     textarea.value = '';
                     // Langsung tampilkan pesan baru tanpa nunggu polling
                     // (sesuai spec: outgoing langsung terlihat setelah sukses).
-                    const container = document.getElementById('threadMessages');
-                    const emptyState = container.querySelector('.inbox-thread-empty');
-                    if (emptyState) container.innerHTML = '';
-
-                    const m = json.message;
-                    container.insertAdjacentHTML('beforeend',
-                        '<div class="inbox-bubble outgoing">' +
-                        '<div class="bubble-sender">' + escapeHtmlInbox(m.sender_name) + '</div>' +
-                        escapeHtmlInbox(m.text) +
-                        '<div class="bubble-meta">' + formatWaktuInbox(m.message_timestamp) + '</div>' +
-                        '</div>');
-                    container.scrollTop = container.scrollHeight;
-
+                    tampilkanBubbleOutgoing(json.message);
                     muatUlangDaftarConversation();
                 } else {
                     showToast(json.message || 'Gagal mengirim pesan.', 'danger');
@@ -547,6 +586,49 @@
             .finally(function() {
                 btn.disabled = false;
                 textarea.disabled = false;
+                textarea.focus();
+            });
+
+        return false;
+    }
+
+    function kirimMediaBalasan() {
+        const textarea = document.getElementById('teksBalasan');
+        const btn = document.getElementById('btnKirimBalasan');
+        const caption = textarea.value.trim();
+        const file = fileMediaBalasan;
+
+        btn.disabled = true;
+        textarea.disabled = true;
+        document.getElementById('btnLampirkanMedia').disabled = true;
+
+        const formData = new FormData();
+        formData.append('conversation_id', conversationAktif);
+        formData.append('caption', caption);
+        formData.append('media', file);
+
+        fetch('<?= base_url('/inbox/kirim-media') ?>', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    textarea.value = '';
+                    batalkanMediaBalasan();
+                    tampilkanBubbleOutgoing(json.message);
+                    muatUlangDaftarConversation();
+                } else {
+                    showToast(json.message || 'Gagal mengirim media.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            })
+            .finally(function() {
+                btn.disabled = false;
+                textarea.disabled = false;
+                document.getElementById('btnLampirkanMedia').disabled = false;
                 textarea.focus();
             });
 

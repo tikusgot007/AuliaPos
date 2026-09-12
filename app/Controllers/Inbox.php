@@ -468,6 +468,164 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/kirim-media
+     *
+     * Kasir/admin kirim gambar/dokumen dari POS ke satu conversation
+     * YANG SUDAH ADA (belum ada versi "mulai chat baru" untuk media --
+     * kalau perlu, ketik teks dulu lewat mulaiPercakapan(), baru
+     * lanjut kirim media ke conversation yang sudah terbentuk).
+     *
+     * PENTING (konsisten dengan prinsip media MASUK): file yang
+     * di-upload di sini TIDAK PERNAH ditulis ke disk CI4 -- hanya
+     * dipegang di memory (dibaca isinya, di-base64-encode, dikirim ke
+     * Gateway), lalu dibuang begitu request selesai. Kalau Gateway
+     * mengembalikan referensi WhatsApp untuk file yang baru diunggah
+     * (media_ref -- direct_path + media_key, sama seperti media
+     * MASUK), referensi itu yang disimpan ke media_metadata supaya
+     * media ini bisa dibuka ulang lewat GET /inbox/media/(:num) yang
+     * sudah ada, TANPA endpoint/logic baru untuk itu. Kalau Gateway
+     * tidak mengembalikan referensi (mediaRef null), pesan tetap
+     * tersimpan (sudah terlanjur terkirim ke WhatsApp), hanya saja
+     * tidak bisa dibuka ulang nanti dari Inbox.
+     */
+    public function kirimMedia()
+    {
+        $conversationId = (int) ($this->request->getPost('conversation_id') ?? 0);
+        $caption        = trim((string) ($this->request->getPost('caption') ?? ''));
+        $file           = $this->request->getFile('media');
+
+        if (!$conversationId) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'conversation_id wajib diisi.',
+            ]);
+        }
+
+        if (!$file || !$file->isValid()) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'File media wajib diupload.',
+            ]);
+        }
+
+        if ($caption !== '' && strlen($caption) > 1024) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Caption terlalu panjang (maksimal 1024 karakter).',
+            ]);
+        }
+
+        $config = new InboxConfig();
+        $maxBytes = $config->maxMediaUploadMb * 1024 * 1024;
+
+        if ($file->getSize() > $maxBytes) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Ukuran file melebihi batas maksimum ({$config->maxMediaUploadMb}MB).",
+            ]);
+        }
+
+        $conversationModel = new ConversationModel();
+        $conversation       = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $gatewayStatusModel = new GatewayStatusModel();
+
+        if (!$gatewayStatusModel->isUsable()) {
+            return $this->response->setStatusCode(503)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gateway WhatsApp sedang tidak terhubung. Coba lagi setelah Gateway online.',
+            ]);
+        }
+
+        if ($config->gatewayBaseUrl === '') {
+            log_message('critical', 'Inbox::kirimMedia -- inbox.gatewayBaseUrl belum dikonfigurasi di .env.');
+
+            return $this->response->setStatusCode(503)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gateway belum dikonfigurasi di server.',
+            ]);
+        }
+
+        // Mimetype asli dari isi file (bukan dari nama/ekstensi, supaya
+        // tidak mudah dikelabui) -- CodeIgniter sudah pakai fileinfo di
+        // baliknya. image/* dianggap 'image', selain itu 'document'
+        // (konsisten dengan VALID_MEDIA_TYPES Gateway yang cuma dua ini).
+        $mimetype  = $file->getMimeType();
+        $mediaType = str_starts_with((string) $mimetype, 'image/') ? 'image' : 'document';
+        $fileName  = $file->getClientName();
+        $fileSize  = $file->getSize();
+
+        $mediaBase64 = base64_encode(file_get_contents($file->getTempName()));
+
+        $result = $this->callGatewaySendMedia($config, $conversation['chat_id'], $mediaType, $mediaBase64, $mimetype, $fileName, $caption);
+
+        if (!$result['ok']) {
+            log_message('warning', 'Inbox::kirimMedia gagal mengirim ke Gateway. conversation_id=' . $conversationId . ' error=' . $result['error']);
+
+            return $this->response->setStatusCode(502)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gagal mengirim media: ' . $result['error'],
+            ]);
+        }
+
+        $userId = (int) session()->get('id_user');
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        $mediaMetadata = null;
+        if ($result['media_ref']) {
+            $mediaMetadata = json_encode([
+                'media_type'       => $mediaType,
+                'direct_path'      => $result['media_ref']['direct_path'],
+                'media_key_base64' => $result['media_ref']['media_key_base64'],
+            ]);
+        }
+
+        $messageModel = new MessageModel();
+        $messageModel->insert([
+            'conversation_id'   => $conversationId,
+            'wa_message_id'     => $result['wa_message_id'] ?: ('local-' . bin2hex(random_bytes(8))),
+            'direction'         => 'outgoing',
+            'message_type'      => $mediaType,
+            'sender_jid'        => null,
+            'text'              => $caption !== '' ? $caption : null,
+            'media_path'        => null, // SENGAJA selalu NULL -- tidak pernah menyimpan file lokal.
+            'media_mime_type'   => $mimetype,
+            'media_filename'    => $fileName,
+            'media_size'        => $fileSize,
+            'media_metadata'    => $mediaMetadata,
+            'message_timestamp' => $now,
+            'sent_by_user_id'   => $userId,
+            'send_status'       => 'sent',
+        ]);
+
+        $newMessageId = $messageModel->getInsertID();
+
+        $conversationModel->update($conversationId, [
+            'last_message_at'        => $now,
+            'last_message_direction' => 'outgoing',
+            'last_replied_by'        => $userId,
+        ]);
+
+        log_message('info', "Inbox::kirimMedia sukses. conversation_id={$conversationId}, user_id={$userId}, media_ref=" . ($mediaMetadata ? 'ada' : 'tidak ada'));
+
+        $newMessage = $messageModel->find($newMessageId);
+        $newMessage = $this->attachSenderNames([$newMessage])[0];
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'          => 'success',
+            'conversation_id' => $conversationId,
+            'message'         => $newMessage,
+        ]);
+    }
+
+    /**
      * Logic inti kirim pesan (dipakai bersama oleh kirim() dan
      * mulaiPercakapan(), supaya tidak duplikat kode).
      *
@@ -644,6 +802,76 @@ class Inbox extends BaseController
                 'ok'            => true,
                 'wa_message_id' => $json['wa_message_id'] ?? null,
                 'timestamp'     => $json['timestamp'] ?? null,
+            ];
+        }
+
+        $errorMessage = is_array($json)
+            ? ($json['message'] ?? ('Gateway menolak (HTTP ' . $httpCode . ')'))
+            : ('HTTP ' . $httpCode . ', respons Gateway tidak valid: ' . substr((string) $rawResponse, 0, 200));
+
+        return ['ok' => false, 'error' => $errorMessage];
+    }
+
+    /**
+     * Panggil POST /send-media milik Gateway -- versi media dari
+     * callGatewaySend(). Timeout lebih lama (30 detik, sama seperti
+     * callGatewayMediaDownload()) karena upload base64 + kirim ke
+     * Baileys butuh waktu lebih dibanding teks biasa.
+     *
+     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, media_ref?: ?array, error?: string}
+     */
+    private function callGatewaySendMedia(InboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption): array
+    {
+        $url = $config->gatewayBaseUrl . '/send-media';
+
+        $payload = json_encode([
+            'chat_id'      => $chatId,
+            'media_type'   => $mediaType,
+            'media_base64' => $mediaBase64,
+            'mimetype'     => $mimetype,
+            'file_name'    => $fileName,
+            'caption'      => $caption !== '' ? $caption : null,
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $config->gatewayToken,
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_CONNECTTIMEOUT => 5,
+        ]);
+
+        $rawResponse = curl_exec($ch);
+        $curlError   = curl_error($ch);
+        $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($rawResponse === false) {
+            return ['ok' => false, 'error' => 'Tidak bisa menghubungi Gateway: ' . $curlError];
+        }
+
+        $json = json_decode($rawResponse, true);
+
+        if ($httpCode >= 200 && $httpCode < 300 && is_array($json) && ($json['success'] ?? false) === true) {
+            $mediaRef = null;
+            if (!empty($json['media_ref']) && is_array($json['media_ref'])
+                && !empty($json['media_ref']['direct_path']) && !empty($json['media_ref']['media_key_base64'])) {
+                $mediaRef = [
+                    'direct_path'      => $json['media_ref']['direct_path'],
+                    'media_key_base64' => $json['media_ref']['media_key_base64'],
+                ];
+            }
+
+            return [
+                'ok'            => true,
+                'wa_message_id' => $json['wa_message_id'] ?? null,
+                'timestamp'     => $json['timestamp'] ?? null,
+                'media_ref'     => $mediaRef,
             ];
         }
 
