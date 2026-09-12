@@ -325,6 +325,8 @@
     // ================================================================
     let conversationAktif = null;
     let daftarConversation = <?= json_encode($conversations) ?>;
+    const currentUserId = <?= (int) $currentUserId ?>;
+    const currentUserRole = <?= json_encode($currentUserRole) ?>;
 
     // ================================================================
     // UTIL
@@ -360,13 +362,17 @@
             const waktu = c.last_message_at ? formatWaktuInbox(c.last_message_at) : '';
             const panah = c.last_message_direction === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '';
             const closedBadge = c.status === 'closed' ? '<span class="badge bg-secondary" style="font-size:0.6rem;">closed</span>' : '';
+            const assignBadge = c.assigned_to
+                ? '<span class="badge ' + (c.assigned_to === currentUserId ? 'bg-info' : 'bg-light text-dark border') + '" style="font-size:0.6rem;">' +
+                  '<i class="fas fa-user"></i> ' + escapeHtmlInbox(c.assigned_to_name || ('User #' + c.assigned_to)) + '</span>'
+                : '';
 
             return '<a href="#" class="inbox-list-item' + activeClass + '" onclick="return pilihConversation(' + c.id + ')">' +
                 '<div class="d-flex justify-content-between">' +
                 '<span class="list-name">' + escapeHtmlInbox(nama) + '</span>' +
                 '<span class="list-time">' + escapeHtmlInbox(waktu) + '</span>' +
                 '</div>' +
-                '<div class="list-preview">' + panah + escapeHtmlInbox(c.phone || c.jid_type) + ' ' + closedBadge + '</div>' +
+                '<div class="list-preview">' + panah + escapeHtmlInbox(c.phone || c.jid_type) + ' ' + closedBadge + ' ' + assignBadge + '</div>' +
                 '</a>';
         }).join('');
     }
@@ -378,6 +384,7 @@
                 if (json.status === 'success') {
                     daftarConversation = json.conversations;
                     renderDaftarConversation();
+                    renderThreadHeader();
                 }
             })
             .catch(function() {
@@ -387,19 +394,84 @@
     }
 
     // ================================================================
+    // HEADER THREAD (nama kontak + badge/tombol assignment + hapus)
+    // ================================================================
+    function renderThreadHeader() {
+        if (!conversationAktif) return;
+
+        const conv = daftarConversation.find(function(c) { return c.id === conversationAktif; });
+        const nama = conv ? (conv.contact_name || conv.phone || conv.chat_id) : ('#' + conversationAktif);
+
+        let infoAssign = '';
+        let tombolAssign = '';
+
+        if (conv && conv.assigned_to) {
+            const punyaSaya = conv.assigned_to === currentUserId;
+            infoAssign = ' <span class="badge ' + (punyaSaya ? 'bg-info' : 'bg-light text-dark border') + '">' +
+                '<i class="fas fa-user"></i> ' + escapeHtmlInbox(conv.assigned_to_name || ('User #' + conv.assigned_to)) + '</span>';
+
+            if (punyaSaya || currentUserRole === 'admin') {
+                tombolAssign = '<button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Lepas percakapan" onclick="lepasPercakapan()">' +
+                    '<i class="fas fa-user-slash"></i></button>';
+            }
+        } else {
+            tombolAssign = '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Ambil percakapan" onclick="ambilPercakapan()">' +
+                '<i class="fas fa-user-plus"></i> Ambil</button>';
+        }
+
+        document.getElementById('threadHeader').innerHTML =
+            '<span><strong>' + escapeHtmlInbox(nama) + '</strong>' +
+            (conv && conv.phone ? ' <span class="text-muted small">(' + escapeHtmlInbox(conv.phone) + ')</span>' : '') +
+            infoAssign +
+            '</span>' +
+            '<span>' + tombolAssign +
+            '<button type="button" class="btn btn-sm btn-outline-danger" title="Hapus percakapan" onclick="bukaModalHapusPercakapan()">' +
+            '<i class="fas fa-trash-alt"></i></button></span>';
+    }
+
+    function ambilPercakapan() {
+        if (!conversationAktif) return;
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/ambil', { method: 'POST' })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    showToast('Percakapan berhasil diambil.', 'success');
+                    muatUlangDaftarConversation();
+                } else {
+                    showToast(json.message || 'Gagal mengambil percakapan.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            });
+    }
+
+    function lepasPercakapan() {
+        if (!conversationAktif) return;
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/lepas', { method: 'POST' })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    showToast('Percakapan dilepas.', 'success');
+                    muatUlangDaftarConversation();
+                } else {
+                    showToast(json.message || 'Gagal melepas percakapan.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            });
+    }
+
+    // ================================================================
     // PILIH CONVERSATION & RIWAYAT PESAN
     // ================================================================
     function pilihConversation(id) {
         conversationAktif = id;
         renderDaftarConversation();
-
-        const conv = daftarConversation.find(function(c) { return c.id === id; });
-        document.getElementById('threadHeader').innerHTML =
-            '<span><strong>' + escapeHtmlInbox(conv ? (conv.contact_name || conv.phone || conv.chat_id) : ('#' + id)) + '</strong>' +
-            (conv && conv.phone ? ' <span class="text-muted small">(' + escapeHtmlInbox(conv.phone) + ')</span>' : '') +
-            '</span>' +
-            '<button type="button" class="btn btn-sm btn-outline-danger" title="Hapus percakapan" onclick="bukaModalHapusPercakapan()">' +
-            '<i class="fas fa-trash-alt"></i></button>';
+        renderThreadHeader();
 
         document.getElementById('teksBalasan').disabled = false;
         document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';

@@ -479,9 +479,10 @@ masuk/daftar conversation/status Gateway tanpa refresh manual.
   6 detik, pesan dalam thread aktif 4 detik, status Gateway 15 detik
   (selaras heartbeat).
 - **Tidak ada fitur di luar scope Phase 4**: tidak ada assignment/
-  take conversation, tidak ada close conversation, tidak ada
-  unread-per-user, tidak ada notifikasi push -- semua sengaja
-  ditunda sesuai daftar "JANGAN IMPLEMENTASI DULU" di spec awal.
+  take conversation (~~sudah dibangun kemudian, lihat §9~~), tidak ada
+  close conversation, tidak ada unread-per-user, tidak ada notifikasi
+  push -- semua sengaja ditunda sesuai daftar "JANGAN IMPLEMENTASI
+  DULU" di spec awal.
 - **`/inbox/test` (halaman test Phase 3) dibiarkan tetap ada**, tidak
   dihapus -- tidak mengganggu apa pun, dan masih berguna untuk
   debugging cepat tanpa UI penuh kalau suatu saat dibutuhkan. Bisa
@@ -939,19 +940,82 @@ minta riwayat hapus disimpan, dan kedua model (`ConversationModel`,
   sukses, panel kanan direset ke kondisi kosong dan conversation
   langsung hilang dari daftar kiri tanpa menunggu siklus polling
   berikutnya.
-- Tidak ada ownership restriction (siapa saja yang login boleh
-  menghapus conversation manapun) -- konsisten dengan keputusan yang
-  sama di Phase 3 untuk kirim balasan (§ terkait `kirim()`/
-  `kirimKeConversation()`): assignment belum diimplementasikan, jadi
-  belum ada dasar untuk membatasi per-user.
+- ~~Tidak ada ownership restriction (siapa saja yang login boleh
+  menghapus conversation manapun) -- assignment belum
+  diimplementasikan~~ -- **SUDAH BERUBAH**, lihat §9: sejak assignment
+  ada, hapus percakapan tunduk pada `cekOwnership()` yang sama dengan
+  kirim balasan/media.
 
 ## 8.3 Yang PERLU diverifikasi
 
-Baru lolos `php -l` -- **belum diuji end-to-end nyata** di browser
-(klik tombol hapus sungguhan, konfirmasi modal, pastikan baris
-`conversations` DAN semua baris `messages` terkait benar-benar hilang
-dari database, dan UI ter-update dengan benar). Perlu ditest langsung
-sebelum dianggap "selesai" sepenuhnya.
+**SUDAH ditest langsung oleh user (2026-09-12) dan lolos** -- hapus
+percakapan beserta semua pesannya bekerja sesuai desain di atas.
+
+---
+
+# 9. Assignment / "Ambil" Percakapan (2026-09-12)
+
+## 9.1 Apa ini
+
+Sebelumnya (Phase 3/4) sengaja BELUM ada assignment ("JANGAN
+IMPLEMENTASI DULU" di spec awal, lihat §4.3) -- siapa saja yang login
+bisa membalas/menghapus conversation manapun tanpa pembatasan. Fitur
+ini menambahkan mekanisme itu: satu conversation bisa "ditangani" satu
+staff, supaya jelas siapa yang bertanggung jawab dan tidak ada 2 kasir
+membalas bersamaan tanpa sadar.
+
+Kolom `conversations.assigned_to` (logical reference ke
+`aulia_kasirdb.users.id`) SUDAH ADA sejak migration Phase 1 -- fitur
+ini murni memanfaatkannya, TIDAK ADA migration baru.
+
+## 9.2 Cara kerja
+
+- **Auto-assign**: begitu SATU staff membalas (teks atau media) sebuah
+  conversation yang `assigned_to`-nya masih `NULL`, conversation itu
+  otomatis ter-assign ke staff tsb (`kirimKeConversation()` dan
+  `kirimMedia()` di `Inbox.php`) -- tidak perlu klik apa pun dulu.
+  Masuk akal: siapa yang membalas duluan, dialah yang "memegang"
+  percakapan itu.
+- **Ambil manual** (`POST /inbox/percakapan/(:num)/ambil`,
+  `Inbox::ambilPercakapan()`): staff bisa mengklaim conversation
+  SEBELUM sempat membalas apa pun (mis. supaya staff lain tahu duluan
+  "ini sudah saya pegang"). Kalau sudah ditangani orang lain: admin
+  boleh mengambil alih (override), staff non-admin ditolak (409) dengan
+  pesan jelas siapa yang sedang menangani.
+- **Lepas** (`POST /inbox/percakapan/(:num)/lepas`,
+  `Inbox::lepasPercakapan()`): kosongkan `assigned_to`, conversation
+  kembali bebas diambil/dibalas siapa saja. Hanya boleh dilakukan oleh
+  yang sedang menangani, atau admin.
+- **Ownership restriction** (`Inbox::cekOwnership()`, baru, dipakai
+  bersama oleh `kirimKeConversation()`, `kirimMedia()`, dan
+  `hapusPercakapan()`): sebuah aksi terhadap conversation DITOLAK
+  (403) HANYA kalau conversation itu sedang ditangani staff LAIN (non-
+  admin, dan bukan dirinya). Conversation yang belum ditangani siapa
+  pun tetap bisa diakses siapa saja (konsisten dengan auto-assign di
+  atas -- baru "terkunci" setelah ada yang benar-benar pegang).
+- **Admin selalu boleh** override/take-over/lepas/balas/hapus
+  conversation manapun, terlepas dari assignment -- untuk keperluan
+  supervisi.
+
+## 9.3 UI (`inbox/index.php`)
+
+- Badge nama staff penangan (ikon 👤) muncul di daftar percakapan
+  (kiri) dan header thread (kanan) kalau `assigned_to` terisi -- warna
+  beda kalau itu adalah diri sendiri (biru) vs staff lain (abu-abu).
+- Header thread: tombol **"Ambil"** (kalau belum ditangani) atau
+  ikon **lepas** (kalau ditangani sendiri/oleh admin yang login),
+  berdampingan dengan tombol hapus percakapan yang sudah ada.
+- Pesan error 403 dari server (mis. "Percakapan ini sedang ditangani
+  oleh Budi...") ditampilkan lewat `showToast()` yang sudah ada --
+  tidak ada UI khusus tambahan untuk itu.
+
+## 9.4 Yang PERLU diverifikasi
+
+Baru lolos `php -l`. **Belum diuji end-to-end nyata** di browser
+dengan 2 akun berbeda (mis. staff A ambil/balas, staff B coba
+balas/hapus -- pastikan ditolak dengan pesan yang benar; admin coba
+override -- pastikan berhasil). Perlu ditest langsung sebelum
+dianggap "selesai" sepenuhnya.
 
 ---
 

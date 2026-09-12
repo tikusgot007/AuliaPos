@@ -33,16 +33,18 @@ class Inbox extends BaseController
     public function index()
     {
         $conversationModel = new ConversationModel();
-        $conversations = $conversationModel->orderBy('last_message_at', 'DESC')->findAll(100);
+        $conversations = $this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(100));
 
         $gatewayStatusModel = new GatewayStatusModel();
         $gatewayStatus = $this->buildGatewayStatusPayload($gatewayStatusModel);
 
         $data = [
-            'title'         => 'Inbox WhatsApp | AULIA',
-            'content'       => 'inbox/index',
-            'conversations' => $conversations,
-            'gatewayStatus' => $gatewayStatus,
+            'title'          => 'Inbox WhatsApp | AULIA',
+            'content'        => 'inbox/index',
+            'conversations'  => $conversations,
+            'gatewayStatus'  => $gatewayStatus,
+            'currentUserId'  => (int) session()->get('id_user'),
+            'currentUserRole' => (string) session()->get('role'),
         ];
 
         return view('layout/main', $data);
@@ -58,7 +60,7 @@ class Inbox extends BaseController
     public function apiConversations()
     {
         $conversationModel = new ConversationModel();
-        $conversations = $conversationModel->orderBy('last_message_at', 'DESC')->findAll(100);
+        $conversations = $this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(100));
 
         return $this->response->setJSON([
             'status'        => 'success',
@@ -93,7 +95,7 @@ class Inbox extends BaseController
 
         return $this->response->setJSON([
             'status'       => 'success',
-            'conversation' => $conversation,
+            'conversation' => $this->attachAssignedNames([$conversation])[0],
             'messages'     => $messages,
         ]);
     }
@@ -317,6 +319,60 @@ class Inbox extends BaseController
     }
 
     /**
+     * Lengkapi setiap conversation dengan 'assigned_to_name' (nama
+     * staff yang sedang menangani, dari aulia_kasirdb.users -- lihat
+     * catatan pola "logical reference" yang sama di
+     * attachSenderNames()). null kalau belum ada yang menangani.
+     */
+    private function attachAssignedNames(array $conversations): array
+    {
+        $userIds = array_values(array_unique(array_filter(array_column($conversations, 'assigned_to'))));
+
+        $namesByUserId = [];
+        if ($userIds) {
+            $users = (new UserModel())->whereIn('id', $userIds)->findAll();
+            foreach ($users as $user) {
+                $namesByUserId[$user['id']] = $user['nama'] ?: $user['username'];
+            }
+        }
+
+        foreach ($conversations as &$conversation) {
+            $conversation['assigned_to_name'] = $conversation['assigned_to']
+                ? ($namesByUserId[$conversation['assigned_to']] ?? ('User #' . $conversation['assigned_to']))
+                : null;
+        }
+
+        return $conversations;
+    }
+
+    /**
+     * Cek apakah user yang sedang login boleh membalas/mengirim
+     * media/menghapus sebuah conversation -- SATU-SATUNYA aturan
+     * pembatasan yang ditambahkan sekarang bahwa assignment sudah ada
+     * (sebelumnya sengaja tidak ada pembatasan apa pun, lihat catatan
+     * lama di kirim()/hapusPercakapan()).
+     *
+     * Aturan: boleh kalau conversation belum ditangani siapa pun
+     * (assigned_to NULL), ATAU ditangani oleh user ini sendiri, ATAU
+     * user ini admin (admin selalu boleh, untuk supervisi/override).
+     *
+     * @return string|null Pesan error kalau DITOLAK, null kalau BOLEH.
+     */
+    private function cekOwnership(array $conversation, int $userId, string $role): ?string
+    {
+        $assignedTo = $conversation['assigned_to'] ? (int) $conversation['assigned_to'] : null;
+
+        if ($assignedTo === null || $assignedTo === $userId || $role === 'admin') {
+            return null;
+        }
+
+        $penangan = (new UserModel())->find($assignedTo);
+        $namaPenangan = $penangan ? ($penangan['nama'] ?: $penangan['username']) : ('User #' . $assignedTo);
+
+        return "Percakapan ini sedang ditangani oleh {$namaPenangan}. Hanya {$namaPenangan} atau admin yang bisa membalas/menghapusnya.";
+    }
+
+    /**
      * GET /inbox/test
      *
      * Halaman TEST SEMENTARA -- bukan UI Inbox final (itu Phase 4).
@@ -414,7 +470,12 @@ class Inbox extends BaseController
             $conversationId = (int) $conversation['id'];
         }
 
-        return $this->kirimKeConversation($conversationId, $chatId, $text);
+        // Ambil ulang baris final (baik yang baru diinsert maupun yang
+        // sudah ada) supaya kirimKeConversation() dapat data assigned_to
+        // yang benar untuk cek ownership + auto-assign di bawah.
+        $conversation = $conversationModel->find($conversationId);
+
+        return $this->kirimKeConversation($conversation, $text);
     }
 
     /**
@@ -423,10 +484,10 @@ class Inbox extends BaseController
      * Kasir/admin kirim balasan text ke satu conversation YANG SUDAH
      * ADA. Untuk mulai chat ke nomor baru, lihat mulaiPercakapan().
      *
-     * SENGAJA belum ada ownership restriction (siapa saja yang login
-     * boleh membalas conversation manapun) -- sesuai spec Phase 3:
-     * "karena assignment belum diimplementasikan, jangan membuat
-     * ownership restriction dulu."
+     * Ownership: boleh dibalas siapa saja SELAMA belum ada yang
+     * menangani (assigned_to NULL, auto-assign ke pengirim pertama),
+     * ditangani oleh user ini sendiri, atau oleh admin -- lihat
+     * cekOwnership().
      */
     public function kirim()
     {
@@ -464,7 +525,7 @@ class Inbox extends BaseController
             ]);
         }
 
-        return $this->kirimKeConversation($conversationId, $conversation['chat_id'], $text);
+        return $this->kirimKeConversation($conversation, $text);
     }
 
     /**
@@ -532,6 +593,14 @@ class Inbox extends BaseController
             return $this->response->setStatusCode(404)->setJSON([
                 'status'  => 'error',
                 'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
             ]);
         }
 
@@ -607,11 +676,17 @@ class Inbox extends BaseController
 
         $newMessageId = $messageModel->getInsertID();
 
-        $conversationModel->update($conversationId, [
+        $conversationUpdate = [
             'last_message_at'        => $now,
             'last_message_direction' => 'outgoing',
             'last_replied_by'        => $userId,
-        ]);
+        ];
+        // Auto-assign ke pengirim pertama kalau belum ada yang menangani
+        // -- lihat catatan sama di kirimKeConversation().
+        if (empty($conversation['assigned_to'])) {
+            $conversationUpdate['assigned_to'] = $userId;
+        }
+        $conversationModel->update($conversationId, $conversationUpdate);
 
         log_message('info', "Inbox::kirimMedia sukses. conversation_id={$conversationId}, user_id={$userId}, media_ref=" . ($mediaMetadata ? 'ada' : 'tidak ada'));
 
@@ -656,6 +731,14 @@ class Inbox extends BaseController
             ]);
         }
 
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
+            ]);
+        }
+
         $conversationModel->delete($conversationId);
 
         $userId = (int) session()->get('id_user');
@@ -668,19 +751,124 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/percakapan/(:num)/ambil
+     *
+     * Kasir/admin secara eksplisit "mengambil" satu conversation --
+     * menandai dirinya sebagai penanggung jawab (assigned_to), supaya
+     * staff lain tahu percakapan ini sedang ditangani dan (lewat
+     * cekOwnership()) tidak bisa ikut membalas/menghapusnya tanpa
+     * sepengetahuan. Beda dari auto-assign di kirimKeConversation()/
+     * kirimMedia() (yang baru assign SETELAH benar-benar membalas) --
+     * ini dipakai untuk "klaim duluan" sebelum sempat membalas apa pun,
+     * mis. supaya tidak ada 2 kasir mengetik balasan bersamaan.
+     *
+     * Kalau sudah ditangani orang lain: admin boleh mengambil alih
+     * (override), kasir non-admin ditolak dengan pesan jelas siapa
+     * yang sedang menangani.
+     */
+    public function ambilPercakapan($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $userId = (int) session()->get('id_user');
+        $role   = (string) session()->get('role');
+        $assignedTo = $conversation['assigned_to'] ? (int) $conversation['assigned_to'] : null;
+
+        if ($assignedTo !== null && $assignedTo !== $userId && $role !== 'admin') {
+            $penangan = (new UserModel())->find($assignedTo);
+            $namaPenangan = $penangan ? ($penangan['nama'] ?: $penangan['username']) : ('User #' . $assignedTo);
+
+            return $this->response->setStatusCode(409)->setJSON([
+                'status'  => 'error',
+                'message' => "Percakapan ini sudah diambil oleh {$namaPenangan}.",
+            ]);
+        }
+
+        $conversationModel->update($conversationId, ['assigned_to' => $userId]);
+
+        log_message('info', "Inbox::ambilPercakapan sukses. conversation_id={$conversationId}, user_id={$userId}");
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'          => 'success',
+            'conversation_id' => $conversationId,
+        ]);
+    }
+
+    /**
+     * POST /inbox/percakapan/(:num)/lepas
+     *
+     * Kebalikan dari ambilPercakapan() -- kosongkan assigned_to
+     * supaya conversation ini kembali "bebas" (boleh diambil/dibalas
+     * siapa saja lagi). Aturan siapa yang boleh melepas SAMA dengan
+     * cekOwnership() (diri sendiri yang menangani, atau admin).
+     */
+    public function lepasPercakapan($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
+            ]);
+        }
+
+        $conversationModel->update($conversationId, ['assigned_to' => null]);
+
+        log_message('info', "Inbox::lepasPercakapan sukses. conversation_id={$conversationId}, user_id=" . (int) session()->get('id_user'));
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'          => 'success',
+            'conversation_id' => $conversationId,
+        ]);
+    }
+
+    /**
      * Logic inti kirim pesan (dipakai bersama oleh kirim() dan
      * mulaiPercakapan(), supaya tidak duplikat kode).
      *
-     * Alur (persis sesuai spec): cek Gateway usable -> panggil
-     * Gateway HTTP -> HANYA simpan sebagai outgoing 'sent' &
-     * update conversation KALAU Gateway konfirmasi sukses. Kalau
+     * Alur (persis sesuai spec): cek ownership -> cek Gateway usable
+     * -> panggil Gateway HTTP -> HANYA simpan sebagai outgoing 'sent'
+     * & update conversation KALAU Gateway konfirmasi sukses. Kalau
      * gagal di titik manapun, TIDAK ada yang disimpan ke database
      * sama sekali -- browser cukup diberi tahu gagal, silakan retry
      * (tidak ada outgoing queue, sesuai spec: "Gateway offline =>
      * reject segera", "tidak boleh membuat outgoing queue").
      */
-    private function kirimKeConversation(int $conversationId, string $chatId, string $text)
+    private function kirimKeConversation(array $conversation, string $text)
     {
+        $conversationId = (int) $conversation['id'];
+        $chatId         = $conversation['chat_id'];
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
+            ]);
+        }
+
         // --- Cek Gateway usable DULU, sebelum mencoba HTTP call ------------
         // Supaya kalau Gateway jelas-jelas offline, kasir langsung tahu
         // dalam waktu singkat -- tidak menunggu timeout HTTP penuh.
@@ -741,12 +929,23 @@ class Inbox extends BaseController
 
         $newMessageId = $messageModel->getInsertID();
 
-        $conversationModel = new ConversationModel();
-        $conversationModel->update($conversationId, [
+        $conversationUpdate = [
             'last_message_at'        => $now,
             'last_message_direction' => 'outgoing',
             'last_replied_by'        => $userId,
-        ]);
+        ];
+        // Auto-assign ke pengirim pertama kalau belum ada yang menangani
+        // conversation ini -- masuk akal untuk kasir yang membalas
+        // duluan otomatis "memegang" percakapan itu, tanpa perlu klik
+        // "Ambil" secara terpisah. Tidak menimpa assignment yang sudah
+        // ada (cekOwnership() di atas sudah memastikan hanya yang
+        // berhak yang sampai ke titik ini).
+        if (empty($conversation['assigned_to'])) {
+            $conversationUpdate['assigned_to'] = $userId;
+        }
+
+        $conversationModel = new ConversationModel();
+        $conversationModel->update($conversationId, $conversationUpdate);
 
         log_message('info', "Inbox::kirimKeConversation sukses. conversation_id={$conversationId}, user_id={$userId}");
 
