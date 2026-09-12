@@ -199,12 +199,12 @@
                 <?php foreach ($conversations as $c): ?>
                     <a href="#" class="inbox-list-item" data-conversation-id="<?= esc($c['id']) ?>" onclick="return pilihConversation(<?= (int) $c['id'] ?>)">
                         <div class="d-flex justify-content-between">
-                            <span class="list-name"><?= esc($c['contact_name'] ?: $c['phone'] ?: $c['chat_id']) ?></span>
+                            <span class="list-name"><?= esc($c['contact_name'] ?: $c['whatsapp_name'] ?: $c['phone'] ?: $c['chat_id']) ?></span>
                             <span class="list-time"><?= $c['last_message_at'] ? date('d/m H:i', strtotime($c['last_message_at'])) : '' ?></span>
                         </div>
                         <div class="list-preview">
                             <?= $c['last_message_direction'] === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '' ?>
-                            <?= esc($c['phone'] ?: $c['jid_type']) ?>
+                            <?= esc($c['manual_phone'] ?: $c['phone'] ?: $c['jid_type']) ?>
                             <?php if ($c['status'] === 'closed'): ?>
                                 <span class="badge bg-secondary" style="font-size: 0.6rem;">closed</span>
                             <?php endif; ?>
@@ -319,6 +319,40 @@
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- MODAL EDIT PROFIL PELANGGAN (Task Group 1.5)   -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalEditProfil" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-user-edit"></i> Edit Profil Pelanggan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEditProfil" onsubmit="return simpanProfilPelanggan(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nama Pelanggan</label>
+                        <input type="text" class="form-control" id="editProfilNama" placeholder="Kosongkan untuk hapus nama manual">
+                        <small class="text-muted">Nama ini TIDAK akan ditimpa otomatis oleh nama WhatsApp customer.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">No. Telepon</label>
+                        <input type="text" class="form-control" id="editProfilTelepon" placeholder="Contoh: 08123456789">
+                        <small class="text-muted">Format 08xx, 62xx, atau +62xx. Murni catatan -- bukan nomor WhatsApp yang terverifikasi.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary" id="btnSimpanProfil">
+                        <i class="fas fa-save"></i> Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     // ================================================================
     // STATE
@@ -358,7 +392,7 @@
 
         panel.innerHTML = daftarConversation.map(function(c) {
             const activeClass = (conversationAktif === c.id) ? ' active' : '';
-            const nama = c.contact_name || c.phone || c.chat_id;
+            const nama = c.contact_name || c.whatsapp_name || c.phone || c.chat_id;
             const waktu = c.last_message_at ? formatWaktuInbox(c.last_message_at) : '';
             const panah = c.last_message_direction === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '';
             const closedBadge = c.status === 'closed' ? '<span class="badge bg-secondary" style="font-size:0.6rem;">closed</span>' : '';
@@ -372,7 +406,7 @@
                 '<span class="list-name">' + escapeHtmlInbox(nama) + '</span>' +
                 '<span class="list-time">' + escapeHtmlInbox(waktu) + '</span>' +
                 '</div>' +
-                '<div class="list-preview">' + panah + escapeHtmlInbox(c.phone || c.jid_type) + ' ' + closedBadge + ' ' + assignBadge + '</div>' +
+                '<div class="list-preview">' + panah + escapeHtmlInbox(c.manual_phone || c.phone || c.jid_type) + ' ' + closedBadge + ' ' + assignBadge + '</div>' +
                 '</a>';
         }).join('');
     }
@@ -400,7 +434,8 @@
         if (!conversationAktif) return;
 
         const conv = daftarConversation.find(function(c) { return c.id === conversationAktif; });
-        const nama = conv ? (conv.contact_name || conv.phone || conv.chat_id) : ('#' + conversationAktif);
+        const nama = conv ? (conv.contact_name || conv.whatsapp_name || conv.phone || conv.chat_id) : ('#' + conversationAktif);
+        const nomorTampil = conv ? (conv.manual_phone || conv.phone) : null;
 
         let infoAssign = '';
         let tombolAssign = '';
@@ -421,7 +456,9 @@
 
         document.getElementById('threadHeader').innerHTML =
             '<span><strong>' + escapeHtmlInbox(nama) + '</strong>' +
-            (conv && conv.phone ? ' <span class="text-muted small">(' + escapeHtmlInbox(conv.phone) + ')</span>' : '') +
+            (nomorTampil ? ' <span class="text-muted small">(' + escapeHtmlInbox(nomorTampil) + ')</span>' : '') +
+            ' <button type="button" class="btn btn-sm btn-link p-0" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="bukaModalEditProfil()">' +
+            '<i class="fas fa-pen"></i> Edit</button>' +
             infoAssign +
             '</span>' +
             '<span>' + tombolAssign +
@@ -661,7 +698,7 @@
         if (!conversationAktif) return;
 
         const conv = daftarConversation.find(function(c) { return c.id === conversationAktif; });
-        const nama = conv ? (conv.contact_name || conv.phone || conv.chat_id) : ('#' + conversationAktif);
+        const nama = conv ? (conv.contact_name || conv.whatsapp_name || conv.phone || conv.chat_id) : ('#' + conversationAktif);
         document.getElementById('namaHapusPercakapan').textContent = nama;
 
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHapusPercakapan')).show();
@@ -705,6 +742,63 @@
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-trash-alt"></i> Ya, Hapus Permanen';
             });
+    }
+
+    // ================================================================
+    // EDIT PROFIL PELANGGAN (Task Group 1.5 -- nama & nomor manual)
+    // ================================================================
+    function bukaModalEditProfil() {
+        if (!conversationAktif) return;
+
+        const conv = daftarConversation.find(function(c) { return c.id === conversationAktif; });
+        document.getElementById('editProfilNama').value = (conv && conv.contact_name) || '';
+        document.getElementById('editProfilTelepon').value = (conv && conv.manual_phone) || '';
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditProfil')).show();
+    }
+
+    function simpanProfilPelanggan(e) {
+        e.preventDefault();
+        if (!conversationAktif) return false;
+
+        const nama = document.getElementById('editProfilNama').value.trim();
+        const telepon = document.getElementById('editProfilTelepon').value.trim();
+        const btn = document.getElementById('btnSimpanProfil');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/profil', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'customer_name=' + encodeURIComponent(nama) + '&phone=' + encodeURIComponent(telepon)
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditProfil')).hide();
+                    showToast('Profil pelanggan disimpan.', 'success');
+
+                    // Perbarui entri lokal langsung, tidak perlu menunggu polling.
+                    const idx = daftarConversation.findIndex(function(c) { return c.id === conversationAktif; });
+                    if (idx !== -1) {
+                        daftarConversation[idx] = json.conversation;
+                    }
+                    renderDaftarConversation();
+                    renderThreadHeader();
+                } else {
+                    showToast(json.message || 'Gagal menyimpan profil.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Simpan';
+            });
+
+        return false;
     }
 
     // ================================================================

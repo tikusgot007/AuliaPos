@@ -6,6 +6,7 @@ use App\Models\ConversationModel;
 use App\Models\MessageModel;
 use App\Models\GatewayStatusModel;
 use App\Models\UserModel;
+use App\Libraries\PhoneNumber;
 use Config\Inbox as InboxConfig;
 
 /**
@@ -451,29 +452,17 @@ class Inbox extends BaseController
 
         [$chatId, $phoneClean] = $normalized;
 
+        // resolveConversationId() (Task Group 1.5) -- chat_id di sini
+        // SELALU jid_type='pn' (dibentuk langsung dari nomor yang
+        // diketik kasir), jadi $phoneClean aman dipakai sebagai
+        // canonicalPhone: kalau nomor ini SUDAH pernah dikenal sebagai
+        // `phone` ter-verifikasi milik conversation lain (mis. yang
+        // tadinya cuma dikenal lewat @lid, lalu nomornya terbukti sama
+        // persis ini), kasir langsung diarahkan ke conversation yang
+        // SAMA -- bukan bikin duplikat baru.
         $conversationModel = new ConversationModel();
-        $conversation = $conversationModel->findByChatId($chatId);
-
-        if (!$conversation) {
-            $conversationModel->insert([
-                'chat_id'      => $chatId,
-                'jid_type'     => 'pn',
-                'contact_name' => null,
-                'phone'        => $phoneClean,
-                'status'       => 'open',
-                'assigned_to'  => null,
-            ]);
-            $conversationId = $conversationModel->getInsertID();
-        } else {
-            // Nomor ini sudah pernah chat sebelumnya -- pakai
-            // conversation yang sudah ada, jangan bikin duplikat.
-            $conversationId = (int) $conversation['id'];
-        }
-
-        // Ambil ulang baris final (baik yang baru diinsert maupun yang
-        // sudah ada) supaya kirimKeConversation() dapat data assigned_to
-        // yang benar untuk cek ownership + auto-assign di bawah.
-        $conversation = $conversationModel->find($conversationId);
+        $resolved = $conversationModel->resolveConversationId($chatId, 'pn', $phoneClean);
+        $conversation = $conversationModel->find($resolved['conversation_id']);
 
         return $this->kirimKeConversation($conversation, $text);
     }
@@ -845,6 +834,85 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/percakapan/(:num)/profil
+     *
+     * Task Group 1.5 -- kasir/admin mengubah profil customer secara
+     * manual: nama pelanggan (`contact_name`) dan/atau nomor telepon
+     * (`manual_phone`). KEDUANYA field informasional/manual -- TIDAK
+     * PERNAH ditimpa otomatis oleh event WhatsApp berikutnya (lihat
+     * catatan contact_name vs whatsapp_name, phone vs manual_phone di
+     * ConversationModel), dan `manual_phone` TIDAK PERNAH dipakai
+     * untuk reconciliation/pencarian conversation (nomor yang diketik
+     * manusia belum tentu benar-benar nomor WhatsApp yang valid).
+     *
+     * Boleh mengosongkan salah satu/kedua field (kirim string kosong)
+     * untuk menghapus data yang salah -- bukan wajib diisi keduanya.
+     */
+    public function updateCustomerProfile($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
+            ]);
+        }
+
+        $customerNameRaw = trim((string) ($this->request->getPost('customer_name') ?? ''));
+        $phoneRaw        = trim((string) ($this->request->getPost('phone') ?? ''));
+
+        if (strlen($customerNameRaw) > 255) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Nama pelanggan terlalu panjang (maksimal 255 karakter).',
+            ]);
+        }
+
+        $manualPhone = null;
+        if ($phoneRaw !== '') {
+            $manualPhone = PhoneNumber::normalize($phoneRaw);
+
+            if ($manualPhone === null) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Format nomor telepon tidak dikenali. Gunakan format 08xx, 62xx, atau +62xx.',
+                ]);
+            }
+        }
+
+        $userId = (int) session()->get('id_user');
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        $conversationModel->update($conversationId, [
+            'contact_name'       => $customerNameRaw !== '' ? $customerNameRaw : null,
+            'manual_phone'       => $manualPhone,
+            'profile_updated_at' => $now,
+            'profile_updated_by' => $userId,
+        ]);
+
+        log_message('info', "Inbox::updateCustomerProfile sukses. conversation_id={$conversationId}, user_id={$userId}");
+
+        $updated = $this->attachAssignedNames([$conversationModel->find($conversationId)])[0];
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'       => 'success',
+            'conversation' => $updated,
+        ]);
+    }
+
+    /**
      * Logic inti kirim pesan (dipakai bersama oleh kirim() dan
      * mulaiPercakapan(), supaya tidak duplikat kode).
      *
@@ -975,23 +1043,9 @@ class Inbox extends BaseController
      */
     private function normalizePhoneToJid(string $input): ?array
     {
-        // Buang semua karakter selain digit (termasuk spasi, strip,
-        // tanda kurung); '+' di depan ditangani terpisah di bawah.
-        $hasPlus   = str_starts_with(trim($input), '+');
-        $digitsOnly = preg_replace('/\D/', '', $input);
+        $normalized = PhoneNumber::normalize($input);
 
-        if ($hasPlus && str_starts_with($digitsOnly, '62')) {
-            $normalized = $digitsOnly; // "+62xxx" -> "62xxx"
-        } elseif (str_starts_with($digitsOnly, '62')) {
-            $normalized = $digitsOnly; // sudah "62xxx"
-        } elseif (str_starts_with($digitsOnly, '0')) {
-            $normalized = '62' . substr($digitsOnly, 1); // "08xxx" -> "628xxx"
-        } else {
-            return null; // format tidak dikenali -- jangan menebak
-        }
-
-        // Validasi panjang wajar untuk nomor Indonesia (62 + 8-13 digit).
-        if (strlen($normalized) < 10 || strlen($normalized) > 15 || !ctype_digit($normalized)) {
+        if ($normalized === null) {
             return null;
         }
 

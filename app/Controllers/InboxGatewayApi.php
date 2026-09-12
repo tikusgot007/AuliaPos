@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\ConversationModel;
 use App\Models\MessageModel;
 use App\Models\GatewayStatusModel;
+use App\Libraries\PhoneNumber;
 use Config\Database;
 
 /**
@@ -170,32 +171,40 @@ class InboxGatewayApi extends BaseController
         $db = Database::connect('inbox');
         $db->transStart();
 
-        // --- Cari atau buat conversation ------------------------------------
-        $conversation = $conversationModel->findByChatId($chatId);
+        // --- Cari/buat conversation (Task Group 1.5: reconciliation) --------
+        // canonicalPhone HANYA diisi kalau jid_type='pn' (nomor ter-verifikasi
+        // WhatsApp asli, di-derive Gateway dari @s.whatsapp.net) -- TIDAK
+        // PERNAH untuk @lid/@g.us, sesuai aturan "jangan menebak nomor dari
+        // @lid". Ini SATU-SATUNYA sinyal yang dipercaya untuk mencegah
+        // duplicate conversation saat JID berubah (lihat
+        // ConversationModel::resolveConversationId()).
+        $canonicalPhone = null;
+        if ($jidType === 'pn' && !empty($payload['phone'])) {
+            $canonicalPhone = PhoneNumber::normalize((string) $payload['phone']);
+        }
+        $whatsappNameFromPayload = !empty($payload['contact_name']) ? (string) $payload['contact_name'] : null;
 
-        if (!$conversation) {
-            $conversationModel->insert([
-                'chat_id'      => $chatId,
-                'jid_type'     => $jidType,
-                'contact_name' => $payload['contact_name'] ?? null,
-                'phone'        => $payload['phone'] ?? null,
-                'status'       => 'open',
-                'assigned_to'  => null,
-            ]);
-            $conversationId = $conversationModel->getInsertID();
-        } else {
-            $conversationId = (int) $conversation['id'];
+        $resolved = $conversationModel->resolveConversationId($chatId, $jidType, $canonicalPhone, $whatsappNameFromPayload);
+        $conversationId = $resolved['conversation_id'];
+        $conversation   = $conversationModel->find($conversationId);
 
-            // Lengkapi contact_name/phone kalau sebelumnya kosong dan
-            // sekarang tersedia -- tidak menimpa data yang sudah ada
-            // (mis. kalau nama sudah pernah diisi manual oleh kasir nanti
-            // di fitur mendatang, jangan ketimpa oleh payload Gateway).
+        if ($resolved['reconciled']) {
+            log_message('info', "InboxGatewayApi::messages() reconciliation: chat_id={$chatId} (jid_type={$jidType}) ditempelkan ke conversation_id={$conversationId} yang sudah ada lewat kecocokan nomor {$canonicalPhone}.");
+        }
+
+        // whatsapp_name SELALU dimutakhirkan (push name boleh berubah kapan
+        // saja, TIDAK dilindungi) -- BEDA dari contact_name (nama manual
+        // customer profile) yang TIDAK PERNAH disentuh di sini sama sekali,
+        // hanya lewat Inbox::updateCustomerProfile(). phone (ter-verifikasi)
+        // juga selalu dimutakhirkan untuk jid_type='pn' -- idempotent/aman
+        // karena satu chat_id @pn seharusnya konsisten dengan nomor yang sama.
+        if (!$resolved['created']) {
             $update = [];
-            if (empty($conversation['contact_name']) && !empty($payload['contact_name'])) {
-                $update['contact_name'] = $payload['contact_name'];
+            if ($whatsappNameFromPayload !== null && $whatsappNameFromPayload !== $conversation['whatsapp_name']) {
+                $update['whatsapp_name'] = $whatsappNameFromPayload;
             }
-            if (empty($conversation['phone']) && !empty($payload['phone'])) {
-                $update['phone'] = $payload['phone'];
+            if ($canonicalPhone !== null && $canonicalPhone !== $conversation['phone']) {
+                $update['phone'] = $canonicalPhone;
             }
             if ($update) {
                 $conversationModel->update($conversationId, $update);

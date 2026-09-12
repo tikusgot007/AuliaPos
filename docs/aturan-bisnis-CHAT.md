@@ -1167,3 +1167,207 @@ eksplisit.
 
 ---
 
+# 11. Customer Identity & Conversation Reconciliation (2026-09-12, Task Group 1.5)
+
+## 11.1 Root cause
+
+`conversations.chat_id` (UNIQUE) adalah SATU-SATUNYA kunci pencarian
+conversation (`findByChatId()`). WhatsApp kadang melaporkan **nomor
+yang sama** lewat **JID berbeda** -- paling umum `@lid` lalu
+`@s.whatsapp.net` (atau sebaliknya), terutama setelah Gateway
+reconnect/rollout fitur privasi LID WhatsApp. Karena `chat_id` yang
+baru tidak persis sama dengan yang lama, `findByChatId()` tidak
+menemukan match -> AuliaPos membuat conversation KEDUA untuk customer
+yang sebenarnya sama (kasus nyata: "Muhammad Anshar" vs
+"628563324637" ternyata satu orang, satu nomor WhatsApp).
+
+## 11.2 Desain yang dipilih (dan yang SENGAJA ditolak)
+
+**Ditolak**: tabel `customers` terpisah (CRM). Tidak ada satu pun
+business rule/test case (A-J) yang benar-benar butuh grouping
+"satu orang, banyak nomor" di level penyimpanan -- itu cuma model
+konseptual di brief, bukan kebutuhan konkret sekarang. Membuatnya
+sekarang = over-engineering yang dilarang eksplisit ("jangan
+redesign berlebihan", "jangan CRM besar").
+
+**Dipilih**: 1 tabel alias kecil + 4 kolom baru di `conversations`,
+migration aman & additive:
+
+- **`conversation_identities`** (baru) -- alias many-to-one: banyak
+  `chat_id` (JID) bisa menunjuk ke SATU `conversation_id`. Ini yang
+  menggantikan pencarian langsung ke `conversations.chat_id`.
+  `conversations.chat_id` TETAP ADA apa adanya (masih dipakai untuk
+  kirim balasan lewat Gateway) -- **TIDAK PERNAH diganti jadi nomor
+  telepon**, cuma dimutakhirkan ke JID TERBARU saat reconciliation
+  terjadi (§11.3 langkah 2).
+- **`whatsapp_name`** (baru, di `conversations`) -- push name WhatsApp,
+  SELALU dimutakhirkan bebas oleh Gateway. **`contact_name`** (sudah
+  ada) sekarang MURNI nama manual customer profile -- Gateway TIDAK
+  PERNAH menyentuhnya lagi sama sekali (sebelumnya ada logic
+  "isi kalau kosong" yang mencampur dua konsep ini).
+- **`manual_phone`** (baru) -- nomor yang diketik MANUAL kasir,
+  informasional saja. **`phone`** (sudah ada) sekarang MURNI nomor
+  TER-VERIFIKASI (di-derive Gateway dari JID `@s.whatsapp.net` asli)
+  -- SATU-SATUNYA kolom yang dipakai untuk reconciliation. Pemisahan
+  ini yang menjamin "jangan menganggap nomor yang diketik user sebagai
+  nomor yang sudah diverifikasi WhatsApp": `manual_phone` TIDAK PERNAH
+  dipakai untuk mencari/menggabungkan conversation, apa pun isinya.
+- **`profile_updated_at`/`profile_updated_by`** (baru) -- audit ringan
+  KHUSUS perubahan manual (beda dari `updated_at` umum yang kesentuh
+  banyak hal lain, mis. pesan masuk baru).
+
+Field `App\Libraries\PhoneNumber::normalize()` (baru, diekstrak dari
+`Inbox::normalizePhoneToJid()` yang sudah ada, PERILAKU TIDAK DIUBAH)
+dipakai di 3 tempat (mulai chat baru, payload Gateway, edit profil
+manual) supaya "08xx"/"+62xx"/"62xx" semuanya jadi string canonical
+yang sama persis.
+
+## 11.3 Alur lookup/reconciliation (`ConversationModel::resolveConversationId()`)
+
+Dipakai bersama oleh `InboxGatewayApi::messages()` (pesan masuk dari
+Gateway) dan `Inbox::mulaiPercakapan()` (kasir mengetik nomor untuk
+chat baru). Urutan (JANGAN diubah):
+
+1. **chat_id ini sudah dikenal** (ada baris di
+   `conversation_identities`) -> pakai conversation itu apa adanya.
+   Jalur tercepat & PALING SERING kena (JID sama setelah Gateway
+   restart, dst).
+2. **Belum dikenal, TAPI ada `canonicalPhone`** -- HANYA diisi kalau
+   `jid_type==='pn'` DAN nomor itu di-derive Gateway dari JID
+   `@s.whatsapp.net` ASLI (**TIDAK PERNAH** ditebak dari `@lid`,
+   **TIDAK PERNAH** dari `manual_phone`) -> cari conversation lain
+   yang `phone`-nya SUDAH cocok. Ketemu -> chat_id baru didaftarkan
+   sebagai ALIAS TAMBAHAN ke conversation itu (histori pesan lama
+   UTUH, TIDAK ADA yang dihapus/dipindah), `conversations.chat_id`
+   dimutakhirkan ke JID baru (dianggap lebih bisa diandalkan utk
+   kirim balasan), JID lama TETAP ada sebagai alias (kalau muncul
+   lagi nanti, tetap dikenali lewat langkah 1).
+3. **Keduanya gagal** -> identity benar-benar baru -> buat
+   conversation baru + 1 baris alias.
+
+SENGAJA TIDAK PERNAH mencocokkan berdasarkan nama -- mencegah
+auto-merge yang salah hanya karena nama kebetulan sama. Group chat
+(`jid_type==='group'`) tidak pernah dapat `canonicalPhone` (sudah
+otomatis lewat syarat `jid_type==='pn'` di langkah 2) -- tidak pernah
+dianggap personal customer.
+
+## 11.4 Existing data (data yang SUDAH ADA) TETAP AMAN
+
+Migration `2026-09-12-000001_AddConversationIdentityReconciliation.php`
+murni ADDITIVE: 4 kolom baru (nullable) + 1 tabel baru + 1 query
+backfill (`INSERT ... SELECT` dari `conversations` ke
+`conversation_identities`, 1 baris alias per conversation yang sudah
+ada, mencerminkan `chat_id` saat ini). **TIDAK ADA** `UPDATE`/`DELETE`
+terhadap `conversations`/`messages` yang sudah ada.
+
+**PENTING -- batasan yang disadari**: conversation DUPLIKAT yang
+SUDAH ADA sebelum fix ini (mis. `@lid` + `@s.whatsapp.net` yang
+sebenarnya nomor sama) **TIDAK di-auto-merge oleh migration ini**
+(sesuai larangan eksplisit "jangan auto-merge history secara
+agresif"). Reconciliation langkah 2 di atas HANYA kena untuk chat_id
+yang **belum pernah punya alias sama sekali** -- conversation lama
+yang masing-masing SUDAH punya alias-nya sendiri (hasil backfill)
+akan terus resolve ke dirinya sendiri lewat langkah 1 (exact match),
+tidak akan pernah "ketemu" pasangannya lewat langkah 2. Fix ini
+**mencegah duplikat BARU ke depannya**, bukan menggabungkan yang
+sudah telanjur ada. Reconciliation manual untuk pasangan duplikat
+lama (kalau kasir/admin menemukannya) belum punya tombol UI -- di
+luar scope Task Group ini; strategi paling aman untuk sekarang:
+biarkan kedua conversation lama tetap ada apa adanya (tidak ada
+risiko data hilang), dan kalau customer yang sama menghubungi lagi
+dengan salah satu JID lamanya, pesan tetap masuk ke conversation yang
+benar (tidak menambah duplikat ketiga).
+
+## 11.5 Fitur baru: Edit Profil Pelanggan
+
+`POST /inbox/percakapan/(:num)/profil` (`Inbox::updateCustomerProfile()`)
+-- kasir/admin mengubah `contact_name` (nama manual) dan/atau
+`manual_phone` (nomor manual, dinormalisasi lewat `PhoneNumber::normalize()`
+sebelum disimpan; ditolak 400 kalau formatnya tidak dikenali). Tunduk
+pada `cekOwnership()` yang sama dengan kirim/hapus (konsisten dengan
+fitur assignment yang sudah ada). Boleh mengosongkan salah satu/kedua
+field untuk menghapus data yang salah.
+
+UI (`inbox/index.php`): tombol "Edit" kecil di header thread (ikon
+pensil) membuka modal 2 field (Nama Pelanggan, No. Telepon) +
+Batal/Simpan. Semua tempat yang menampilkan nama/nomor (daftar
+percakapan, header thread, modal hapus) diperbarui fallback-nya jadi:
+nama = `contact_name ?: whatsapp_name ?: phone ?: chat_id`, nomor
+tampil = `manual_phone ?: phone`.
+
+## 11.6 File yang diubah/dibuat
+
+- `app/Database/Migrations/2026-09-12-000001_AddConversationIdentityReconciliation.php` (baru)
+- `app/Models/ConversationIdentityModel.php` (baru)
+- `app/Models/ConversationModel.php` -- `resolveConversationId()` (baru),
+  `findByChatId()` dirombak (lewat alias, bukan langsung ke kolom),
+  `allowedFields` + docblock diperbarui.
+- `app/Libraries/PhoneNumber.php` (baru, diekstrak dari
+  `Inbox::normalizePhoneToJid()`).
+- `app/Controllers/Inbox.php` -- `normalizePhoneToJid()` delegasi ke
+  `PhoneNumber`, `mulaiPercakapan()` pakai `resolveConversationId()`,
+  `updateCustomerProfile()` (baru).
+- `app/Controllers/InboxGatewayApi.php` -- `messages()` pakai
+  `resolveConversationId()`, pisah update `whatsapp_name`/`phone`
+  (otomatis) dari `contact_name`/`manual_phone` (manual, tidak
+  disentuh sama sekali dari sini).
+- `app/Config/Routes.php` -- route baru
+  `POST /inbox/percakapan/(:num)/profil`.
+- `app/Views/inbox/index.php` -- fallback nama/nomor + modal & JS
+  edit profil.
+- `tests/unit/PhoneNumberTest.php` (baru).
+
+## 11.7 Yang SUDAH saya verifikasi sendiri
+
+- **Migration + `resolveConversationId()` dites LANGSUNG terhadap
+  MySQL sungguhan** (bukan simulasi/mock) -- dibuatkan database
+  disposable terpisah (`aulia_inboxdb_migrationtest`, sengaja BUKAN
+  `aulia_inboxdb` yang berisi data live) via `.env` sementara,
+  migration dijalankan betulan, lalu Test Case **A sampai J** (persis
+  seperti daftar di brief) dijalankan sebagai assertion nyata --
+  **SEMUA LULUS**, termasuk skenario inti bug (`@lid` lalu
+  `@s.whatsapp.net` dengan nomor sama -> menyatu ke conversation yang
+  sama, `chat_id` termutakhirkan, JID lama tetap dikenali sebagai
+  alias). Database test dihapus setelahnya, `.env` dikembalikan
+  persis seperti semula -- **`aulia_inboxdb` live TIDAK PERNAH
+  tersentuh** (diverifikasi ulang: isi tabel `conversations`/`messages`
+  sebelum & sesudah identik).
+- `tests/unit/PhoneNumberTest.php` (8 test, murni logic tanpa DB) --
+  LULUS.
+- **Regression**: seluruh test suite project (`phpunit.dist.xml`, 119
+  test) dijalankan ulang setelah semua perubahan -- LULUS, tidak ada
+  yang rusak.
+- `php -l` pada semua file PHP yang diubah/dibuat.
+
+## 11.8 Yang BELUM bisa saya verifikasi (perlu kamu jalankan)
+
+- **Migration BELUM diterapkan ke `aulia_inboxdb` yang sebenarnya**
+  (sengaja -- lihat §11.7, hanya diverifikasi di database disposable).
+  **WAJIB dijalankan** (`php spark migrate` TANPA flag `-g`, atau
+  lewat halaman `/migrasi-manual` yang sudah ada -- KEDUANYA aman,
+  memakai `MigrationRunner::latest()` yang menghormati `$DBGroup`
+  masing-masing file migration) **sebelum** kode ini dipakai,
+  jika tidak `InboxGatewayApi::messages()`/`Inbox::mulaiPercakapan()`
+  akan error (kolom/tabel belum ada).
+  **PERINGATAN**: JANGAN pakai `php spark migrate -g inbox` (dengan
+  flag `-g`) dari CLI -- flag itu memaksa SEMUA migration project
+  (termasuk yang punya `$DBGroup` lain, mis. migration AuliaPos inti)
+  ikut memakai koneksi `inbox`, ditemukan sendiri menyebabkan error
+  saat verifikasi (`Table 'bonus_rule' already exists`). Ini murni
+  soal cara memanggil CLI-nya, bukan bug di migration/kode Task Group
+  ini -- gunakan `php spark migrate` polos atau `/migrasi-manual`.
+- Kirim pesan sungguhan dari HP dengan skenario nyata "JID berubah
+  @lid <-> @pn, nomor sama" -- yang saya verifikasi adalah LOGIKA-nya
+  lewat pemanggilan langsung `resolveConversationId()` dengan data
+  yang meniru persis skenario itu, BUKAN lewat WhatsApp/Gateway
+  sungguhan (butuh koneksi live yang tidak tersedia di lingkungan
+  saya).
+- Reconciliation untuk pasangan conversation duplikat YANG SUDAH ADA
+  sebelumnya di `aulia_inboxdb` (lihat batasan di §11.4) -- silakan
+  cek manual apakah ada pasangan seperti itu di data production
+  sebelum/sesudah migration, dan putuskan sendiri apakah perlu
+  digabung manual (di luar scope Task Group ini).
+- UI edit profil (modal, tombol) belum dites klik langsung di browser.
+
+---
+
