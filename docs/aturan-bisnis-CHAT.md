@@ -905,3 +905,53 @@ dianggap "selesai" sepenuhnya.
 
 ---
 
+# 8. Hapus Percakapan (2026-09-12)
+
+## 8.1 Apa ini
+
+Kasir/admin bisa menghapus satu conversation beserta **SEMUA**
+riwayat pesannya secara permanen dari `aulia_inboxdb`, langsung dari
+UI Inbox. Hard delete, bukan arsip/soft delete -- tidak ada spec yang
+minta riwayat hapus disimpan, dan kedua model (`ConversationModel`,
+`MessageModel`) memang `$useSoftDeletes = false`.
+
+## 8.2 Alur & keputusan desain
+
+- `Inbox::hapusPercakapan($conversationId)` (`POST
+  /inbox/percakapan/(:num)/hapus`, session-authenticated) cukup
+  memanggil `ConversationModel::delete($conversationId)` -- baris
+  `messages` milik conversation itu ikut terhapus **otomatis** lewat
+  foreign key `ON DELETE CASCADE` yang SUDAH ADA sejak Phase 1
+  (`messages.conversation_id -> conversations.id`, lihat migration
+  `2026-09-07-000001_CreateInboxTables.php`). Sengaja TIDAK ada query
+  DELETE terpisah untuk `messages` -- FK yang menjamin konsistensinya.
+- **Tidak menyentuh Gateway/WhatsApp sama sekali.** Gateway tidak
+  menyimpan riwayat percakapan apa pun (murni reliability buffer
+  SQLite untuk retry pengiriman, bukan sumber kebenaran -- lihat
+  §1.2), jadi tidak ada yang perlu disinkronkan ke sana. Menghapus
+  percakapan di Inbox POS **tidak menghapus chat di WhatsApp/HP
+  customer maupun HP toko** -- ini murni membersihkan riwayat di sisi
+  POS.
+- UI (`inbox/index.php`): tombol hapus (ikon tong sampah) muncul di
+  header thread setelah satu conversation dipilih, memicu modal
+  konfirmasi eksplisit (nama kontak + peringatan "tidak bisa
+  dikembalikan") sebelum benar-benar mengirim request hapus. Setelah
+  sukses, panel kanan direset ke kondisi kosong dan conversation
+  langsung hilang dari daftar kiri tanpa menunggu siklus polling
+  berikutnya.
+- Tidak ada ownership restriction (siapa saja yang login boleh
+  menghapus conversation manapun) -- konsisten dengan keputusan yang
+  sama di Phase 3 untuk kirim balasan (§ terkait `kirim()`/
+  `kirimKeConversation()`): assignment belum diimplementasikan, jadi
+  belum ada dasar untuk membatasi per-user.
+
+## 8.3 Yang PERLU diverifikasi
+
+Baru lolos `php -l` -- **belum diuji end-to-end nyata** di browser
+(klik tombol hapus sungguhan, konfirmasi modal, pastikan baris
+`conversations` DAN semua baris `messages` terkait benar-benar hilang
+dari database, dan UI ter-update dengan benar). Perlu ditest langsung
+sebelum dianggap "selesai" sepenuhnya.
+
+---
+
