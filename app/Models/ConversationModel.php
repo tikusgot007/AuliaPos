@@ -185,7 +185,7 @@ class ConversationModel extends Model
      *   conversation LAMA lewat langkah 2/3 -- berguna untuk
      *   logging/observability.
      */
-    public function resolveConversationId(string $chatId, string $jidType, ?string $canonicalPhone, ?string $whatsappName = null, ?string $knownLid = null): array
+    public function resolveConversationId(string $chatId, string $jidType, ?string $canonicalPhone, ?string $whatsappName = null, ?string $knownLid = null, bool $allowManualPhoneMatch = false): array
     {
         $identityModel = new ConversationIdentityModel();
 
@@ -208,6 +208,24 @@ class ConversationModel extends Model
         // --- Langkah 3: cocokkan lewat nomor ter-verifikasi ------------
         if ($canonicalPhone !== null) {
             $existing = $this->where('phone', $canonicalPhone)->first();
+
+            if ($existing) {
+                return $this->attachAliasToConversation($identityModel, (int) $existing['id'], $chatId, $jidType);
+            }
+        }
+
+        // --- Langkah 3b: cocokkan lewat manual_phone -- HANYA kalau
+        // $allowManualPhoneMatch=true (pemanggil eksplisit meminta ini).
+        // SATU-SATUNYA pemanggil yang mengizinkan: Inbox::mulaiPercakapan()
+        // ("+ Chat Baru"), karena itu tindakan SADAR kasir mengetik nomor
+        // tujuan sendiri -- beda dari reconciliation otomatis pesan masuk
+        // dari Gateway (InboxGatewayApi::messages(), TIDAK PERNAH
+        // mengizinkan ini) yang datanya belum tentu benar. Mencegah
+        // "AAN XL 2" (nomor cuma tersimpan di manual_phone lewat edit
+        // profil biasa) jadi conversation duplikat kedua kalinya kasir
+        // memulai chat baru ke nomor yang sama persis.
+        if ($allowManualPhoneMatch && $canonicalPhone !== null) {
+            $existing = $this->where('manual_phone', $canonicalPhone)->first();
 
             if ($existing) {
                 return $this->attachAliasToConversation($identityModel, (int) $existing['id'], $chatId, $jidType);

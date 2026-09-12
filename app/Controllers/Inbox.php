@@ -460,8 +460,16 @@ class Inbox extends BaseController
         // tadinya cuma dikenal lewat @lid, lalu nomornya terbukti sama
         // persis ini), kasir langsung diarahkan ke conversation yang
         // SAMA -- bukan bikin duplikat baru.
+        //
+        // $allowManualPhoneMatch=true SENGAJA hanya di sini (bukan di
+        // InboxGatewayApi::messages()) -- "+ Chat Baru" adalah tindakan
+        // SADAR kasir mengetik nomor tujuan sendiri, jadi aman juga
+        // mencocokkan ke conversation yang nomornya baru tersimpan di
+        // `manual_phone` (mis. dari fitur Edit Profil biasa, belum
+        // pernah dikonfirmasi/terverifikasi via WhatsApp) -- mencegah
+        // duplicate persis kasus "AAN XL 2" (nomor cuma di manual_phone).
         $conversationModel = new ConversationModel();
-        $resolved = $conversationModel->resolveConversationId($chatId, 'pn', $phoneClean);
+        $resolved = $conversationModel->resolveConversationId($chatId, 'pn', $phoneClean, null, null, true);
         $conversation = $conversationModel->find($resolved['conversation_id']);
 
         return $this->kirimKeConversation($conversation, $text);

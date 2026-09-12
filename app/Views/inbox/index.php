@@ -24,6 +24,7 @@
         display: block;
         padding: 12px 14px;
         border-bottom: 1px solid #e9ecef;
+        border-left: 3px solid transparent;
         cursor: pointer;
         text-decoration: none;
         color: inherit;
@@ -35,6 +36,7 @@
 
     .inbox-list-item.active {
         background: #d7e6fb;
+        border-left-color: #0d6efd;
     }
 
     .inbox-list-item .list-name {
@@ -198,13 +200,17 @@
                 <?php endif; ?>
                 <?php foreach ($conversations as $c): ?>
                     <a href="#" class="inbox-list-item" data-conversation-id="<?= esc($c['id']) ?>" onclick="return pilihConversation(<?= (int) $c['id'] ?>)">
-                        <div class="d-flex justify-content-between">
+                        <div class="d-flex justify-content-between align-items-start">
                             <span class="list-name"><?= esc($c['contact_name'] ?: $c['whatsapp_name'] ?: $c['phone'] ?: $c['chat_id']) ?></span>
-                            <span class="list-time"><?= $c['last_message_at'] ? date('d/m H:i', strtotime($c['last_message_at'])) : '' ?></span>
+                            <span class="d-flex align-items-center gap-1">
+                                <span class="list-time"><?= $c['last_message_at'] ? date('d/m H:i', strtotime($c['last_message_at'])) : '' ?></span>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(<?= (int) $c['id'] ?>)"><i class="fas fa-pen"></i></button>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" style="font-size:0.75rem;" title="Hapus percakapan" onclick="event.stopPropagation(); hapusPercakapanDariList(<?= (int) $c['id'] ?>)"><i class="fas fa-trash-alt"></i></button>
+                            </span>
                         </div>
                         <div class="list-preview">
                             <?= $c['last_message_direction'] === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '' ?>
-                            <?= esc($c['manual_phone'] ?: $c['phone'] ?: $c['jid_type']) ?>
+                            <?= esc($c['manual_phone'] ?: $c['phone'] ?: ($c['jid_type'] === 'lid' ? 'LID' : $c['jid_type'])) ?>
                             <?php if ($c['status'] === 'closed'): ?>
                                 <span class="badge bg-secondary" style="font-size: 0.6rem;">closed</span>
                             <?php endif; ?>
@@ -397,6 +403,7 @@
     // STATE
     // ================================================================
     let conversationAktif = null;
+    let conversationUntukHapus = null; // target hapus dari row daftar kiri, terpisah dari conversationAktif
     let daftarConversation = <?= json_encode($conversations) ?>;
     const currentUserId = <?= (int) $currentUserId ?>;
     const currentUserRole = <?= json_encode($currentUserRole) ?>;
@@ -418,6 +425,17 @@
         return d.toLocaleString('id-ID', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 
+    // Cari conversation berdasarkan id. Perbandingan via String() SENGAJA
+    // -- kolom `id` dari CodeIgniter/MySQLi kadang berupa string ("45"),
+    // sedangkan id di JS (dari onclick, parameter fetch, dst) berupa
+    // number -- "45" === 45 selalu false, bikin conv "tidak ketemu" tanpa
+    // error apa pun (root cause pernah bikin modal edit/header/highlight
+    // aktif semuanya diam-diam kosong). Satu fungsi ini dipakai di semua
+    // pemanggil supaya perbaikannya tidak perlu diulang di tiap tempat.
+    function cariConversation(id) {
+        return daftarConversation.find(function(c) { return String(c.id) === String(id); });
+    }
+
     // ================================================================
     // DAFTAR CONVERSATION
     // ================================================================
@@ -430,7 +448,7 @@
         }
 
         panel.innerHTML = daftarConversation.map(function(c) {
-            const activeClass = (conversationAktif === c.id) ? ' active' : '';
+            const activeClass = (String(c.id) === String(conversationAktif)) ? ' active' : '';
             const nama = c.contact_name || c.whatsapp_name || c.phone || c.chat_id;
             const waktu = c.last_message_at ? formatWaktuInbox(c.last_message_at) : '';
             const panah = c.last_message_direction === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '';
@@ -440,12 +458,18 @@
                   '<i class="fas fa-user"></i> ' + escapeHtmlInbox(c.assigned_to_name || ('User #' + c.assigned_to)) + '</span>'
                 : '';
 
+            const nomorAtauLid = c.manual_phone || c.phone || (c.jid_type === 'lid' ? 'LID' : c.jid_type);
+
             return '<a href="#" class="inbox-list-item' + activeClass + '" onclick="return pilihConversation(' + c.id + ')">' +
-                '<div class="d-flex justify-content-between">' +
+                '<div class="d-flex justify-content-between align-items-start">' +
                 '<span class="list-name">' + escapeHtmlInbox(nama) + '</span>' +
+                '<span class="d-flex align-items-center gap-1">' +
                 '<span class="list-time">' + escapeHtmlInbox(waktu) + '</span>' +
+                '<button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(' + c.id + ')"><i class="fas fa-pen"></i></button>' +
+                '<button type="button" class="btn btn-sm btn-link p-0 text-danger" style="font-size:0.75rem;" title="Hapus percakapan" onclick="event.stopPropagation(); hapusPercakapanDariList(' + c.id + ')"><i class="fas fa-trash-alt"></i></button>' +
+                '</span>' +
                 '</div>' +
-                '<div class="list-preview">' + panah + escapeHtmlInbox(c.manual_phone || c.phone || c.jid_type) + ' ' + closedBadge + ' ' + assignBadge + '</div>' +
+                '<div class="list-preview">' + panah + escapeHtmlInbox(nomorAtauLid) + ' ' + closedBadge + ' ' + assignBadge + '</div>' +
                 '</a>';
         }).join('');
     }
@@ -467,14 +491,32 @@
     }
 
     // ================================================================
-    // HEADER THREAD (nama kontak + badge/tombol assignment + hapus)
+    // IDENTITAS CUSTOMER: "Nama (No. Telepon)" / "Nama (LID)" -- TIDAK
+    // PERNAH menampilkan conversation_id ("#45") sebagai identitas
+    // utama, dan TIDAK PERNAH memperlakukan digit @lid sebagai nomor
+    // telepon (lihat business rule reconciliation LID<->PN).
+    // ================================================================
+    function formatIdentitasCustomer(conv) {
+        if (!conv) return '';
+
+        const nama = conv.contact_name || conv.whatsapp_name || null;
+        const nomor = conv.manual_phone || conv.phone || null;
+
+        if (nama && nomor) return nama + ' (' + nomor + ')';
+        if (nomor) return nomor;
+        if (nama) return nama + (conv.jid_type === 'lid' ? ' (LID)' : '');
+        if (conv.jid_type === 'lid') return 'LID';
+        return conv.chat_id;
+    }
+
+    // ================================================================
+    // HEADER THREAD (identitas customer + badge/tombol assignment)
     // ================================================================
     function renderThreadHeader() {
         if (!conversationAktif) return;
 
-        const conv = daftarConversation.find(function(c) { return c.id === conversationAktif; });
-        const nama = conv ? (conv.contact_name || conv.whatsapp_name || conv.phone || conv.chat_id) : ('#' + conversationAktif);
-        const nomorTampil = conv ? (conv.manual_phone || conv.phone) : null;
+        const conv = cariConversation(conversationAktif);
+        const identitas = formatIdentitasCustomer(conv);
 
         let infoAssign = '';
         let tombolAssign = '';
@@ -502,17 +544,15 @@
               '<i class="fas fa-shield-alt"></i> Konfirmasi Nomor</button>'
             : '';
 
+        // Edit & Hapus TIDAK lagi tampil di header -- dipindah ke masing-
+        // masing row percakapan di daftar kiri (lihat editPercakapanDariList()/
+        // hapusPercakapanDariList()).
         document.getElementById('threadHeader').innerHTML =
-            '<span><strong>' + escapeHtmlInbox(nama) + '</strong>' +
-            (nomorTampil ? ' <span class="text-muted small">(' + escapeHtmlInbox(nomorTampil) + ')</span>' : '') +
-            ' <button type="button" class="btn btn-sm btn-link p-0" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="bukaModalEditProfil()">' +
-            '<i class="fas fa-pen"></i> Edit</button>' +
+            '<span><strong>' + escapeHtmlInbox(identitas) + '</strong>' +
             tombolKonfirmasiNomor +
             infoAssign +
             '</span>' +
-            '<span>' + tombolAssign +
-            '<button type="button" class="btn btn-sm btn-outline-danger" title="Hapus percakapan" onclick="bukaModalHapusPercakapan()">' +
-            '<i class="fas fa-trash-alt"></i></button></span>';
+            '<span>' + tombolAssign + '</span>';
     }
 
     function ambilPercakapan() {
@@ -563,6 +603,7 @@
         document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
         document.getElementById('btnKirimBalasan').disabled = false;
         document.getElementById('btnLampirkanMedia').disabled = false;
+        document.getElementById('teksBalasan').focus();
 
         muatUlangPesan(true);
         return false;
@@ -741,22 +782,35 @@
     }
 
     // ================================================================
-    // HAPUS PERCAKAPAN (beserta semua pesannya, permanen)
+    // EDIT/HAPUS DARI ROW DAFTAR PERCAKAPAN (panel kiri)
     // ================================================================
-    function bukaModalHapusPercakapan() {
-        if (!conversationAktif) return;
 
-        const conv = daftarConversation.find(function(c) { return c.id === conversationAktif; });
-        const nama = conv ? (conv.contact_name || conv.whatsapp_name || conv.phone || conv.chat_id) : ('#' + conversationAktif);
-        document.getElementById('namaHapusPercakapan').textContent = nama;
+    // Edit: percakapan dibuka dulu (nama, pesan, header ikut render),
+    // BARU modal edit profil dibuka -- reuse pilihConversation() +
+    // bukaModalEditProfil() apa adanya, tidak ada logic baru di sini.
+    function editPercakapanDariList(id) {
+        pilihConversation(id);
+        bukaModalEditProfil();
+    }
+
+    // Hapus: SENGAJA TIDAK memanggil pilihConversation() -- klik Hapus
+    // pada row yang sedang tidak aktif tidak boleh ikut membuka
+    // percakapan itu (beda dari Edit). Target hapus disimpan terpisah
+    // dari conversationAktif (conversationUntukHapus) supaya tidak
+    // mengganggu percakapan yang sedang dibuka di panel kanan.
+    function hapusPercakapanDariList(id) {
+        conversationUntukHapus = id;
+
+        const conv = cariConversation(id);
+        document.getElementById('namaHapusPercakapan').textContent = formatIdentitasCustomer(conv);
 
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHapusPercakapan')).show();
     }
 
     function konfirmasiHapusPercakapan() {
-        if (!conversationAktif) return;
+        if (!conversationUntukHapus) return;
 
-        const idDihapus = conversationAktif;
+        const idDihapus = conversationUntukHapus;
         const btn = document.getElementById('btnKonfirmasiHapusPercakapan');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menghapus...';
@@ -768,18 +822,25 @@
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHapusPercakapan')).hide();
                     showToast('Percakapan berhasil dihapus.', 'success');
 
-                    // Reset panel kanan, hapus dari daftar tanpa menunggu polling.
-                    conversationAktif = null;
-                    daftarConversation = daftarConversation.filter(function(c) { return c.id !== idDihapus; });
+                    daftarConversation = daftarConversation.filter(function(c) { return String(c.id) !== String(idDihapus); });
                     renderDaftarConversation();
 
-                    document.getElementById('threadHeader').innerHTML = '<span class="text-muted">Pilih percakapan di sebelah kiri untuk mulai.</span>';
-                    document.getElementById('threadMessages').innerHTML = '<div class="inbox-thread-empty"><i class="fas fa-comments fa-2x me-2"></i> Belum ada percakapan dipilih.</div>';
-                    document.getElementById('teksBalasan').disabled = true;
-                    document.getElementById('teksBalasan').placeholder = 'Pilih percakapan dulu...';
-                    document.getElementById('btnKirimBalasan').disabled = true;
-                    document.getElementById('btnLampirkanMedia').disabled = true;
-                    batalkanMediaBalasan();
+                    // Panel kanan HANYA direset kalau yang dihapus memang
+                    // conversation yang sedang aktif/terbuka -- kalau kasir
+                    // menghapus row lain, percakapan yang sedang dibuka
+                    // tetap tampil apa adanya.
+                    if (String(idDihapus) === String(conversationAktif)) {
+                        conversationAktif = null;
+                        document.getElementById('threadHeader').innerHTML = '<span class="text-muted">Pilih percakapan di sebelah kiri untuk mulai.</span>';
+                        document.getElementById('threadMessages').innerHTML = '<div class="inbox-thread-empty"><i class="fas fa-comments fa-2x me-2"></i> Belum ada percakapan dipilih.</div>';
+                        document.getElementById('teksBalasan').disabled = true;
+                        document.getElementById('teksBalasan').placeholder = 'Pilih percakapan dulu...';
+                        document.getElementById('btnKirimBalasan').disabled = true;
+                        document.getElementById('btnLampirkanMedia').disabled = true;
+                        batalkanMediaBalasan();
+                    }
+
+                    conversationUntukHapus = null;
                 } else {
                     showToast(json.message || 'Gagal menghapus percakapan.', 'danger');
                 }
@@ -799,9 +860,14 @@
     function bukaModalEditProfil() {
         if (!conversationAktif) return;
 
-        const conv = daftarConversation.find(function(c) { return c.id === conversationAktif; });
-        document.getElementById('editProfilNama').value = (conv && conv.contact_name) || '';
-        document.getElementById('editProfilTelepon').value = (conv && conv.manual_phone) || '';
+        // Prefill dari data yang SUDAH ADA (sumber sama dengan yang dipakai
+        // formatIdentitasCustomer()/daftar kiri) -- nama manual (contact_name)
+        // menang, fallback ke whatsapp_name; nomor manual (manual_phone)
+        // menang, fallback ke phone ter-verifikasi. Jangan biarkan kosong
+        // kalau salah satu sumber itu sudah terisi.
+        const conv = cariConversation(conversationAktif);
+        document.getElementById('editProfilNama').value = (conv && (conv.contact_name || conv.whatsapp_name)) || '';
+        document.getElementById('editProfilTelepon').value = (conv && (conv.manual_phone || conv.phone)) || '';
 
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditProfil')).show();
     }
@@ -829,7 +895,7 @@
                     showToast('Profil pelanggan disimpan.', 'success');
 
                     // Perbarui entri lokal langsung, tidak perlu menunggu polling.
-                    const idx = daftarConversation.findIndex(function(c) { return c.id === conversationAktif; });
+                    const idx = daftarConversation.findIndex(function(c) { return String(c.id) === String(conversationAktif); });
                     if (idx !== -1) {
                         daftarConversation[idx] = json.conversation;
                     }
@@ -886,7 +952,7 @@
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKonfirmasiNomor')).hide();
                     showToast('Nomor WhatsApp dikonfirmasi. Pesan berikutnya dari nomor ini akan otomatis masuk ke sini.', 'success');
 
-                    const idx = daftarConversation.findIndex(function(c) { return c.id === conversationAktif; });
+                    const idx = daftarConversation.findIndex(function(c) { return String(c.id) === String(conversationAktif); });
                     if (idx !== -1) {
                         daftarConversation[idx] = json.conversation;
                     }
