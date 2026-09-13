@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **AULIA** — a single-shop Point of Sale for a print / photo / banner business, built on **CodeIgniter 4** (PHP 8.2+), MySQL/MariaDB (`aulia_kasirdb`), served under XAMPP at `http://localhost/aulia/`. UI language and domain vocabulary are Indonesian (`transaksi`, `pelanggan`, `produk`, `kasir`, `tagihan`, `pembayaran`, `jadwal`). Current branch: `v2.x`.
 
-`docs/aturan-bisnis-AULIA.md` is the **authoritative business-rules document** (~2000 lines). Read the relevant section before changing transaction lifecycle, payment, cash, tagihan, or reporting logic — it records decisions, rejected alternatives, and past bugs. Sections are cited directly in code comments (e.g. "lihat Section 4.2").
+**Business-rules documentation (POS core, transaksi/kasir/jadwal/dll):** primary reading is `docs/AULIA-01-transaksi-dan-kasir.md`, `docs/AULIA-02-modul-pendukung.md`, and `docs/AULIA-CHANGELOG.md` — read the relevant section before changing transaction lifecycle, payment, cash, tagihan, or reporting logic; they record decisions, rejected alternatives, and past bugs. `docs/aturan-bisnis-AULIA.md` (the original ~2000-line monolith) is kept as an **archived numbering reference only** — code comments still cite it by section (e.g. "lihat Section 4.2"), and the new files cite it back via `[AULIA §N]`; don't edit/renumber it, add new content to the split files instead.
+
+**Business-rules documentation (Chat/Inbox WhatsApp, branch `v3.0`):** primary reading is `docs/CHAT-01-aturan-bisnis-inbox.md` (rules per topic: identity, media, assignment, Open/Closed × Assignment, Unread/Read, permissions) and `docs/CHAT-CHANGELOG.md` (implementation history per phase/tahap). `docs/aturan-bisnis-CHAT.md` is likewise kept as an archived numbering reference only (`[CHAT §N]` citations, code comments still point at it) — same rule: don't edit/renumber it, add new tahap/phases to the split files.
 
 ## Commands
 

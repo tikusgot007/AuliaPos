@@ -1,4 +1,18 @@
-# Dokumentasi Modul Shared WhatsApp Inbox (Chat) — AuliaPos v3.x
+# Dokumentasi Modul Shared WhatsApp Inbox (Chat) — AuliaPos v3.x (ARSIP)
+
+> **STATUS: DIGANTIKAN (2026-09-13).** Bacaan utama untuk aturan bisnis
+> Chat/Inbox WhatsApp sekarang ada di:
+> - `docs/CHAT-01-aturan-bisnis-inbox.md` — aturan bisnis per-topik (identity, media, assignment, Open/Closed x Assignment, Unread/Read, hak akses)
+> - `docs/CHAT-CHANGELOG.md` — riwayat implementasi per fase/tahap, audit teknis, catatan verifikasi
+>
+> File ini **TETAP DIPERTAHANKAN APA ADANYA** (tidak dihapus, tidak
+> direnumbering) karena banyak komentar di kode (`app/**`) mengutip
+> nomor section-nya secara langsung (mis. "lihat
+> docs/aturan-bisnis-CHAT.md Section 11"), dan kedua file pengganti di
+> atas juga merujuk balik ke nomor section di sini lewat notasi
+> `[CHAT §N]`. Jangan ubah/hapus/renumbering isi di bawah ini — kalau
+> ada perbaikan/tahap baru, lakukan di file pengganti (tambahkan
+> section baru di sana), bukan di sini.
 
 Dokumen ini adalah dokumentasi **khusus modul Chat/Inbox WhatsApp**,
 dipisah dari `docs/aturan-bisnis-AULIA.md` (aturan bisnis AuliaPos

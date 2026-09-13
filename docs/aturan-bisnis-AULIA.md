@@ -1,8 +1,24 @@
-# AULIA — Dokumentasi Aturan Bisnis & Keputusan Teknis
+# AULIA — Dokumentasi Aturan Bisnis & Keputusan Teknis (ARSIP)
+
+> **STATUS: DIGANTIKAN (2026-09-13).** Bacaan utama untuk aturan bisnis
+> AULIA inti sekarang ada di:
+> - `docs/AULIA-01-transaksi-dan-kasir.md` — aturan bisnis transaksi & kasir
+> - `docs/AULIA-02-modul-pendukung.md` — Jadwal Karyawan, Profil, Notifikasi, Banner, Archive, Cetak Nota
+> - `docs/AULIA-CHANGELOG.md` — riwayat implementasi, audit teknis, pekerjaan terbuka
+>
+> File ini **TETAP DIPERTAHANKAN APA ADANYA** (tidak dihapus, tidak
+> direnumbering) karena banyak komentar di kode (`app/**`) mengutip
+> nomor section-nya secara langsung (mis. "lihat Section 4.2"), dan
+> ketiga file pengganti di atas juga merujuk balik ke nomor section di
+> sini lewat notasi `[AULIA §N]`. Jangan ubah/hapus/renumbering isi di
+> bawah ini — kalau ada perbaikan aturan bisnis, lakukan di file
+> pengganti dan tambahkan section baru di sana, bukan di sini.
 
 > **[branch v3.x]** Dokumen ini isinya aturan bisnis AuliaPos INTI
 > (v2.x) — tidak menyentuh Chat/Inbox WhatsApp sama sekali. Untuk
-> dokumentasi modul Chat/Inbox, lihat `docs/aturan-bisnis-CHAT.md`.
+> dokumentasi modul Chat/Inbox, lihat `docs/aturan-bisnis-CHAT.md`
+> (juga sudah digantikan oleh `CHAT-01-aturan-bisnis-inbox.md` +
+> `CHAT-CHANGELOG.md`, lihat catatan yang sama di file itu).
 
 **Status:** Baseline aktif  
 **Tanggal:** 2026-09-10 (update terakhir)  
