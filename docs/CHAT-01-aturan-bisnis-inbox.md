@@ -339,7 +339,7 @@ Perubahan satu dimensi tidak boleh secara tidak sengaja mengubah dimensi lain, k
 | (Deleted) | Customer kirim pesan | Conversation baru dibuat |
 
 ### 12.14 Di luar scope
-Belum ditentukan/dibahas terpisah: desain role Shift Leader, notifikasi push/suara/desktop, SLA & escalation, assignment otomatis berdasarkan Shift Leader, unread per-message, read receipt WhatsApp (centang biru — itu native WhatsApp), indikator "customer sedang mengetik", mekanisme sinkronisasi real-time selain polling.
+Belum ditentukan/dibahas terpisah: kewenangan spesifik Shift Leader di modul Chat (konsep dasar Priority/Shift Leader ada di `docs/aturan-bisnis-USER-SHIFT.md`, tapi daftar kewenangan per-fitur untuk Chat belum dibahas), notifikasi push/suara/desktop, SLA & escalation, assignment otomatis berdasarkan Shift Leader, unread per-message, read receipt WhatsApp (centang biru — itu native WhatsApp), indikator "customer sedang mengetik", mekanisme sinkronisasi real-time selain polling.
 
 ---
 
@@ -360,6 +360,6 @@ Ringkasan hak akses lintas fitur (tidak membuat role baru — tetap 2 level: sta
 
 \* mengikuti aturan visibility inbox yang sudah ada.
 
-**Role "Shift Leader" belum termasuk** dalam spesifikasi ini — penambahan role tersebut dibahas & didokumentasikan terpisah kalau/ketika dibutuhkan.
+**Role "Shift Leader" belum termasuk** dalam spesifikasi ini — penambahan role tersebut dibahas & didokumentasikan terpisah kalau/ketika dibutuhkan. Konsep Priority/Shift Leader (kalau/ketika diterapkan ke Chat) mengikuti aturan cross-version di `docs/aturan-bisnis-USER-SHIFT.md`, bukan definisi lokal baru di file ini.
 
 > Kolom "Hapus: hanya Admin" adalah aturan **baru** dibanding implementasi Section 8 saat ini yang belum menegakkannya (lihat catatan gap di Section 8 & 12.11).
