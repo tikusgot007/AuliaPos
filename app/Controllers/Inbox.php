@@ -762,6 +762,19 @@ class Inbox extends BaseController
      * Kalau sudah ditangani orang lain: admin boleh mengambil alih
      * (override), kasir non-admin ditolak dengan pesan jelas siapa
      * yang sedang menangani.
+     *
+     * --- Tahap 2: race condition (dua staff menekan "Ambil" hampir
+     * bersamaan) ---
+     * Versi lama cuma find() lalu update() terpisah -- dua request yang
+     * datang nyaris bersamaan bisa SAMA-SAMA lolos pengecekan
+     * "assigned_to masih NULL" (dibaca sebelum salah satu sempat
+     * menyimpan), lalu SAMA-SAMA menganggap dirinya berhasil mengambil.
+     * Diperbaiki dengan SATU UPDATE ber-syarat (`WHERE assigned_to IS
+     * NULL`, atau tanpa syarat untuk admin/override) -- MySQL mengunci
+     * baris per statement UPDATE, jadi kalau dua request bentrok, hanya
+     * SATU yang benar-benar mengubah baris (`affectedRows() === 1`);
+     * yang kalah otomatis dapat 0 baris berubah, TANPA perlu locking
+     * aplikasi tambahan.
      */
     public function ambilPercakapan($conversationId = null)
     {
@@ -781,17 +794,44 @@ class Inbox extends BaseController
         $role   = (string) session()->get('role');
         $assignedTo = $conversation['assigned_to'] ? (int) $conversation['assigned_to'] : null;
 
-        if ($assignedTo !== null && $assignedTo !== $userId && $role !== 'admin') {
-            $penangan = (new UserModel())->find($assignedTo);
-            $namaPenangan = $penangan ? ($penangan['nama'] ?: $penangan['username']) : ('User #' . $assignedTo);
-
-            return $this->response->setStatusCode(409)->setJSON([
-                'status'  => 'error',
-                'message' => "Percakapan ini sudah diambil oleh {$namaPenangan}.",
+        // Idempotent: sudah milik sendiri -- tidak perlu race-check,
+        // langsung sukses (mis. klik "Ambil" dobel karena koneksi lambat).
+        if ($assignedTo === $userId) {
+            return $this->response->setStatusCode(200)->setJSON([
+                'status'          => 'success',
+                'conversation_id' => $conversationId,
             ]);
         }
 
-        $conversationModel->update($conversationId, ['assigned_to' => $userId]);
+        $db = \Config\Database::connect('inbox');
+        $builder = $db->table('conversations')->where('id', $conversationId);
+
+        // Non-admin HANYA boleh menang kalau baris masih benar-benar
+        // unassigned SAAT UPDATE dieksekusi (bukan saat find() di atas).
+        // Admin sengaja tanpa syarat tambahan (override/take over diizinkan).
+        if ($role !== 'admin') {
+            $builder->where('assigned_to', null);
+        }
+
+        $builder->update(['assigned_to' => $userId]);
+        $affected = $db->affectedRows();
+
+        if ($affected === 0) {
+            // Kalah race (atau memang sudah dipegang orang lain sejak
+            // awal) -- re-fetch untuk kasih tahu siapa yang menangani.
+            $conversationTerkini = $conversationModel->find($conversationId);
+            $assignedTerkini = $conversationTerkini['assigned_to'] ? (int) $conversationTerkini['assigned_to'] : null;
+
+            $penangan = $assignedTerkini ? (new UserModel())->find($assignedTerkini) : null;
+            $namaPenangan = $penangan ? ($penangan['nama'] ?: $penangan['username']) : ('User #' . $assignedTerkini);
+
+            return $this->response->setStatusCode(409)->setJSON([
+                'status'  => 'error',
+                'message' => $assignedTerkini
+                    ? "Percakapan ini sudah diambil oleh {$namaPenangan}."
+                    : 'Gagal mengambil percakapan, silakan coba lagi.',
+            ]);
+        }
 
         log_message('info', "Inbox::ambilPercakapan sukses. conversation_id={$conversationId}, user_id={$userId}");
 
@@ -838,6 +878,69 @@ class Inbox extends BaseController
         return $this->response->setStatusCode(200)->setJSON([
             'status'          => 'success',
             'conversation_id' => $conversationId,
+        ]);
+    }
+
+    /**
+     * POST /inbox/percakapan/(:num)/tutup
+     *
+     * Tahap 1 lifecycle status conversation (docs/aturan-bisnis-CHAT.md
+     * Section 12) -- kasir/admin menutup conversation yang sedang OPEN.
+     * `status`/`closed_at`/`closed_by` SUDAH ADA di skema sejak Phase 1
+     * (migration 2026-09-07-000001_CreateInboxTables.php), tidak ada
+     * migration baru.
+     *
+     * SENGAJA TIDAK menghapus/mengubah data lain apa pun (assignment,
+     * history pesan tetap utuh) -- murni penanda lifecycle. Reopen
+     * (CLOSED -> OPEN) TIDAK punya tombol manual di sini, sesuai spec:
+     * satu-satunya pemicu reopen adalah pesan masuk baru dari customer
+     * (lihat InboxGatewayApi::messages(), sudah memaksa status='open'
+     * untuk direction='incoming' sejak awal, tidak diubah oleh fitur
+     * ini).
+     *
+     * Idempotent: kalau sudah closed, kembalikan sukses apa adanya
+     * tanpa menimpa closed_at/closed_by yang sudah tercatat.
+     */
+    public function tutupPercakapan($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
+            ]);
+        }
+
+        if ($conversation['status'] !== 'closed') {
+            $userId = (int) session()->get('id_user');
+            $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+            $conversationModel->update($conversationId, [
+                'status'    => 'closed',
+                'closed_at' => $now,
+                'closed_by' => $userId,
+            ]);
+
+            log_message('info', "Inbox::tutupPercakapan sukses. conversation_id={$conversationId}, user_id={$userId}");
+        }
+
+        $updated = $this->attachAssignedNames([$conversationModel->find($conversationId)])[0];
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'       => 'success',
+            'conversation' => $updated,
         ]);
     }
 

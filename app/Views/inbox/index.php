@@ -12,12 +12,26 @@
         background: #fff;
     }
 
-    .inbox-list-panel {
+    .inbox-list-col {
         width: 320px;
         min-width: 260px;
         border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .inbox-list-filter .btn.active {
+        background: #0d6efd;
+        color: #fff;
+        border-color: #0d6efd;
+    }
+
+    .inbox-list-panel {
+        flex: 1;
         overflow-y: auto;
         background: #f8f9fa;
+        min-height: 0;
     }
 
     .inbox-list-item {
@@ -192,6 +206,12 @@
             <!-- ============================================ -->
             <!-- PANEL KIRI: DAFTAR CONVERSATION               -->
             <!-- ============================================ -->
+            <div class="inbox-list-col">
+            <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom" style="background:#fff;">
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSemua" onclick="setFilterConversation('semua')">Semua</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterOpen" onclick="setFilterConversation('open')">Open</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterClosed" onclick="setFilterConversation('closed')">Closed</button>
+            </div>
             <div class="inbox-list-panel" id="inboxListPanel">
                 <?php if (empty($conversations)): ?>
                     <div class="p-3 text-muted small text-center">
@@ -217,6 +237,7 @@
                         </div>
                     </a>
                 <?php endforeach; ?>
+            </div>
             </div>
 
             <!-- ============================================ -->
@@ -405,6 +426,10 @@
     let conversationAktif = null;
     let conversationUntukHapus = null; // target hapus dari row daftar kiri, terpisah dari conversationAktif
     let daftarConversation = <?= json_encode($conversations) ?>;
+    // Tahap 1 lifecycle status (docs/aturan-bisnis-CHAT.md Section 12):
+    // filter tampilan daftar percakapan SAJA (client-side) -- tidak ada
+    // endpoint/query baru, data lengkap tetap dimuat seperti sebelumnya.
+    let filterAktif = 'semua'; // 'semua' | 'open' | 'closed'
     const currentUserId = <?= (int) $currentUserId ?>;
     const currentUserRole = <?= json_encode($currentUserRole) ?>;
 
@@ -439,24 +464,49 @@
     // ================================================================
     // DAFTAR CONVERSATION
     // ================================================================
-    function renderDaftarConversation() {
-        const panel = document.getElementById('inboxListPanel');
+    // Tombol filter Semua/Open/Closed -- state visual saja, tidak
+    // mengubah conversationAktif/daftarConversation itu sendiri.
+    function renderFilterButtons() {
+        ['semua', 'open', 'closed'].forEach(function(f) {
+            const btn = document.getElementById('btnFilter' + f.charAt(0).toUpperCase() + f.slice(1));
+            if (btn) btn.classList.toggle('active', filterAktif === f);
+        });
+    }
 
-        if (!daftarConversation.length) {
-            panel.innerHTML = '<div class="p-3 text-muted small text-center">Belum ada percakapan masuk.</div>';
+    function setFilterConversation(filter) {
+        filterAktif = filter;
+        renderFilterButtons();
+        renderDaftarConversation();
+    }
+
+    function renderDaftarConversation() {
+        renderFilterButtons();
+
+        const panel = document.getElementById('inboxListPanel');
+        const daftarTampil = filterAktif === 'semua'
+            ? daftarConversation
+            : daftarConversation.filter(function(c) { return c.status === filterAktif; });
+
+        if (!daftarTampil.length) {
+            panel.innerHTML = '<div class="p-3 text-muted small text-center">' +
+                (daftarConversation.length ? 'Tidak ada percakapan ' + filterAktif + '.' : 'Belum ada percakapan masuk.') +
+                '</div>';
             return;
         }
 
-        panel.innerHTML = daftarConversation.map(function(c) {
+        panel.innerHTML = daftarTampil.map(function(c) {
             const activeClass = (String(c.id) === String(conversationAktif)) ? ' active' : '';
             const nama = c.contact_name || c.whatsapp_name || c.phone || c.chat_id;
             const waktu = c.last_message_at ? formatWaktuInbox(c.last_message_at) : '';
             const panah = c.last_message_direction === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '';
             const closedBadge = c.status === 'closed' ? '<span class="badge bg-secondary" style="font-size:0.6rem;">closed</span>' : '';
+            // String() SENGAJA -- assigned_to dari MySQLi/JSON kadang
+            // string ("3"), currentUserId number -- lihat catatan
+            // cariConversation() di atas untuk root cause bug yang sama.
             const assignBadge = c.assigned_to
-                ? '<span class="badge ' + (c.assigned_to === currentUserId ? 'bg-info' : 'bg-light text-dark border') + '" style="font-size:0.6rem;">' +
-                  '<i class="fas fa-user"></i> ' + escapeHtmlInbox(c.assigned_to_name || ('User #' + c.assigned_to)) + '</span>'
-                : '';
+                ? '<span class="badge ' + (String(c.assigned_to) === String(currentUserId) ? 'bg-info' : 'bg-light text-dark border') + '" style="font-size:0.6rem;">' +
+                  '<i class="fas fa-user"></i> Dipegang: ' + escapeHtmlInbox(c.assigned_to_name || ('User #' + c.assigned_to)) + '</span>'
+                : '<span class="badge bg-light text-muted border" style="font-size:0.6rem;">Belum diambil</span>';
 
             const nomorAtauLid = c.manual_phone || c.phone || (c.jid_type === 'lid' ? 'LID' : c.jid_type);
 
@@ -522,15 +572,19 @@
         let tombolAssign = '';
 
         if (conv && conv.assigned_to) {
-            const punyaSaya = conv.assigned_to === currentUserId;
+            // String() SENGAJA -- lihat catatan cariConversation() di atas
+            // (root cause bug: assigned_to string dari server vs
+            // currentUserId number, "3" === 3 selalu false).
+            const punyaSaya = String(conv.assigned_to) === String(currentUserId);
             infoAssign = ' <span class="badge ' + (punyaSaya ? 'bg-info' : 'bg-light text-dark border') + '">' +
-                '<i class="fas fa-user"></i> ' + escapeHtmlInbox(conv.assigned_to_name || ('User #' + conv.assigned_to)) + '</span>';
+                '<i class="fas fa-user"></i> Dipegang: ' + escapeHtmlInbox(conv.assigned_to_name || ('User #' + conv.assigned_to)) + '</span>';
 
             if (punyaSaya || currentUserRole === 'admin') {
                 tombolAssign = '<button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Lepas percakapan" onclick="lepasPercakapan()">' +
-                    '<i class="fas fa-user-slash"></i></button>';
+                    '<i class="fas fa-user-slash"></i> Lepas</button>';
             }
         } else {
+            infoAssign = ' <span class="badge bg-light text-muted border">Belum diambil</span>';
             tombolAssign = '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Ambil percakapan" onclick="ambilPercakapan()">' +
                 '<i class="fas fa-user-plus"></i> Ambil</button>';
         }
@@ -544,15 +598,49 @@
               '<i class="fas fa-shield-alt"></i> Konfirmasi Nomor</button>'
             : '';
 
+        // Tahap 1 lifecycle status (Section 12): tombol "Tutup" HANYA
+        // muncul kalau conversation sedang OPEN -- tidak ada tombol
+        // "Open" manual (reopen cuma lewat pesan masuk baru, lihat
+        // InboxGatewayApi::messages()).
+        const badgeStatus = conv
+            ? ' <span class="badge ' + (conv.status === 'closed' ? 'bg-secondary' : 'bg-success') + '">' + conv.status.toUpperCase() + '</span>'
+            : '';
+        const tombolTutup = (conv && conv.status === 'open')
+            ? '<button type="button" class="btn btn-sm btn-outline-danger me-1" title="Tutup percakapan" onclick="tutupPercakapan()">' +
+              '<i class="fas fa-times-circle"></i> Tutup</button>'
+            : '';
+
         // Edit & Hapus TIDAK lagi tampil di header -- dipindah ke masing-
         // masing row percakapan di daftar kiri (lihat editPercakapanDariList()/
         // hapusPercakapanDariList()).
         document.getElementById('threadHeader').innerHTML =
             '<span><strong>' + escapeHtmlInbox(identitas) + '</strong>' +
+            badgeStatus +
             tombolKonfirmasiNomor +
             infoAssign +
             '</span>' +
-            '<span>' + tombolAssign + '</span>';
+            '<span>' + tombolTutup + tombolAssign + '</span>';
+    }
+
+    function tutupPercakapan() {
+        if (!conversationAktif) return;
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/tutup', { method: 'POST' })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    showToast('Percakapan ditutup.', 'success');
+                    const idx = daftarConversation.findIndex(function(c) { return String(c.id) === String(conversationAktif); });
+                    if (idx !== -1) daftarConversation[idx] = json.conversation;
+                    renderDaftarConversation();
+                    renderThreadHeader();
+                } else {
+                    showToast(json.message || 'Gagal menutup percakapan.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            });
     }
 
     function ambilPercakapan() {
@@ -1117,6 +1205,12 @@
     // POLLING SEDERHANA (bukan WebSocket, sesuai spec)
     // ================================================================
     renderStatusGateway(<?= json_encode($gatewayStatus) ?>);
+    // Render ulang daftar sekali di awal (walau PHP sudah render first-
+    // paint) -- supaya badge assignment ("Dipegang: .../Belum diambil",
+    // lihat Tahap 2) & filter langsung konsisten tanpa menunggu polling
+    // pertama (6 detik). Satu sumber logic render (JS), tidak
+    // menduplikasi template di PHP.
+    renderDaftarConversation();
 
     setInterval(muatUlangDaftarConversation, 6000);
     setInterval(function() { muatUlangPesan(false); }, 4000);

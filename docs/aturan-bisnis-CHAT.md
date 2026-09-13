@@ -1576,3 +1576,132 @@ juga TIDAK menyentuh `messages` sama sekali.
 
 ---
 
+# 13. Tahap 2 — Assignment / Ambil Chat (2026-09-13)
+
+## 13.1 Apa ini
+
+Mekanisme "siapa yang sedang menangani" satu conversation, terpisah
+total dari status lifecycle Open/Closed (Section 12). Sebagian besar
+sudah diimplementasikan sejak §9 (kolom `assigned_to`, endpoint
+ambil/lepas, `cekOwnership()`, auto-assign reply pertama) -- Tahap 2
+ini AUDIT ulang implementasi itu terhadap business rule resmi,
+menemukan & memperbaiki 2 gap nyata (race condition, bug perbandingan
+tipe data di UI), TANPA membuat mekanisme/tabel/permission baru.
+
+**Kombinasi valid** (assignment BUKAN bagian dari status):
+`OPEN+assigned`, `OPEN+unassigned`, `CLOSED+assigned`,
+`CLOSED+unassigned`.
+
+## 13.2 Definisi
+
+- **Unassigned** (`assigned_to = NULL`): default conversation baru.
+  Membuka/melihat conversation TIDAK PERNAH meng-assign (read-only).
+- **Ambil** (`POST /inbox/percakapan/(:num)/ambil`,
+  `Inbox::ambilPercakapan()`, SUDAH ADA sejak §9): staff mengklaim
+  conversation yang belum ada assignee-nya. Tidak mengubah status
+  open/closed, history, atau identitas customer.
+- **Lepas** (`POST /inbox/percakapan/(:num)/lepas`,
+  `Inbox::lepasPercakapan()`, SUDAH ADA sejak §9): kosongkan
+  `assigned_to`. Status open/closed tidak berubah.
+- **Ownership** (`Inbox::cekOwnership()`, SUDAH ADA sejak §9): boleh
+  bertindak (balas/hapus/ambil/lepas/profil/konfirmasi nomor/tutup)
+  kalau `assigned_to` NULL, ATAU milik user itu sendiri, ATAU role
+  `admin`. **Tidak ada pembedaan permission staff/staff lain di luar
+  ini** -- semua staff non-admin diperlakukan setara oleh
+  `cekOwnership()` (tidak ada level "supervisor"/"team lead" dsb).
+  Ini fondasi permission SATU-SATUNYA yang ada di codebase; Tahap 2
+  TIDAK menambah struktur baru, murni dipakai apa adanya.
+- **Auto-assign reply pertama** (`kirimKeConversation()`/
+  `kirimMedia()`, SUDAH ADA sejak §9): begitu SATU staff berhasil
+  mengirim balasan (text/media, benar-benar terkonfirmasi sukses oleh
+  Gateway) ke conversation yang `assigned_to`-nya masih NULL,
+  otomatis ter-assign ke staff itu. Auto-assign TIDAK PERNAH menimpa
+  assignment yang sudah ada (dicek `empty($conversation['assigned_to'])`
+  SEBELUM update).
+- **Incoming customer tidak mengganti assignee**: `InboxGatewayApi::messages()`
+  untuk `direction='incoming'` HANYA menyentuh `status`/`last_message_at`/
+  `last_message_direction`/`whatsapp_name`/`phone` -- TIDAK PERNAH ada baris
+  kode yang menulis `assigned_to` di endpoint ini. Diverifikasi ulang
+  lewat audit source + test F/H (§13.6).
+- **Hubungan dengan Open/Closed**: `tutupPercakapan()` (Section 12)
+  HANYA menulis `status`/`closed_at`/`closed_by`, tidak pernah
+  menyentuh `assigned_to` -- Close/reopen dan assignment adalah 2
+  kolom independen yang masing-masing endpoint hanya menyentuh
+  miliknya sendiri.
+
+## 13.3 Gap yang ditemukan lewat audit & diperbaiki
+
+1. **Race condition di `ambilPercakapan()`** -- versi lama: `find()`
+   baca `assigned_to`, cek di PHP, baru `update()` terpisah. Dua
+   request nyaris bersamaan bisa SAMA-SAMA lolos pengecekan "masih
+   NULL" (dibaca sebelum salah satu sempat menyimpan). **Fix**: satu
+   `UPDATE ... WHERE id=? AND assigned_to IS NULL` (non-admin) / tanpa
+   syarat tambahan (admin, override diizinkan) dalam SATU statement --
+   MySQL mengunci baris per-statement UPDATE, jadi kalau 2 request
+   bentrok cuma SATU yang benar-benar mengubah baris. Dideteksi lewat
+   `affectedRows() === 0` (kalah race atau memang sudah dipegang orang
+   lain) vs `=== 1` (menang). Ditambah short-circuit idempotent kalau
+   `assigned_to` sudah sama dengan user itu sendiri (klik dobel tidak
+   dianggap gagal).
+2. **Bug perbandingan tipe data di UI (`inbox/index.php`)** --
+   `conv.assigned_to === currentUserId` (JS strict equality) SELALU
+   `false` karena `assigned_to` dari MySQLi/JSON berupa **string**
+   ("3"), sedangkan `currentUserId` berupa **number** (3) -- root
+   cause PERSIS SAMA dengan bug `id` yang sudah pernah diperbaiki
+   sebelumnya (lihat `cariConversation()`). Akibatnya tombol "Lepas"
+   TIDAK PERNAH muncul untuk staff pemilik asli (hanya admin yang bisa
+   lihat, karena kondisinya `punyaSaya || role==='admin'`), dan badge
+   assignment selalu tampil warna "orang lain" walau itu percakapan
+   milik sendiri. **Fix**: `String(conv.assigned_to) === String(currentUserId)`,
+   pola yang sama persis dengan `cariConversation()`.
+
+## 13.4 UI (`inbox/index.php`)
+
+- Daftar percakapan (kiri): badge `Dipegang: <Nama>` (biru kalau diri
+  sendiri, abu-abu kalau staff lain) atau `Belum diambil` (abu-abu
+  muda) -- selalu tampil, tidak ada state kosong tanpa keterangan.
+- Header thread (kanan): badge status `OPEN`/`CLOSED` (Section 12) +
+  badge assignment (`Dipegang: <Nama>` / `Belum diambil`) + tombol
+  `Ambil` (kalau unassigned) atau `Lepas` (kalau milik sendiri/admin) --
+  TIDAK ADA istilah teknis `assigned_to` di UI mana pun.
+- Tombol Edit/Hapus TETAP di daftar kiri (hasil kerja UI sebelumnya,
+  TIDAK dikembalikan ke header).
+- Render daftar percakapan dipanggil sekali di awal load
+  (`renderDaftarConversation()`) supaya badge assignment langsung
+  konsisten tanpa menunggu polling pertama (6 detik) -- satu sumber
+  logic render (JS), tidak menduplikasi template di PHP.
+
+## 13.5 Database
+
+**Tidak ada migration baru.** `conversations.assigned_to` (logical
+reference ke `aulia_kasirdb.users.id`) sudah ada sejak migration
+Phase 1. Tidak ada tabel assignment/users baru.
+
+## 13.6 Yang SUDAH saya verifikasi sendiri
+
+- **Test A-K (persis acceptance test Tahap 2)** dijalankan sebagai
+  assertion NYATA terhadap MySQL disposable (`aulia_inboxdb_migrationtest5`,
+  dibuat & dihapus khusus) -- **SEMUA LULUS**, termasuk Test J (race
+  condition: 2 percobaan "Ambil" ke conversation kosong yang sama,
+  TEPAT 1 yang berhasil lewat `affectedRows()`) dan Test K (admin
+  override/take-over lewat rule `cekOwnership()`/query atomic yang
+  sudah ada, tidak ada permission baru). Test D (membuka conversation
+  tidak auto-assign) diverifikasi structural: `apiMessages()`/
+  `pilihConversation()` dipastikan tidak pernah menulis `assigned_to`.
+  Database test dihapus, `.env` dikembalikan semula, `aulia_inboxdb`
+  live diverifikasi ulang tidak kehilangan/bertambah conversation.
+- `php -l` pada `Inbox.php`/`inbox/index.php`, `node --check` pada
+  blok JS `inbox/index.php`.
+- Regresi: seluruh test suite (119 test, `phpunit.dist.xml`) LULUS.
+
+## 13.7 Yang BELUM bisa saya verifikasi (perlu Anda jalankan)
+
+- Klik nyata "Ambil"/"Lepas" di browser dengan 2 akun berbeda
+  (termasuk race condition sungguhan -- 2 device/tab menekan "Ambil"
+  hampir bersamaan) -- baru diverifikasi lewat query/assertion
+  langsung ke MySQL, BUKAN lewat HTTP/browser end-to-end.
+- Tampilan badge "Dipegang:"/"Belum diambil" di layar sungguhan
+  (sudah lolos `node --check`, belum diklik langsung).
+
+---
+

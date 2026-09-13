@@ -46,6 +46,7 @@ $routes->post('/inbox/kirim-media', 'Inbox::kirimMedia', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/hapus', 'Inbox::hapusPercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/ambil', 'Inbox::ambilPercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/lepas', 'Inbox::lepasPercakapan/$1', ['filter' => 'auth']);
+$routes->post('/inbox/percakapan/(:num)/tutup', 'Inbox::tutupPercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/profil', 'Inbox::updateCustomerProfile/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/konfirmasi-nomor', 'Inbox::konfirmasiNomorWhatsapp/$1', ['filter' => 'auth']);
 $routes->post('/inbox/mulai-percakapan', 'Inbox::mulaiPercakapan', ['filter' => 'auth']);
