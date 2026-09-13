@@ -221,7 +221,15 @@
             <!-- ALUR STATUS: PROSES → SELESAI / BATAL -->
             <!-- ========================================== -->
 
-            <?php if (($transaksi['status'] ?? '') === 'proses' && session()->get('role') === 'admin'): ?>
+            <?php
+            // Tombol "Selesai" (workflow umum): Admin ATAU Effective Shift
+            // Leader saat ini boleh menekannya -- backend
+            // (TransaksiModel::ubahStatus) tetap satu-satunya otoritas
+            // sesungguhnya, ini hanya UI layer 1 (lihat
+            // docs/aturan-bisnis-AULIA.md soal "UI bukan enforcement").
+            $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
+            ?>
+            <?php if (($transaksi['status'] ?? '') === 'proses' && (session()->get('role') === 'admin' || $isShiftLeaderUser)): ?>
                 <button class="btn btn-primary w-100 mb-2" onclick="selesaikanTransaksi(<?= $transaksi['id'] ?>, '<?= esc($transaksi['status_pembayaran'], 'js') ?>')">
                     <i class="fas fa-check"></i> Selesai
                 </button>

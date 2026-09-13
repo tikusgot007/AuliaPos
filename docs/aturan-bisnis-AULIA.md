@@ -340,6 +340,73 @@ langsung tetap tunduk pada semua pemeriksaan di atas.
 
 ---
 
+## 4.3 Kapabilitas SELESAI untuk Effective Shift Leader (2026-09-13, Tahap 3)
+
+**Keputusan resmi:** workflow umum (Daftar/Detail Transaksi,
+`/api/ubah-status`) sekarang menerima **Admin ATAU Effective Shift
+Leader saat itu** — bukan admin-only lagi seperti Section 4.1. Ini
+mengisi tempat yang sudah diantisipasi Section 4.1 ("Role SPV belum
+dibuat; jika dibutuhkan nanti, ditambahkan sebagai perubahan
+terpisah") — Shift Leader mengisi peran itu, **tanpa** menjadi role
+permanen baru.
+
+**Shift Leader BUKAN `users.role`.** `users.role` tetap persis
+`enum('admin','kasir')`, tidak pernah bernilai `'shift_leader'`.
+Shift Leader adalah *effective authority* yang dihitung ON-DEMAND
+setiap request dari: `users.priority` (permanen, unik, lihat kolom
+baru di Section skema `users`) + jadwal aktual hari itu (tabel
+`jadwal`, Section 20) + jam shift (`JadwalModel::DEFINISI_SHIFT`,
+tidak diubah). Definisi lengkap konsep Priority/Shift Member/Shift
+Leader adalah cross-version business rule di
+`docs/aturan-bisnis-USER-SHIFT.md` (saat ini hidup di branch `v3.0`,
+belum di-porting ke `v2.x`) — dokumen ini **tidak mendefinisikan
+ulang** konsepnya, hanya mencatat titik integrasinya ke lifecycle
+transaksi. Satu klarifikasi penting: implementasi di v2.x memakai
+**satu Shift Leader global** untuk seluruh operasional (P/S/PM yang
+overlap masuk satu pool kandidat gabungan) — bukan satu Leader per
+kode shift.
+
+**Syarat kandidat Shift Leader** (`App\Services\EffectiveShiftLeaderService`):
+`users.role = 'kasir'` (Admin tidak pernah ikut kompetisi ini sama
+sekali), `users.is_active = 1`, `users.priority IS NOT NULL`, punya
+row `jadwal` pada tanggal itu dengan `shift != 'L'`, dan sedang berada
+dalam jendela jam kerja shift tersebut
+(`App\Services\EvaluasiJendelaKerjaShift`, dibaca dari
+`JadwalModel::DEFINISI_SHIFT`). Di antara kandidat, Priority tertinggi
+menang. Tidak ada Leader tersimpan di database, tidak ada cache, tidak
+ada fallback ke Leader sebelumnya/shift lain/Admin — kalau tidak ada
+kandidat yang sedang bekerja, hasilnya `null` dan tidak ada Shift
+Leader saat itu.
+
+**Yang TIDAK berubah:**
+
+- Syarat `lunas` (Section 4.1) — berlaku identik untuk admin, konteks
+  kasir POS (Section 4.2), maupun Shift Leader, tanpa kecuali.
+- Kapabilitas kasir POS (Section 4.2) — kasir pemilik transaksi tetap
+  menyelesaikan lewat `/api/kasir/selesaikan-transaksi` persis seperti
+  sebelumnya; jalur ini tidak disentuh oleh perubahan ini.
+- Kasir biasa yang **bukan** Shift Leader saat itu — tetap ditolak di
+  workflow umum, tidak berubah.
+- `JadwalModel::statusSaatIni()` — kontraknya (informational-only,
+  bukan authorization) tidak diubah; perhitungan jendela kerja untuk
+  Shift Leader memakai kalkulator baru yang independen.
+
+**Tabel siapa boleh menyelesaikan (perbarui dari Section 4.1):**
+
+| Role/status saat itu | Workflow umum — `/api/ubah-status` | Workflow Kasir/POS |
+|---|---|---|
+| admin | Ya, jika `lunas` | Ya, jika `lunas` |
+| Effective Shift Leader saat itu (tetap `role='kasir'`) | Ya, jika `lunas` | Ya, jika `lunas` **dan** transaksi miliknya sendiri (aturan POS tak berubah) |
+| kasir biasa (bukan Leader saat itu) | **Tidak** | Ya, jika `lunas` **dan** transaksi miliknya sendiri |
+
+Enforcement tetap di backend
+(`TransaksiModel::ubahStatus()` parameter `$isShiftLeader`, dihitung
+`Api::ubahStatus()` lewat `App\Services\Authority::isCurrentShiftLeader()`)
+— UI (tombol "Selesai" di Daftar/Detail) hanya lapis pertama, sama
+seperti prinsip Section 4.2.
+
+---
+
 # 5. Edit transaksi
 
 Edit normal hanya berlaku untuk:

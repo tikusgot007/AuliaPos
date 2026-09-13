@@ -1,6 +1,9 @@
 <?php
 
+require_once __DIR__ . '/../_support/Fakes/ShiftLeaderClockOverride.php';
+
 use App\Models\TransaksiModel;
+use App\Services\FakeClock;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
@@ -70,6 +73,179 @@ final class KasirSelesaikanTransaksiTest extends CIUnitTestCase
     private function statusTransaksi(int $id): string
     {
         return (string) db_connect()->table('transaksi')->getWhere(['id' => $id])->getRow('status');
+    }
+
+    private function seedUser(int $id, string $role, int $isActive, ?int $priority): void
+    {
+        db_connect()->table('users')->insert([
+            'id'        => $id,
+            'username'  => 'user' . $id,
+            'role'      => $role,
+            'is_active' => $isActive,
+            'priority'  => $priority,
+        ]);
+    }
+
+    private function seedJadwal(int $karyawanId, string $tanggal, string $shift): void
+    {
+        db_connect()->table('jadwal')->insert([
+            'karyawan_id' => $karyawanId,
+            'tanggal'     => $tanggal,
+            'shift'       => $shift,
+        ]);
+    }
+
+    /**
+     * Tanggal/jam TETAP (bukan wall-clock sandbox), dipakai bersama
+     * FakeClock::$override supaya Effective Shift Leader deterministik
+     * lewat jalur HTTP asli -- lihat tests/_support/Fakes/
+     * ShiftLeaderClockOverride.php untuk penjelasan tekniknya. '09:00'
+     * berada di dalam jendela P (08:00-15:00).
+     */
+    private const HARI_TETAP = '2026-09-14';
+    private const JAM_TETAP  = '09:00';
+
+    protected function tearDown(): void
+    {
+        FakeClock::reset(); // jangan bocor ke test lain
+        parent::tearDown();
+    }
+
+    // ---- POC: otorisasi Shift Leader di workflow umum (Tahap 3, Bagian H/J.E) ----
+    //
+    // 4 test di bawah HARUS benar-benar melewati HTTP -> Api::ubahStatus()
+    // -> Authority::isCurrentShiftLeader() -> TransaksiModel::ubahStatus(),
+    // deterministik tanpa bergantung jam wall-clock sandbox. "Sekarang"
+    // TETAP dihitung server-side oleh App\Services\EffectiveShiftLeaderService
+    // (endpoint tidak menerima override waktu dari request/client sama
+    // sekali -- FakeClock hanya menggantikan date() PHP untuk kode di
+    // namespace App\Services selama test ini berjalan, lihat
+    // ShiftLeaderClockOverride.php).
+
+    public function testShiftLeaderBisaSetSelesaiDiWorkflowUmum(): void
+    {
+        FakeClock::$override = self::HARI_TETAP . ' ' . self::JAM_TETAP . ':00';
+
+        $this->seedUser(50, 'kasir', 1, 10);
+        $this->seedJadwal(50, self::HARI_TETAP, 'P');
+
+        $id = $this->seedTransaksi(['kasir_id' => 99]); // bukan transaksi milik user 50
+        $this->bayarLunas($id);
+
+        $res = $this->withSession($this->sesi('kasir', 50))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'selesai']);
+
+        $res->assertJSONFragment(['status' => 'success']);
+        $this->assertSame('selesai', $this->statusTransaksi($id));
+    }
+
+    public function testKasirBukanLeaderTidakBisaWalauPunyaPriorityDanJadwal(): void
+    {
+        FakeClock::$override = self::HARI_TETAP . ' ' . self::JAM_TETAP . ':00';
+
+        $this->seedUser(50, 'kasir', 1, 10); // priority tertinggi -> Leader
+        $this->seedUser(51, 'kasir', 1, 5);  // punya priority & jadwal juga, tapi BUKAN Leader
+        $this->seedJadwal(50, self::HARI_TETAP, 'P');
+        $this->seedJadwal(51, self::HARI_TETAP, 'P');
+
+        $id = $this->seedTransaksi(['kasir_id' => 99]);
+        $this->bayarLunas($id);
+
+        $res = $this->withSession($this->sesi('kasir', 51))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'selesai']);
+
+        $res->assertJSONFragment(['status' => 'error']);
+        $this->assertSame('proses', $this->statusTransaksi($id));
+    }
+
+    public function testShiftLeaderTidakMengubahUsersRole(): void
+    {
+        FakeClock::$override = self::HARI_TETAP . ' ' . self::JAM_TETAP . ':00';
+
+        $this->seedUser(50, 'kasir', 1, 10);
+        $this->seedJadwal(50, self::HARI_TETAP, 'P');
+
+        $id = $this->seedTransaksi(['kasir_id' => 99]);
+        $this->bayarLunas($id);
+
+        $this->withSession($this->sesi('kasir', 50))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'selesai']);
+
+        $role = db_connect()->table('users')->getWhere(['id' => 50])->getRow('role');
+        $this->assertSame('kasir', $role); // TIDAK PERNAH jadi 'shift_leader'
+    }
+
+    public function testShiftLeaderTetapDitolakJikaBelumLunas(): void
+    {
+        FakeClock::$override = self::HARI_TETAP . ' ' . self::JAM_TETAP . ':00';
+
+        $this->seedUser(50, 'kasir', 1, 10);
+        $this->seedJadwal(50, self::HARI_TETAP, 'P');
+
+        $id = $this->seedTransaksi(['kasir_id' => 99]); // belum dibayar sama sekali
+
+        $res = $this->withSession($this->sesi('kasir', 50))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'selesai']);
+
+        $res->assertJSONFragment(['status' => 'error']);
+        $this->assertSame('proses', $this->statusTransaksi($id));
+    }
+
+    public function testTidakAdaLeaderKasirBiasaTidakDapatFallback(): void
+    {
+        // Tidak ada user manapun yang di-seed sebagai kandidat -> tidak ada Leader.
+        $id = $this->seedTransaksi(['kasir_id' => 99]);
+        $this->bayarLunas($id);
+
+        $res = $this->withSession($this->sesi('kasir', 7))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'selesai']);
+
+        $res->assertJSONFragment(['status' => 'error']);
+        $this->assertSame('proses', $this->statusTransaksi($id));
+    }
+
+    public function testShiftLeaderYangSudahLewatJamKehilanganAuthorityRequestBerikutnya(): void
+    {
+        $this->seedUser(50, 'kasir', 1, 10);
+        $this->seedJadwal(50, '2026-09-14', 'P'); // 08:00-15:00
+
+        $id = $this->seedTransaksi(['kasir_id' => 99]);
+        $this->bayarLunas($id);
+
+        $isLeaderSaatMasihBekerja = \App\Services\Authority::isCurrentShiftLeader(50, '2026-09-14', '09:00');
+        $isLeaderSetelahLewat     = \App\Services\Authority::isCurrentShiftLeader(50, '2026-09-14', '15:01');
+
+        $this->assertTrue($isLeaderSaatMasihBekerja);
+        $this->assertFalse($isLeaderSetelahLewat);
+
+        // "Request berikutnya" setelah jam shift lewat harus ditolak model,
+        // walau id/priority/jadwal orangnya sama persis -- tidak ada state
+        // yang nempel (tidak ada current_leader yang disimpan/di-cache).
+        $this->expectException(\Exception::class);
+        (new TransaksiModel())->ubahStatus($id, 'selesai', false, false, $isLeaderSetelahLewat);
+    }
+
+    public function testPerubahanPriorityMengubahAuthoritySesuaiRankingBaru(): void
+    {
+        $this->seedUser(50, 'kasir', 1, 5);
+        $this->seedUser(51, 'kasir', 1, 10);
+        $this->seedJadwal(50, '2026-09-14', 'P');
+        $this->seedJadwal(51, '2026-09-14', 'P');
+
+        $this->assertFalse(\App\Services\Authority::isCurrentShiftLeader(50, '2026-09-14', '09:00'));
+        $this->assertTrue(\App\Services\Authority::isCurrentShiftLeader(51, '2026-09-14', '09:00'));
+
+        // Priority 50 dinaikkan melewati 51 -> authority berpindah seketika
+        // (tidak ada cache yang perlu di-invalidate).
+        db_connect()->table('users')->where('id', 50)->update(['priority' => 20]);
+
+        $this->assertTrue(\App\Services\Authority::isCurrentShiftLeader(50, '2026-09-14', '09:00'));
+        $this->assertFalse(\App\Services\Authority::isCurrentShiftLeader(51, '2026-09-14', '09:00'));
     }
 
     // ---- A. kasir + kasir/index + LUNAS -> ALLOWED --------------------

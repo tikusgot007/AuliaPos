@@ -60,8 +60,17 @@ class TransaksiModel extends Model
      *                        dan untuk transisi SELESAI -> BATAL
      *                        (lihat docs/aturan-bisnis-AULIA.md Section 2
      *                        dan perubahan-alur-status-transaksi.md).
+     * @param bool   $isShiftLeader Kapabilitas KHUSUS KONTEKS untuk PROSES
+     *                        -> SELESAI di workflow umum: Effective Shift
+     *                        Leader saat ini (App\Services\Authority::
+     *                        isCurrentShiftLeader()) boleh menyelesaikan
+     *                        transaksi yang sebelumnya admin-only di sana.
+     *                        TIDAK berlaku untuk transisi lain (batal,
+     *                        mangkrak, reaktivasi tetap admin-only persis
+     *                        seperti sebelumnya). Diberikan HANYA oleh
+     *                        Api::ubahStatus() -- lihat POC Tahap 3.
      */
-    public function ubahStatus($id, $status, bool $isAdmin = false, bool $izinSelesaikanKonteks = false)
+    public function ubahStatus($id, $status, bool $isAdmin = false, bool $izinSelesaikanKonteks = false, bool $isShiftLeader = false)
     {
         $status = strtolower(trim((string) $status));
 
@@ -217,13 +226,23 @@ class TransaksiModel extends Model
         // (POS) untuk transaksi buatannya sendiri. Diberikan HANYA oleh
         // Api::selesaikanTransaksiKasir() yang sudah memeriksa
         // sumber/kepemilikan. Endpoint status umum (Api::ubahStatus,
-        // dipakai Detail/Daftar) memakai default false -> kasir tetap
-        // ditolak di sana. Syarat LUNAS di bawah berlaku untuk SEMUA
-        // jalur, tanpa kecuali.
+        // dipakai Detail/Daftar) memakai default false untuk parameter
+        // ini -> kasir biasa tetap ditolak di sana.
+        //
+        // $isShiftLeader = kapabilitas KHUSUS KONTEKS lain, KHUSUS untuk
+        // workflow umum (Api::ubahStatus): Effective Shift Leader saat
+        // ini (dihitung dari users.priority + jadwal + jam shift, lihat
+        // App\Services\EffectiveShiftLeaderService/Authority -- BUKAN
+        // role permanen, users.role tidak pernah jadi 'shift_leader')
+        // boleh menyelesaikan transaksi apa pun di workflow umum yang
+        // sebelumnya admin-only. Tidak menggantikan/melemahkan aturan
+        // ownership POS di atas -- keduanya independen. Syarat LUNAS di
+        // bawah berlaku untuk SEMUA jalur (admin/konteks kasir/Shift
+        // Leader), tanpa kecuali.
         if ($status === 'selesai') {
-            if (!$isAdmin && !$izinSelesaikanKonteks) {
+            if (!$isAdmin && !$izinSelesaikanKonteks && !$isShiftLeader) {
                 throw new \Exception(
-                    'Hanya admin yang dapat menyelesaikan transaksi.'
+                    'Hanya admin atau Shift Leader yang dapat menyelesaikan transaksi.'
                 );
             }
 
