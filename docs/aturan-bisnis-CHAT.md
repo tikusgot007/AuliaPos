@@ -1705,3 +1705,133 @@ Phase 1. Tidak ada tabel assignment/users baru.
 
 ---
 
+# 14. Tahap 3 — Integrasi Open/Closed x Assignment (2026-09-13)
+
+## 14.1 Apa ini
+
+Status lifecycle (Section 12) dan assignment (Section 13) adalah **2
+dimensi independen** yang HARUS tetap konsisten saat berinteraksi.
+Tahap ini murni **AUDIT + verifikasi integrasi** -- tidak ditemukan
+gap baru, TIDAK ADA perubahan kode. Section 12 & 13 (dikerjakan
+terpisah) ternyata SUDAH memenuhi seluruh rule integrasi ini karena
+masing-masing endpoint sudah didesain untuk hanya menyentuh kolom
+miliknya sendiri sejak awal (lihat 14.3).
+
+## 14.2 Empat state valid
+
+| | UNASSIGNED | ASSIGNED(x) |
+|---|---|---|
+| **OPEN** | Valid | Valid |
+| **CLOSED** | Valid | Valid |
+
+Tidak ada state ketiga (`waiting`/`pending`/`reopened`/`taken`/
+`resolved`) -- `status` kolom tetap `ENUM('open','closed')` apa
+adanya (skema Phase 1, tidak diubah).
+
+## 14.3 Kenapa integrasinya otomatis benar (audit source code)
+
+Setiap operasi HANYA menulis kolom yang menjadi tanggung jawabnya:
+
+| Operasi | Menulis | TIDAK PERNAH menulis |
+|---|---|---|
+| `InboxGatewayApi::messages()` (`incoming`) | `status='open'`, `last_message_*`, `whatsapp_name`, `phone` | `assigned_to` |
+| `InboxGatewayApi::messages()` (`outgoing` sync WA Web/HP) | `last_message_*` saja | `status`, `assigned_to` |
+| `Inbox::tutupPercakapan()` (Close) | `status='closed'`, `closed_at`, `closed_by` | `assigned_to` |
+| `Inbox::ambilPercakapan()` (Ambil) | `assigned_to` (atomic, Tahap 2) | `status` |
+| `Inbox::lepasPercakapan()` (Lepas) | `assigned_to=NULL` | `status` |
+| `kirimKeConversation()`/`kirimMedia()` (reply, auto-assign) | `assigned_to` (HANYA kalau masih NULL), `last_message_*`, `last_replied_by` | `status` |
+
+Karena tidak ada satu pun operasi yang menyentuh kolom di luar
+tanggung jawabnya, ke-16 kombinasi transisi (status x assignment x
+jenis event) otomatis konsisten TANPA perlu logic penggabungan/rule
+baru apa pun.
+
+## 14.4 Rule kunci yang diverifikasi ulang
+
+- **Reopen TIDAK membuat conversation baru**: `resolveConversationId()`
+  mencari lewat `chat_id`/alias (Section 11), sama sekali tidak
+  peduli `status` -- conversation `CLOSED` tetap "ditemukan" oleh
+  incoming berikutnya lewat jalur pencarian yang SAMA seperti kalau
+  dia `OPEN`. Reopen = update `status` pada baris yang sama, bukan
+  insert baru.
+- **Close tidak menghapus assignment** kecuali diminta eksplisit:
+  tidak ada baris kode di `tutupPercakapan()` yang menyentuh
+  `assigned_to` -- diverifikasi lewat pembacaan source + Test E/G/K.
+- **Incoming reopen tidak mengubah assignment**: Test F (unassigned
+  tetap unassigned, TIDAK auto-assign ke siapa pun) dan Test G/K
+  (assigned tetap assigned, TIDAK berubah/hilang/pindah).
+- **Outgoing sync tidak mengubah lifecycle ATAUPUN assignment**: Test H.
+- **Ownership tetap dari Section 13** (`cekOwnership()`) -- tidak ada
+  role/permission baru. Staff hanya bisa Ambil conversation unassigned
+  atau miliknya sendiri (Test M), admin override tetap berlaku (sudah
+  dibuktikan Tahap 2 §13, tidak diulang di sini karena tidak ada
+  perubahan).
+
+## 14.5 Concurrency: Close vs incoming hampir bersamaan
+
+**Diaudit, TIDAK ditemukan risiko duplicate conversation atau
+assignment hilang**: `resolveConversationId()` mencari berdasarkan
+`chat_id`/alias yang SUDAH ada sebelum race ini terjadi (conversation
+itu sendiri bukan baru), jadi urutan eksekusi Close vs incoming tidak
+mempengaruhi identitas conversation sama sekali -- keduanya
+memperbarui BARIS YANG SAMA. `assigned_to` tidak disentuh oleh kedua
+operasi, jadi tidak mungkin hilang akibat race ini.
+
+**Satu ceiling yang disadari dan diterima** (ponytail: tidak
+diperbaiki di sini, di luar scope "perubahan minimal"): kalau
+kebetulan Close dan incoming benar-benar berbarengan, hasil akhir
+kolom `status` mengikuti **UPDATE mana yang commit terakhir**
+(last-write-wins) -- staff bisa saja menutup, lalu ternyata ada pesan
+baru yang statusnya "keburu" tertimpa balik jadi closed. Ini BUKAN
+korupsi data (tidak ada baris ganda, tidak ada kolom setengah-tertulis,
+`closed_at`/`closed_by` tetap konsisten dengan `status` masing-masing
+UPDATE) -- hanya soal siapa yang menang di detik yang sama, risiko
+yang sama seperti sistem last-write-wins lain pada umumnya. Upgrade
+path kalau suatu saat dibutuhkan: bungkus `tutupPercakapan()` dengan
+`WHERE updated_at = <nilai yang dibaca>` (optimistic locking) seperti
+pola atomic `ambilPercakapan()` di Tahap 2.
+
+## 14.6 UI
+
+Tidak ada perubahan kode -- diaudit ulang, `renderThreadHeader()` dan
+`renderDaftarConversation()` (Tahap 1 + 2) SUDAH menghasilkan
+kombinasi tombol yang benar tanpa perubahan:
+
+| State | Tombol/Info yang tampil |
+|---|---|
+| OPEN + milik saya | badge `OPEN`, `Dipegang: <saya>`, tombol **Lepas**, tombol **Tutup** |
+| OPEN + unassigned | badge `OPEN`, `Belum diambil`, tombol **Ambil**, tombol **Tutup** |
+| OPEN + milik staff lain | badge `OPEN`, `Dipegang: <lain>`, TANPA tombol Lepas (bukan pemilik) |
+| CLOSED (assigned/unassigned) | badge `CLOSED`, info assignee tetap tampil, TANPA tombol Tutup |
+
+Tidak ada tombol "Open" manual (sesuai rule -- reopen hanya lewat
+pesan masuk). Filter Semua/Open/Closed (Tahap 1) tidak terpengaruh
+assignment sama sekali (filter murni berdasar `status`).
+
+## 14.7 Yang SUDAH saya verifikasi sendiri
+
+- **Test A-R (18 skenario, persis acceptance test Tahap 3)** dijalankan
+  sebagai assertion NYATA terhadap MySQL disposable
+  (`aulia_inboxdb_migrationtest6`, dibuat & dihapus khusus) --
+  **SEMUA LULUS (18/18)**, termasuk kombinasi CLOSED+ASSIGNED/
+  CLOSED+UNASSIGNED x incoming/outgoing sync, race condition Ambil
+  (Test O), dan filter Open/Closed dengan data campuran. Database test
+  dihapus, `.env` dikembalikan semula, `aulia_inboxdb` live tidak
+  kehilangan/bertambah conversation akibat test ini.
+- Audit source code penuh `InboxGatewayApi.php`, `Inbox.php`,
+  `inbox/index.php` -- dikonfirmasi tidak ada satu baris pun yang
+  melanggar pemisahan tanggung jawab kolom (14.3).
+- Regresi: seluruh test suite (119 test, `phpunit.dist.xml`) LULUS.
+- `AUDIT PASS` (bukan E2E) untuk seluruh rule UI (14.6) -- kode
+  diverifikasi lewat pembacaan logic render, BUKAN diklik di browser.
+
+## 14.8 Yang BELUM bisa saya verifikasi (perlu Anda jalankan)
+
+**BELUM DIVERIFIKASI -- browser E2E**: seluruh skenario A-R di atas
+BELUM diklik langsung di browser sungguhan (mis. 2 device kirim WA
+asli ke conversation yang sama sambil staff menutupnya nyaris
+bersamaan). Semua kelulusan di atas adalah hasil query/assertion
+langsung ke MySQL, bukan hasil interaksi HTTP/UI nyata.
+
+---
+
