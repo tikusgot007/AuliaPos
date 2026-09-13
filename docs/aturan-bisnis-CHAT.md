@@ -1835,3 +1835,217 @@ langsung ke MySQL, bukan hasil interaksi HTTP/UI nyata.
 
 ---
 
+# 15. Tahap 5 — Unread / Read (2026-09-13)
+
+**Status dokumentasi: aturan bisnis DISEPAKATI, BELUM DIIMPLEMENTASIKAN.**
+Bab ini murni menetapkan business rule (arsitektur lanjutan:
+Identity → Conversation → Open/Closed → Assignment → **Unread/Read**
+→ Search/Filter → Reliability). Belum ada perubahan kode/skema untuk
+Tahap 5 -- implementasi baru dikerjakan setelah bab ini ditinjau, lewat
+alur yang sama seperti tahap-tahap sebelumnya: audit kode existing →
+identifikasi gap → implementasi minimal → test disposable DB →
+regression test → browser E2E → baru commit.
+
+## 15.1 Tujuan
+
+Chat AuliaPos harus bisa membedakan conversation yang sudah dibaca dan
+belum dibaca, sebagai **dimensi keempat yang independen**, terpisah
+dari:
+
+- Identity customer
+- Conversation
+- Lifecycle Open/Closed
+- Assignment
+
+Read/Unread **bukan pengganti** status Open/Closed dan **bukan
+pengganti** Assignment -- ketiganya punya fungsi berbeda dan harus
+tetap bisa berubah sendiri-sendiri tanpa saling mempengaruhi kecuali
+memang diatur eksplisit di bab ini.
+
+## 15.2 Prinsip utama: Unread di level Conversation, bukan per-Message
+
+Unread BUKAN status per-message. Kalau customer mengirim 3 pesan
+berturut-turut, conversation itu berada pada SATU kondisi `UNREAD`,
+bukan 3 penanda unread terpisah. Jumlah pesan baru boleh ditampilkan
+sebagai info tambahan di UI, tapi state utamanya tetap Unread pada
+level conversation.
+
+## 15.3 Hubungan dengan Assignment
+
+- **Conversation assigned** (`assigned_to = User A`): Read/Unread
+  menjadi tanggung jawab User A secara spesifik. Staff lain boleh
+  melihat conversation itu, tapi aktivitas mereka (membuka, membaca)
+  **tidak mengubah** status Read/Unread milik User A.
+- **Conversation unassigned** (`assigned_to = NULL`): berada di inbox
+  bersama. Pesan baru membuatnya `UNREAD` dan terlihat oleh semua
+  staff yang punya akses inbox. **Membuka saja TIDAK menghilangkan
+  Unread** selama conversation belum diambil (`Ambil`).
+
+## 15.4 Kapan conversation menjadi READ
+
+- **Assigned**: membuka conversation TIDAK otomatis membuat pesan
+  terbaru jadi Read. Conversation menjadi `READ` hanya ketika assignee
+  BENAR-BENAR melihat/mencapai pesan terbaru (pesan terbaru terlihat
+  di viewport) -- bukan berdasarkan tindakan scroll manual, bukan
+  berdasarkan sekadar membuka halaman.
+- **Unassigned**: staff yang membuka tanpa melakukan `Ambil` TIDAK
+  menghilangkan Unread.
+- **Sedang mengetik balasan**: BUKAN bukti pesan sudah dibaca -- pesan
+  customer yang masuk saat assignee sedang mengetik tetap `UNREAD`.
+- **Tab/browser tidak aktif**: pesan yang masuk saat AuliaPos di
+  tab/browser tidak aktif tetap `UNREAD` sampai assignee benar-benar
+  kembali dan melihat pesan terbarunya.
+
+## 15.5 Ambil Chat = ambil tanggung jawab + tandai terbaca
+
+Ketika staff melakukan `Ambil` pada conversation unassigned:
+`assigned_to = NULL` → `assigned_to = <user>` **DAN** conversation
+langsung dianggap `READ` oleh user itu (kondisi pesan yang sedang ada
+saat itu dianggap sudah dilihat). `Ambil` punya 2 makna sekaligus:
+mengambil tanggung jawab, dan menandai pesan yang ada sebagai sudah
+dibaca.
+
+## 15.6 Pesan masuk (semua tipe media)
+
+Setiap pesan incoming dari customer (text/image/document/audio/video,
+dan tipe lain yang didukung Gateway di masa depan) menghasilkan
+`UNREAD` kalau belum dilihat oleh assignee -- tidak ada pengecualian
+berdasarkan `message_type`.
+
+## 15.7 Persistensi & konsistensi multi-device/multi-tab
+
+- Status Read/Unread **wajib** disimpan persisten di database --
+  TIDAK BOLEH hanya bergantung pada `localStorage`/session
+  browser/state JS/tab/device tertentu. Browser ditutup lalu dibuka
+  lagi, status Unread di database tetap seperti sebelumnya.
+- Read/Unread berlaku GLOBAL untuk satu user pada satu conversation,
+  bukan per-device/per-tab. Kalau user yang sama membaca pesan
+  terbaru dari Device B, Device A ikut menjadi Read setelah
+  sinkronisasi (bukan status Read/Unread terpisah per device).
+- User lain (atau admin) yang sekadar membuka conversation milik
+  assignee lain, **TIDAK mengubah** Read/Unread milik assignee
+  tersebut -- kecuali memang melakukan Takeover (lihat 15.8).
+
+## 15.8 Efek aksi lifecycle/assignment terhadap Read/Unread
+
+| Aksi | Efek terhadap Read/Unread |
+|---|---|
+| **Close** | TIDAK mengubah Read/Unread sama sekali (murni lifecycle) |
+| **Customer kirim pesan setelah Closed** | conversation kembali OPEN dengan assignee yang SAMA, dan menjadi `UNREAD` (harus kembali muncul di filter Open, keluar dari filter Closed) |
+| **Lepas** | conversation kembali ke inbox bersama DAN menjadi `UNREAD` untuk inbox tersebut (assignment lama tidak lagi relevan) |
+| **Ambil setelah Lepas** | sama seperti 15.5 -- `assigned_to` terisi + langsung `READ` |
+| **Takeover** (assigned_to A → assigned_to B, termasuk oleh Admin) | conversation menjadi `UNREAD` untuk assignee BARU, terlepas dari status Read sebelumnya milik assignee lama -- status Read lama adalah bukti "assignee LAMA sudah melihat", bukan bukti assignee baru sudah melihat |
+| **Outgoing dari AuliaPos** (reply oleh assignee) | TIDAK menghasilkan Unread -- assignee yang membalas otomatis dianggap sudah melihat pesan terbaru (jadi `READ`) |
+
+## 15.9 Activity & urutan daftar conversation
+
+Incoming maupun outgoing SAMA-SAMA merupakan "aktivitas conversation"
+yang menentukan urutan (aktivitas terbaru = paling atas daftar).
+**Sorting berdasarkan aktivitas TIDAK SAMA dengan Read/Unread** --
+dua konsep yang independen: conversation bisa saja aktif baru-baru
+ini (naik ke atas daftar) tapi tetap Read (misalnya karena outgoing
+reply), atau sebaliknya.
+
+## 15.10 UI: dua tingkat indikator
+
+1. **Badge total** pada Inbox: jumlah CONVERSATION yang Unread (bukan
+   jumlah message Unread), mis. `Inbox 5`.
+2. **Indikator per-conversation**: penanda visual (mis. titik/dot) di
+   setiap baris conversation yang sedang Unread di daftar.
+
+## 15.11 Delete Conversation (klarifikasi hak akses & prasyarat)
+
+- Delete adalah tindakan destruktif, **hanya boleh dilakukan Admin**.
+- Conversation harus **CLOSED** dulu sebelum bisa dihapus (urutan:
+  OPEN → Close → CLOSED → Delete).
+- Saat dihapus, SELURUH state ikut hilang: Read/Unread, assignment,
+  lifecycle, messages.
+- Kalau customer mengirim pesan baru setelah conversation-nya
+  dihapus, sistem membuat conversation BARU (identitas lama sudah
+  tidak ada lagi untuk di-reconcile).
+
+> **CATATAN AUDIT (dicatat, bukan diimplementasikan di bab ini)**:
+> implementasi `Inbox::hapusPercakapan()` SAAT INI (lihat Section 8)
+> **belum** mensyaratkan conversation harus CLOSED lebih dulu, dan
+> **belum** membatasi aksi ini hanya untuk Admin (memakai
+> `cekOwnership()` yang sama dengan aksi lain, bukan pengecekan
+> role admin khusus). Ini GAP antara dokumentasi Tahap 5 (aturan baru
+> yang disepakati) dengan kode existing (Section 8/9) -- akan
+> diselesaikan sebagai bagian dari audit implementasi Tahap 5, BUKAN
+> diubah diam-diam lewat bab dokumentasi ini.
+
+## 15.12 Hak akses (ringkasan, tidak membuat role baru)
+
+| Operasi | Assignee | Staff lain | Admin |
+|---|---|---|---|
+| Lihat conversation | Ya | Ya* | Ya |
+| Ambil | Ya | Ya | Ya |
+| Lepas | Ya | Tidak | Ya |
+| Close | Ya | Tidak | Ya |
+| Edit profil | Ya | Tidak | Ya |
+| Hapus | Tidak | Tidak | Ya |
+| Takeover | — | — | Ya |
+
+\* mengikuti aturan visibility inbox yang sudah ada (Section 13).
+
+**Role "Shift Leader" belum termasuk** dalam spesifikasi ini --
+penambahan role tersebut dibahas & didokumentasikan terpisah, TIDAK
+dibuat sebagai bagian dari Tahap 5.
+
+> **CATATAN AUDIT**: fondasi permission existing (`cekOwnership()`,
+> Section 13) hanya mengenal 2 level: staff vs `role==='admin'`.
+> Tabel di atas konsisten dengan itu -- TIDAK memerlukan permission
+> baru untuk operasi Ambil/Lepas/Close/Edit profil (sudah persis
+> perilaku `cekOwnership()` yang ada). Kolom "Hapus: hanya Admin"
+> ADALAH aturan baru dibanding implementasi Section 8 saat ini (lihat
+> catatan gap di 15.11).
+
+## 15.13 Prinsip pemisahan state (3 dimensi independen)
+
+```
+CONVERSATION
+├── Lifecycle:   OPEN / CLOSED
+├── Assignment:  NULL / User ID
+└── Read State:  READ / UNREAD
+```
+
+Perubahan satu dimensi TIDAK BOLEH secara tidak sengaja mengubah
+dimensi lain, kecuali interaksi yang eksplisit diatur di bab ini
+(ringkasan lihat tabel 15.8 dan matriks 15.14).
+
+## 15.14 Matriks transisi (acceptance test untuk implementasi nanti)
+
+| Kondisi awal | Aksi | Hasil |
+|---|---|---|
+| Unassigned + Unread | Buka (tanpa Ambil) | Tetap Unread |
+| Unassigned + Unread | Ambil | Assigned + Read |
+| Assigned + Unread | Assignee melihat pesan terbaru | Read |
+| Assigned + Read | Customer kirim pesan | Unread |
+| Assigned + Read | Close | Closed + Read |
+| Closed + Read (assigned) | Customer kirim pesan | Open + Unread (assignee SAMA) |
+| Assigned + Read | Lepas | Unassigned + Unread |
+| Assigned A + Read | Takeover oleh B | Assigned B + Unread |
+| Assigned + Unread | Staff lain buka | Tetap Unread |
+| Assigned + Unread | Admin buka TANPA takeover | Tetap Unread |
+| Assigned + Read | Outgoing dari POS | Tetap Read |
+| Closed | Delete oleh Admin | Conversation terhapus (semua state ikut hilang) |
+| (Deleted) | Customer kirim pesan | Conversation BARU dibuat |
+
+## 15.15 Di luar scope Tahap 5
+
+Bab ini TIDAK menentukan (dibahas terpisah kalau/ketika dibutuhkan):
+
+- Desain role Shift Leader
+- Notifikasi push / suara / desktop
+- SLA, escalation
+- Assignment otomatis berdasarkan Shift Leader
+- Unread per-message (tetap per-conversation, lihat 15.2)
+- Read receipt WhatsApp (centang biru dsb -- itu WhatsApp-native, di
+  luar sistem Read/Unread internal AuliaPos ini)
+- Indikator "customer sedang mengetik"
+- Mekanisme sinkronisasi real-time tertentu yang belum ditentukan
+  (polling vs lainnya) -- lihat audit polling existing di Section 12/13
+  saat implementasi nanti dimulai
+
+---
+
