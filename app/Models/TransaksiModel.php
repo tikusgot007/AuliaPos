@@ -792,4 +792,40 @@ class TransaksiModel extends Model
             throw $e;
         }
     }
+
+    /**
+     * Rekomendasi no_order berikutnya (tertinggi hari ini + 1, atau
+     * tertinggi keseluruhan + 1 kalau belum ada transaksi hari ini).
+     * Dipakai untuk saran default di Kasir::index() maupun sebagai
+     * fallback dropdown no_order di Transaksi::edit() saat transaksi
+     * yang diedit belum punya no_order (lihat
+     * Kasir::getAvailableNoOrders() / Transaksi::getAvailableNoOrdersForEdit()).
+     */
+    public function getRecommendedNoOrder(): int
+    {
+        $today = date('Y-m-d');
+
+        $highestToday = $this
+            ->where('tanggal >=', $today . ' 00:00:00')
+            ->where('tanggal <=', $today . ' 23:59:59')
+            ->where('no_order IS NOT NULL')
+            ->where('no_order >', 0)
+            ->orderBy('no_order', 'DESC')
+            ->first();
+
+        if ($highestToday && !empty($highestToday['no_order'])) {
+            return (int) $highestToday['no_order'] + 1;
+        }
+
+        $highestOverall = $this->where('no_order IS NOT NULL')
+            ->where('no_order >', 0)
+            ->orderBy('no_order', 'DESC')
+            ->first();
+
+        if ($highestOverall && !empty($highestOverall['no_order'])) {
+            return (int) $highestOverall['no_order'] + 1;
+        }
+
+        return 1;
+    }
 }
