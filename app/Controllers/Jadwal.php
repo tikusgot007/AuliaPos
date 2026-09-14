@@ -937,4 +937,21 @@ class Jadwal extends BaseController
             'toast'         => $hasil['toast'],
         ]);
     }
+
+    /**
+     * Info Shift Leader saat ini -- MURNI INFORMASI, terlihat untuk
+     * SEMUA role yang login (lihat route /roster/shift-leader-saat-ini,
+     * sengaja tidak admin-gated, sama seperti statusJadwalSaya() di
+     * atas). TIDAK dipakai untuk otorisasi apa pun di sini -- itu
+     * tetap satu-satunya lewat App\Services\Authority::isCurrentShiftLeader().
+     */
+    public function shiftLeaderSaatIni()
+    {
+        $leader = (new \App\Services\EffectiveShiftLeaderService())->shiftLeaderSaatIni();
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'leader' => $leader, // ['id','username','nama','priority'] atau null
+        ]);
+    }
 }

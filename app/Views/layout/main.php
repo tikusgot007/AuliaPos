@@ -1005,6 +1005,21 @@
                                         <span class="badge bg-danger" id="headerBadgeTagihan" style="font-size: 0.55rem; padding: 2px 6px; border-radius: 20px; position: absolute; top: -6px; right: -8px; display: none;">0</span>
                                     </a>
 
+                                    <!-- Info Shift Leader saat ini (MURNI INFORMASI, terlihat
+                                         untuk SEMUA role yang login -- tidak ada gate admin/
+                                         kasir di sini). Render awal langsung di server (sama
+                                         seperti $__headerFoto di bawah) supaya tidak ada
+                                         flash "Tidak ada Shift Leader" sebelum JS polling
+                                         pertama kali jalan; sesudah itu di-refresh tiap 60
+                                         detik oleh updateShiftLeaderBadge(). Read-only --
+                                         tidak menyentuh App\Services\Authority/EffectiveShiftLeaderService. -->
+                                    <?php $__shiftLeaderAwal = (new \App\Services\EffectiveShiftLeaderService())->shiftLeaderSaatIni(); ?>
+                                    <span id="shiftLeaderBadge" class="badge <?= $__shiftLeaderAwal ? 'bg-warning text-dark' : 'bg-secondary' ?>"
+                                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Shift Leader saat ini">
+                                        <i class="fas fa-crown"></i>
+                                        <?= $__shiftLeaderAwal ? esc($__shiftLeaderAwal['nama'] ?? $__shiftLeaderAwal['username']) : 'Tidak ada Shift Leader' ?>
+                                    </span>
+
                                     <!-- User Dropdown -->
                                     <?php
                                     // Sengaja query langsung di sini (bukan disimpan ke
@@ -1417,10 +1432,33 @@
             cekStatusJadwalSaya();
             setInterval(cekStatusJadwalSaya, 60000);
         <?php endif; ?>
-        // ==========================================
-        // UPDATE JAM REAL-TIME
-        // ==========================================
 
+        // ==========================================
+        // INFO SHIFT LEADER SAAT INI (semua role, tidak ada gate)
+        // ==========================================
+        function updateShiftLeaderBadge() {
+            $.ajax({
+                url: '<?= base_url('/roster/shift-leader-saat-ini') ?>',
+                dataType: 'json',
+                type: 'GET',
+                success: function(response) {
+                    const $badge = $('#shiftLeaderBadge');
+                    if (response.leader) {
+                        $badge.removeClass('bg-secondary').addClass('bg-warning text-dark');
+                        $badge.html('<i class="fas fa-crown"></i> ' + (response.leader.nama || response.leader.username));
+                    } else {
+                        $badge.removeClass('bg-warning text-dark').addClass('bg-secondary');
+                        $badge.html('<i class="fas fa-crown"></i> Tidak ada Shift Leader');
+                    }
+                },
+                error: function() {
+                    console.error('Gagal cek Shift Leader saat ini.');
+                }
+            });
+        }
+
+        updateShiftLeaderBadge();
+        setInterval(updateShiftLeaderBadge, 60000);
 
         let searchTimeout;
 

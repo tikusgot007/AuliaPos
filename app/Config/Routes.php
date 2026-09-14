@@ -250,3 +250,4 @@ $routes->get('/roster/matrix-data', 'Jadwal::rosterMatrixData', ['filter' => 'au
 $routes->get('/roster/bulan-data', 'Jadwal::rosterBulanData', ['filter' => 'auth']);
 $routes->get('/roster/hari-ini', 'Jadwal::rosterHariIni', ['filter' => 'auth']);
 $routes->get('/roster/status-saya', 'Jadwal::statusJadwalSaya', ['filter' => 'auth']);
+$routes->get('/roster/shift-leader-saat-ini', 'Jadwal::shiftLeaderSaatIni', ['filter' => 'auth']);
