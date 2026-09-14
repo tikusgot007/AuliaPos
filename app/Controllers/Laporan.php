@@ -251,23 +251,29 @@ class Laporan extends BaseController
         $pembayaranRows = $db
             ->table('pembayaran')
             ->select('
-                id,
-                transaksi_id,
-                tanggal,
-                jumlah,
-                metode
+                pembayaran.id,
+                pembayaran.transaksi_id,
+                pembayaran.tanggal,
+                pembayaran.jumlah,
+                pembayaran.metode
             ')
+            // JOIN transaksi supaya transaksi batal bisa dikecualikan
+            // (lihat docs/aturan-bisnis-AULIA.md Section 12: batal =
+            // dianggap tidak terjadi -- konsisten dengan
+            // v_pembayaran_item_harian & CashBalanceService).
+            ->join('transaksi', 'transaksi.id = pembayaran.transaksi_id')
             ->where(
-                'tanggal >=',
+                'pembayaran.tanggal >=',
                 $tanggalAwal . ' 00:00:00'
             )
             ->where(
-                'tanggal <=',
+                'pembayaran.tanggal <=',
                 $tanggalAkhir . ' 23:59:59'
             )
-            ->where('status', 'aktif')
-            ->orderBy('tanggal', 'ASC')
-            ->orderBy('id', 'ASC')
+            ->where('pembayaran.status', 'aktif')
+            ->where('transaksi.status !=', 'batal')
+            ->orderBy('pembayaran.tanggal', 'ASC')
+            ->orderBy('pembayaran.id', 'ASC')
             ->get()
             ->getResultArray();
 
@@ -718,12 +724,18 @@ class Laporan extends BaseController
         // =========================================================
 
         $pembayaranRows = $db->table('pembayaran')
-            ->select('id, transaksi_id, tanggal, jumlah, metode')
-            ->where('tanggal >=', $tanggalAwal . ' 00:00:00')
-            ->where('tanggal <=', $tanggalAkhir . ' 23:59:59')
-            ->where('status', 'aktif')
-            ->orderBy('tanggal', 'ASC')
-            ->orderBy('id', 'ASC')
+            ->select('pembayaran.id, pembayaran.transaksi_id, pembayaran.tanggal, pembayaran.jumlah, pembayaran.metode')
+            // JOIN transaksi supaya transaksi batal bisa dikecualikan
+            // (lihat docs/aturan-bisnis-AULIA.md Section 12: batal =
+            // dianggap tidak terjadi -- konsisten dengan
+            // v_pembayaran_item_harian & CashBalanceService).
+            ->join('transaksi', 'transaksi.id = pembayaran.transaksi_id')
+            ->where('pembayaran.tanggal >=', $tanggalAwal . ' 00:00:00')
+            ->where('pembayaran.tanggal <=', $tanggalAkhir . ' 23:59:59')
+            ->where('pembayaran.status', 'aktif')
+            ->where('transaksi.status !=', 'batal')
+            ->orderBy('pembayaran.tanggal', 'ASC')
+            ->orderBy('pembayaran.id', 'ASC')
             ->get()
             ->getResultArray();
 
