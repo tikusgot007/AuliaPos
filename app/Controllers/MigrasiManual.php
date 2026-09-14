@@ -55,17 +55,16 @@ class MigrasiManual extends BaseController
         $errorBaca = null;
 
         try {
-            // Daftar semua file migration yang terdeteksi framework,
-            // dikelompokkan per namespace.
-            foreach ($migrate->findMigrations() as $namespace => $daftar) {
-                foreach ($daftar as $versi => $migrasi) {
-                    $tersedia[] = [
-                        'namespace' => $namespace,
-                        'versi'     => $versi,
-                        'class'     => $migrasi->class ?? '-',
-                        'nama'      => $migrasi->name ?? basename((string) ($migrasi->path ?? '')),
-                    ];
-                }
+            // findMigrations() mengembalikan array flat: uid => objek migrasi
+            // (BUKAN dikelompokkan per namespace), lihat
+            // MigrationRunner::findMigrations().
+            foreach ($migrate->findMigrations() as $migrasi) {
+                $tersedia[] = [
+                    'namespace' => $migrasi->namespace ?? '-',
+                    'versi'     => $migrasi->version ?? '-',
+                    'class'     => $migrasi->class ?? '-',
+                    'nama'      => $migrasi->name ?? basename((string) ($migrasi->path ?? '')),
+                ];
             }
         } catch (\Throwable $e) {
             $errorBaca = 'Gagal membaca daftar migration: ' . $e->getMessage();
