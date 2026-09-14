@@ -145,6 +145,14 @@
             return new Intl.NumberFormat('id-ID').format(Math.round(angka));
         }
 
+        var NAMA_BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+        function formatTanggal(ymd) {
+            // ymd: 'YYYY-MM-DD' -> '12 Sep 2026'
+            var parts = ymd.split('-');
+            return parseInt(parts[2], 10) + ' ' + NAMA_BULAN[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
+        }
+
         function renderBaris() {
             var $tbody = $('#tabelClosingBody');
             $tbody.empty();
@@ -164,7 +172,7 @@
                 var disabled = row.is_masa_depan_atau_hari_ini ? 'disabled' : '';
 
                 var tr = $('<tr>').attr('data-tanggal', row.tanggal);
-                tr.append($('<td>').text(row.tanggal));
+                tr.append($('<td>').text(formatTanggal(row.tanggal)));
                 tr.append($('<td>').text(row.sudah_closing ? 'Rp ' + formatRupiah(row.saldo_sistem) : '—'));
                 tr.append($('<td>').text(row.sudah_closing ? 'Rp ' + formatRupiah(row.saldo_fisik) : '—'));
                 tr.append($('<td>').text(row.sudah_closing ? 'Rp ' + formatRupiah(row.selisih) : '—'));
@@ -282,7 +290,7 @@
         function openModalClosing(tanggal) {
             currentTanggal = tanggal;
             resetModalClosing();
-            $('#modalClosingTanggal').text(tanggal);
+            $('#modalClosingTanggal').text(formatTanggal(tanggal));
             $('#closingTanggalInput').val(tanggal);
             $('#formClosing').hide();
             $('#closingLoading').show();
@@ -312,9 +320,11 @@
                     $('#ringkasanClosingSaldoSistem').text('Rp ' + formatRupiah(response.saldo_sistem));
 
                     if (response.opname_terakhir) {
-                        $('#closingOpnameDisplay').text('Rp ' + formatRupiah(response.opname_terakhir.saldo_fisik) + ' (' + response.opname_terakhir.tanggal + ')');
+                        $('#closingOpnameDisplay')
+                            .text('Rp ' + formatRupiah(response.opname_terakhir.saldo_fisik) + ' (' + response.opname_terakhir.tanggal + ')')
+                            .data('raw', response.opname_terakhir.saldo_fisik);
                     } else {
-                        $('#closingOpnameDisplay').text('—');
+                        $('#closingOpnameDisplay').text('—').data('raw', null);
                         $('#closingSelisihOpnameDisplay').text('—');
                     }
 
@@ -331,9 +341,8 @@
         }
 
         function updateSelisihOpname() {
-            var opnameText = $('#closingOpnameDisplay').text();
-            if (opnameText === '—') return;
-            var opnameNominal = parseFloat(opnameText.replace(/[^\d]/g, '')) || 0;
+            var opnameNominal = $('#closingOpnameDisplay').data('raw');
+            if (opnameNominal === null || opnameNominal === undefined) return;
             var totalFisik = parseFloat($('#totalUangFisikClosing').text().replace(/[^\d]/g, '')) || 0;
             $('#closingSelisihOpnameDisplay').text('Rp ' + formatRupiah(totalFisik - opnameNominal));
         }
