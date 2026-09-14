@@ -182,6 +182,11 @@ $routes->post('/cash/simpan-opname', 'Cash::simpanOpname', ['filter' => 'auth'])
 $routes->get('/cash/riwayat', 'Cash::riwayat', ['filter' => 'auth']);
 $routes->get('/cash/detail/(:num)', 'Cash::detail/$1', ['filter' => 'auth']);
 $routes->post('/cash/simpan-kas-awal', 'Cash::simpanKasAwal', ['filter' => 'auth']);
+// Route Closing Kas (admin only -- lihat AuthFilter::$adminRoutes prefix 'cash/closing')
+$routes->get('/cash/closing', 'Cash::closing', ['filter' => 'auth']);
+$routes->get('/cash/closing/data', 'Cash::closingData', ['filter' => 'auth']);
+$routes->get('/cash/closing/detail', 'Cash::closingDetail', ['filter' => 'auth']);
+$routes->post('/cash/closing/simpan', 'Cash::simpanClosing', ['filter' => 'auth']);
 // Route API untuk DataTables Produk
 $routes->get('/produk/get-produk-data', 'Produk::getProdukData', ['filter' => 'auth']);
 // Route Kas Keluar

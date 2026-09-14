@@ -628,6 +628,7 @@
                 // Boolean submenu yang dipakai di dalam closure di bawah.
                 $isKasActive       = ($__path === 'cash');
                 $isKasKeluarActive = $__seg('cash/pengeluaran');
+                $isClosingKasActive = $__seg('cash/closing');
                 $isPelangganActive = $__seg('pelanggan');
                 ?>
 
@@ -743,7 +744,7 @@
                     // butuh ini untuk mencatat kas keluar harian; route
                     // /cash sudah dapat diakses kasir (bukan admin-only di
                     // AuthFilter), jadi tidak ada perubahan permission.
-                    $renderKeuangan = function () use ($isCashMenu, $isKasActive, $isKasKeluarActive) {
+                    $renderKeuangan = function () use ($isCashMenu, $isKasActive, $isKasKeluarActive, $isClosingKasActive, $__isAdmin) {
                         ?>
                         <li class="nav-item">
                             <a class="nav-link d-flex align-items-center"
@@ -773,6 +774,15 @@
                                             Kas Keluar
                                         </a>
                                     </li>
+                                    <?php if ($__isAdmin): ?>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?= $isClosingKasActive ? 'active' : '' ?>"
+                                            href="<?= base_url('/cash/closing') ?>">
+                                            <i class="fas fa-clipboard-check"></i>
+                                            Closing Kas
+                                        </a>
+                                    </li>
+                                    <?php endif; ?>
                                 </ul>
                             </div>
                         </li>
