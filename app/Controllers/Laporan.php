@@ -651,7 +651,18 @@ class Laporan extends BaseController
      * LAPORAN BULANAN (spesifikasi baru, 2026-09-05)
      *
      * Kolom: Tanggal, Penjualan, Fotokopi, Minuman, Digital Foto,
-     * Digital Printing, Ganti BG, Total, TF+QRIS, Uang Keluar.
+     * Digital Printing, Ganti BG, Total, Closing Kas, TF+QRIS, Uang
+     * Keluar.
+     *
+     * Closing Kas (ditambahkan 2026-09-15): kas fisik hasil rekonsiliasi
+     * admin (closing_kas.saldo_fisik, lihat ClosingKasModel) untuk
+     * tanggal tsb. BUKAN dihitung ulang di sini -- murni dibaca apa
+     * adanya dari snapshot closing_kas, karena closing kas memang
+     * snapshot final yang sengaja terpisah dari kalkulasi transaksi.
+     * Tanggal yang belum di-closing tampil null (bukan 0) supaya beda
+     * dari "kas fisik-nya nol" -- lihat null di array $summary juga
+     * sengaja tidak dijumlah (menjumlah snapshot kas fisik antar
+     * tanggal tidak informatif).
      *
      * Mapping kategori (DIKONFIRMASI ke database aktual, BUKAN
      * asumsi -- kode existing processBulanan() dan konfirmasi
@@ -708,6 +719,7 @@ class Laporan extends BaseController
                 'digital_printing' => 0.0,
                 'ganti_bg' => 0.0,
                 'total' => 0.0,
+                'closing_kas' => null,
                 'tf_qris' => 0.0,
                 'uang_keluar' => 0.0,
             ];
@@ -894,7 +906,19 @@ class Laporan extends BaseController
         }
 
         // =========================================================
-        // 6) TOTAL PER TANGGAL = SUM 5 KATEGORI SAJA (bukan Ganti BG)
+        // 6) CLOSING KAS (dibaca apa adanya, bukan dihitung ulang)
+        // =========================================================
+
+        $closingKasPerTanggal = (new \App\Models\ClosingKasModel())->getByRentang($tanggalAwal, $tanggalAkhir);
+
+        foreach ($closingKasPerTanggal as $tgl => $closing) {
+            if (isset($hasil[$tgl])) {
+                $hasil[$tgl]['closing_kas'] = (float) $closing['saldo_fisik'];
+            }
+        }
+
+        // =========================================================
+        // 7) TOTAL PER TANGGAL = SUM 5 KATEGORI SAJA (bukan Ganti BG)
         // =========================================================
 
         foreach ($hasil as $tgl => &$row) {
@@ -906,8 +930,14 @@ class Laporan extends BaseController
 
             // Bulatkan ke rupiah di titik akhir (bukan tiap alokasi),
             // supaya tidak ada akumulasi selisih pembulatan.
+            // closing_kas SENGAJA tidak ikut loop ini -- kalau null
+            // (belum closing) harus tetap null, bukan round(null) = 0.
             foreach (['penjualan', 'fotokopi', 'minuman', 'digital_foto', 'digital_printing', 'ganti_bg', 'total', 'tf_qris', 'uang_keluar'] as $kol) {
                 $row[$kol] = round($row[$kol]);
+            }
+
+            if ($row['closing_kas'] !== null) {
+                $row['closing_kas'] = round($row['closing_kas']);
             }
         }
         unset($row);
@@ -916,8 +946,11 @@ class Laporan extends BaseController
         $data = array_values($hasil);
 
         // =========================================================
-        // 7) SUMMARY (total kolom untuk footer)
+        // 8) SUMMARY (total kolom untuk footer)
         // =========================================================
+        // closing_kas SENGAJA tidak ada di sini -- menjumlah snapshot
+        // kas fisik antar tanggal tidak informatif (beda dari kolom
+        // lain yang memang arus/pemasukan harian).
 
         $summary = [
             'penjualan' => 0, 'fotokopi' => 0, 'minuman' => 0,
@@ -1388,7 +1421,7 @@ class Laporan extends BaseController
 
             fputcsv($output, [
                 'Tanggal', 'Penjualan', 'Fotokopi', 'Minuman', 'Digital Foto',
-                'Digital Printing', 'Ganti BG', 'Total', 'TF + QRIS', 'Uang Keluar',
+                'Digital Printing', 'Ganti BG', 'Total', 'Closing Kas', 'TF + QRIS', 'Uang Keluar',
             ]);
 
             foreach ($result['data'] as $item) {
@@ -1401,6 +1434,7 @@ class Laporan extends BaseController
                     $this->formatAngka($item['digital_printing']),
                     $this->formatAngka($item['ganti_bg']),
                     $this->formatAngka($item['total']),
+                    $item['closing_kas'] === null ? '-' : $this->formatAngka($item['closing_kas']),
                     $this->formatAngka($item['tf_qris']),
                     $this->formatAngka($item['uang_keluar']),
                 ]);
@@ -1417,6 +1451,7 @@ class Laporan extends BaseController
                 $this->formatAngka($s['digital_printing']),
                 $this->formatAngka($s['ganti_bg']),
                 $this->formatAngka($s['total']),
+                '-',
                 $this->formatAngka($s['tf_qris']),
                 $this->formatAngka($s['uang_keluar']),
             ]);
