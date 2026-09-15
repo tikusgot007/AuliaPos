@@ -114,7 +114,7 @@
                                         <div class="input-group-prepend">
                                             <span class="input-group-text">Rp</span>
                                         </div>
-                                        <input type="number" class="form-control text-right" id="totalUangFisikClosing" min="0" step="1" value="0">
+                                        <input type="text" class="form-control text-right" id="totalUangFisikClosing" inputmode="numeric" value="0">
                                     </div>
                                 </div>
                                 <hr class="my-1">
@@ -144,11 +144,37 @@
         var barisData = <?= json_encode($baris) ?>;
         var currentTanggal = null;
 
+        // Fokus ke pecahan pertama harus menunggu DUA hal: modal selesai
+        // animasi terbuka (Bootstrap set fokus ke dirinya sendiri saat
+        // "shown", yang akan menimpa fokus manapun yang di-set lebih
+        // dulu) DAN data AJAX sudah selesai dimuat (form baru muncul
+        // setelah itu). Fokus baru dieksekusi begitu keduanya terpenuhi,
+        // dari sisi manapun yang selesai belakangan.
+        var modalSudahTampil = false;
+        var dataSudahSiap = false;
+
+        function fokusPecahanPertamaJikaSiap() {
+            if (!modalSudahTampil || !dataSudahSiap) return;
+            $('.pecahan-jumlah-closing').first().trigger('focus').trigger('select');
+        }
+
+        $('#modalClosing').on('shown.bs.modal', function() {
+            modalSudahTampil = true;
+            fokusPecahanPertamaJikaSiap();
+        });
+
         function formatRupiah(angka) {
             if (angka === undefined || angka === null || isNaN(angka)) {
                 return '0';
             }
             return new Intl.NumberFormat('id-ID').format(Math.round(angka));
+        }
+
+        // Baca angka mentah dari field Kas Fisik yang tampilannya sudah
+        // berpemisah-ribuan (mis. "2.175.000" -> 2175000).
+        function parseKasFisik() {
+            var digits = String($('#totalUangFisikClosing').val() || '').replace(/[^\d]/g, '');
+            return parseInt(digits, 10) || 0;
         }
 
         var NAMA_BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -253,7 +279,7 @@
                     .text('Rp ' + formatRupiah(subtotal));
             });
 
-            $('#totalUangFisikClosing').val(totalFisik);
+            $('#totalUangFisikClosing').val(formatRupiah(totalFisik));
             updateRingkasanClosing();
 
             return totalFisik;
@@ -263,7 +289,7 @@
         // nilai Kas Fisik saat ini -- dipakai baik saat dihitung dari
         // pecahan maupun saat diketik manual.
         function updateRingkasanClosing() {
-            var totalFisik = parseInt($('#totalUangFisikClosing').val()) || 0;
+            var totalFisik = parseKasFisik();
             var saldoSistem = parseFloat($('#closingSaldoSistemDisplay').data('raw')) || 0;
             $('#ringkasanClosingSelisih').text('Rp ' + formatRupiah(totalFisik - saldoSistem));
             updateSelisihOpname(totalFisik);
@@ -272,12 +298,14 @@
         $(document).on('input', '.pecahan-jumlah-closing', hitungUangFisikClosing);
 
         // Kas Fisik boleh diisi manual langsung (tanpa mengisi pecahan).
+        // Diformat ulang dengan pemisah ribuan setiap kali diketik;
+        // ponytail: kursor dipindah ke akhir teks tiap reformat (bukan
+        // mempertahankan posisi ketik di tengah) -- cukup untuk field
+        // yang selalu diisi dari kiri ke kanan seperti ini, upgrade ke
+        // pelacakan posisi kursor kalau ternyata dibutuhkan.
         $('#totalUangFisikClosing').on('input', function() {
-            var val = parseInt($(this).val()) || 0;
-            if (val < 0) {
-                val = 0;
-                $(this).val(0);
-            }
+            var raw = parseKasFisik();
+            $(this).val(formatRupiah(raw));
             updateRingkasanClosing();
         });
 
@@ -332,7 +360,7 @@
         function resetModalClosing() {
             $('.pecahan-jumlah-closing').val(0);
             $('#ringkasanClosingSelisih').text('Rp 0');
-            $('#totalUangFisikClosing').val(0);
+            $('#totalUangFisikClosing').val('0');
             $('#closingSelisihOpnameDisplay').text('—');
             $('#btnSimpanClosing').prop('disabled', true);
         }
@@ -340,6 +368,8 @@
         function openModalClosing(tanggal) {
             currentTanggal = tanggal;
             resetModalClosing();
+            modalSudahTampil = false;
+            dataSudahSiap = false;
             $('#modalClosingTanggal').text(formatTanggal(tanggal));
             $('#closingTanggalInput').val(tanggal);
             $('#formClosing').hide();
@@ -381,12 +411,8 @@
                     $('#btnSimpanClosing').prop('disabled', false);
                     hitungUangFisikClosing();
 
-                    // Fokus langsung ke pecahan 100.000 supaya bisa
-                    // langsung mengetik tanpa klik dulu.
-                    var $firstPecahan = $('.pecahan-jumlah-closing').first();
-                    setTimeout(function() {
-                        $firstPecahan.trigger('focus').trigger('select');
-                    }, 150);
+                    dataSudahSiap = true;
+                    fokusPecahanPertamaJikaSiap();
                 },
                 error: function() {
                     $('#closingLoading').hide();
@@ -410,8 +436,7 @@
         $('#btnSimpanClosing').on('click', function() {
             // Ambil nilai Kas Fisik apa adanya -- bisa hasil sum pecahan,
             // bisa juga diketik manual langsung, keduanya sah.
-            var saldoFisik = parseInt($('#totalUangFisikClosing').val()) || 0;
-            if (saldoFisik < 0) saldoFisik = 0;
+            var saldoFisik = parseKasFisik();
 
             $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
 
