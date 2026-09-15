@@ -99,4 +99,32 @@ final class ShiftLeaderInfoRouteTest extends CIUnitTestCase
         $res->assertOK();
         $res->assertJSONFragment(['status' => 'success', 'leader' => null]);
     }
+
+    /**
+     * Regresi Tahap 4.1: kalau migration production (AddPriorityToUsers)
+     * BELUM dijalankan di DB yang dipakai -- kolom users.priority belum
+     * ada -- endpoint ini TIDAK BOLEH melempar 500. Ini simulasi persis
+     * kondisi yang bikin seluruh layout crash sebelum try/catch
+     * ditambahkan (lihat log_message di Jadwal::shiftLeaderSaatIni()).
+     */
+    /**
+     * Regresi Tahap 4.1: kalau migration production (AddPriorityToUsers)
+     * BELUM dijalankan di DB yang dipakai -- kolom users.priority belum
+     * ada -- endpoint ini TIDAK BOLEH melempar 500. Ini reproduksi
+     * persis bug yang dilaporkan user (DatabaseException #1054:
+     * Unknown column 'u.priority') sebelum try/catch ditambahkan di
+     * Jadwal::shiftLeaderSaatIni() maupun di layout/main.php (pola
+     * try/catch-nya identik di kedua tempat, lihat log_message di
+     * masing-masing).
+     */
+    public function testTetapOkeWalauKolomPriorityBelumAda(): void
+    {
+        $forge = \Config\Database::forge();
+        $forge->dropColumn('users', 'priority');
+
+        $res = $this->withSession($this->sesi('kasir', 7))->get(self::ROUTE);
+
+        $res->assertOK();
+        $res->assertJSONFragment(['status' => 'success', 'leader' => null]);
+    }
 }

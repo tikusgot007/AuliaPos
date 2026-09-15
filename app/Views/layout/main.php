@@ -1012,8 +1012,24 @@
                                          flash "Tidak ada Shift Leader" sebelum JS polling
                                          pertama kali jalan; sesudah itu di-refresh tiap 60
                                          detik oleh updateShiftLeaderBadge(). Read-only --
-                                         tidak menyentuh App\Services\Authority/EffectiveShiftLeaderService. -->
-                                    <?php $__shiftLeaderAwal = (new \App\Services\EffectiveShiftLeaderService())->shiftLeaderSaatIni(); ?>
+                                         tidak menyentuh App\Services\Authority/EffectiveShiftLeaderService.
+
+                                         Dibungkus try/catch dengan sengaja: layout ini dipakai
+                                         SEMUA halaman, jadi satu widget info kecil TIDAK BOLEH
+                                         bisa menjatuhkan seluruh situs (mis. migration
+                                         `users.priority` belum dijalankan di DB yang dipakai --
+                                         urutan "deploy kode dulu, migrate belakangan" wajar
+                                         terjadi, termasuk di server production). Kalau gagal,
+                                         degradasi aman ke "Tidak ada Shift Leader" (fallback
+                                         yang sudah ada), bukan crash seluruh halaman. -->
+                                    <?php
+                                    $__shiftLeaderAwal = null;
+                                    try {
+                                        $__shiftLeaderAwal = (new \App\Services\EffectiveShiftLeaderService())->shiftLeaderSaatIni();
+                                    } catch (\Throwable $e) {
+                                        log_message('error', 'Gagal ambil Shift Leader saat ini (layout): ' . $e->getMessage());
+                                    }
+                                    ?>
                                     <span id="shiftLeaderBadge" class="badge <?= $__shiftLeaderAwal ? 'bg-warning text-dark' : 'bg-secondary' ?>"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Shift Leader saat ini">
                                         <i class="fas fa-crown"></i>
