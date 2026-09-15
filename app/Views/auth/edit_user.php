@@ -62,6 +62,12 @@
                         <label for="divisi" class="form-label">Divisi</label>
                         <input type="text" class="form-control" id="divisi" name="divisi" value="<?= old('divisi') ?? $user['divisi'] ?? '' ?>">
                     </div>
+                    <div class="mb-3">
+                        <label for="priority" class="form-label">Priority</label>
+                        <input type="number" class="form-control" id="priority" name="priority" min="0" max="65535"
+                            value="<?= old('priority') ?? $user['priority'] ?? '' ?>" placeholder="Kosongkan jika belum di-ranking">
+                        <small class="text-muted">Angka lebih besar = prioritas lebih tinggi. Unik antar-karyawan. Kosongkan untuk menghapus ranking.</small>
+                    </div>
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="is_active" name="is_active" value="1"
                             <?= (old('is_active') ?? $user['is_active']) ? 'checked' : '' ?>
