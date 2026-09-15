@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\CashOpnameModel;
 use App\Models\CashExpenseModel;
+use App\Models\ClosingKasModel;
 
 class Cash extends BaseController
 {
@@ -242,6 +243,160 @@ class Cash extends BaseController
             ]);
         }
     }
+    // ==========================================
+    // CLOSING KAS (admin only, lihat AuthFilter::$adminRoutes prefix 'cash/closing')
+    // ==========================================
+
+    /**
+     * Halaman Closing Kas: tabel seluruh tanggal dalam satu bulan.
+     */
+    public function closing()
+    {
+        $bulan = $this->request->getGet('bulan') ?? date('Y-m');
+        if (!preg_match('/^\d{4}-\d{2}$/', $bulan)) {
+            $bulan = date('Y-m');
+        }
+
+        $data = [
+            'title' => 'Closing Kas | AULIA',
+            'content' => 'cash/closing',
+            'bulan' => $bulan,
+            'baris' => $this->closingRowsForMonth($bulan),
+        ];
+
+        return view('layout/main', $data);
+    }
+
+    /**
+     * API: daftar baris closing untuk satu bulan (dipakai saat ganti bulan via AJAX).
+     */
+    public function closingData()
+    {
+        $bulan = $this->request->getGet('bulan') ?? date('Y-m');
+        if (!preg_match('/^\d{4}-\d{2}$/', $bulan)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Bulan tidak valid.']);
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'baris' => $this->closingRowsForMonth($bulan),
+        ]);
+    }
+
+    /**
+     * Bangun daftar tanggal 1..akhir bulan, digabung dengan record closing_kas yang ada.
+     */
+    private function closingRowsForMonth(string $bulan): array
+    {
+        $closingModel = new ClosingKasModel();
+        $existing = $closingModel->getByBulan($bulan);
+
+        $jumlahHari = (int) date('t', strtotime($bulan . '-01'));
+        $hariIni = date('Y-m-d');
+
+        $baris = [];
+        for ($d = 1; $d <= $jumlahHari; $d++) {
+            $tanggal = $bulan . '-' . str_pad((string) $d, 2, '0', STR_PAD_LEFT);
+            $sudahClosing = isset($existing[$tanggal]);
+
+            $baris[] = [
+                'tanggal' => $tanggal,
+                'sudah_closing' => $sudahClosing,
+                'saldo_sistem' => $sudahClosing ? (float) $existing[$tanggal]['saldo_sistem'] : null,
+                'saldo_fisik' => $sudahClosing ? (float) $existing[$tanggal]['saldo_fisik'] : null,
+                'selisih' => $sudahClosing ? (float) $existing[$tanggal]['selisih'] : null,
+                'is_masa_depan_atau_hari_ini' => ($tanggal >= $hariIni),
+            ];
+        }
+
+        return $baris;
+    }
+
+    /**
+     * API: data untuk modal Tambah/Edit satu tanggal -- saldo sistem
+     * historis dihitung ULANG dari database (bukan snapshot lama),
+     * plus opname kasir terakhir sampai cutoff tanggal tsb.
+     */
+    public function closingDetail()
+    {
+        $tanggal = $this->request->getGet('tanggal');
+
+        $error = ClosingKasModel::validasiTanggal($tanggal);
+        if ($error) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $error]);
+        }
+
+        $cutoff = $tanggal . ' 23:59:59';
+        $saldo = getSaldoKasHariIni($cutoff);
+
+        $opnameModel = new CashOpnameModel();
+        $opnameTerakhir = $opnameModel->getLastOpnameUpTo($cutoff);
+
+        $closingModel = new ClosingKasModel();
+        $existing = $closingModel->getByTanggal($tanggal);
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'tanggal' => $tanggal,
+            'saldo_sistem' => $saldo['saldo'],
+            'opname_terakhir' => $opnameTerakhir ? [
+                'saldo_fisik' => (float) $opnameTerakhir['saldo_fisik'],
+                'tanggal' => $opnameTerakhir['tanggal'],
+            ] : null,
+            'existing' => $existing ? [
+                'saldo_sistem' => (float) $existing['saldo_sistem'],
+                'saldo_fisik' => (float) $existing['saldo_fisik'],
+                'selisih' => (float) $existing['selisih'],
+            ] : null,
+        ]);
+    }
+
+    /**
+     * API: simpan (insert atau update) closing kas untuk satu tanggal.
+     * Saldo sistem & selisih SELALU dihitung ulang di backend --
+     * nilai yang dikirim browser tidak pernah dipakai untuk itu.
+     */
+    public function simpanClosing()
+    {
+        $request = $this->request->getJSON(true);
+        $tanggal = $request['tanggal'] ?? null;
+        $saldoFisik = (float) ($request['saldo_fisik'] ?? -1);
+
+        $error = ClosingKasModel::validasiTanggal($tanggal);
+        if ($error) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $error]);
+        }
+
+        if (!isset($request['saldo_fisik']) || $saldoFisik < 0) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Kas fisik tidak valid.']);
+        }
+
+        $cutoff = $tanggal . ' 23:59:59';
+        $saldo = getSaldoKasHariIni($cutoff);
+        $saldoSistem = $saldo['saldo'];
+        $userId = session()->get('id_user') ?? 1;
+
+        $closingModel = new ClosingKasModel();
+
+        try {
+            $closingModel->simpanClosing($tanggal, $saldoSistem, $saldoFisik, $userId);
+        } catch (\Exception $e) {
+            // Race condition pada unique index tanggal: coba sekali lagi sebagai update.
+            $closingModel->simpanClosing($tanggal, $saldoSistem, $saldoFisik, $userId);
+        }
+
+        $saved = $closingModel->getByTanggal($tanggal);
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Closing kas berhasil disimpan.',
+            'tanggal' => $tanggal,
+            'saldo_sistem' => (float) $saved['saldo_sistem'],
+            'saldo_fisik' => (float) $saved['saldo_fisik'],
+            'selisih' => (float) $saved['selisih'],
+        ]);
+    }
+
     // ==========================================
 // KAS KELUAR (PENGELUARAN)
 // ==========================================

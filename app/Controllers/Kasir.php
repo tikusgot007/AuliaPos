@@ -21,7 +21,7 @@ class Kasir extends BaseController
 
 
         // 🔥 AMBIL RECOMMENDED NO ORDER
-        $recommendedNoOrder = $this->getRecommendedNoOrder();
+        $recommendedNoOrder = $transaksiModel->getRecommendedNoOrder();
 
         // 🔥 AMBIL DAFTAR NO ORDER YANG TERSEDIA (UNTUK DROPDOWN)
         $availableNoOrders = $this->getAvailableNoOrders($recommendedNoOrder);
@@ -65,16 +65,20 @@ class Kasir extends BaseController
     }
 
     /**
-     * Reminder tagihan (belum lunas) 3 hari terakhir milik kasir yang
-     * sedang login (kasir_id = dirinya sendiri). Dicek setiap kali
-     * halaman /kasir dibuka -- lihat docs/aturan-bisnis-AULIA.md
-     * Section 25 untuk aturan lengkapnya.
+     * Reminder tagihan (belum lunas) 7 hari terakhir milik kasir yang
+     * sedang login (kasir_id = dirinya sendiri). 7 hari dipilih supaya
+     * konsisten dengan Config\Tagihan::$defaultTempoHari (kebijakan
+     * jatuh tempo tagihan, lihat App\Services\KalkulasiJatuhTempo) --
+     * satu angka yang sama untuk "masih dalam masa tempo" dan
+     * "perlu direminder". Dicek setiap kali halaman /kasir dibuka --
+     * lihat docs/aturan-bisnis-AULIA.md Section 25 untuk aturan
+     * lengkapnya.
      *
      * Dibatasi jeda 15 menit (disimpan di session) supaya tidak
      * muncul berulang tiap kasir bolak-balik buka halaman ini di
      * antara transaksi.
      *
-     * @return array{show: bool, count: int}
+     * @return array{show: bool, count: int, hari: int}
      */
     private function getReminderTagihanSaya(): array
     {
@@ -93,12 +97,14 @@ class Kasir extends BaseController
             return ['show' => false, 'count' => 0];
         }
 
+        $tempoHari = (new \Config\Tagihan())->defaultTempoHari;
+
         $transaksiModel = new TransaksiModel();
         $count = $transaksiModel
             ->where('kasir_id', $userId)
             ->whereIn('status_pembayaran', ['belum_bayar', 'dp'])
             ->whereNotIn('status', ['batal', 'mangkrak'])
-            ->where('tanggal >=', date('Y-m-d H:i:s', strtotime('-3 days')))
+            ->where('tanggal >=', date('Y-m-d H:i:s', strtotime("-{$tempoHari} days")))
             ->countAllResults();
 
         if ($count > 0) {
@@ -110,47 +116,7 @@ class Kasir extends BaseController
             session()->set('reminder_tagihan_last_shown', $now);
         }
 
-        return ['show' => $count > 0, 'count' => $count];
-    }
-
-    /**
-     * Mendapatkan recommended no order (highest today + 1)
-     */
-    private function getRecommendedNoOrder(): int
-    {
-        $transaksiModel = new TransaksiModel();
-        $today = date('Y-m-d');
-
-        // 🔥 1. Cari no_order tertinggi hari ini
-        $highestToday = $transaksiModel
-            ->where('tanggal >=', $today . ' 00:00:00')
-            ->where('tanggal <=', $today . ' 23:59:59')
-            ->where('no_order IS NOT NULL')
-            ->where('no_order >', 0)
-            ->orderBy('no_order', 'DESC')
-            ->first();
-
-        if ($highestToday && !empty($highestToday['no_order'])) {
-            $result = (int)$highestToday['no_order'] + 1;
-
-            return $result;
-        }
-
-        // 🔥 2. Tidak ada hari ini → cari overall
-        $highestOverall = $transaksiModel->where('no_order IS NOT NULL')
-            ->where('no_order >', 0)
-            ->orderBy('no_order', 'DESC')
-            ->first();
-
-        if ($highestOverall && !empty($highestOverall['no_order'])) {
-            $result = (int)$highestOverall['no_order'] + 1;
-
-            return $result;
-        }
-
-        // 🔥 3. Tidak ada data sama sekali
-
-        return 1;
+        return ['show' => $count > 0, 'count' => $count, 'hari' => $tempoHari];
     }
 
     /**

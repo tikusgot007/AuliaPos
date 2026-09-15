@@ -3,11 +3,6 @@
 // Backend (TransaksiModel::ubahStatus) tetap sumber kebenaran validasi;
 // pengecekan di sini murni untuk tampilan.
 $isAdminUser = session()->get('role') === 'admin';
-
-// Tombol "Selesai" (workflow umum) juga tampil untuk Effective Shift
-// Leader saat ini -- dihitung SEKALI di sini (bukan per baris transaksi;
-// Leader saat ini sama untuk seluruh baris dalam satu render).
-$isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
 ?>
 <div class="card">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -242,7 +237,7 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                                             </button>
                                         <?php endif; ?>
 
-                                        <?php if ($t['status'] === 'proses' && ($isAdminUser || $isShiftLeaderUser)): ?>
+                                        <?php if ($t['status'] === 'proses' && $isAdminUser): ?>
                                             <button type="button" class="btn btn-sm btn-primary"
                                                 title="Tandai Selesai"
                                                 onclick="selesaikanTransaksi(<?= $t['id'] ?>, '<?= esc($t['status_pembayaran'], 'js') ?>')">
@@ -250,10 +245,9 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                                             </button>
                                         <?php endif; ?>
 
-                                        <?php // Tahap 5.1: khusus admin/Shift Leader, baik 'proses' maupun 'selesai'. ?>
-                                        <?php if (in_array($t['status'], ['proses', 'selesai'], true) && ($isAdminUser || $isShiftLeaderUser)): ?>
+                                        <?php if (in_array($t['status'], ['proses', 'selesai'], true)): ?>
                                             <button type="button" class="btn btn-sm btn-danger"
-                                                title="Batalkan Transaksi"
+                                                title="<?= $t['status'] === 'selesai' ? 'Batalkan Transaksi (khusus admin)' : 'Batalkan Transaksi' ?>"
                                                 onclick="ubahStatus(<?= $t['id'] ?>, 'batal')">
                                                 <i class="fas fa-times"></i>
                                             </button>
@@ -378,8 +372,7 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
         existingPaymentUrl: '<?= base_url('/api/tambah-pembayaran') ?>',
         tagihanLunasiUrl: '<?= base_url('/tagihan/lunasi/:id') ?>',
         kasirListUrl: '<?= base_url('/api/kasir-list') ?>',
-        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
-        isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
+        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>
     };
 </script>
 <script src="<?= base_url('assets/js/payment.js') ?>"></script>

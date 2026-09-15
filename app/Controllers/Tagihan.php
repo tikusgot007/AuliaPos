@@ -6,6 +6,9 @@ use App\Models\TransaksiModel;
 use App\Models\DetailTransaksiModel;
 use App\Models\PembayaranModel;
 use App\Models\PelangganModel;
+use App\Models\UserModel;
+use App\Services\KalkulasiJatuhTempo;
+use Config\Tagihan as TagihanConfig;
 
 class Tagihan extends BaseController
 {
@@ -22,23 +25,53 @@ class Tagihan extends BaseController
         // semua tagihan) tidak berubah sama sekali.
         $hanyaSaya = $this->request->getGet('saya') == '1';
 
-        // Filter rentang tanggal transaksi. Default saat halaman dibuka
-        // tanpa parameter: 7 hari lalu s/d hari ini. Kalau input tidak
-        // valid, jatuh ke default (jangan percaya isi query string).
-        // Lihat Tagihan::getRentangTanggal() -- logic tidak berubah,
-        // hanya dipindah supaya index() lebih ringkas.
+        // Filter rentang tanggal transaksi. TIDAK ADA default -- tagihan
+        // lama (piutang lama) justru yang paling penting untuk ditagih,
+        // jadi tanpa parameter di query string, SEMUA tagihan belum lunas
+        // ditampilkan (tidak dibatasi tanggal). Kalau user mengisi salah
+        // satu/kedua tanggal, filter itu baru diterapkan. Lihat
+        // Tagihan::getRentangTanggal().
         [$tanggalAwal, $tanggalAkhir] = $this->getRentangTanggal();
 
-        // Batas atas dibuat eksklusif (+1 hari) supaya transaksi pada
-        // tanggal_akhir sampai 23:59:59 tetap ikut terhitung.
-        $akhirEksklusif = date('Y-m-d 00:00:00', strtotime($tanggalAkhir . ' +1 day'));
+        // Filter "hanya yang terlambat". Jatuh tempo bukan kolom DB (lihat
+        // Config\Tagihan), jadi filter ini diterapkan di PHP setelah
+        // findAll(), bukan lewat WHERE query.
+        $hanyaTerlambat = $this->request->getGet('hanya_terlambat') == '1';
+
+        // Filter kasir (dropdown, bukan text search -- daftar kasir
+        // sedikit). Daftar diambil langsung dari UserModel (bukan
+        // /api/kasir-list -- endpoint itu admin-gated lewat AJAX,
+        // sedangkan halaman ini server-rendered untuk semua role).
+        // kasir_id dari query string DIVALIDASI terhadap daftar user
+        // yang nyata (whitelist) sebelum dipakai di WHERE -- jangan
+        // percaya ID mentah dari luar.
+        $userModel   = new UserModel();
+        $daftarKasir = $userModel->select('id, nama, username')->orderBy('nama', 'ASC')->findAll();
+        // array_column mengembalikan id APA ADANYA dari driver DB (bisa
+        // berupa string), jadi di-cast ke int semua supaya perbandingan
+        // strict di bawah tidak diam-diam gagal gara-gara "10" !== 10.
+        $kasirIdValid = array_map('intval', array_column($daftarKasir, 'id'));
+
+        $kasirIdFilter = $this->request->getGet('kasir_id');
+        $kasirIdFilter = in_array((int) $kasirIdFilter, $kasirIdValid, true) ? (int) $kasirIdFilter : null;
 
         $query = $transaksiModel
             ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama')
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
-            ->join('users', 'users.id = transaksi.kasir_id', 'left')
-            ->where('transaksi.tanggal >=', $tanggalAwal . ' 00:00:00')
-            ->where('transaksi.tanggal <', $akhirEksklusif)
+            ->join('users', 'users.id = transaksi.kasir_id', 'left');
+
+        if ($tanggalAwal !== null) {
+            $query->where('transaksi.tanggal >=', $tanggalAwal . ' 00:00:00');
+        }
+
+        if ($tanggalAkhir !== null) {
+            // Batas atas dibuat eksklusif (+1 hari) supaya transaksi pada
+            // tanggal_akhir sampai 23:59:59 tetap ikut terhitung.
+            $akhirEksklusif = date('Y-m-d 00:00:00', strtotime($tanggalAkhir . ' +1 day'));
+            $query->where('transaksi.tanggal <', $akhirEksklusif);
+        }
+
+        $query
             // Tagihan ditentukan oleh status pembayaran, bukan status pekerjaan.
             // Transaksi PROSES maupun SELESAI tetap dapat memiliki tagihan.
             // Transaksi BATAL & MANGKRAK tidak masuk daftar tagihan --
@@ -48,18 +81,45 @@ class Tagihan extends BaseController
             ->where('transaksi.status_pembayaran !=', 'lunas')
             ->whereNotIn('transaksi.status', ['batal', 'mangkrak']);
 
+        if ($kasirIdFilter !== null) {
+            $query->where('transaksi.kasir_id', $kasirIdFilter);
+        }
+
         if ($hanyaSaya) {
             $query->where('transaksi.kasir_id', (int) session()->get('id_user'));
         }
 
-        $tagihan = $query->orderBy('transaksi.tanggal', 'DESC')->findAll();
+        // ASC (tertua dulu) -- ini halaman tagihan/collection, tagihan yang
+        // paling lama menunggak paling perlu ditagih duluan, bukan yang
+        // paling baru.
+        $tagihan = $query->orderBy('transaksi.tanggal', 'ASC')->findAll();
+
+        // Jatuh tempo = kebijakan global (lihat Config\Tagihan), dihitung
+        // di sini, TIDAK disimpan ke DB. "Sekarang" dibaca sekali di luar
+        // loop supaya seluruh baris membandingkan terhadap tanggal yang
+        // sama persis.
+        $tempoHari = (new TagihanConfig())->defaultTempoHari;
+        $hariIni   = date('Y-m-d');
+
+        foreach ($tagihan as &$t) {
+            $t['jatuh_tempo'] = KalkulasiJatuhTempo::hitung($t['tanggal'], $tempoHari);
+            $t['is_overdue']  = KalkulasiJatuhTempo::isOverdue($t['tanggal'], $tempoHari, $hariIni);
+        }
+        unset($t);
+
+        if ($hanyaTerlambat) {
+            $tagihan = array_values(array_filter($tagihan, static fn (array $t): bool => $t['is_overdue']));
+        }
 
         $data = [
-            'title'         => 'Tagihan | AULIA',
-            'content'       => 'tagihan/index',
-            'tagihan'       => $tagihan,
-            'tanggal_awal'  => $tanggalAwal,
-            'tanggal_akhir' => $tanggalAkhir,
+            'title'             => 'Tagihan | AULIA',
+            'content'           => 'tagihan/index',
+            'tagihan'           => $tagihan,
+            'tanggal_awal'      => $tanggalAwal ?? '',
+            'tanggal_akhir'     => $tanggalAkhir ?? '',
+            'hanya_terlambat'   => $hanyaTerlambat,
+            'daftar_kasir'      => $daftarKasir,
+            'kasir_id_filter'   => $kasirIdFilter,
         ];
 
         return view('layout/main', $data);
@@ -68,17 +128,12 @@ class Tagihan extends BaseController
     /**
      * Rentang tanggal filter daftar tagihan dari query string.
      *
-     * Dipindah verbatim dari index() -- behavior TIDAK berubah:
-     * - baca GET tanggal_awal / tanggal_akhir;
-     * - kalau kosong ATAU strtotime() === false -> pakai default;
-     * - default tanggal_awal: date('Y-m-d', strtotime('-7 days'));
-     * - default tanggal_akhir: date('Y-m-d');
-     * - masing-masing tanggal divalidasi/di-default independen.
+     * Tidak ada default -- kalau tanggal_awal/tanggal_akhir kosong atau
+     * tidak valid (strtotime() === false, jangan percaya isi query
+     * string), filter itu diabaikan (null) sehingga TIDAK membatasi
+     * tanggal. Masing-masing tanggal divalidasi/diabaikan independen.
      *
-     * Tidak menyentuh model/DB/session dan tidak mengubah timezone.
-     * Perhitungan batas atas eksklusif ($akhirEksklusif) tetap di index().
-     *
-     * @return array{0: string, 1: string} [tanggal_awal, tanggal_akhir]
+     * @return array{0: ?string, 1: ?string} [tanggal_awal, tanggal_akhir]
      */
     private function getRentangTanggal(): array
     {
@@ -86,11 +141,11 @@ class Tagihan extends BaseController
         $tanggalAkhir = $this->request->getGet('tanggal_akhir');
 
         if (empty($tanggalAwal) || strtotime($tanggalAwal) === false) {
-            $tanggalAwal = date('Y-m-d', strtotime('-7 days'));
+            $tanggalAwal = null;
         }
 
         if (empty($tanggalAkhir) || strtotime($tanggalAkhir) === false) {
-            $tanggalAkhir = date('Y-m-d');
+            $tanggalAkhir = null;
         }
 
         return [$tanggalAwal, $tanggalAkhir];
@@ -186,11 +241,6 @@ class Tagihan extends BaseController
         $isAdmin = session()->get('role') === 'admin';
         $kasirIdSesi = session()->get('id_user') ?? 1;
 
-        // Tahap 5: Shift Leader boleh backdate persis seperti admin,
-        // sama pola dengan Api::tambahPembayaran() (lihat
-        // App\Services\Authority).
-        $isShiftLeader = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
-
         // Hitung sisa tagihan
         $pembayaranModel = new PembayaranModel();
         $totalDibayar = $pembayaranModel->getTotalDibayar($id);
@@ -209,18 +259,18 @@ class Tagihan extends BaseController
 
         /*
          * Backdate / pembayaran diterima sebelumnya (2026-09-05).
-         * Sama seperti Api::tambahPembayaran() — admin atau Shift
-         * Leader saat ini (Tahap 5), dan divalidasi ulang secara
-         * otoritatif di TransaksiModel::tambahPembayaran().
+         * Sama seperti Api::tambahPembayaran() — hanya admin, dan
+         * divalidasi ulang secara otoritatif di
+         * TransaksiModel::tambahPembayaran().
          */
         $tanggalPembayaran = date('Y-m-d H:i:s');
         $kasirId = $kasirIdSesi;
 
-        if (($isAdmin || $isShiftLeader) && !empty($request->tanggal)) {
+        if ($isAdmin && !empty($request->tanggal)) {
             $tanggalPembayaran = (string) $request->tanggal;
         }
 
-        if (($isAdmin || $isShiftLeader) && !empty($request->kasir_id)) {
+        if ($isAdmin && !empty($request->kasir_id)) {
             $kasirId = (int) $request->kasir_id;
         }
 
@@ -236,7 +286,7 @@ class Tagihan extends BaseController
         ];
 
         try {
-            $transaksiModel->tambahPembayaran($id, $dataPembayaran, $isAdmin, $isShiftLeader);
+            $transaksiModel->tambahPembayaran($id, $dataPembayaran, $isAdmin);
         } catch (\Throwable $e) {
             log_message('error', 'Tagihan::lunasi: ' . $e->getMessage());
 

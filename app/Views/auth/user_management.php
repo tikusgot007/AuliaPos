@@ -15,7 +15,6 @@
                         <th>Username</th>
                         <th>Nama</th>
                         <th>Divisi</th>
-                        <th>Priority</th>
                         <th>Role</th>
                         <th>Status</th>
                         <th>Dibuat</th>
@@ -41,7 +40,6 @@
                                 <td><strong><?= esc($u['username']) ?></strong></td>
                                 <td><?= esc($u['nama'] ?? '-') ?></td>
                                 <td><?= esc($u['divisi'] ?? '-') ?></td>
-                                <td><?= $u['priority'] !== null ? (int) $u['priority'] : '<span class="text-muted">-</span>' ?></td>
                                 <td>
                                     <span class="badge <?= $u['role'] == 'admin' ? 'bg-danger' : 'bg-primary' ?>">
                                         <?= strtoupper($u['role']) ?>
@@ -68,7 +66,7 @@
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="10" class="text-center">Belum ada user.</td>
+                            <td colspan="9" class="text-center">Belum ada user.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

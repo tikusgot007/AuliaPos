@@ -889,12 +889,16 @@ class Transaksi extends BaseController
     {
         $transaksiModel = new \App\Models\TransaksiModel();
 
-        if ($selectedNoOrder === null || $selectedNoOrder <= 0) {
-            return [];
-        }
+        // Transaksi belum punya no_order (mis. dibuat lewat alur yang
+        // tidak mewajibkannya) -- tetap tampilkan dropdown dengan
+        // rekomendasi terbaru, sama seperti Kasir::index(), supaya
+        // kasir tetap bisa memilih no_order dari halaman edit.
+        $pivot = ($selectedNoOrder !== null && $selectedNoOrder > 0)
+            ? $selectedNoOrder
+            : $transaksiModel->getRecommendedNoOrder();
 
-        $min = max(1, $selectedNoOrder - 20);
-        $max = $selectedNoOrder + 20;
+        $min = max(1, $pivot - 20);
+        $max = $pivot + 20;
 
         $usedOrders = $transaksiModel
             ->select('no_order')

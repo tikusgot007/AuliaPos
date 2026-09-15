@@ -955,23 +955,10 @@
   }
 
 
-  // Tahap 5: Effective Shift Leader saat ini boleh backdate persis
-  // seperti admin (lihat App\Services\Authority). Nilai ini dihitung
-  // server-side per-view, sama pola dengan isAdmin di atas -- tidak
-  // pernah dihitung/dipercaya dari client.
-  function isShiftLeaderUser() {
-
-    return (
-      config().isShiftLeader ===
-      true
-    );
-  }
-
-
   function backdateAllowed() {
 
     return (
-      (isAdminUser() || isShiftLeaderUser()) &&
+      isAdminUser() &&
       state.mode === "existing"
     );
   }

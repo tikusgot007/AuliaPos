@@ -5,33 +5,63 @@
     </div>
     <div class="card-body">
         <!-- ========================================== -->
-        <!-- FILTER RENTANG TANGGAL                     -->
-        <!-- Default (halaman baru dibuka): 7 hari lalu s/d hari ini -->
-        <!-- ========================================== -->
-        <form method="get" class="row g-2 mb-3 align-items-end">
-            <?php if (service('request')->getGet('saya') == '1'): ?>
+        <!-- FILTER                                     -->
+        <!-- Default (halaman baru dibuka): TANPA batas tanggal -->
+        <!-- Rentang tanggal pakai date range picker (satu input),  -->
+        <!-- lihat #filterTanggal & init-nya di section scripts.    -->
+        <?php $sayaAktif = service('request')->getGet('saya') == '1'; ?>
+        <form method="get" class="row g-2 mb-3 align-items-end flex-nowrap overflow-auto">
+            <?php if ($sayaAktif): ?>
                 <input type="hidden" name="saya" value="1">
             <?php endif; ?>
-            <div class="col-6 col-md-3">
-                <label class="form-label mb-1">Dari Tanggal</label>
-                <input type="date" name="tanggal_awal" class="form-control form-control-sm"
-                    value="<?= esc($tanggal_awal, 'attr') ?>">
+            <input type="hidden" name="tanggal_awal" id="tanggalAwalHidden" value="<?= esc($tanggal_awal, 'attr') ?>">
+            <input type="hidden" name="tanggal_akhir" id="tanggalAkhirHidden" value="<?= esc($tanggal_akhir, 'attr') ?>">
+            <div class="col-auto" style="min-width: 220px">
+                <label class="form-label mb-1">Rentang Tanggal</label>
+                <input type="text" id="filterTanggal" class="form-control form-control-sm"
+                    placeholder="Semua tanggal"
+                    value="<?= ($tanggal_awal && $tanggal_akhir) ? date('d/m/Y', strtotime($tanggal_awal)) . ' - ' . date('d/m/Y', strtotime($tanggal_akhir)) : '' ?>">
             </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label mb-1">Sampai Tanggal</label>
-                <input type="date" name="tanggal_akhir" class="form-control form-control-sm"
-                    value="<?= esc($tanggal_akhir, 'attr') ?>">
+            <div class="col-auto" style="min-width: 160px">
+                <label class="form-label mb-1">Kasir</label>
+                <select name="kasir_id" class="form-select form-select-sm">
+                    <option value="">Semua Kasir</option>
+                    <?php foreach ($daftar_kasir as $k): ?>
+                        <option value="<?= $k['id'] ?>" <?= $kasir_id_filter === (int) $k['id'] ? 'selected' : '' ?>>
+                            <?= esc($k['nama'] ?? $k['username']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-            <div class="col-12 col-md-auto">
+            <div class="col-auto form-check mb-2">
+                <input type="checkbox" name="hanya_terlambat" value="1" id="hanyaTerlambat"
+                    class="form-check-input" <?= $hanya_terlambat ? 'checked' : '' ?>>
+                <label class="form-check-label" for="hanyaTerlambat">Seminggu Lebih</label>
+            </div>
+            <div class="col-auto">
                 <button type="submit" class="btn btn-sm btn-primary">
                     <i class="fas fa-filter"></i> Filter
                 </button>
-                <a href="<?= base_url('/tagihan' . (service('request')->getGet('saya') == '1' ? '?saya=1' : '')) ?>"
+                <?php
+                $tujuhHariAwal  = date('Y-m-d', strtotime('-7 days'));
+                $tujuhHariAkhir = date('Y-m-d');
+                $tujuhHariAktif = $tanggal_awal === $tujuhHariAwal && $tanggal_akhir === $tujuhHariAkhir;
+                $tujuhHariQuery = http_build_query(array_filter([
+                    'saya'          => $sayaAktif ? '1' : null,
+                    'tanggal_awal'  => $tujuhHariAwal,
+                    'tanggal_akhir' => $tujuhHariAkhir,
+                ]));
+                ?>
+                <a href="<?= base_url('/tagihan?' . $tujuhHariQuery) ?>"
+                    class="btn btn-sm <?= $tujuhHariAktif ? 'btn-warning' : 'btn-outline-warning' ?>">
+                    <i class="fas fa-bolt"></i> 7 Hari Terakhir
+                </a>
+                <a href="<?= base_url('/tagihan' . ($sayaAktif ? '?saya=1' : '')) ?>"
                     class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
 
-        <?php if (service('request')->getGet('saya') == '1'): ?>
+        <?php if ($sayaAktif): ?>
             <div class="alert alert-secondary d-flex justify-content-between align-items-center py-2">
                 <span><i class="fas fa-filter"></i> Menampilkan tagihan atas nama Anda saja.</span>
                 <a href="<?= base_url('/tagihan') ?>" class="btn btn-sm btn-outline-secondary">Lihat Semua Tagihan</a>
@@ -87,7 +117,11 @@
                                 <td><strong><?= $t['kode_invoice'] ?? $t['invoice'] ?? '-' ?></strong></td>
                                 <td><?= $noOrderDisplay ?></td>
                                 <td data-order="<?= $ts ?>">
-                                    <?= $tanggalDisplay ?>
+                                    <?php if ($t['is_overdue']): ?>
+                                        <span class="badge bg-danger fs-6 fw-normal" title="Jatuh tempo <?= tanggal_singkat($t['jatuh_tempo']) ?>"><?= $tanggalDisplay ?></span>
+                                    <?php else: ?>
+                                        <?= $tanggalDisplay ?>
+                                    <?php endif; ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? $t['nama_pelanggan'] ?? '-' ?></td>
                                 <td><?= $t['kasir_nama'] ?? $t['nama_kasir'] ?? '-' ?></td>
@@ -135,7 +169,6 @@
         <?= $this->section('scripts') ?>
 
         <!-- Konfigurasi payment modal untuk halaman tagihan -->
-        <?php $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user')); ?>
         <script>
             // Override konfigurasi untuk halaman tagihan
             window.paymentModalConfig = {
@@ -144,11 +177,14 @@
                 existingPaymentUrl: '<?= base_url('/tagihan/lunasi/:id') ?>', // 🔥 arahkan ke endpoint tagihan
                 tagihanLunasiUrl: '<?= base_url('/tagihan/lunasi/:id') ?>', // opsional, tidak dipakai
                 kasirListUrl: '<?= base_url('/api/kasir-list') ?>',
-                isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
-                isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
+                isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>
             };
         </script>
         <script src="<?= base_url('assets/js/payment.js') ?>"></script>
+
+        <!-- Date Range Picker -- pola sama seperti transaksi/index.php -->
+        <script src="https://cdn.jsdelivr.net/npm/moment/min/moment.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 
         <script>
             /**
@@ -188,6 +224,62 @@
             }
 
             // ==========================================
+            // INIT DATE RANGE PICKER
+            // ==========================================
+            $(document).ready(function() {
+                // Tanggal awal hidden field non-kosong dipakai sebagai
+                // posisi awal kalender; kalau tidak ada filter aktif,
+                // kalender tetap dibuka di 7 hari terakhir tanpa
+                // otomatis menerapkan filter apa pun (submit hanya
+                // terjadi lewat event 'apply' di bawah).
+                var awalHidden = $('#tanggalAwalHidden').val();
+                var akhirHidden = $('#tanggalAkhirHidden').val();
+                var startDate = awalHidden ? moment(awalHidden) : moment().subtract(6, 'days');
+                var endDate = akhirHidden ? moment(akhirHidden) : moment();
+
+                $('#filterTanggal').daterangepicker({
+                    locale: {
+                        format: 'DD/MM/YYYY',
+                        separator: ' - ',
+                        applyLabel: 'Terapkan',
+                        cancelLabel: 'Batal',
+                        fromLabel: 'Dari',
+                        toLabel: 'Sampai',
+                        customRangeLabel: 'Custom',
+                        weekLabel: 'M',
+                        daysOfWeek: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
+                        monthNames: ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+                        ],
+                        firstDay: 1
+                    },
+                    startDate: startDate,
+                    endDate: endDate,
+                    autoUpdateInput: !!(awalHidden && akhirHidden),
+                    opens: 'left',
+                    showDropdowns: true,
+                    ranges: {
+                        'Hari Ini': [moment(), moment()],
+                        'Kemarin': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                        '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
+                        '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
+                        'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
+                        'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                    }
+                });
+
+                // Terapkan langsung saat rentang dipilih -- isi hidden
+                // field (dikonsumsi Tagihan::getRentangTanggal()) lalu
+                // submit form yang sama supaya filter kasir/hanya
+                // terlambat yang sedang aktif ikut terbawa.
+                $('#filterTanggal').on('apply.daterangepicker', function(ev, picker) {
+                    $('#tanggalAwalHidden').val(picker.startDate.format('YYYY-MM-DD'));
+                    $('#tanggalAkhirHidden').val(picker.endDate.format('YYYY-MM-DD'));
+                    $(this).closest('form').trigger('submit');
+                });
+            });
+
+            // ==========================================
             // INIT DATATABLES
             // ==========================================
             $(document).ready(function() {
@@ -196,8 +288,10 @@
                     processing: true,
                     serverSide: false,
                     pageLength: 25,
+                    // Kolom 3 = Tanggal. ASC supaya tagihan paling lama
+                    // menunggak (paling perlu ditagih) tampil paling atas.
                     order: [
-                        [2, 'desc']
+                        [3, 'asc']
                     ],
                     columnDefs: [{
                             orderable: false,

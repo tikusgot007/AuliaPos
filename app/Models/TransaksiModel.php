@@ -101,11 +101,7 @@ class TransaksiModel extends Model
                 return true;
             }
 
-            // Tahap 5: Shift Leader boleh membatalkan transaksi SELESAI
-            // persis seperti admin (kapabilitas KHUSUS KONTEKS, sama
-            // pola dengan PROSES->SELESAI di bawah) -- $isShiftLeader
-            // sudah jadi parameter method ini sejak Tahap 3.
-            if ($status === 'batal' && ($isAdmin || $isShiftLeader)) {
+            if ($status === 'batal' && $isAdmin) {
                 $data = [
                     'status'   => 'batal',
                     'no_order' => null,
@@ -142,7 +138,7 @@ class TransaksiModel extends Model
 
             throw new \Exception(
                 $status === 'batal'
-                    ? 'Hanya admin atau Shift Leader yang dapat membatalkan transaksi yang sudah SELESAI.'
+                    ? 'Hanya admin yang dapat membatalkan transaksi yang sudah SELESAI.'
                     : 'Transaksi yang sudah SELESAI tidak dapat diubah statusnya.'
             );
         }
@@ -198,11 +194,10 @@ class TransaksiModel extends Model
             );
         }
 
-        // PROSES -> MANGKRAK: admin-only (BUKAN dilonggarkan ke Shift
-        // Leader seperti SELESAI/BATAL -- lihat catatan di cabang
-        // 'selesai' di bawah) -- keputusan melepas transaksi dari
-        // radar aktif Tagihan/notifikasi sengaja dipegang admin murni,
-        // bukan sembarang kasir maupun Shift Leader. Tidak ada syarat
+        // PROSES -> MANGKRAK: admin-only (beda dari PROSES -> BATAL
+        // yang terbuka untuk semua role) -- keputusan melepas
+        // transaksi dari radar aktif Tagihan/notifikasi sengaja
+        // dipegang admin, bukan sembarang kasir. Tidak ada syarat
         // status pembayaran (justru kasus paling umum adalah belum
         // dibayar sama sekali).
         if ($status === 'mangkrak') {
@@ -267,19 +262,6 @@ class TransaksiModel extends Model
                         . 'Sisa pembayaran: Rp' . number_format($sisa, 0, ',', '.')
                 );
             }
-        }
-
-        // PROSES -> BATAL: HANYA admin atau Shift Leader saat ini
-        // (kapabilitas KHUSUS KONTEKS, identik pola SELESAI di atas).
-        // SEBELUM Tahap 5.1 ini terbuka untuk semua role -- diperketat
-        // atas keputusan produk supaya otoritas pembatalan transaksi
-        // (baik dari PROSES maupun dari SELESAI, lihat cabang
-        // 'selesai' di atas) konsisten: selalu admin atau Shift
-        // Leader, tidak pernah kasir biasa.
-        if ($status === 'batal' && !$isAdmin && !$isShiftLeader) {
-            throw new \Exception(
-                'Hanya admin atau Shift Leader yang dapat membatalkan transaksi.'
-            );
         }
 
         $data = [
@@ -616,23 +598,13 @@ class TransaksiModel extends Model
      * Cukup simpan pembayaran dan update status transaksi.
      * Saldo kas sistem dihitung REAL TIME dari tabel pembayaran + cash_expense.
      *
-     * @param bool $isAdmin Wajib true (atau $isShiftLeader true) jika
-     *                       $data['tanggal'] adalah backdate (tanggal
-     *                       signifikan berbeda dari sekarang) — lihat
-     *                       blok BACKDATE di bawah. Untuk pembayaran
-     *                       normal (tanggal = sekarang) kedua flag ini
-     *                       tidak berpengaruh.
-     * @param bool $isShiftLeader Kapabilitas KHUSUS KONTEKS: Effective
-     *                       Shift Leader saat ini (App\Services\
-     *                       Authority::isCurrentShiftLeader()) boleh
-     *                       backdate persis seperti admin untuk fitur
-     *                       ini (Tahap 5) -- validasi masa-depan &
-     *                       tidak-boleh-sebelum-tanggal-transaksi di
-     *                       bawah TETAP berlaku tanpa kecuali untuk
-     *                       kedua kapabilitas ini, tidak ada yang
-     *                       dilewati.
+     * @param bool $isAdmin Wajib true jika $data['tanggal'] adalah
+     *                       backdate (tanggal signifikan berbeda dari
+     *                       sekarang) — lihat blok BACKDATE di bawah.
+     *                       Untuk pembayaran normal (tanggal = sekarang)
+     *                       flag ini tidak berpengaruh.
      */
-    public function tambahPembayaran($transaksi_id, $data, bool $isAdmin = false, bool $isShiftLeader = false)
+    public function tambahPembayaran($transaksi_id, $data, bool $isAdmin = false)
     {
         $db = \Config\Database::connect();
         $pembayaranModel = model(PembayaranModel::class);
@@ -717,9 +689,9 @@ class TransaksiModel extends Model
         $toleransiDetik = 60;
         $isBackdate = abs($sekarangTimestamp - $tanggalTimestamp) > $toleransiDetik;
 
-        if ($isBackdate && !$isAdmin && !$isShiftLeader) {
+        if ($isBackdate && !$isAdmin) {
             throw new \Exception(
-                'Hanya admin atau Shift Leader yang dapat mencatat pembayaran dengan tanggal berbeda (backdate).'
+                'Hanya admin yang dapat mencatat pembayaran dengan tanggal berbeda (backdate).'
             );
         }
 

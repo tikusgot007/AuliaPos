@@ -39,6 +39,18 @@ class CashOpnameModel extends Model
     }
 
     /**
+     * Opname kasir terakhir dengan timestamp <= cutoff tertentu
+     * (dipakai Closing Kas sebagai pembanding historis, bukan cuma
+     * "opname hari ini").
+     */
+    public function getLastOpnameUpTo(string $cutoff)
+    {
+        return $this->where('tanggal <=', $cutoff)
+            ->orderBy('tanggal', 'DESC')
+            ->first();
+    }
+
+    /**
      * Mendapatkan semua opname untuk hari tertentu
      */
     public function getOpnamesByDate($tanggal)

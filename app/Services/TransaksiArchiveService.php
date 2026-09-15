@@ -820,16 +820,27 @@ SQL);
     /**
      * Baris pembayaran mentah dari archive untuk suatu rentang
      * tanggal -- kolom sama seperti tabel `pembayaran`.
+     *
+     * JOIN ke transaksi_archive & exclude status='batal' by default,
+     * konsisten dengan getTransaksiMentah()/getDaftarPembayaranMentah()/
+     * getItemHarianMentah() -- lihat docs/aturan-bisnis-AULIA.md
+     * Section 12 (batal = dianggap tidak terjadi).
      */
-    public function getPembayaranMentah(string $tglAwal, string $tglAkhir, string $status = 'aktif'): array
+    public function getPembayaranMentah(string $tglAwal, string $tglAkhir, string $status = 'aktif', bool $excludeBatal = true): array
     {
-        return $this->archive->table('pembayaran_archive')
-            ->select('id, transaksi_id, tanggal, jumlah, uang_diterima, kembalian, metode, keterangan, kasir_id, status')
-            ->where('tanggal >=', $tglAwal)
-            ->where('tanggal <=', $tglAkhir)
-            ->where('status', $status)
-            ->orderBy('tanggal', 'ASC')
-            ->orderBy('id', 'ASC')
+        $builder = $this->archive->table('pembayaran_archive p')
+            ->select('p.id, p.transaksi_id, p.tanggal, p.jumlah, p.uang_diterima, p.kembalian, p.metode, p.keterangan, p.kasir_id, p.status')
+            ->join('transaksi_archive t', 't.id = p.transaksi_id')
+            ->where('p.tanggal >=', $tglAwal)
+            ->where('p.tanggal <=', $tglAkhir)
+            ->where('p.status', $status);
+
+        if ($excludeBatal) {
+            $builder->where('t.status !=', 'batal');
+        }
+
+        return $builder->orderBy('p.tanggal', 'ASC')
+            ->orderBy('p.id', 'ASC')
             ->get()->getResultArray();
     }
 

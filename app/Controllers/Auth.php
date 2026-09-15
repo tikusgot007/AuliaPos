@@ -8,40 +8,6 @@ use App\Models\UserModel;
 class Auth extends BaseController
 {
     /**
-     * Parse & validasi input 'priority' dari request tambah/edit user.
-     * Kosong -> null (LOCKED: tidak ada mode "biarkan nilai lama" --
-     * mengosongkan field selalu menghapus ranking existing).
-     * Pre-check PHP di sini hanya untuk pesan error yang jelas; DB
-     * UNIQUE (uq_users_priority) tetap otoritas akhir untuk race
-     * condition -- lihat try/catch di simpanUser()/updateUser().
-     *
-     * @return array{ok:bool,value?:?int,error?:string}
-     */
-    private function resolvePriorityDariRequest(UserModel $model, ?int $excludeId = null): array
-    {
-        $raw = trim((string) $this->request->getPost('priority'));
-        if ($raw === '') {
-            return ['ok' => true, 'value' => null];
-        }
-
-        if (!ctype_digit($raw) || (int) $raw > 65535) {
-            return ['ok' => false, 'error' => 'Priority harus berupa angka bulat 0-65535, atau kosongkan.'];
-        }
-
-        $priority = (int) $raw;
-
-        $dupeQuery = $model->where('priority', $priority);
-        if ($excludeId !== null) {
-            $dupeQuery->where('id !=', $excludeId);
-        }
-        if ($dupeQuery->first()) {
-            return ['ok' => false, 'error' => 'Priority sudah dipakai karyawan lain.'];
-        }
-
-        return ['ok' => true, 'value' => $priority];
-    }
-
-    /**
      * Halaman Login
      */
     public function login()
@@ -258,12 +224,6 @@ class Auth extends BaseController
             return redirect()->back()->withInput()->with('error', 'Username sudah digunakan.');
         }
 
-        // 🔥 Priority (opsional): kosong -> NULL (belum di-ranking).
-        $priorityResult = $this->resolvePriorityDariRequest($model);
-        if (!$priorityResult['ok']) {
-            return redirect()->back()->withInput()->with('error', $priorityResult['error']);
-        }
-
         // 🔥 Foto profil (opsional saat tambah user)
         $fotoService = new FotoProfilService();
         $fotoFilename = null;
@@ -287,26 +247,9 @@ class Auth extends BaseController
             'no_hp'         => $noHp !== '' ? $noHp : null,
             'is_active'     => $isActive,
             'profile_photo' => $fotoFilename,
-            'priority'      => $priorityResult['value'],
         ];
 
-        try {
-            $tersimpan = $model->save($data);
-        } catch (\Throwable $e) {
-            if ($fotoFilename) {
-                $fotoService->hapus($fotoFilename);
-            }
-            // Race condition: dua admin menyimpan priority sama nyaris
-            // bersamaan -- pre-check PHP di atas sudah lolos untuk
-            // keduanya, DB UNIQUE (uq_users_priority) yang menolak
-            // salah satunya di sini.
-            if (str_contains($e->getMessage(), 'priority')) {
-                return redirect()->back()->withInput()->with('error', 'Priority sudah dipakai karyawan lain (konflik saat menyimpan).');
-            }
-            throw $e;
-        }
-
-        if ($tersimpan) {
+        if ($model->save($data)) {
             return redirect()->to('/user-management')->with('success', 'User berhasil ditambahkan!');
         } else {
             if ($fotoFilename) {
@@ -426,13 +369,6 @@ class Auth extends BaseController
             return redirect()->back()->withInput()->with('error', 'Username sudah digunakan.');
         }
 
-        // 🔥 Priority (opsional): kosong -> NULL, selalu menghapus
-        // ranking existing (LOCKED, tidak ada mode "biarkan nilai lama").
-        $priorityResult = $this->resolvePriorityDariRequest($model, (int) $id);
-        if (!$priorityResult['ok']) {
-            return redirect()->back()->withInput()->with('error', $priorityResult['error']);
-        }
-
         // 🔥 Data update
         $data = [
             'username'  => $username,
@@ -442,7 +378,6 @@ class Auth extends BaseController
             'divisi'    => $divisi !== '' ? $divisi : null,
             'no_hp'     => $noHp !== '' ? $noHp : null,
             'is_active' => $isActive,
-            'priority'  => $priorityResult['value'],
         ];
 
         // 🔥 Jika password diisi, update password
@@ -471,20 +406,7 @@ class Auth extends BaseController
             $data['profile_photo'] = null;
         }
 
-        try {
-            $terupdate = $model->update($id, $data);
-        } catch (\Throwable $e) {
-            if ($fotoBaruFilename) {
-                $fotoService->hapus($fotoBaruFilename);
-            }
-            // Race condition: lihat catatan yang sama di simpanUser().
-            if (str_contains($e->getMessage(), 'priority')) {
-                return redirect()->back()->withInput()->with('error', 'Priority sudah dipakai karyawan lain (konflik saat menyimpan).');
-            }
-            throw $e;
-        }
-
-        if ($terupdate) {
+        if ($model->update($id, $data)) {
             // Bersihkan file lama HANYA setelah update DB berhasil,
             // dan HANYA jika memang ada penggantian/penghapusan foto.
             if ($fotoBaruFilename && $fotoLama) {
