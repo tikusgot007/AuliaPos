@@ -6,6 +6,8 @@ use App\Models\TransaksiModel;
 use App\Models\DetailTransaksiModel;
 use App\Models\PembayaranModel;
 use App\Models\PelangganModel;
+use App\Services\KalkulasiJatuhTempo;
+use Config\Tagihan as TagihanConfig;
 
 class Tagihan extends BaseController
 {
@@ -40,6 +42,11 @@ class Tagihan extends BaseController
         // Filter nama pelanggan (pencarian LIKE, bukan dropdown -- daftar
         // pelanggan bisa banyak).
         $pelangganCari = trim((string) $this->request->getGet('pelanggan'));
+
+        // Filter "hanya yang terlambat". Jatuh tempo bukan kolom DB (lihat
+        // Config\Tagihan), jadi filter ini diterapkan di PHP setelah
+        // findAll(), bukan lewat WHERE query.
+        $hanyaTerlambat = $this->request->getGet('hanya_terlambat') == '1';
 
         $query = $transaksiModel
             ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama')
@@ -84,14 +91,32 @@ class Tagihan extends BaseController
         // paling baru.
         $tagihan = $query->orderBy('transaksi.tanggal', 'ASC')->findAll();
 
+        // Jatuh tempo = kebijakan global (lihat Config\Tagihan), dihitung
+        // di sini, TIDAK disimpan ke DB. "Sekarang" dibaca sekali di luar
+        // loop supaya seluruh baris membandingkan terhadap tanggal yang
+        // sama persis.
+        $tempoHari = (new TagihanConfig())->defaultTempoHari;
+        $hariIni   = date('Y-m-d');
+
+        foreach ($tagihan as &$t) {
+            $t['jatuh_tempo'] = KalkulasiJatuhTempo::hitung($t['tanggal'], $tempoHari);
+            $t['is_overdue']  = KalkulasiJatuhTempo::isOverdue($t['tanggal'], $tempoHari, $hariIni);
+        }
+        unset($t);
+
+        if ($hanyaTerlambat) {
+            $tagihan = array_values(array_filter($tagihan, static fn (array $t): bool => $t['is_overdue']));
+        }
+
         $data = [
-            'title'         => 'Tagihan | AULIA',
-            'content'       => 'tagihan/index',
-            'tagihan'       => $tagihan,
+            'title'             => 'Tagihan | AULIA',
+            'content'           => 'tagihan/index',
+            'tagihan'           => $tagihan,
             'tanggal_awal'      => $tanggalAwal ?? '',
             'tanggal_akhir'     => $tanggalAkhir ?? '',
             'status_pembayaran' => $statusPembayaran,
             'pelanggan_cari'    => $pelangganCari,
+            'hanya_terlambat'   => $hanyaTerlambat,
         ];
 
         return view('layout/main', $data);

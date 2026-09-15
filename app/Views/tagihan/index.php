@@ -34,6 +34,11 @@
                 <input type="text" name="pelanggan" class="form-control form-control-sm" placeholder="Cari nama..."
                     value="<?= esc($pelanggan_cari, 'attr') ?>">
             </div>
+            <div class="col-6 col-md-2 form-check ms-2 mb-2">
+                <input type="checkbox" name="hanya_terlambat" value="1" id="hanyaTerlambat"
+                    class="form-check-input" <?= $hanya_terlambat ? 'checked' : '' ?>>
+                <label class="form-check-label" for="hanyaTerlambat">Hanya terlambat</label>
+            </div>
             <div class="col-12 col-md-auto">
                 <button type="submit" class="btn btn-sm btn-primary">
                     <i class="fas fa-filter"></i> Filter
@@ -60,6 +65,7 @@
                         <th>Invoice</th>
                         <th>No Order</th> <!-- 🔥 SAMA DENGAN TRANSAKSI -->
                         <th>Tanggal</th>
+                        <th>Jatuh Tempo</th>
                         <th>Pelanggan</th>
                         <th>Kasir</th>
                         <th>Total</th>
@@ -100,6 +106,13 @@
                                 <td><?= $noOrderDisplay ?></td>
                                 <td data-order="<?= $ts ?>">
                                     <?= $tanggalDisplay ?>
+                                </td>
+                                <td data-order="<?= strtotime($t['jatuh_tempo']) ?>"
+                                    class="<?= $t['is_overdue'] ? 'text-danger fw-bold' : '' ?>">
+                                    <?= tanggal_singkat($t['jatuh_tempo']) ?>
+                                    <?php if ($t['is_overdue']): ?>
+                                        <span class="badge bg-danger">Terlambat</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? $t['nama_pelanggan'] ?? '-' ?></td>
                                 <td><?= $t['kasir_nama'] ?? $t['nama_kasir'] ?? '-' ?></td>
@@ -213,7 +226,7 @@
                     ],
                     columnDefs: [{
                             orderable: false,
-                            targets: [0, 9]
+                            targets: [0, 10]
                         },
                         {
                             type: 'num',

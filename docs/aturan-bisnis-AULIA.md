@@ -1634,6 +1634,32 @@ Sekalian dibersihkan: inline style `background:#fff` dkk di elemen
 `<header>` dihapus karena itu dead code (selalu ditimpa total oleh
 CSS class `.top-header { ... !important }`).
 
+## 25.8 Jatuh Tempo Tagihan — kebijakan global, tanpa kolom DB (2026-09-15)
+
+**Keputusan produk: tidak menambah kolom/migration untuk jatuh
+tempo.** Sebagai gantinya, jatuh tempo dihitung sebagai kebijakan
+**global**: `transaksi.tanggal + Config\Tagihan::$defaultTempoHari`
+(default 7 hari, override lewat `.env` `tagihan.defaultTempoHari`),
+dihitung ulang setiap kali halaman `/tagihan` dibuka — **tidak pernah
+disimpan ke database**. Logic murni ada di
+`App\Services\KalkulasiJatuhTempo` (stateless, pola sama seperti
+`KalkulasiStatusPembayaran`), diuji di
+`tests/unit/KalkulasiJatuhTempoTest.php`.
+
+Konsekuensi yang disadari & diterima:
+- Satu nilai tempo berlaku untuk **semua** transaksi dan pelanggan —
+  tidak bisa diatur berbeda per transaksi atau per pelanggan (mis.
+  pelanggan langganan dengan termin lebih panjang) tanpa menambah
+  kolom baru di kemudian hari.
+- "Terlambat" (overdue) baru true **sehari setelah** tanggal jatuh
+  tempo — pada hari H jatuh tempo itu sendiri belum dianggap
+  terlambat (lihat `KalkulasiJatuhTempo::isOverdue()`).
+
+Tampil di `/tagihan` sebagai kolom "Jatuh Tempo" (badge merah
+"Terlambat" kalau overdue) dan filter checkbox "Hanya terlambat"
+(diterapkan di PHP setelah `findAll()`, bukan lewat WHERE query,
+karena bukan kolom database).
+
 ---
 
 # 26. Preview Banner (2026-09-07)
