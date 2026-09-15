@@ -364,4 +364,112 @@ final class KasirSelesaikanTransaksiTest extends CIUnitTestCase
         $res->assertJSONFragment(['status' => 'success']);
         $this->assertSame('selesai', $this->statusTransaksi($id));
     }
+
+    // ---- Tahap 5: batalkan transaksi SELESAI (sebelumnya admin-only) ----
+
+    /** Buat transaksi lunas & langsung tandai SELESAI (lewat model, admin), kembalikan id-nya. */
+    private function seedTransaksiSelesai(int $kasirId = 99): int
+    {
+        $id = $this->seedTransaksi(['kasir_id' => $kasirId]);
+        $this->bayarLunas($id);
+        (new TransaksiModel())->ubahStatus($id, 'selesai', true);
+
+        return $id;
+    }
+
+    public function testAdminBisaBatalkanTransaksiSelesai(): void
+    {
+        $id = $this->seedTransaksiSelesai();
+
+        $res = $this->withSession($this->sesi('admin', 1))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'batal']);
+
+        $res->assertJSONFragment(['status' => 'success']);
+        $this->assertSame('batal', $this->statusTransaksi($id));
+    }
+
+    public function testShiftLeaderBisaBatalkanTransaksiSelesai(): void
+    {
+        FakeClock::$override = self::HARI_TETAP . ' ' . self::JAM_TETAP . ':00';
+
+        $this->seedUser(50, 'kasir', 1, 10);
+        $this->seedJadwal(50, self::HARI_TETAP, 'P');
+
+        $id = $this->seedTransaksiSelesai();
+
+        $res = $this->withSession($this->sesi('kasir', 50))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'batal']);
+
+        $res->assertJSONFragment(['status' => 'success']);
+        $this->assertSame('batal', $this->statusTransaksi($id));
+    }
+
+    public function testKasirBukanLeaderTidakBisaBatalkanTransaksiSelesai(): void
+    {
+        FakeClock::$override = self::HARI_TETAP . ' ' . self::JAM_TETAP . ':00';
+
+        $this->seedUser(50, 'kasir', 1, 10); // Leader hari ini, TAPI bukan yang login di bawah
+        $this->seedJadwal(50, self::HARI_TETAP, 'P');
+
+        $id = $this->seedTransaksiSelesai();
+
+        $res = $this->withSession($this->sesi('kasir', 7)) // kasir biasa, bukan Leader
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'batal']);
+
+        $res->assertJSONFragment(['status' => 'error']);
+        $this->assertSame('selesai', $this->statusTransaksi($id));
+    }
+
+    // ---- Tahap 5.1: PROSES->BATAL diperketat, sama seperti SELESAI->BATAL ----
+    // (SEBELUM Tahap 5.1 ini terbuka untuk semua role -- keputusan produk
+    // diperketat supaya otoritas pembatalan konsisten: admin atau Shift
+    // Leader saja, baik dari PROSES maupun SELESAI.)
+
+    public function testAdminBisaBatalkanTransaksiProses(): void
+    {
+        $id = $this->seedTransaksi(['kasir_id' => 7]); // status proses, belum dibayar
+
+        $res = $this->withSession($this->sesi('admin', 1))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'batal']);
+
+        $res->assertJSONFragment(['status' => 'success']);
+        $this->assertSame('batal', $this->statusTransaksi($id));
+    }
+
+    public function testShiftLeaderBisaBatalkanTransaksiProses(): void
+    {
+        FakeClock::$override = self::HARI_TETAP . ' ' . self::JAM_TETAP . ':00';
+
+        $this->seedUser(50, 'kasir', 1, 10);
+        $this->seedJadwal(50, self::HARI_TETAP, 'P');
+
+        $id = $this->seedTransaksi(['kasir_id' => 7]);
+
+        $res = $this->withSession($this->sesi('kasir', 50))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'batal']);
+
+        $res->assertJSONFragment(['status' => 'success']);
+        $this->assertSame('batal', $this->statusTransaksi($id));
+    }
+
+    public function testKasirBiasaBukanLeaderTidakBisaBatalkanTransaksiProses(): void
+    {
+        // Regresi Tahap 5.1: PROSES->BATAL TIDAK LAGI terbuka untuk
+        // semua role -- kasir biasa (jelas bukan Shift Leader, tidak
+        // ada jadwal/priority sama sekali) sekarang ditolak, sama
+        // seperti SELESAI->BATAL.
+        $id = $this->seedTransaksi(['kasir_id' => 7]);
+
+        $res = $this->withSession($this->sesi('kasir', 7))
+            ->withBodyFormat('json')
+            ->post(self::UBAH_STATUS, ['id' => $id, 'status' => 'batal']);
+
+        $res->assertJSONFragment(['status' => 'error']);
+        $this->assertSame('proses', $this->statusTransaksi($id));
+    }
 }

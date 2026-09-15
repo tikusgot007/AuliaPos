@@ -186,6 +186,11 @@ class Tagihan extends BaseController
         $isAdmin = session()->get('role') === 'admin';
         $kasirIdSesi = session()->get('id_user') ?? 1;
 
+        // Tahap 5: Shift Leader boleh backdate persis seperti admin,
+        // sama pola dengan Api::tambahPembayaran() (lihat
+        // App\Services\Authority).
+        $isShiftLeader = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
+
         // Hitung sisa tagihan
         $pembayaranModel = new PembayaranModel();
         $totalDibayar = $pembayaranModel->getTotalDibayar($id);
@@ -204,18 +209,18 @@ class Tagihan extends BaseController
 
         /*
          * Backdate / pembayaran diterima sebelumnya (2026-09-05).
-         * Sama seperti Api::tambahPembayaran() — hanya admin, dan
-         * divalidasi ulang secara otoritatif di
-         * TransaksiModel::tambahPembayaran().
+         * Sama seperti Api::tambahPembayaran() — admin atau Shift
+         * Leader saat ini (Tahap 5), dan divalidasi ulang secara
+         * otoritatif di TransaksiModel::tambahPembayaran().
          */
         $tanggalPembayaran = date('Y-m-d H:i:s');
         $kasirId = $kasirIdSesi;
 
-        if ($isAdmin && !empty($request->tanggal)) {
+        if (($isAdmin || $isShiftLeader) && !empty($request->tanggal)) {
             $tanggalPembayaran = (string) $request->tanggal;
         }
 
-        if ($isAdmin && !empty($request->kasir_id)) {
+        if (($isAdmin || $isShiftLeader) && !empty($request->kasir_id)) {
             $kasirId = (int) $request->kasir_id;
         }
 
@@ -231,7 +236,7 @@ class Tagihan extends BaseController
         ];
 
         try {
-            $transaksiModel->tambahPembayaran($id, $dataPembayaran, $isAdmin);
+            $transaksiModel->tambahPembayaran($id, $dataPembayaran, $isAdmin, $isShiftLeader);
         } catch (\Throwable $e) {
             log_message('error', 'Tagihan::lunasi: ' . $e->getMessage());
 

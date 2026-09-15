@@ -250,9 +250,10 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                                             </button>
                                         <?php endif; ?>
 
-                                        <?php if (in_array($t['status'], ['proses', 'selesai'], true)): ?>
+                                        <?php // Tahap 5.1: khusus admin/Shift Leader, baik 'proses' maupun 'selesai'. ?>
+                                        <?php if (in_array($t['status'], ['proses', 'selesai'], true) && ($isAdminUser || $isShiftLeaderUser)): ?>
                                             <button type="button" class="btn btn-sm btn-danger"
-                                                title="<?= $t['status'] === 'selesai' ? 'Batalkan Transaksi (khusus admin)' : 'Batalkan Transaksi' ?>"
+                                                title="Batalkan Transaksi"
                                                 onclick="ubahStatus(<?= $t['id'] ?>, 'batal')">
                                                 <i class="fas fa-times"></i>
                                             </button>
@@ -377,7 +378,8 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
         existingPaymentUrl: '<?= base_url('/api/tambah-pembayaran') ?>',
         tagihanLunasiUrl: '<?= base_url('/tagihan/lunasi/:id') ?>',
         kasirListUrl: '<?= base_url('/api/kasir-list') ?>',
-        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>
+        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
+        isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
     };
 </script>
 <script src="<?= base_url('assets/js/payment.js') ?>"></script>

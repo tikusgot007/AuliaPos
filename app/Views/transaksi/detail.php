@@ -322,15 +322,16 @@
             <!-- BATAL adalah status terminal; tidak ada tombol aktifkan kembali. -->
             <!-- ========================================== -->
             <!-- 🔥 TOMBOL BATAL                           -->
-            <!-- Muncul untuk 'proses' (semua role) dan     -->
-            <!-- 'selesai' (backend menolak jika bukan admin) -->
+            <!-- Tahap 5.1: khusus admin/Shift Leader, baik dari    -->
+            <!-- 'proses' maupun 'selesai' (sebelumnya 'proses'     -->
+            <!-- terbuka semua role -- diperketat, backend jadi     -->
+            <!-- otoritas, ini hanya visibility layer 1).           -->
             <!-- MANGKRAK tidak bisa langsung ke Batal -- harus  -->
             <!-- diaktifkan kembali ke PROSES dulu.              -->
             <!-- ========================================== -->
-            <?php if (in_array($transaksi['status'] ?? '', ['proses', 'selesai'], true)): ?>
+            <?php if (in_array($transaksi['status'] ?? '', ['proses', 'selesai'], true) && (session()->get('role') === 'admin' || $isShiftLeaderUser)): ?>
                 <button class="btn btn-danger w-100 mb-2" onclick="(async () => { if (await konfirmasi('Yakin ingin membatalkan transaksi ini?', { okText: 'Ya, Batalkan' })) { kirimUbahStatusAjax(<?= $transaksi['id'] ?>, 'batal'); } })()">
                     <i class="fas fa-times"></i> Batalkan
-                    <?= ($transaksi['status'] ?? '') === 'selesai' ? '(khusus admin)' : '' ?>
                 </button>
             <?php endif; ?>
 
@@ -880,7 +881,8 @@
         existingPaymentUrl: '<?= base_url('/api/tambah-pembayaran') ?>',
         tagihanLunasiUrl: '<?= base_url('/tagihan/lunasi/:id') ?>',
         kasirListUrl: '<?= base_url('/api/kasir-list') ?>',
-        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>
+        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
+        isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
     };
 </script>
 <script src="<?= base_url('assets/js/payment.js') ?>"></script>
