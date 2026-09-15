@@ -169,6 +169,7 @@
         <?= $this->section('scripts') ?>
 
         <!-- Konfigurasi payment modal untuk halaman tagihan -->
+        <?php $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user')); ?>
         <script>
             // Override konfigurasi untuk halaman tagihan
             window.paymentModalConfig = {
@@ -177,7 +178,8 @@
                 existingPaymentUrl: '<?= base_url('/tagihan/lunasi/:id') ?>', // 🔥 arahkan ke endpoint tagihan
                 tagihanLunasiUrl: '<?= base_url('/tagihan/lunasi/:id') ?>', // opsional, tidak dipakai
                 kasirListUrl: '<?= base_url('/api/kasir-list') ?>',
-                isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>
+                isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
+                isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
             };
         </script>
         <script src="<?= base_url('assets/js/payment.js') ?>"></script>

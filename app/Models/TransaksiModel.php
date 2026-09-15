@@ -60,8 +60,17 @@ class TransaksiModel extends Model
      *                        dan untuk transisi SELESAI -> BATAL
      *                        (lihat docs/aturan-bisnis-AULIA.md Section 2
      *                        dan perubahan-alur-status-transaksi.md).
+     * @param bool   $isShiftLeader Kapabilitas KHUSUS KONTEKS untuk PROSES
+     *                        -> SELESAI di workflow umum: Effective Shift
+     *                        Leader saat ini (App\Services\Authority::
+     *                        isCurrentShiftLeader()) boleh menyelesaikan
+     *                        transaksi yang sebelumnya admin-only di sana.
+     *                        TIDAK berlaku untuk transisi lain (batal,
+     *                        mangkrak, reaktivasi tetap admin-only persis
+     *                        seperti sebelumnya). Diberikan HANYA oleh
+     *                        Api::ubahStatus() -- lihat POC Tahap 3.
      */
-    public function ubahStatus($id, $status, bool $isAdmin = false, bool $izinSelesaikanKonteks = false)
+    public function ubahStatus($id, $status, bool $isAdmin = false, bool $izinSelesaikanKonteks = false, bool $isShiftLeader = false)
     {
         $status = strtolower(trim((string) $status));
 
@@ -92,7 +101,11 @@ class TransaksiModel extends Model
                 return true;
             }
 
-            if ($status === 'batal' && $isAdmin) {
+            // Tahap 5: Shift Leader boleh membatalkan transaksi SELESAI
+            // persis seperti admin (kapabilitas KHUSUS KONTEKS, sama
+            // pola dengan PROSES->SELESAI di bawah) -- $isShiftLeader
+            // sudah jadi parameter method ini sejak Tahap 3.
+            if ($status === 'batal' && ($isAdmin || $isShiftLeader)) {
                 $data = [
                     'status'   => 'batal',
                     'no_order' => null,
@@ -129,7 +142,7 @@ class TransaksiModel extends Model
 
             throw new \Exception(
                 $status === 'batal'
-                    ? 'Hanya admin yang dapat membatalkan transaksi yang sudah SELESAI.'
+                    ? 'Hanya admin atau Shift Leader yang dapat membatalkan transaksi yang sudah SELESAI.'
                     : 'Transaksi yang sudah SELESAI tidak dapat diubah statusnya.'
             );
         }
@@ -185,10 +198,11 @@ class TransaksiModel extends Model
             );
         }
 
-        // PROSES -> MANGKRAK: admin-only (beda dari PROSES -> BATAL
-        // yang terbuka untuk semua role) -- keputusan melepas
-        // transaksi dari radar aktif Tagihan/notifikasi sengaja
-        // dipegang admin, bukan sembarang kasir. Tidak ada syarat
+        // PROSES -> MANGKRAK: admin-only (BUKAN dilonggarkan ke Shift
+        // Leader seperti SELESAI/BATAL -- lihat catatan di cabang
+        // 'selesai' di bawah) -- keputusan melepas transaksi dari
+        // radar aktif Tagihan/notifikasi sengaja dipegang admin murni,
+        // bukan sembarang kasir maupun Shift Leader. Tidak ada syarat
         // status pembayaran (justru kasus paling umum adalah belum
         // dibayar sama sekali).
         if ($status === 'mangkrak') {
@@ -217,13 +231,23 @@ class TransaksiModel extends Model
         // (POS) untuk transaksi buatannya sendiri. Diberikan HANYA oleh
         // Api::selesaikanTransaksiKasir() yang sudah memeriksa
         // sumber/kepemilikan. Endpoint status umum (Api::ubahStatus,
-        // dipakai Detail/Daftar) memakai default false -> kasir tetap
-        // ditolak di sana. Syarat LUNAS di bawah berlaku untuk SEMUA
-        // jalur, tanpa kecuali.
+        // dipakai Detail/Daftar) memakai default false untuk parameter
+        // ini -> kasir biasa tetap ditolak di sana.
+        //
+        // $isShiftLeader = kapabilitas KHUSUS KONTEKS lain, KHUSUS untuk
+        // workflow umum (Api::ubahStatus): Effective Shift Leader saat
+        // ini (dihitung dari users.priority + jadwal + jam shift, lihat
+        // App\Services\EffectiveShiftLeaderService/Authority -- BUKAN
+        // role permanen, users.role tidak pernah jadi 'shift_leader')
+        // boleh menyelesaikan transaksi apa pun di workflow umum yang
+        // sebelumnya admin-only. Tidak menggantikan/melemahkan aturan
+        // ownership POS di atas -- keduanya independen. Syarat LUNAS di
+        // bawah berlaku untuk SEMUA jalur (admin/konteks kasir/Shift
+        // Leader), tanpa kecuali.
         if ($status === 'selesai') {
-            if (!$isAdmin && !$izinSelesaikanKonteks) {
+            if (!$isAdmin && !$izinSelesaikanKonteks && !$isShiftLeader) {
                 throw new \Exception(
-                    'Hanya admin yang dapat menyelesaikan transaksi.'
+                    'Hanya admin atau Shift Leader yang dapat menyelesaikan transaksi.'
                 );
             }
 
@@ -243,6 +267,19 @@ class TransaksiModel extends Model
                         . 'Sisa pembayaran: Rp' . number_format($sisa, 0, ',', '.')
                 );
             }
+        }
+
+        // PROSES -> BATAL: HANYA admin atau Shift Leader saat ini
+        // (kapabilitas KHUSUS KONTEKS, identik pola SELESAI di atas).
+        // SEBELUM Tahap 5.1 ini terbuka untuk semua role -- diperketat
+        // atas keputusan produk supaya otoritas pembatalan transaksi
+        // (baik dari PROSES maupun dari SELESAI, lihat cabang
+        // 'selesai' di atas) konsisten: selalu admin atau Shift
+        // Leader, tidak pernah kasir biasa.
+        if ($status === 'batal' && !$isAdmin && !$isShiftLeader) {
+            throw new \Exception(
+                'Hanya admin atau Shift Leader yang dapat membatalkan transaksi.'
+            );
         }
 
         $data = [
@@ -579,13 +616,23 @@ class TransaksiModel extends Model
      * Cukup simpan pembayaran dan update status transaksi.
      * Saldo kas sistem dihitung REAL TIME dari tabel pembayaran + cash_expense.
      *
-     * @param bool $isAdmin Wajib true jika $data['tanggal'] adalah
-     *                       backdate (tanggal signifikan berbeda dari
-     *                       sekarang) — lihat blok BACKDATE di bawah.
-     *                       Untuk pembayaran normal (tanggal = sekarang)
-     *                       flag ini tidak berpengaruh.
+     * @param bool $isAdmin Wajib true (atau $isShiftLeader true) jika
+     *                       $data['tanggal'] adalah backdate (tanggal
+     *                       signifikan berbeda dari sekarang) — lihat
+     *                       blok BACKDATE di bawah. Untuk pembayaran
+     *                       normal (tanggal = sekarang) kedua flag ini
+     *                       tidak berpengaruh.
+     * @param bool $isShiftLeader Kapabilitas KHUSUS KONTEKS: Effective
+     *                       Shift Leader saat ini (App\Services\
+     *                       Authority::isCurrentShiftLeader()) boleh
+     *                       backdate persis seperti admin untuk fitur
+     *                       ini (Tahap 5) -- validasi masa-depan &
+     *                       tidak-boleh-sebelum-tanggal-transaksi di
+     *                       bawah TETAP berlaku tanpa kecuali untuk
+     *                       kedua kapabilitas ini, tidak ada yang
+     *                       dilewati.
      */
-    public function tambahPembayaran($transaksi_id, $data, bool $isAdmin = false)
+    public function tambahPembayaran($transaksi_id, $data, bool $isAdmin = false, bool $isShiftLeader = false)
     {
         $db = \Config\Database::connect();
         $pembayaranModel = model(PembayaranModel::class);
@@ -670,9 +717,9 @@ class TransaksiModel extends Model
         $toleransiDetik = 60;
         $isBackdate = abs($sekarangTimestamp - $tanggalTimestamp) > $toleransiDetik;
 
-        if ($isBackdate && !$isAdmin) {
+        if ($isBackdate && !$isAdmin && !$isShiftLeader) {
             throw new \Exception(
-                'Hanya admin yang dapat mencatat pembayaran dengan tanggal berbeda (backdate).'
+                'Hanya admin atau Shift Leader yang dapat mencatat pembayaran dengan tanggal berbeda (backdate).'
             );
         }
 

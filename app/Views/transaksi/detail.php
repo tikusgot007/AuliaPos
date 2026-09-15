@@ -221,7 +221,15 @@
             <!-- ALUR STATUS: PROSES → SELESAI / BATAL -->
             <!-- ========================================== -->
 
-            <?php if (($transaksi['status'] ?? '') === 'proses' && session()->get('role') === 'admin'): ?>
+            <?php
+            // Tombol "Selesai" (workflow umum): Admin ATAU Effective Shift
+            // Leader saat ini boleh menekannya -- backend
+            // (TransaksiModel::ubahStatus) tetap satu-satunya otoritas
+            // sesungguhnya, ini hanya UI layer 1 (lihat
+            // docs/aturan-bisnis-AULIA.md soal "UI bukan enforcement").
+            $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
+            ?>
+            <?php if (($transaksi['status'] ?? '') === 'proses' && (session()->get('role') === 'admin' || $isShiftLeaderUser)): ?>
                 <button class="btn btn-primary w-100 mb-2" onclick="selesaikanTransaksi(<?= $transaksi['id'] ?>, '<?= esc($transaksi['status_pembayaran'], 'js') ?>')">
                     <i class="fas fa-check"></i> Selesai
                 </button>
@@ -314,15 +322,16 @@
             <!-- BATAL adalah status terminal; tidak ada tombol aktifkan kembali. -->
             <!-- ========================================== -->
             <!-- 🔥 TOMBOL BATAL                           -->
-            <!-- Muncul untuk 'proses' (semua role) dan     -->
-            <!-- 'selesai' (backend menolak jika bukan admin) -->
+            <!-- Tahap 5.1: khusus admin/Shift Leader, baik dari    -->
+            <!-- 'proses' maupun 'selesai' (sebelumnya 'proses'     -->
+            <!-- terbuka semua role -- diperketat, backend jadi     -->
+            <!-- otoritas, ini hanya visibility layer 1).           -->
             <!-- MANGKRAK tidak bisa langsung ke Batal -- harus  -->
             <!-- diaktifkan kembali ke PROSES dulu.              -->
             <!-- ========================================== -->
-            <?php if (in_array($transaksi['status'] ?? '', ['proses', 'selesai'], true)): ?>
+            <?php if (in_array($transaksi['status'] ?? '', ['proses', 'selesai'], true) && (session()->get('role') === 'admin' || $isShiftLeaderUser)): ?>
                 <button class="btn btn-danger w-100 mb-2" onclick="(async () => { if (await konfirmasi('Yakin ingin membatalkan transaksi ini?', { okText: 'Ya, Batalkan' })) { kirimUbahStatusAjax(<?= $transaksi['id'] ?>, 'batal'); } })()">
                     <i class="fas fa-times"></i> Batalkan
-                    <?= ($transaksi['status'] ?? '') === 'selesai' ? '(khusus admin)' : '' ?>
                 </button>
             <?php endif; ?>
 
@@ -872,7 +881,8 @@
         existingPaymentUrl: '<?= base_url('/api/tambah-pembayaran') ?>',
         tagihanLunasiUrl: '<?= base_url('/tagihan/lunasi/:id') ?>',
         kasirListUrl: '<?= base_url('/api/kasir-list') ?>',
-        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>
+        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
+        isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
     };
 </script>
 <script src="<?= base_url('assets/js/payment.js') ?>"></script>
