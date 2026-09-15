@@ -39,7 +39,7 @@
                 <select name="kasir_id" class="form-select form-select-sm">
                     <option value="">Semua Kasir</option>
                     <?php foreach ($daftar_kasir as $k): ?>
-                        <option value="<?= $k['id'] ?>" <?= $kasir_id_filter === $k['id'] ? 'selected' : '' ?>>
+                        <option value="<?= $k['id'] ?>" <?= $kasir_id_filter === (int) $k['id'] ? 'selected' : '' ?>>
                             <?= esc($k['nama'] ?? $k['username']) ?>
                         </option>
                     <?php endforeach; ?>
@@ -131,7 +131,7 @@
                                 <td><?= $noOrderDisplay ?></td>
                                 <td data-order="<?= $ts ?>">
                                     <?php if ($t['is_overdue']): ?>
-                                        <span class="badge bg-danger" title="Jatuh tempo <?= tanggal_singkat($t['jatuh_tempo']) ?>"><?= $tanggalDisplay ?></span>
+                                        <span class="badge bg-danger fs-6 fw-normal" title="Jatuh tempo <?= tanggal_singkat($t['jatuh_tempo']) ?>"><?= $tanggalDisplay ?></span>
                                     <?php else: ?>
                                         <?= $tanggalDisplay ?>
                                     <?php endif; ?>

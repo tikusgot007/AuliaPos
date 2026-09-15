@@ -58,7 +58,10 @@ class Tagihan extends BaseController
         // percaya ID mentah dari luar.
         $userModel   = new UserModel();
         $daftarKasir = $userModel->select('id, nama, username')->orderBy('nama', 'ASC')->findAll();
-        $kasirIdValid = array_column($daftarKasir, 'id');
+        // array_column mengembalikan id APA ADANYA dari driver DB (bisa
+        // berupa string), jadi di-cast ke int semua supaya perbandingan
+        // strict di bawah tidak diam-diam gagal gara-gara "10" !== 10.
+        $kasirIdValid = array_map('intval', array_column($daftarKasir, 'id'));
 
         $kasirIdFilter = $this->request->getGet('kasir_id');
         $kasirIdFilter = in_array((int) $kasirIdFilter, $kasirIdValid, true) ? (int) $kasirIdFilter : null;
