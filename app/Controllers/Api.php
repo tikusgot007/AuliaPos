@@ -694,7 +694,16 @@ class Api extends BaseController
         try {
             $isAdmin = session()->get('role') === 'admin';
 
-            $transaksiModel->ubahStatus($id, $status, $isAdmin);
+            // Shift Leader: kapabilitas tambahan KHUSUS untuk menyelesaikan
+            // transaksi di workflow umum ini (sebelumnya admin-only) --
+            // lihat App\Services\Authority. Dihitung hanya kalau relevan
+            // (status 'selesai'), supaya transisi lain tidak menanggung
+            // query tambahan yang tidak dipakai model untuknya.
+            $isShiftLeader = $status === 'selesai'
+                ? \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'))
+                : false;
+
+            $transaksiModel->ubahStatus($id, $status, $isAdmin, false, $isShiftLeader);
 
             return $this->response->setJSON([
                 'status'  => 'success',
