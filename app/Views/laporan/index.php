@@ -586,13 +586,18 @@
                 } else if (jenis === 'periode') {
                     isAngka = (index >= 4 && index <= 7);
                 } else if (jenis === 'bulanan') {
-                    isAngka = (index >= 1 && index <= 9);
+                    isAngka = (index >= 1 && index <= 10);
                 } else if (jenis === 'kategori') {
                     isAngka = (index >= 1 && index <= 3);
                 }
 
                 if (isAngka) {
-                    html += `<td class="text-end">${fmt(val)}</td>`;
+                    // null (closing_kas belum diisi) tampil '-', bukan
+                    // ikut diformat jadi "0" -- beda arti (belum
+                    // closing vs. sudah closing dgn kas fisik nol).
+                    html += (val === null)
+                        ? `<td class="text-end text-muted">-</td>`
+                        : `<td class="text-end">${fmt(val)}</td>`;
                 } else {
                     html += `<td>${val || '-'}</td>`;
                 }
@@ -718,6 +723,7 @@
             html += `<td class="text-end">${fmt(summary.digital_printing)}</td>`;
             html += `<td class="text-end">${fmt(summary.ganti_bg)}</td>`;
             html += `<td class="text-end">${fmt(summary.total)}</td>`;
+            html += `<td class="text-end text-muted">-</td>`;
             html += `<td class="text-end">${fmt(summary.tf_qris)}</td>`;
             html += `<td class="text-end">${fmt(summary.uang_keluar)}</td>`;
             html += `</tr>`;
@@ -854,7 +860,7 @@
             case 'periode':
                 return ['Tanggal', 'Invoice', 'No Order', 'Pelanggan', 'Subtotal', 'Diskon', 'Grand Total', 'Sisa Tagihan', 'Status'];
             case 'bulanan':
-                return ['Tanggal', 'Penjualan', 'Fotokopi', 'Minuman', 'Digital Foto', 'Digital Printing', 'Ganti BG', 'Total', 'TF + QRIS', 'Uang Keluar'];
+                return ['Tanggal', 'Penjualan', 'Fotokopi', 'Minuman', 'Digital Foto', 'Digital Printing', 'Ganti BG', 'Total', 'Closing Kas', 'TF + QRIS', 'Uang Keluar'];
             case 'kategori':
                 return ['Kategori', 'Total Kotor', 'Total Diskon', 'Total Bersih', 'Total Transaksi'];
             default:
@@ -909,6 +915,10 @@
                     parseFloat(row.digital_printing) || 0,
                     parseFloat(row.ganti_bg) || 0,
                     parseFloat(row.total) || 0,
+                    // null = belum closing -- dibedakan dari 0 (sudah
+                    // closing, kas fisik-nya memang nol), lihat handler
+                    // render di bawah yang cetak '-' untuk null.
+                    (row.closing_kas === null || row.closing_kas === undefined) ? null : parseFloat(row.closing_kas),
                     parseFloat(row.tf_qris) || 0,
                     parseFloat(row.uang_keluar) || 0
                 ];

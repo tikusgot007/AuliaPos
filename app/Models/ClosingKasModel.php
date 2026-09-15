@@ -25,11 +25,21 @@ class ClosingKasModel extends Model
      */
     public function getByBulan(string $bulan): array
     {
-        $awal = $bulan . '-01 00:00:00';
-        $akhir = date('Y-m-t 23:59:59', strtotime($awal));
+        $awal = $bulan . '-01';
+        $akhir = date('Y-m-t', strtotime($awal));
 
-        $rows = $this->where('tanggal >=', $awal)
-            ->where('tanggal <=', $akhir)
+        return $this->getByRentang($awal, $akhir);
+    }
+
+    /**
+     * Ambil semua closing dalam rentang tanggal (YYYY-MM-DD s.d.
+     * YYYY-MM-DD, inklusif), diindeks per tanggal (Y-m-d). Dipakai
+     * Laporan Bulanan untuk kolom "Closing Kas".
+     */
+    public function getByRentang(string $tanggalAwal, string $tanggalAkhir): array
+    {
+        $rows = $this->where('tanggal >=', $tanggalAwal . ' 00:00:00')
+            ->where('tanggal <=', $tanggalAkhir . ' 23:59:59')
             ->orderBy('tanggal', 'ASC')
             ->findAll();
 
