@@ -22,23 +22,31 @@ class Tagihan extends BaseController
         // semua tagihan) tidak berubah sama sekali.
         $hanyaSaya = $this->request->getGet('saya') == '1';
 
-        // Filter rentang tanggal transaksi. Default saat halaman dibuka
-        // tanpa parameter: 7 hari lalu s/d hari ini. Kalau input tidak
-        // valid, jatuh ke default (jangan percaya isi query string).
-        // Lihat Tagihan::getRentangTanggal() -- logic tidak berubah,
-        // hanya dipindah supaya index() lebih ringkas.
+        // Filter rentang tanggal transaksi. TIDAK ADA default -- tagihan
+        // lama (piutang lama) justru yang paling penting untuk ditagih,
+        // jadi tanpa parameter di query string, SEMUA tagihan belum lunas
+        // ditampilkan (tidak dibatasi tanggal). Kalau user mengisi salah
+        // satu/kedua tanggal, filter itu baru diterapkan. Lihat
+        // Tagihan::getRentangTanggal().
         [$tanggalAwal, $tanggalAkhir] = $this->getRentangTanggal();
-
-        // Batas atas dibuat eksklusif (+1 hari) supaya transaksi pada
-        // tanggal_akhir sampai 23:59:59 tetap ikut terhitung.
-        $akhirEksklusif = date('Y-m-d 00:00:00', strtotime($tanggalAkhir . ' +1 day'));
 
         $query = $transaksiModel
             ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama')
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
-            ->join('users', 'users.id = transaksi.kasir_id', 'left')
-            ->where('transaksi.tanggal >=', $tanggalAwal . ' 00:00:00')
-            ->where('transaksi.tanggal <', $akhirEksklusif)
+            ->join('users', 'users.id = transaksi.kasir_id', 'left');
+
+        if ($tanggalAwal !== null) {
+            $query->where('transaksi.tanggal >=', $tanggalAwal . ' 00:00:00');
+        }
+
+        if ($tanggalAkhir !== null) {
+            // Batas atas dibuat eksklusif (+1 hari) supaya transaksi pada
+            // tanggal_akhir sampai 23:59:59 tetap ikut terhitung.
+            $akhirEksklusif = date('Y-m-d 00:00:00', strtotime($tanggalAkhir . ' +1 day'));
+            $query->where('transaksi.tanggal <', $akhirEksklusif);
+        }
+
+        $query
             // Tagihan ditentukan oleh status pembayaran, bukan status pekerjaan.
             // Transaksi PROSES maupun SELESAI tetap dapat memiliki tagihan.
             // Transaksi BATAL & MANGKRAK tidak masuk daftar tagihan --
@@ -52,14 +60,17 @@ class Tagihan extends BaseController
             $query->where('transaksi.kasir_id', (int) session()->get('id_user'));
         }
 
-        $tagihan = $query->orderBy('transaksi.tanggal', 'DESC')->findAll();
+        // ASC (tertua dulu) -- ini halaman tagihan/collection, tagihan yang
+        // paling lama menunggak paling perlu ditagih duluan, bukan yang
+        // paling baru.
+        $tagihan = $query->orderBy('transaksi.tanggal', 'ASC')->findAll();
 
         $data = [
             'title'         => 'Tagihan | AULIA',
             'content'       => 'tagihan/index',
             'tagihan'       => $tagihan,
-            'tanggal_awal'  => $tanggalAwal,
-            'tanggal_akhir' => $tanggalAkhir,
+            'tanggal_awal'  => $tanggalAwal ?? '',
+            'tanggal_akhir' => $tanggalAkhir ?? '',
         ];
 
         return view('layout/main', $data);
@@ -68,17 +79,12 @@ class Tagihan extends BaseController
     /**
      * Rentang tanggal filter daftar tagihan dari query string.
      *
-     * Dipindah verbatim dari index() -- behavior TIDAK berubah:
-     * - baca GET tanggal_awal / tanggal_akhir;
-     * - kalau kosong ATAU strtotime() === false -> pakai default;
-     * - default tanggal_awal: date('Y-m-d', strtotime('-7 days'));
-     * - default tanggal_akhir: date('Y-m-d');
-     * - masing-masing tanggal divalidasi/di-default independen.
+     * Tidak ada default -- kalau tanggal_awal/tanggal_akhir kosong atau
+     * tidak valid (strtotime() === false, jangan percaya isi query
+     * string), filter itu diabaikan (null) sehingga TIDAK membatasi
+     * tanggal. Masing-masing tanggal divalidasi/diabaikan independen.
      *
-     * Tidak menyentuh model/DB/session dan tidak mengubah timezone.
-     * Perhitungan batas atas eksklusif ($akhirEksklusif) tetap di index().
-     *
-     * @return array{0: string, 1: string} [tanggal_awal, tanggal_akhir]
+     * @return array{0: ?string, 1: ?string} [tanggal_awal, tanggal_akhir]
      */
     private function getRentangTanggal(): array
     {
@@ -86,11 +92,11 @@ class Tagihan extends BaseController
         $tanggalAkhir = $this->request->getGet('tanggal_akhir');
 
         if (empty($tanggalAwal) || strtotime($tanggalAwal) === false) {
-            $tanggalAwal = date('Y-m-d', strtotime('-7 days'));
+            $tanggalAwal = null;
         }
 
         if (empty($tanggalAkhir) || strtotime($tanggalAkhir) === false) {
-            $tanggalAkhir = date('Y-m-d');
+            $tanggalAkhir = null;
         }
 
         return [$tanggalAwal, $tanggalAkhir];

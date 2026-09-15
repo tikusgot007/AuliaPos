@@ -6,8 +6,7 @@
     <div class="card-body">
         <!-- ========================================== -->
         <!-- FILTER RENTANG TANGGAL                     -->
-        <!-- Default (halaman baru dibuka): 7 hari lalu s/d hari ini -->
-        <!-- ========================================== -->
+        <!-- Default (halaman baru dibuka): TANPA batas tanggal -->
         <form method="get" class="row g-2 mb-3 align-items-end">
             <?php if (service('request')->getGet('saya') == '1'): ?>
                 <input type="hidden" name="saya" value="1">
@@ -194,8 +193,10 @@
                     processing: true,
                     serverSide: false,
                     pageLength: 25,
+                    // Kolom 3 = Tanggal. ASC supaya tagihan paling lama
+                    // menunggak (paling perlu ditagih) tampil paling atas.
                     order: [
-                        [2, 'desc']
+                        [3, 'asc']
                     ],
                     columnDefs: [{
                             orderable: false,

@@ -6,7 +6,9 @@ use CodeIgniter\Test\FeatureTestTrait;
 
 /**
  * Filter rentang tanggal di halaman Tagihan (/tagihan).
- * Default saat halaman dibuka tanpa parameter: 7 hari lalu s/d hari ini.
+ * Default saat halaman dibuka tanpa parameter: TANPA batas tanggal --
+ * semua tagihan belum lunas ditampilkan, termasuk yang lama (justru itu
+ * yang paling perlu ditagih). Filter tanggal hanya berlaku kalau diisi.
  *
  * @internal
  */
@@ -56,62 +58,59 @@ final class TagihanDateFilterTest extends CIUnitTestCase
         return ['isLoggedIn' => true, 'role' => 'kasir', 'id_user' => 1, 'last_activity' => time()];
     }
 
-    public function testDefaultRangeSemingguTerakhir(): void
+    public function testDefaultTanpaBatasTanggalMenampilkanSemua(): void
     {
         $result = $this->withSession($this->session())->get('tagihan');
         $body = $result->getBody();
 
         $result->assertStatus(200);
-        // Input tanggal terisi default: 7 hari lalu s/d hari ini.
-        $this->assertStringContainsString('value="' . date('Y-m-d', strtotime('-7 days')) . '"', $body);
-        $this->assertStringContainsString('value="' . date('Y-m-d') . '"', $body);
+        // Input tanggal kosong secara default -- tidak ada batas.
+        $this->assertStringContainsString('value=""', $body);
 
         $this->assertStringContainsString('INV-RECENT', $body);
-        $this->assertStringNotContainsString('INV-OLD', $body);   // di luar 7 hari
+        $this->assertStringContainsString('INV-OLD', $body);       // tetap tampil walau lama
         $this->assertStringNotContainsString('INV-LUNAS', $body); // sudah lunas
         $this->assertStringNotContainsString('INV-BATAL', $body); // status batal
     }
 
-    public function testRangeEksplisitMemunculkanYangLama(): void
+    public function testRangeEksplisitMembatasiTanggal(): void
     {
         $body = $this->withSession($this->session())->get('tagihan?' . http_build_query([
-            'tanggal_awal'  => date('Y-m-d', strtotime('-40 days')),
+            'tanggal_awal'  => date('Y-m-d', strtotime('-7 days')),
             'tanggal_akhir' => date('Y-m-d'),
         ]))->getBody();
 
-        $this->assertStringContainsString('INV-OLD', $body);
         $this->assertStringContainsString('INV-RECENT', $body);
+        $this->assertStringNotContainsString('INV-OLD', $body); // di luar range eksplisit
     }
 
-    public function testTanggalTidakValidJatuhKeDefault(): void
+    public function testTanggalTidakValidDiabaikanBukanCrash(): void
     {
         $body = $this->withSession($this->session())->get('tagihan?tanggal_awal=bukan-tanggal')->getBody();
 
-        $this->assertStringContainsString('value="' . date('Y-m-d', strtotime('-7 days')) . '"', $body);
-        $this->assertStringNotContainsString('INV-OLD', $body);
+        $this->assertStringContainsString('value=""', $body);
+        $this->assertStringContainsString('INV-OLD', $body); // filter tidak valid -> diabaikan, bukan default sempit
     }
 
-    public function testFilterSayaTetapBerfungsiBersamaTanggal(): void
+    public function testFilterSayaTetapBerfungsiTanpaBatasTanggal(): void
     {
         $body = $this->withSession($this->session())->get('tagihan?saya=1')->getBody();
 
-        $this->assertStringContainsString('INV-RECENT', $body);       // kasir 1, dalam range
+        $this->assertStringContainsString('INV-RECENT', $body);       // kasir 1
+        $this->assertStringContainsString('INV-OLD', $body);          // kasir 1, tetap tampil (tanpa batas tanggal)
         $this->assertStringNotContainsString('INV-KASIR2', $body);    // kasir lain
-        // Default 7 hari tetap berlaku walau ada parameter saya: INV-OLD
-        // juga milik kasir 1 tapi 30 hari lalu, jadi tersaring oleh tanggal.
-        $this->assertStringNotContainsString('INV-OLD', $body);
         $this->assertStringContainsString('name="saya" value="1"', $body); // ikut terbawa di form filter
     }
 
-    public function testSayaDenganRangeEksplisitMengabaikanDefault(): void
+    public function testSayaDenganRangeEksplisitTetapMembatasiTanggal(): void
     {
         $body = $this->withSession($this->session())->get('tagihan?' . http_build_query([
             'saya'          => '1',
-            'tanggal_awal'  => date('Y-m-d', strtotime('-40 days')),
+            'tanggal_awal'  => date('Y-m-d', strtotime('-7 days')),
             'tanggal_akhir' => date('Y-m-d'),
         ]))->getBody();
 
-        $this->assertStringContainsString('INV-OLD', $body);       // kasir 1, kini masuk range
+        $this->assertStringNotContainsString('INV-OLD', $body);    // di luar range eksplisit
         $this->assertStringContainsString('INV-RECENT', $body);
         $this->assertStringNotContainsString('INV-KASIR2', $body); // kasir lain tetap tersaring
     }
