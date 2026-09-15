@@ -5,36 +5,24 @@
     </div>
     <div class="card-body">
         <!-- ========================================== -->
-        <!-- FILTER RENTANG TANGGAL                     -->
+        <!-- FILTER                                     -->
         <!-- Default (halaman baru dibuka): TANPA batas tanggal -->
-        <form method="get" class="row g-2 mb-3 align-items-end">
-            <?php if (service('request')->getGet('saya') == '1'): ?>
+        <!-- Rentang tanggal pakai date range picker (satu input),  -->
+        <!-- lihat #filterTanggal & init-nya di section scripts.    -->
+        <?php $sayaAktif = service('request')->getGet('saya') == '1'; ?>
+        <form method="get" class="row g-2 mb-3 align-items-end flex-nowrap overflow-auto">
+            <?php if ($sayaAktif): ?>
                 <input type="hidden" name="saya" value="1">
             <?php endif; ?>
-            <div class="col-6 col-md-3">
-                <label class="form-label mb-1">Dari Tanggal</label>
-                <input type="date" name="tanggal_awal" class="form-control form-control-sm"
-                    value="<?= esc($tanggal_awal, 'attr') ?>">
+            <input type="hidden" name="tanggal_awal" id="tanggalAwalHidden" value="<?= esc($tanggal_awal, 'attr') ?>">
+            <input type="hidden" name="tanggal_akhir" id="tanggalAkhirHidden" value="<?= esc($tanggal_akhir, 'attr') ?>">
+            <div class="col-auto" style="min-width: 220px">
+                <label class="form-label mb-1">Rentang Tanggal</label>
+                <input type="text" id="filterTanggal" class="form-control form-control-sm"
+                    placeholder="Semua tanggal"
+                    value="<?= ($tanggal_awal && $tanggal_akhir) ? date('d/m/Y', strtotime($tanggal_awal)) . ' - ' . date('d/m/Y', strtotime($tanggal_akhir)) : '' ?>">
             </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label mb-1">Sampai Tanggal</label>
-                <input type="date" name="tanggal_akhir" class="form-control form-control-sm"
-                    value="<?= esc($tanggal_akhir, 'attr') ?>">
-            </div>
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1">Status</label>
-                <select name="status_pembayaran" class="form-select form-select-sm">
-                    <option value="">Semua</option>
-                    <option value="belum_bayar" <?= $status_pembayaran === 'belum_bayar' ? 'selected' : '' ?>>Belum Bayar</option>
-                    <option value="dp" <?= $status_pembayaran === 'dp' ? 'selected' : '' ?>>DP</option>
-                </select>
-            </div>
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1">Pelanggan</label>
-                <input type="text" name="pelanggan" class="form-control form-control-sm" placeholder="Cari nama..."
-                    value="<?= esc($pelanggan_cari, 'attr') ?>">
-            </div>
-            <div class="col-6 col-md-2">
+            <div class="col-auto" style="min-width: 160px">
                 <label class="form-label mb-1">Kasir</label>
                 <select name="kasir_id" class="form-select form-select-sm">
                     <option value="">Semua Kasir</option>
@@ -45,36 +33,21 @@
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-6 col-md-2 form-check ms-2 mb-2">
+            <div class="col-auto form-check mb-2">
                 <input type="checkbox" name="hanya_terlambat" value="1" id="hanyaTerlambat"
                     class="form-check-input" <?= $hanya_terlambat ? 'checked' : '' ?>>
                 <label class="form-check-label" for="hanyaTerlambat">Hanya terlambat</label>
             </div>
-            <div class="col-12 col-md-auto">
+            <div class="col-auto">
                 <button type="submit" class="btn btn-sm btn-primary">
                     <i class="fas fa-filter"></i> Filter
                 </button>
-                <?php
-                    $sayaAktif = service('request')->getGet('saya') == '1';
-                    $tujuhHariAwal  = date('Y-m-d', strtotime('-7 days'));
-                    $tujuhHariAkhir = date('Y-m-d');
-                    $tujuhHariAktif = $tanggal_awal === $tujuhHariAwal && $tanggal_akhir === $tujuhHariAkhir;
-                    $tujuhHariQuery = http_build_query(array_filter([
-                        'saya'          => $sayaAktif ? '1' : null,
-                        'tanggal_awal'  => $tujuhHariAwal,
-                        'tanggal_akhir' => $tujuhHariAkhir,
-                    ]));
-                ?>
-                <a href="<?= base_url('/tagihan?' . $tujuhHariQuery) ?>"
-                    class="btn btn-sm <?= $tujuhHariAktif ? 'btn-warning' : 'btn-outline-warning' ?>">
-                    <i class="fas fa-bolt"></i> 7 Hari Terakhir
-                </a>
                 <a href="<?= base_url('/tagihan' . ($sayaAktif ? '?saya=1' : '')) ?>"
                     class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
 
-        <?php if (service('request')->getGet('saya') == '1'): ?>
+        <?php if ($sayaAktif): ?>
             <div class="alert alert-secondary d-flex justify-content-between align-items-center py-2">
                 <span><i class="fas fa-filter"></i> Menampilkan tagihan atas nama Anda saja.</span>
                 <a href="<?= base_url('/tagihan') ?>" class="btn btn-sm btn-outline-secondary">Lihat Semua Tagihan</a>
@@ -195,6 +168,10 @@
         </script>
         <script src="<?= base_url('assets/js/payment.js') ?>"></script>
 
+        <!-- Date Range Picker -- pola sama seperti transaksi/index.php -->
+        <script src="https://cdn.jsdelivr.net/npm/moment/min/moment.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+
         <script>
             /**
              * Fungsi untuk membuka modal pembayaran dan melunasi tagihan.
@@ -231,6 +208,62 @@
             function formatRupiah(angka) {
                 return 'Rp ' + new Intl.NumberFormat('id-ID').format(angka);
             }
+
+            // ==========================================
+            // INIT DATE RANGE PICKER
+            // ==========================================
+            $(document).ready(function() {
+                // Tanggal awal hidden field non-kosong dipakai sebagai
+                // posisi awal kalender; kalau tidak ada filter aktif,
+                // kalender tetap dibuka di 7 hari terakhir tanpa
+                // otomatis menerapkan filter apa pun (submit hanya
+                // terjadi lewat event 'apply' di bawah).
+                var awalHidden = $('#tanggalAwalHidden').val();
+                var akhirHidden = $('#tanggalAkhirHidden').val();
+                var startDate = awalHidden ? moment(awalHidden) : moment().subtract(6, 'days');
+                var endDate = akhirHidden ? moment(akhirHidden) : moment();
+
+                $('#filterTanggal').daterangepicker({
+                    locale: {
+                        format: 'DD/MM/YYYY',
+                        separator: ' - ',
+                        applyLabel: 'Terapkan',
+                        cancelLabel: 'Batal',
+                        fromLabel: 'Dari',
+                        toLabel: 'Sampai',
+                        customRangeLabel: 'Custom',
+                        weekLabel: 'M',
+                        daysOfWeek: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
+                        monthNames: ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+                        ],
+                        firstDay: 1
+                    },
+                    startDate: startDate,
+                    endDate: endDate,
+                    autoUpdateInput: !!(awalHidden && akhirHidden),
+                    opens: 'left',
+                    showDropdowns: true,
+                    ranges: {
+                        'Hari Ini': [moment(), moment()],
+                        'Kemarin': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                        '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
+                        '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
+                        'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
+                        'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                    }
+                });
+
+                // Terapkan langsung saat rentang dipilih -- isi hidden
+                // field (dikonsumsi Tagihan::getRentangTanggal()) lalu
+                // submit form yang sama supaya filter kasir/hanya
+                // terlambat yang sedang aktif ikut terbawa.
+                $('#filterTanggal').on('apply.daterangepicker', function(ev, picker) {
+                    $('#tanggalAwalHidden').val(picker.startDate.format('YYYY-MM-DD'));
+                    $('#tanggalAkhirHidden').val(picker.endDate.format('YYYY-MM-DD'));
+                    $(this).closest('form').trigger('submit');
+                });
+            });
 
             // ==========================================
             // INIT DATATABLES

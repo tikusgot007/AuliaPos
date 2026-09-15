@@ -30,10 +30,7 @@ final class TagihanDateFilterTest extends CIUnitTestCase
             ['id' => 1, 'username' => 'kasir1', 'profile_photo' => null],
             ['id' => 2, 'username' => 'kasir2', 'profile_photo' => null],
         ]);
-        $db->table('pelanggan')->insertBatch([
-            ['id' => 1, 'nama' => 'Budi'],
-            ['id' => 2, 'nama' => 'Ani'],
-        ]);
+        $db->table('pelanggan')->insert(['id' => 1, 'nama' => 'Budi']);
 
         $mk = static fn (string $inv, string $tgl, array $ovr = []): array => array_merge([
             'kode_invoice'      => $inv,
@@ -53,8 +50,6 @@ final class TagihanDateFilterTest extends CIUnitTestCase
             $mk('INV-LUNAS',  date('Y-m-d H:i:s', strtotime('-2 days')), ['status_pembayaran' => 'lunas']),
             $mk('INV-BATAL',  date('Y-m-d H:i:s', strtotime('-1 days')), ['status' => 'batal']),
             $mk('INV-KASIR2', date('Y-m-d H:i:s', strtotime('-2 days')), ['kasir_id' => 2]),
-            $mk('INV-DP',     date('Y-m-d H:i:s', strtotime('-2 days')), ['status_pembayaran' => 'dp', 'total_dibayar' => 50000]),
-            $mk('INV-ANI',    date('Y-m-d H:i:s', strtotime('-2 days')), ['pelanggan_id' => 2]),
         ]);
     }
 
@@ -118,36 +113,5 @@ final class TagihanDateFilterTest extends CIUnitTestCase
         $this->assertStringNotContainsString('INV-OLD', $body);    // di luar range eksplisit
         $this->assertStringContainsString('INV-RECENT', $body);
         $this->assertStringNotContainsString('INV-KASIR2', $body); // kasir lain tetap tersaring
-    }
-
-    public function testFilterStatusPembayaran(): void
-    {
-        $body = $this->withSession($this->session())->get('tagihan?status_pembayaran=dp')->getBody();
-
-        $this->assertStringContainsString('INV-DP', $body);
-        $this->assertStringNotContainsString('INV-RECENT', $body); // belum_bayar, tersaring
-
-        $bodyBelumBayar = $this->withSession($this->session())->get('tagihan?status_pembayaran=belum_bayar')->getBody();
-
-        $this->assertStringContainsString('INV-RECENT', $bodyBelumBayar);
-        $this->assertStringNotContainsString('INV-DP', $bodyBelumBayar);
-    }
-
-    public function testFilterStatusPembayaranTidakValidDiabaikan(): void
-    {
-        $body = $this->withSession($this->session())->get('tagihan?status_pembayaran=lunas')->getBody();
-
-        // 'lunas' bukan pilihan valid untuk filter ini (tagihan lunas memang
-        // tidak pernah masuk daftar) -- diabaikan, bukan error.
-        $this->assertStringContainsString('INV-RECENT', $body);
-        $this->assertStringContainsString('INV-DP', $body);
-    }
-
-    public function testFilterPelanggan(): void
-    {
-        $body = $this->withSession($this->session())->get('tagihan?' . http_build_query(['pelanggan' => 'Ani']))->getBody();
-
-        $this->assertStringContainsString('INV-ANI', $body);
-        $this->assertStringNotContainsString('INV-RECENT', $body); // milik Budi, tersaring
     }
 }

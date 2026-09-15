@@ -33,17 +33,6 @@ class Tagihan extends BaseController
         // Tagihan::getRentangTanggal().
         [$tanggalAwal, $tanggalAkhir] = $this->getRentangTanggal();
 
-        // Filter status pembayaran (belum_bayar / dp). Kosong/tidak valid ->
-        // tidak membatasi (perilaku lama: tampilkan keduanya).
-        $statusPembayaran = $this->request->getGet('status_pembayaran');
-        if (!in_array($statusPembayaran, ['belum_bayar', 'dp'], true)) {
-            $statusPembayaran = '';
-        }
-
-        // Filter nama pelanggan (pencarian LIKE, bukan dropdown -- daftar
-        // pelanggan bisa banyak).
-        $pelangganCari = trim((string) $this->request->getGet('pelanggan'));
-
         // Filter "hanya yang terlambat". Jatuh tempo bukan kolom DB (lihat
         // Config\Tagihan), jadi filter ini diterapkan di PHP setelah
         // findAll(), bukan lewat WHERE query.
@@ -92,14 +81,6 @@ class Tagihan extends BaseController
             ->where('transaksi.status_pembayaran !=', 'lunas')
             ->whereNotIn('transaksi.status', ['batal', 'mangkrak']);
 
-        if ($statusPembayaran !== '') {
-            $query->where('transaksi.status_pembayaran', $statusPembayaran);
-        }
-
-        if ($pelangganCari !== '') {
-            $query->like('pelanggan.nama', $pelangganCari);
-        }
-
         if ($kasirIdFilter !== null) {
             $query->where('transaksi.kasir_id', $kasirIdFilter);
         }
@@ -136,8 +117,6 @@ class Tagihan extends BaseController
             'tagihan'           => $tagihan,
             'tanggal_awal'      => $tanggalAwal ?? '',
             'tanggal_akhir'     => $tanggalAkhir ?? '',
-            'status_pembayaran' => $statusPembayaran,
-            'pelanggan_cari'    => $pelangganCari,
             'hanya_terlambat'   => $hanyaTerlambat,
             'daftar_kasir'      => $daftarKasir,
             'kasir_id_filter'   => $kasirIdFilter,
