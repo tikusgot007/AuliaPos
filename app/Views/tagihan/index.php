@@ -36,21 +36,21 @@
             <div class="col-auto form-check mb-2">
                 <input type="checkbox" name="hanya_terlambat" value="1" id="hanyaTerlambat"
                     class="form-check-input" <?= $hanya_terlambat ? 'checked' : '' ?>>
-                <label class="form-check-label" for="hanyaTerlambat">Hanya terlambat</label>
+                <label class="form-check-label" for="hanyaTerlambat">Seminggu Lebih</label>
             </div>
             <div class="col-auto">
                 <button type="submit" class="btn btn-sm btn-primary">
                     <i class="fas fa-filter"></i> Filter
                 </button>
                 <?php
-                    $tujuhHariAwal  = date('Y-m-d', strtotime('-7 days'));
-                    $tujuhHariAkhir = date('Y-m-d');
-                    $tujuhHariAktif = $tanggal_awal === $tujuhHariAwal && $tanggal_akhir === $tujuhHariAkhir;
-                    $tujuhHariQuery = http_build_query(array_filter([
-                        'saya'          => $sayaAktif ? '1' : null,
-                        'tanggal_awal'  => $tujuhHariAwal,
-                        'tanggal_akhir' => $tujuhHariAkhir,
-                    ]));
+                $tujuhHariAwal  = date('Y-m-d', strtotime('-7 days'));
+                $tujuhHariAkhir = date('Y-m-d');
+                $tujuhHariAktif = $tanggal_awal === $tujuhHariAwal && $tanggal_akhir === $tujuhHariAkhir;
+                $tujuhHariQuery = http_build_query(array_filter([
+                    'saya'          => $sayaAktif ? '1' : null,
+                    'tanggal_awal'  => $tujuhHariAwal,
+                    'tanggal_akhir' => $tujuhHariAkhir,
+                ]));
                 ?>
                 <a href="<?= base_url('/tagihan?' . $tujuhHariQuery) ?>"
                     class="btn btn-sm <?= $tujuhHariAktif ? 'btn-warning' : 'btn-outline-warning' ?>">
