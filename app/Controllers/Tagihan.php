@@ -6,6 +6,7 @@ use App\Models\TransaksiModel;
 use App\Models\DetailTransaksiModel;
 use App\Models\PembayaranModel;
 use App\Models\PelangganModel;
+use App\Models\UserModel;
 use App\Services\KalkulasiJatuhTempo;
 use Config\Tagihan as TagihanConfig;
 
@@ -48,6 +49,20 @@ class Tagihan extends BaseController
         // findAll(), bukan lewat WHERE query.
         $hanyaTerlambat = $this->request->getGet('hanya_terlambat') == '1';
 
+        // Filter kasir (dropdown, bukan text search -- daftar kasir
+        // sedikit). Daftar diambil langsung dari UserModel (bukan
+        // /api/kasir-list -- endpoint itu admin-gated lewat AJAX,
+        // sedangkan halaman ini server-rendered untuk semua role).
+        // kasir_id dari query string DIVALIDASI terhadap daftar user
+        // yang nyata (whitelist) sebelum dipakai di WHERE -- jangan
+        // percaya ID mentah dari luar.
+        $userModel   = new UserModel();
+        $daftarKasir = $userModel->select('id, nama, username')->orderBy('nama', 'ASC')->findAll();
+        $kasirIdValid = array_column($daftarKasir, 'id');
+
+        $kasirIdFilter = $this->request->getGet('kasir_id');
+        $kasirIdFilter = in_array((int) $kasirIdFilter, $kasirIdValid, true) ? (int) $kasirIdFilter : null;
+
         $query = $transaksiModel
             ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama')
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
@@ -80,6 +95,10 @@ class Tagihan extends BaseController
 
         if ($pelangganCari !== '') {
             $query->like('pelanggan.nama', $pelangganCari);
+        }
+
+        if ($kasirIdFilter !== null) {
+            $query->where('transaksi.kasir_id', $kasirIdFilter);
         }
 
         if ($hanyaSaya) {
@@ -117,6 +136,8 @@ class Tagihan extends BaseController
             'status_pembayaran' => $statusPembayaran,
             'pelanggan_cari'    => $pelangganCari,
             'hanya_terlambat'   => $hanyaTerlambat,
+            'daftar_kasir'      => $daftarKasir,
+            'kasir_id_filter'   => $kasirIdFilter,
         ];
 
         return view('layout/main', $data);

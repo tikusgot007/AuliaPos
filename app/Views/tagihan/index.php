@@ -34,6 +34,17 @@
                 <input type="text" name="pelanggan" class="form-control form-control-sm" placeholder="Cari nama..."
                     value="<?= esc($pelanggan_cari, 'attr') ?>">
             </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">Kasir</label>
+                <select name="kasir_id" class="form-select form-select-sm">
+                    <option value="">Semua Kasir</option>
+                    <?php foreach ($daftar_kasir as $k): ?>
+                        <option value="<?= $k['id'] ?>" <?= $kasir_id_filter === $k['id'] ? 'selected' : '' ?>>
+                            <?= esc($k['nama'] ?? $k['username']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
             <div class="col-6 col-md-2 form-check ms-2 mb-2">
                 <input type="checkbox" name="hanya_terlambat" value="1" id="hanyaTerlambat"
                     class="form-check-input" <?= $hanya_terlambat ? 'checked' : '' ?>>
@@ -119,9 +130,10 @@
                                 <td><strong><?= $t['kode_invoice'] ?? $t['invoice'] ?? '-' ?></strong></td>
                                 <td><?= $noOrderDisplay ?></td>
                                 <td data-order="<?= $ts ?>">
-                                    <?= $tanggalDisplay ?>
                                     <?php if ($t['is_overdue']): ?>
-                                        <span class="badge bg-danger" title="Jatuh tempo <?= tanggal_singkat($t['jatuh_tempo']) ?>">Terlambat</span>
+                                        <span class="badge bg-danger" title="Jatuh tempo <?= tanggal_singkat($t['jatuh_tempo']) ?>"><?= $tanggalDisplay ?></span>
+                                    <?php else: ?>
+                                        <?= $tanggalDisplay ?>
                                     <?php endif; ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? $t['nama_pelanggan'] ?? '-' ?></td>
