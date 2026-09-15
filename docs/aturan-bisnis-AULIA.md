@@ -1655,10 +1655,11 @@ Konsekuensi yang disadari & diterima:
   tempo — pada hari H jatuh tempo itu sendiri belum dianggap
   terlambat (lihat `KalkulasiJatuhTempo::isOverdue()`).
 
-Tampil di `/tagihan` sebagai kolom "Jatuh Tempo" (badge merah
-"Terlambat" kalau overdue) dan filter checkbox "Hanya terlambat"
-(diterapkan di PHP setelah `findAll()`, bukan lewat WHERE query,
-karena bukan kolom database).
+Tampil di `/tagihan` sebagai badge merah "Terlambat" di kolom Tanggal
+(bukan kolom terpisah -- tanggal jatuh tempo cukup sebagai tooltip,
+supaya tabel tidak terlalu padat) dan filter checkbox "Hanya
+terlambat" (diterapkan di PHP setelah `findAll()`, bukan lewat WHERE
+query, karena bukan kolom database).
 
 ---
 

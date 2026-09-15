@@ -80,7 +80,6 @@
                         <th>Invoice</th>
                         <th>No Order</th> <!-- 🔥 SAMA DENGAN TRANSAKSI -->
                         <th>Tanggal</th>
-                        <th>Jatuh Tempo</th>
                         <th>Pelanggan</th>
                         <th>Kasir</th>
                         <th>Total</th>
@@ -121,12 +120,8 @@
                                 <td><?= $noOrderDisplay ?></td>
                                 <td data-order="<?= $ts ?>">
                                     <?= $tanggalDisplay ?>
-                                </td>
-                                <td data-order="<?= strtotime($t['jatuh_tempo']) ?>"
-                                    class="<?= $t['is_overdue'] ? 'text-danger fw-bold' : '' ?>">
-                                    <?= tanggal_singkat($t['jatuh_tempo']) ?>
                                     <?php if ($t['is_overdue']): ?>
-                                        <span class="badge bg-danger">Terlambat</span>
+                                        <span class="badge bg-danger" title="Jatuh tempo <?= tanggal_singkat($t['jatuh_tempo']) ?>">Terlambat</span>
                                     <?php endif; ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? $t['nama_pelanggan'] ?? '-' ?></td>
@@ -241,7 +236,7 @@
                     ],
                     columnDefs: [{
                             orderable: false,
-                            targets: [0, 10]
+                            targets: [0, 9]
                         },
                         {
                             type: 'num',
