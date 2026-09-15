@@ -43,7 +43,22 @@
                 <button type="submit" class="btn btn-sm btn-primary">
                     <i class="fas fa-filter"></i> Filter
                 </button>
-                <a href="<?= base_url('/tagihan' . (service('request')->getGet('saya') == '1' ? '?saya=1' : '')) ?>"
+                <?php
+                    $sayaAktif = service('request')->getGet('saya') == '1';
+                    $tujuhHariAwal  = date('Y-m-d', strtotime('-7 days'));
+                    $tujuhHariAkhir = date('Y-m-d');
+                    $tujuhHariAktif = $tanggal_awal === $tujuhHariAwal && $tanggal_akhir === $tujuhHariAkhir;
+                    $tujuhHariQuery = http_build_query(array_filter([
+                        'saya'          => $sayaAktif ? '1' : null,
+                        'tanggal_awal'  => $tujuhHariAwal,
+                        'tanggal_akhir' => $tujuhHariAkhir,
+                    ]));
+                ?>
+                <a href="<?= base_url('/tagihan?' . $tujuhHariQuery) ?>"
+                    class="btn btn-sm <?= $tujuhHariAktif ? 'btn-warning' : 'btn-outline-warning' ?>">
+                    <i class="fas fa-bolt"></i> 7 Hari Terakhir
+                </a>
+                <a href="<?= base_url('/tagihan' . ($sayaAktif ? '?saya=1' : '')) ?>"
                     class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
