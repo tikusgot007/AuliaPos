@@ -969,9 +969,10 @@
 
 <?php if (($reminderTagihan['show'] ?? false)): ?>
 <script>
-    // Reminder tagihan 3 hari terakhir milik kasir yang login.
-    // Lihat Kasir::getReminderTagihanSaya() untuk kriteria & jeda 15
-    // menitnya, dan docs/aturan-bisnis-AULIA.md Section 25.
+    // Reminder tagihan N hari terakhir (N = Config\Tagihan::$defaultTempoHari,
+    // lihat Kasir::getReminderTagihanSaya()) milik kasir yang login.
+    // Dicek & jeda 15 menitnya juga di method yang sama, aturan
+    // lengkap di docs/aturan-bisnis-AULIA.md Section 25.
     //
     // SENGAJA pakai modal konfirmasi() (dua tombol eksplisit: Tutup /
     // Lihat), BUKAN showToast() -- toast auto-hilang setelah beberapa
@@ -980,7 +981,8 @@
     // salah satu tombol), bukan hilang sendiri sambil terlewat.
     document.addEventListener('DOMContentLoaded', function() {
         const jumlah = <?= (int) ($reminderTagihan['count'] ?? 0) ?>;
-        const pesan = 'Ada ' + jumlah + ' tagihan dari 3 hari terakhir yang perlu dicek lagi.';
+        const hari = <?= (int) ($reminderTagihan['hari'] ?? 7) ?>;
+        const pesan = 'Ada ' + jumlah + ' tagihan dari ' + hari + ' hari terakhir yang perlu dicek lagi.';
 
         konfirmasi(pesan, {
             title: 'Reminder Tagihan',

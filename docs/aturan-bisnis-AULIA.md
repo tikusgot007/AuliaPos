@@ -1564,19 +1564,24 @@ melewati `ubahStatus()` sepenuhnya. Fungsi `ubahStatus()` di file ini
 jadi tidak terpakai lagi (dead code, sengaja tidak dihapus di
 perubahan ini — di luar scope).
 
-## 25.6 Reminder Tagihan 3 Hari Terakhir
+## 25.6 Reminder Tagihan N Hari Terakhir
 
 **Tujuan**: mengingatkan kasir (atau admin, kalau dia juga punya
 transaksi atas namanya sendiri) soal tagihan yang dia garap sendiri
-dan masih "segar" (3 hari terakhir), supaya tidak kelupaan
-di-follow-up.
+dan masih "segar", supaya tidak kelupaan di-follow-up.
+
+**Update (2026-09-15):** ambang waktu diubah dari 3 hari ke **7
+hari**, dibaca dari `Config\Tagihan::$defaultTempoHari` (kebijakan
+jatuh tempo tagihan, lihat Section 25.8) supaya satu angka yang sama
+dipakai untuk "masih dalam masa tempo" dan "perlu direminder" --
+bukan dua angka N-hari berbeda yang tidak berhubungan.
 
 **Kriteria** (dicek di `Kasir::getReminderTagihanSaya()`, dipanggil
 dari `Kasir::index()`):
 - `kasir_id` = user yang sedang login (`session()->get('id_user')`)
 - `status_pembayaran` IN (`belum_bayar`, `dp`)
 - `status` != `batal`
-- `tanggal` >= (sekarang − 3 hari)
+- `tanggal` >= (sekarang − `Config\Tagihan::$defaultTempoHari` hari)
 
 **Trigger**: dicek ulang setiap kali halaman `/kasir` dibuka
 (server-side, bukan polling AJAX terpisah — beda pola dari

@@ -65,16 +65,20 @@ class Kasir extends BaseController
     }
 
     /**
-     * Reminder tagihan (belum lunas) 3 hari terakhir milik kasir yang
-     * sedang login (kasir_id = dirinya sendiri). Dicek setiap kali
-     * halaman /kasir dibuka -- lihat docs/aturan-bisnis-AULIA.md
-     * Section 25 untuk aturan lengkapnya.
+     * Reminder tagihan (belum lunas) 7 hari terakhir milik kasir yang
+     * sedang login (kasir_id = dirinya sendiri). 7 hari dipilih supaya
+     * konsisten dengan Config\Tagihan::$defaultTempoHari (kebijakan
+     * jatuh tempo tagihan, lihat App\Services\KalkulasiJatuhTempo) --
+     * satu angka yang sama untuk "masih dalam masa tempo" dan
+     * "perlu direminder". Dicek setiap kali halaman /kasir dibuka --
+     * lihat docs/aturan-bisnis-AULIA.md Section 25 untuk aturan
+     * lengkapnya.
      *
      * Dibatasi jeda 15 menit (disimpan di session) supaya tidak
      * muncul berulang tiap kasir bolak-balik buka halaman ini di
      * antara transaksi.
      *
-     * @return array{show: bool, count: int}
+     * @return array{show: bool, count: int, hari: int}
      */
     private function getReminderTagihanSaya(): array
     {
@@ -93,12 +97,14 @@ class Kasir extends BaseController
             return ['show' => false, 'count' => 0];
         }
 
+        $tempoHari = (new \Config\Tagihan())->defaultTempoHari;
+
         $transaksiModel = new TransaksiModel();
         $count = $transaksiModel
             ->where('kasir_id', $userId)
             ->whereIn('status_pembayaran', ['belum_bayar', 'dp'])
             ->whereNotIn('status', ['batal', 'mangkrak'])
-            ->where('tanggal >=', date('Y-m-d H:i:s', strtotime('-3 days')))
+            ->where('tanggal >=', date('Y-m-d H:i:s', strtotime("-{$tempoHari} days")))
             ->countAllResults();
 
         if ($count > 0) {
@@ -110,7 +116,7 @@ class Kasir extends BaseController
             session()->set('reminder_tagihan_last_shown', $now);
         }
 
-        return ['show' => $count > 0, 'count' => $count];
+        return ['show' => $count > 0, 'count' => $count, 'hari' => $tempoHari];
     }
 
     /**
