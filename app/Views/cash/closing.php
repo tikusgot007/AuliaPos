@@ -108,8 +108,14 @@
                                 <div class="d-flex justify-content-between small">
                                     <span>Saldo Sistem</span><strong id="ringkasanClosingSaldoSistem">Rp 0</strong>
                                 </div>
-                                <div class="d-flex justify-content-between small mt-1">
-                                    <span>Kas Fisik</span><strong id="totalUangFisikClosing">Rp 0</strong>
+                                <div class="d-flex justify-content-between align-items-center small mt-1">
+                                    <span>Kas Fisik</span>
+                                    <div class="input-group input-group-sm" style="width:150px;">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">Rp</span>
+                                        </div>
+                                        <input type="number" class="form-control text-right" id="totalUangFisikClosing" min="0" step="1" value="0">
+                                    </div>
                                 </div>
                                 <hr class="my-1">
                                 <div class="d-flex justify-content-between">
@@ -223,6 +229,10 @@
             });
         });
 
+        // Isi ulang dari pecahan (dipanggil saat input pecahan berubah).
+        // Mengetik langsung di field Kas Fisik TIDAK memicu ini -- lihat
+        // handler #totalUangFisikClosing di bawah, supaya user bisa
+        // masukkan total tanpa harus mengisi pecahan satu-satu.
         function hitungUangFisikClosing() {
             var totalFisik = 0;
 
@@ -243,20 +253,59 @@
                     .text('Rp ' + formatRupiah(subtotal));
             });
 
-            $('#totalUangFisikClosing').text('Rp ' + formatRupiah(totalFisik));
-
-            var saldoSistem = parseFloat($('#closingSaldoSistemDisplay').data('raw')) || 0;
-            var selisih = totalFisik - saldoSistem;
-            $('#ringkasanClosingSelisih').text('Rp ' + formatRupiah(selisih));
+            $('#totalUangFisikClosing').val(totalFisik);
+            updateRingkasanClosing();
 
             return totalFisik;
         }
 
+        // Update ringkasan (selisih thd saldo sistem & thd opname) dari
+        // nilai Kas Fisik saat ini -- dipakai baik saat dihitung dari
+        // pecahan maupun saat diketik manual.
+        function updateRingkasanClosing() {
+            var totalFisik = parseInt($('#totalUangFisikClosing').val()) || 0;
+            var saldoSistem = parseFloat($('#closingSaldoSistemDisplay').data('raw')) || 0;
+            $('#ringkasanClosingSelisih').text('Rp ' + formatRupiah(totalFisik - saldoSistem));
+            updateSelisihOpname(totalFisik);
+        }
+
         $(document).on('input', '.pecahan-jumlah-closing', hitungUangFisikClosing);
+
+        // Kas Fisik boleh diisi manual langsung (tanpa mengisi pecahan).
+        $('#totalUangFisikClosing').on('input', function() {
+            var val = parseInt($(this).val()) || 0;
+            if (val < 0) {
+                val = 0;
+                $(this).val(0);
+            }
+            updateRingkasanClosing();
+        });
 
         $('#btnResetPecahanClosing').on('click', function() {
             $('.pecahan-jumlah-closing').val(0);
             hitungUangFisikClosing();
+        });
+
+        // Enter -> pindah ke pecahan berikutnya; dari pecahan terakhir
+        // pindah ke Kas Fisik, lalu dari Kas Fisik ke tombol Simpan.
+        $(document).on('keydown', '.pecahan-jumlah-closing', function(e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+
+            var inputs = $('.pecahan-jumlah-closing').toArray();
+            var nextInput = inputs[inputs.indexOf(this) + 1];
+
+            if (nextInput) {
+                $(nextInput).trigger('focus').trigger('select');
+            } else {
+                $('#totalUangFisikClosing').trigger('focus').trigger('select');
+            }
+        });
+
+        $('#totalUangFisikClosing').on('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            $('#btnSimpanClosing').trigger('focus');
         });
 
         function closeModalClosing() {
@@ -283,7 +332,8 @@
         function resetModalClosing() {
             $('.pecahan-jumlah-closing').val(0);
             $('#ringkasanClosingSelisih').text('Rp 0');
-            $('#totalUangFisikClosing').text('Rp 0');
+            $('#totalUangFisikClosing').val(0);
+            $('#closingSelisihOpnameDisplay').text('—');
             $('#btnSimpanClosing').prop('disabled', true);
         }
 
@@ -330,7 +380,13 @@
 
                     $('#btnSimpanClosing').prop('disabled', false);
                     hitungUangFisikClosing();
-                    updateSelisihOpname();
+
+                    // Fokus langsung ke pecahan 100.000 supaya bisa
+                    // langsung mengetik tanpa klik dulu.
+                    var $firstPecahan = $('.pecahan-jumlah-closing').first();
+                    setTimeout(function() {
+                        $firstPecahan.trigger('focus').trigger('select');
+                    }, 150);
                 },
                 error: function() {
                     $('#closingLoading').hide();
@@ -340,14 +396,11 @@
             });
         }
 
-        function updateSelisihOpname() {
+        function updateSelisihOpname(totalFisik) {
             var opnameNominal = $('#closingOpnameDisplay').data('raw');
             if (opnameNominal === null || opnameNominal === undefined) return;
-            var totalFisik = parseFloat($('#totalUangFisikClosing').text().replace(/[^\d]/g, '')) || 0;
             $('#closingSelisihOpnameDisplay').text('Rp ' + formatRupiah(totalFisik - opnameNominal));
         }
-
-        $(document).on('input', '.pecahan-jumlah-closing', updateSelisihOpname);
 
         $(document).on('click', '.btn-buka-closing', function() {
             if ($(this).prop('disabled')) return;
@@ -355,7 +408,10 @@
         });
 
         $('#btnSimpanClosing').on('click', function() {
-            var saldoFisik = hitungUangFisikClosing();
+            // Ambil nilai Kas Fisik apa adanya -- bisa hasil sum pecahan,
+            // bisa juga diketik manual langsung, keduanya sah.
+            var saldoFisik = parseInt($('#totalUangFisikClosing').val()) || 0;
+            if (saldoFisik < 0) saldoFisik = 0;
 
             $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
 
