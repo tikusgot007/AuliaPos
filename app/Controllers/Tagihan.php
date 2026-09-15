@@ -30,6 +30,17 @@ class Tagihan extends BaseController
         // Tagihan::getRentangTanggal().
         [$tanggalAwal, $tanggalAkhir] = $this->getRentangTanggal();
 
+        // Filter status pembayaran (belum_bayar / dp). Kosong/tidak valid ->
+        // tidak membatasi (perilaku lama: tampilkan keduanya).
+        $statusPembayaran = $this->request->getGet('status_pembayaran');
+        if (!in_array($statusPembayaran, ['belum_bayar', 'dp'], true)) {
+            $statusPembayaran = '';
+        }
+
+        // Filter nama pelanggan (pencarian LIKE, bukan dropdown -- daftar
+        // pelanggan bisa banyak).
+        $pelangganCari = trim((string) $this->request->getGet('pelanggan'));
+
         $query = $transaksiModel
             ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama')
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
@@ -56,6 +67,14 @@ class Tagihan extends BaseController
             ->where('transaksi.status_pembayaran !=', 'lunas')
             ->whereNotIn('transaksi.status', ['batal', 'mangkrak']);
 
+        if ($statusPembayaran !== '') {
+            $query->where('transaksi.status_pembayaran', $statusPembayaran);
+        }
+
+        if ($pelangganCari !== '') {
+            $query->like('pelanggan.nama', $pelangganCari);
+        }
+
         if ($hanyaSaya) {
             $query->where('transaksi.kasir_id', (int) session()->get('id_user'));
         }
@@ -69,8 +88,10 @@ class Tagihan extends BaseController
             'title'         => 'Tagihan | AULIA',
             'content'       => 'tagihan/index',
             'tagihan'       => $tagihan,
-            'tanggal_awal'  => $tanggalAwal ?? '',
-            'tanggal_akhir' => $tanggalAkhir ?? '',
+            'tanggal_awal'      => $tanggalAwal ?? '',
+            'tanggal_akhir'     => $tanggalAkhir ?? '',
+            'status_pembayaran' => $statusPembayaran,
+            'pelanggan_cari'    => $pelangganCari,
         ];
 
         return view('layout/main', $data);

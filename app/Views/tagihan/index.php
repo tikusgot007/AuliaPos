@@ -21,6 +21,19 @@
                 <input type="date" name="tanggal_akhir" class="form-control form-control-sm"
                     value="<?= esc($tanggal_akhir, 'attr') ?>">
             </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">Status</label>
+                <select name="status_pembayaran" class="form-select form-select-sm">
+                    <option value="">Semua</option>
+                    <option value="belum_bayar" <?= $status_pembayaran === 'belum_bayar' ? 'selected' : '' ?>>Belum Bayar</option>
+                    <option value="dp" <?= $status_pembayaran === 'dp' ? 'selected' : '' ?>>DP</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1">Pelanggan</label>
+                <input type="text" name="pelanggan" class="form-control form-control-sm" placeholder="Cari nama..."
+                    value="<?= esc($pelanggan_cari, 'attr') ?>">
+            </div>
             <div class="col-12 col-md-auto">
                 <button type="submit" class="btn btn-sm btn-primary">
                     <i class="fas fa-filter"></i> Filter
