@@ -660,9 +660,10 @@ class Laporan extends BaseController
      * adanya dari snapshot closing_kas, karena closing kas memang
      * snapshot final yang sengaja terpisah dari kalkulasi transaksi.
      * Tanggal yang belum di-closing tampil null (bukan 0) supaya beda
-     * dari "kas fisik-nya nol" -- lihat null di array $summary juga
-     * sengaja tidak dijumlah (menjumlah snapshot kas fisik antar
-     * tanggal tidak informatif).
+     * dari "kas fisik-nya nol". Baris TOTAL menjumlahkan closing_kas
+     * dari tanggal yang SUDAH closing saja (null diabaikan, bukan
+     * dianggap 0); kalau belum ada satupun yang closing, TOTAL tampil
+     * '-' juga (lihat summary['closing_kas_count']).
      *
      * Mapping kategori (DIKONFIRMASI ke database aktual, BUKAN
      * asumsi -- kode existing processBulanan() dan konfirmasi
@@ -948,21 +949,34 @@ class Laporan extends BaseController
         // =========================================================
         // 8) SUMMARY (total kolom untuk footer)
         // =========================================================
-        // closing_kas SENGAJA tidak ada di sini -- menjumlah snapshot
-        // kas fisik antar tanggal tidak informatif (beda dari kolom
-        // lain yang memang arus/pemasukan harian).
+        // closing_kas dijumlah dari tanggal yang SUDAH closing saja
+        // (null diabaikan, bukan dianggap 0) -- lihat closing_kas_count.
 
         $summary = [
             'penjualan' => 0, 'fotokopi' => 0, 'minuman' => 0,
             'digital_foto' => 0, 'digital_printing' => 0, 'ganti_bg' => 0,
-            'total' => 0, 'tf_qris' => 0, 'uang_keluar' => 0,
+            'total' => 0, 'closing_kas' => 0, 'tf_qris' => 0, 'uang_keluar' => 0,
         ];
+        $closingKasCount = 0;
 
         foreach ($data as $row) {
             foreach ($summary as $kol => $val) {
+                if ($kol === 'closing_kas') {
+                    continue;
+                }
                 $summary[$kol] += $row[$kol];
             }
+
+            if ($row['closing_kas'] !== null) {
+                $summary['closing_kas'] += $row['closing_kas'];
+                $closingKasCount++;
+            }
         }
+
+        // Dipakai view untuk tahu apakah footer closing_kas berarti
+        // "total dari yang sudah closing" atau memang belum ada satupun
+        // (supaya tetap tampil '-', bukan "0" yang menyesatkan).
+        $summary['closing_kas_count'] = $closingKasCount;
 
         return ['data' => $data, 'summary' => $summary];
     }
@@ -1451,7 +1465,7 @@ class Laporan extends BaseController
                 $this->formatAngka($s['digital_printing']),
                 $this->formatAngka($s['ganti_bg']),
                 $this->formatAngka($s['total']),
-                '-',
+                $s['closing_kas_count'] > 0 ? $this->formatAngka($s['closing_kas']) : '-',
                 $this->formatAngka($s['tf_qris']),
                 $this->formatAngka($s['uang_keluar']),
             ]);

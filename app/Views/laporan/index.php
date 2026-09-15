@@ -723,7 +723,9 @@
             html += `<td class="text-end">${fmt(summary.digital_printing)}</td>`;
             html += `<td class="text-end">${fmt(summary.ganti_bg)}</td>`;
             html += `<td class="text-end">${fmt(summary.total)}</td>`;
-            html += `<td class="text-end text-muted">-</td>`;
+            html += (summary.closing_kas_count > 0)
+                ? `<td class="text-end">${fmt(summary.closing_kas)}</td>`
+                : `<td class="text-end text-muted">-</td>`;
             html += `<td class="text-end">${fmt(summary.tf_qris)}</td>`;
             html += `<td class="text-end">${fmt(summary.uang_keluar)}</td>`;
             html += `</tr>`;
