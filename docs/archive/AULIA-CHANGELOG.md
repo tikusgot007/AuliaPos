@@ -1,11 +1,12 @@
 # Changelog & Catatan Teknis AULIA
 
-> **Sumber asli:** `aturan-bisnis-AULIA.md` (Section 16–19, 20.9–20.11,
-> 21, 22, 23). Berisi **riwayat pekerjaan, audit teknis, arsitektur
-> implementasi, dan pekerjaan terbuka** — bukan aturan bisnis final
-> (lihat `AULIA-01-transaksi-dan-kasir.md` dan
-> `AULIA-02-modul-pendukung.md` untuk itu). Rujukan ke section asli
-> memakai format `[AULIA §N]`.
+> ARCHIVED
+>
+> This document is retained for historical traceability.
+> It is NOT the current source of truth.
+>
+> See [`../CHANGELOG.md`](../CHANGELOG.md) for current history, or
+> [`../AULIA.md`](../AULIA.md) for current business rules.
 
 ---
 

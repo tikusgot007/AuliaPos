@@ -1,18 +1,11 @@
 # Aturan Bisnis AULIA — Transaksi & Kasir
 
-> **Sumber asli:** `aturan-bisnis-AULIA.md` (Section 1–15, 27, 29, plus
-> 4.3–4.5 yang ditambahkan setelah dokumen ini pertama dipecah).
-> Dokumen ini adalah **penomoran ulang** dari sumber tersebut, khusus
-> mencakup domain **transaksi & kasir**. Isi/pengertian tidak diubah;
-> setiap bagian mencantumkan rujukan ke section asli (format `[AULIA §N]`)
-> supaya bisa ditelusuri balik ke dokumen sumber.
+> ARCHIVED
 >
-> Riwayat pekerjaan (P1–P15), audit teknis, dan arsitektur implementasi
-> untuk domain ini dipindah ke `AULIA-CHANGELOG.md` (bukan dihapus).
-> Modul lain (Jadwal Karyawan, Profil, Notifikasi, Preview Banner,
-> Archive, Cetak Nota) ada di `AULIA-02-modul-pendukung.md`.
-
-**Status:** Baseline aktif — 2026-09-16 (update terakhir pada sumber asli).
+> This document is retained for historical traceability.
+> It is NOT the current source of truth.
+>
+> See [`../AULIA.md`](../AULIA.md) for current rules.
 
 ---
 
