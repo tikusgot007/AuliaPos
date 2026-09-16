@@ -139,6 +139,7 @@ class Transaksi extends BaseController
              transaksi.status,
              transaksi.sumber,
              users.username AS kasir_nama,
+             users.inisial AS kasir_inisial,
              pelanggan.nama AS pelanggan_nama'
             )
             ->join(
@@ -961,7 +962,7 @@ class Transaksi extends BaseController
         $pelangganModel = new PelangganModel();
 
         // Ambil data transaksi
-        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama')
+        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama, users.inisial as kasir_inisial')
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             ->find($id);
 
@@ -1020,7 +1021,7 @@ class Transaksi extends BaseController
 
         // Ambil pembayaran
         $pembayaran = $pembayaranModel
-            ->select('pembayaran.*, users.nama as kasir_nama, users.username as kasir_username')
+            ->select('pembayaran.*, users.nama as kasir_nama, users.username as kasir_username, users.inisial as kasir_inisial')
             ->join('users', 'users.id = pembayaran.kasir_id', 'left')
             ->where('pembayaran.transaksi_id', $id)
             ->where('pembayaran.status', 'aktif')

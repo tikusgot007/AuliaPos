@@ -124,7 +124,7 @@
                                     <?php endif; ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? $t['nama_pelanggan'] ?? '-' ?></td>
-                                <td><?= $t['kasir_nama'] ?? $t['nama_kasir'] ?? '-' ?></td>
+                                <td><?= $t['kasir_inisial'] ?? $t['kasir_nama'] ?? $t['nama_kasir'] ?? '-' ?></td>
                                 <td class="text-end"><?= number_format($grandTotal, 0, ',', '.') ?></td>
                                 <td class="text-end"><?= number_format($totalDibayar, 0, ',', '.') ?></td>
                                 <td class="text-end <?= $sisa > 0 ? 'text-danger' : 'text-success' ?>">

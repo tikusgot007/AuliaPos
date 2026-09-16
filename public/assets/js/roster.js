@@ -94,7 +94,7 @@
                 return;
             }
             box.innerHTML = list.map(function (o) {
-                return '<div class="roster-orang' + (o.saya ? ' saya' : '') + '">' + escapeHtml(o.nama) + '</div>';
+                return '<div class="roster-orang' + (o.saya ? ' saya' : '') + '">' + escapeHtml(o.inisial || o.nama) + '</div>';
             }).join('');
         };
 

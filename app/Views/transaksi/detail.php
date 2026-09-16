@@ -24,7 +24,7 @@
                         <p><strong>Invoice:</strong> <?= $transaksi['kode_invoice'] ?></p>
                         <p><strong>No Order:</strong> <?= $transaksi['no_order'] ? format_no_order($transaksi['no_order']) : '-' ?></p>
                         <p><strong>Tanggal:</strong> <?= date('d/m/Y H:i', strtotime($transaksi['tanggal'])) ?></p>
-                        <p><strong>Kasir:</strong> <?= $transaksi['kasir_nama'] ?? '-' ?></p>
+                        <p><strong>Kasir:</strong> <?= $transaksi['kasir_inisial'] ?? $transaksi['kasir_nama'] ?? '-' ?></p>
                     </div>
                     <div class="col-md-6">
                         <p><strong>Pelanggan:</strong> <?= $pelanggan['nama'] ?? '-' ?></p>
@@ -137,15 +137,15 @@
                                 <span class="badge bg-<?= $p['metode'] == 'tunai' ? 'primary' : ($p['metode'] == 'qris' ? 'success' : 'info') ?>">
                                     <?= strtoupper($p['metode']) ?>
                                 </span>
-                                <?php if (!empty($p['kasir_nama']) || !empty($p['kasir_username'])): ?>
+                                <?php if (!empty($p['kasir_inisial']) || !empty($p['kasir_nama']) || !empty($p['kasir_username'])): ?>
                                     <small class="text-muted">
                                         <i class="fas fa-user"></i>
-                                        <?= esc($p['kasir_nama'] ?: $p['kasir_username']) ?>
+                                        <?= esc(($p['kasir_inisial'] ?? null) ?: (($p['kasir_nama'] ?? null) ?: ($p['kasir_username'] ?? ''))) ?>
                                     </small>
                                 <?php endif; ?>
                                 <?php if ($p['keterangan']): ?>
                                     <small class="text-muted">
-                                        <?= (!empty($p['kasir_nama']) || !empty($p['kasir_username'])) ? ' · ' : '' ?><?= esc($p['keterangan']) ?>
+                                        <?= (!empty($p['kasir_inisial']) || !empty($p['kasir_nama']) || !empty($p['kasir_username'])) ? ' · ' : '' ?><?= esc($p['keterangan']) ?>
                                     </small>
                                 <?php endif; ?>
                                 <br>

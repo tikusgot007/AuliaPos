@@ -14,14 +14,14 @@ final class EffectiveShiftLeaderService
         $this->db = $db ?? Database::connect();
     }
 
-    /** @return array{id:int,username:string,nama:?string,priority:int}|null */
+    /** @return array{id:int,username:string,nama:?string,inisial:?string,priority:int}|null */
     public function shiftLeaderSaatIni(?string $tanggal = null, ?string $jamSekarang = null): ?array
     {
         $tanggal ??= date('Y-m-d');
         $jamSekarang ??= date('H:i');
 
         $kandidat = $this->db->table('jadwal j')
-            ->select('u.id, u.username, u.nama, u.priority, j.shift')
+            ->select('u.id, u.username, u.nama, u.inisial, u.priority, j.shift')
             ->join('users u', 'u.id = j.karyawan_id')
             ->where('j.tanggal', $tanggal)
             ->where('j.shift !=', 'L')
@@ -37,6 +37,7 @@ final class EffectiveShiftLeaderService
                     'id' => (int) $row['id'],
                     'username' => $row['username'],
                     'nama' => $row['nama'],
+                    'inisial' => $row['inisial'],
                     'priority' => (int) $row['priority'],
                 ];
             }
