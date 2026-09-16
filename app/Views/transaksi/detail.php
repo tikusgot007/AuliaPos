@@ -248,7 +248,7 @@
 
                 <button
                     class="btn btn-success w-100 mb-2"
-                    onclick="bukaPaymentDetail(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>)">
+                    onclick="bukaPaymentDetail(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, false, '<?= esc($transaksi['tanggal'], 'js') ?>')">
 
                     <i class="fas fa-hand-holding-usd"></i>
                     Bayar Sekarang
@@ -258,7 +258,7 @@
                 <?php if (session()->get('role') === 'admin' || $isShiftLeaderUser): ?>
                     <button
                         class="btn btn-outline-warning w-100 mb-2"
-                        onclick="bukaPaymentDetail(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, true)">
+                        onclick="bukaPaymentDetail(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, true, '<?= esc($transaksi['tanggal'], 'js') ?>')">
 
                         <i class="fas fa-history"></i>
                         Bayar Backdate
@@ -355,11 +355,11 @@
         <!-- 🔥 TOMBOL LUNASI (dari halaman Tagihan)    -->
         <!-- ========================================== -->
         <?php if (isset($dariTagihan) && $dariTagihan && $sisa_tagihan > 0): ?>
-            <button class="btn btn-success w-100 mb-2" onclick="prosesLunasi(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>)">
+            <button class="btn btn-success w-100 mb-2" onclick="prosesLunasi(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, false, '<?= esc($transaksi['tanggal'], 'js') ?>')">
                 <i class="fas fa-hand-holding-usd"></i> Lunasi (Rp <?= number_format($sisa_tagihan, 0, ',', '.') ?>)
             </button>
             <?php if (session()->get('role') === 'admin' || $isShiftLeaderUser): ?>
-                <button class="btn btn-outline-warning w-100 mb-2" onclick="prosesLunasi(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, true)">
+                <button class="btn btn-outline-warning w-100 mb-2" onclick="prosesLunasi(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, true, '<?= esc($transaksi['tanggal'], 'js') ?>')">
                     <i class="fas fa-history"></i> Lunasi Backdate
                 </button>
             <?php endif; ?>
@@ -525,7 +525,7 @@
 
 
 
-    function bukaPaymentDetail(id, sisa, backdate = false) {
+    function bukaPaymentDetail(id, sisa, backdate = false, transaksiTanggal = null) {
 
         bukaPaymentModal({
             mode: 'existing',
@@ -534,6 +534,7 @@
             sisa: sisa,
             allowPartialNonCash: true,
             backdate: backdate,
+            transaksiTanggal: transaksiTanggal,
 
             onSuccess: function(response) {
 
@@ -870,7 +871,7 @@
 
 
     // Tagihan detail tetap memakai endpoint pelunasan khusus.
-    function prosesLunasi(id, sisa, backdate = false) {
+    function prosesLunasi(id, sisa, backdate = false, transaksiTanggal = null) {
         bukaPaymentModal({
             mode: 'existing',
             transaksiId: id,
@@ -879,6 +880,7 @@
             existingFlow: 'tagihan-lunasi',
             allowDp: false,
             backdate: backdate,
+            transaksiTanggal: transaksiTanggal,
             onSuccess: function(response) {
                 showToast(response.message || 'Pelunasan berhasil diproses.', 'success');
                 setTimeout(function() {
