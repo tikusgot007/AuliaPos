@@ -797,7 +797,7 @@
 
                     $('#alasanSelisih')
 
-                        .val('diisi oleh <?= esc($__inisialKasir ?? session()->get('username') ?? 'Kasir') ?>')
+                        .val('diisi oleh <?= esc($__inisialKasir ?? session()->get('inisial') ?? 'Kasir') ?>')
                         .prop('required', true)
                         .prop('readonly', true);
                 } else {
