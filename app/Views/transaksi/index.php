@@ -203,7 +203,7 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                                     <?= $tanggalDisplay ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? '-' ?></td>
-                                <td><?= $t['kasir_nama'] ?? '-' ?></td>
+                                <td><?= $t['kasir_inisial'] ?? $t['kasir_nama'] ?? '-' ?></td>
                                 <td class="text-end"><?= number_format($t['grand_total'], 0, ',', '.') ?></td>
                                 <td class="text-end"><?= number_format($totalDibayar, 0, ',', '.') ?></td>
                                 <td class="text-end <?= $sisa > 0 ? 'text-danger' : 'text-success' ?>">

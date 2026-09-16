@@ -56,7 +56,7 @@ class Tagihan extends BaseController
         $kasirIdFilter = in_array((int) $kasirIdFilter, $kasirIdValid, true) ? (int) $kasirIdFilter : null;
 
         $query = $transaksiModel
-            ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama')
+            ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama, users.inisial as kasir_inisial')
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
             ->join('users', 'users.id = transaksi.kasir_id', 'left');
 
