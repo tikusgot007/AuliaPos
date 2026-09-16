@@ -1,12 +1,11 @@
 # Aturan Bisnis AULIA — Modul Pendukung
 
-> **Sumber asli:** `aturan-bisnis-AULIA.md` (Section 20, 24, 25, 26, 28, 30,
-> termasuk 25.8 yang ditambahkan setelah dokumen ini pertama dipecah).
-> Setiap modul di file ini **independen** dari domain Transaksi & Kasir
-> (`AULIA-01-transaksi-dan-kasir.md`) — tidak ada irisan tabel/business
-> rule kecuali disebutkan eksplisit. Rujukan ke section asli memakai
-> format `[AULIA §N]`. Riwayat bug & pekerjaan terbuka masing-masing
-> modul ada di `AULIA-CHANGELOG.md`.
+> ARCHIVED
+>
+> This document is retained for historical traceability.
+> It is NOT the current source of truth.
+>
+> See [`../AULIA.md`](../AULIA.md) for current rules.
 
 ---
 
