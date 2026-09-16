@@ -993,7 +993,7 @@
                                     style="<?= $__shiftLeaderAwal ? 'color: #145a32;' : '' ?>"
                                     data-bs-toggle="tooltip" data-bs-placement="bottom" title="Shift Leader saat ini">
                                     <i class="fas fa-crown"></i>
-                                    <?= $__shiftLeaderAwal ? esc($__shiftLeaderAwal['nama'] ?? $__shiftLeaderAwal['username']) : 'Tidak ada Shift Leader' ?>
+                                    <?= $__shiftLeaderAwal ? esc($__shiftLeaderAwal['inisial'] ?? $__shiftLeaderAwal['nama'] ?? $__shiftLeaderAwal['username']) : 'Tidak ada Shift Leader' ?>
                                 </span>
                             </div>
 
@@ -1474,7 +1474,7 @@
                     const $badge = $('#shiftLeaderBadge');
                     if (response.leader) {
                         $badge.removeClass('bg-secondary').addClass('bg-warning').css('color', '#145a32');
-                        $badge.html('<i class="fas fa-crown"></i> ' + (response.leader.nama || response.leader.username));
+                        $badge.html('<i class="fas fa-crown"></i> ' + (response.leader.inisial || response.leader.nama || response.leader.username));
                     } else {
                         $badge.removeClass('bg-warning').addClass('bg-secondary').css('color', '');
                         $badge.html('<i class="fas fa-crown"></i> Tidak ada Shift Leader');

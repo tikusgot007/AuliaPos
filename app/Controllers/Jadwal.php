@@ -964,7 +964,7 @@ class Jadwal extends BaseController
 
         return $this->response->setJSON([
             'status' => 'success',
-            'leader' => $leader, // ['id','username','nama','priority'] atau null
+            'leader' => $leader, // ['id','username','nama','inisial','priority'] atau null
         ]);
     }
 }
