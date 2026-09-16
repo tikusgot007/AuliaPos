@@ -1,5 +1,14 @@
 # AULIA — Dokumentasi Aturan Bisnis & Keputusan Teknis
 
+> **Modul Chat/Inbox WhatsApp (2026-09-16):** fitur Shared WhatsApp
+> Inbox (di-port dari branch `v3.0`) memakai koneksi database
+> **terpisah total** (`aulia_inboxdb`, `$DBGroup = 'inbox'`) dan tidak
+> menyentuh skema AuliaPos inti sama sekali. Dokumentasi aturan
+> bisnisnya ada di `docs/aturan-bisnis-CHAT.md` (lengkap) /
+> `docs/CHAT-01-aturan-bisnis-inbox.md` (ringkas) — dokumen ini tetap
+> jadi rujukan utama untuk aturan bisnis AuliaPos inti (transaksi,
+> kasir, jadwal, Shift Leader, dll.), TIDAK digantikan/diarsipkan.
+
 **Status:** Baseline aktif  
 **Tanggal:** 2026-09-10 (update terakhir)  
 **Project:** AULIA — PHP CodeIgniter 4 POS
