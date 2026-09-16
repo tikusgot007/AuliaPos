@@ -140,7 +140,7 @@
                                 <?php if (!empty($p['kasir_inisial']) || !empty($p['kasir_nama']) || !empty($p['kasir_username'])): ?>
                                     <small class="text-muted">
                                         <i class="fas fa-user"></i>
-                                        <?= esc($p['kasir_inisial'] ?: ($p['kasir_nama'] ?: $p['kasir_username'])) ?>
+                                        <?= esc(($p['kasir_inisial'] ?? null) ?: (($p['kasir_nama'] ?? null) ?: ($p['kasir_username'] ?? ''))) ?>
                                     </small>
                                 <?php endif; ?>
                                 <?php if ($p['keterangan']): ?>

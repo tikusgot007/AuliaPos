@@ -435,7 +435,7 @@ class Cetak extends BaseController
 
         if (!empty($transaksi['kasir_inisial']) || !empty($transaksi['kasir_nama'])) {
             $printer->text(
-                $this->lineThermal('Kasir', $transaksi['kasir_inisial'] ?: $transaksi['kasir_nama']) . "\n"
+                $this->lineThermal('Kasir', ($transaksi['kasir_inisial'] ?? null) ?: $transaksi['kasir_nama']) . "\n"
             );
         }
 
@@ -578,7 +578,7 @@ class Cetak extends BaseController
 
         $printer->text(
             "Kasir   : " .
-                ($transaksi['kasir_inisial'] ?: ($transaksi['kasir_nama'] ?? '-')) .
+                (($transaksi['kasir_inisial'] ?? null) ?: ($transaksi['kasir_nama'] ?? '-')) .
                 "\n\n"
         );
 
