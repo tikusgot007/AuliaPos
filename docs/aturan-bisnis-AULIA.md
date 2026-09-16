@@ -1,13 +1,23 @@
-# AULIA — Dokumentasi Aturan Bisnis & Keputusan Teknis
+# AULIA — Dokumentasi Aturan Bisnis & Keputusan Teknis (ARSIP)
 
-> **Modul Chat/Inbox WhatsApp (2026-09-16):** fitur Shared WhatsApp
-> Inbox (di-port dari branch `v3.0`) memakai koneksi database
-> **terpisah total** (`aulia_inboxdb`, `$DBGroup = 'inbox'`) dan tidak
-> menyentuh skema AuliaPos inti sama sekali. Dokumentasi aturan
-> bisnisnya ada di `docs/aturan-bisnis-CHAT.md` (lengkap) /
-> `docs/CHAT-01-aturan-bisnis-inbox.md` (ringkas) — dokumen ini tetap
-> jadi rujukan utama untuk aturan bisnis AuliaPos inti (transaksi,
-> kasir, jadwal, Shift Leader, dll.), TIDAK digantikan/diarsipkan.
+> **STATUS: DIGANTIKAN (2026-09-16).** Bacaan utama untuk aturan bisnis
+> AULIA inti sekarang ada di:
+> - `docs/AULIA-01-transaksi-dan-kasir.md` — aturan bisnis transaksi & kasir
+> - `docs/AULIA-02-modul-pendukung.md` — Jadwal Karyawan, Profil, Notifikasi, Banner, Archive, Cetak Nota
+> - `docs/AULIA-CHANGELOG.md` — riwayat implementasi, audit teknis, pekerjaan terbuka
+>
+> File ini **TETAP DIPERTAHANKAN APA ADANYA** (tidak dihapus, tidak
+> direnumbering) karena banyak komentar di kode (`app/**`) mengutip
+> nomor section-nya secara langsung (mis. "lihat Section 4.2"), dan
+> ketiga file pengganti di atas juga merujuk balik ke nomor section di
+> sini lewat notasi `[AULIA §N]`. Jangan ubah/hapus/renumbering isi di
+> bawah ini — kalau ada perbaikan aturan bisnis, lakukan di file
+> pengganti dan tambahkan section baru di sana, bukan di sini.
+
+> **Modul Chat/Inbox WhatsApp:** dokumentasinya di `docs/aturan-bisnis-CHAT.md`
+> (arsip bernomor, pola sama seperti file ini) / `docs/CHAT-01-aturan-bisnis-inbox.md`
+> (bacaan utama) — modul itu terpisah total dari AULIA inti (koneksi
+> database sendiri, `aulia_inboxdb`), tidak dibahas di dokumen ini.
 
 **Status:** Baseline aktif  
 **Tanggal:** 2026-09-10 (update terakhir)  

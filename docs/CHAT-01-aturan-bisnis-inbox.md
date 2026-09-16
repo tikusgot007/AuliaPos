@@ -9,7 +9,8 @@
 > "sudah/belum diverifikasi" ada di `CHAT-CHANGELOG.md`.
 >
 > Untuk aturan bisnis AuliaPos inti (transaksi, kasir, jadwal, dll —
-> yang tidak berkaitan dengan Chat), lihat file `AULIA-*.md`.
+> yang tidak berkaitan dengan Chat), lihat `AULIA-01-transaksi-dan-kasir.md`
+> dan `AULIA-02-modul-pendukung.md`.
 
 **Status Tahap 5 (Unread/Read):** aturan **disepakati**, namun **belum
 diimplementasikan** pada kode per tanggal dokumen sumber (2026-09-13).
