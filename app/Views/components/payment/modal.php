@@ -16,6 +16,25 @@
                         <label class="form-label" id="paymentTotalLabel">Total Belanja</label>
                         <h3 id="paymentTotal" class="text-primary">Rp 0</h3>
                     </div>
+                    <!--
+                        Backdate / pembayaran diterima sebelumnya. Hanya
+                        muncul kalau modal ini dibuka lewat tombol "Bayar
+                        Backdate"/"Lunasi Backdate" (lihat transaksi/detail.php
+                        + payment.js openPaymentModal()) -- bukan checkbox
+                        opsional di dalam modal metode, supaya niat backdate
+                        tidak bisa "terlewat".
+                    -->
+                    <div class="mb-3 d-none" id="paymentBackdateSection">
+                        <div class="alert alert-warning py-2 px-3 mb-2 small">
+                            <i class="fas fa-history"></i> <strong>Pembayaran Backdate</strong> — isi tanggal diterima sebelum memilih metode.
+                        </div>
+                        <label class="form-label small mb-1" for="paymentBackdateTanggal">Tanggal &amp; Jam Diterima <span class="text-danger">*</span></label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="paymentBackdateTanggal">
+                        <label class="form-label small mb-1 mt-2" for="paymentBackdateKasir">Kasir Penerima</label>
+                        <select class="form-select form-select-sm" id="paymentBackdateKasir">
+                            <option value="">Pilih kasir...</option>
+                        </select>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Metode Pembayaran</label>
                         <div class="d-grid gap-2">
@@ -85,34 +104,6 @@
                     </div>
                     <div class="alert alert-danger small" id="paymentCashWarning" style="display: none;">
                         <i class="fas fa-exclamation-triangle"></i> Uang yang diterima kurang dari total belanja!
-                    </div>
-                    <!--
-                        Backdate / pembayaran diterima sebelumnya.
-                        Hanya ditampilkan untuk admin & transaksi existing
-                        (diatur JS, lihat payment.js). Tidak dicentang
-                        secara default; behavior normal tidak berubah
-                        jika tidak dicentang.
-                    -->
-                    <div class="mb-3 d-none" id="paymentBackdateSectionCash">
-                        <hr>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="paymentBackdateCheckCash">
-                            <label class="form-check-label small" for="paymentBackdateCheckCash">
-                                Pembayaran diterima sebelumnya
-                            </label>
-                        </div>
-                        <div class="mt-2 d-none" id="paymentBackdateFieldsCash">
-                            <div class="mb-2">
-                                <label class="form-label small mb-1" for="paymentBackdateTanggalCash">Tanggal pembayaran</label>
-                                <input type="datetime-local" class="form-control form-control-sm" id="paymentBackdateTanggalCash">
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label small mb-1" for="paymentBackdateKasirCash">Kasir penerima</label>
-                                <select class="form-select form-select-sm" id="paymentBackdateKasirCash">
-                                    <option value="">Pilih kasir...</option>
-                                </select>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -213,34 +204,6 @@
                         DP Dibayar: <span id="paymentDpSummaryPaid">Rp 0</span><br>
                         <span class="text-danger">Sisa Tagihan: <span id="paymentDpSummaryRemaining">Rp 0</span></span>
                     </div>
-                    <!--
-                        Backdate / pembayaran diterima sebelumnya.
-                        Hanya untuk admin & transaksi existing, hanya
-                        relevan untuk DP tunai (submit langsung dari
-                        modal ini); DP via QRIS/Transfer melalui modal
-                        konfirmasi yang punya bloknya sendiri.
-                    -->
-                    <div class="mb-3 d-none" id="paymentBackdateSectionDp">
-                        <hr>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="paymentBackdateCheckDp">
-                            <label class="form-check-label small" for="paymentBackdateCheckDp">
-                                Pembayaran diterima sebelumnya
-                            </label>
-                        </div>
-                        <div class="mt-2 d-none" id="paymentBackdateFieldsDp">
-                            <div class="mb-2">
-                                <label class="form-label small mb-1" for="paymentBackdateTanggalDp">Tanggal pembayaran</label>
-                                <input type="datetime-local" class="form-control form-control-sm" id="paymentBackdateTanggalDp">
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label small mb-1" for="paymentBackdateKasirDp">Kasir penerima</label>
-                                <select class="form-select form-select-sm" id="paymentBackdateKasirDp">
-                                    <option value="">Pilih kasir...</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
@@ -335,32 +298,6 @@
 
                     <div class="text-center fw-semibold">
                         Sudah memastikan pembayaran ini berhasil?
-                    </div>
-
-                    <!--
-                        Backdate / pembayaran diterima sebelumnya.
-                        Hanya untuk admin & transaksi existing.
-                    -->
-                    <div class="mb-3 mt-3 d-none" id="paymentBackdateSectionConfirm">
-                        <hr>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="paymentBackdateCheckConfirm">
-                            <label class="form-check-label small" for="paymentBackdateCheckConfirm">
-                                Pembayaran diterima sebelumnya
-                            </label>
-                        </div>
-                        <div class="mt-2 d-none" id="paymentBackdateFieldsConfirm">
-                            <div class="mb-2">
-                                <label class="form-label small mb-1" for="paymentBackdateTanggalConfirm">Tanggal pembayaran</label>
-                                <input type="datetime-local" class="form-control form-control-sm" id="paymentBackdateTanggalConfirm">
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label small mb-1" for="paymentBackdateKasirConfirm">Kasir penerima</label>
-                                <select class="form-select form-select-sm" id="paymentBackdateKasirConfirm">
-                                    <option value="">Pilih kasir...</option>
-                                </select>
-                            </div>
-                        </div>
                     </div>
 
                 </div>

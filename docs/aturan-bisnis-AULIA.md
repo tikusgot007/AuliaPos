@@ -497,6 +497,21 @@ lewat `App\Services\Authority::isCurrentShiftLeader()`) — UI
 (`public/assets/js/payment.js` `backdateAllowed()`) hanya lapis
 pertama, sama prinsipnya dengan Section 4.2/4.3.
 
+**Perubahan UI (2026-09-16):** setelah insiden nyata (Shift Leader lupa
+mencentang checkbox backdate, pembayaran akhirnya tercatat dengan
+tanggal hari ini tanpa peringatan), mekanisme UI diganti dari checkbox
+opsional di dalam modal Tunai/DP/Konfirmasi menjadi **tombol terpisah**
+("Bayar Backdate" / "Lunasi Backdate") di halaman detail transaksi
+(`transaksi/detail.php`), hanya untuk admin/Shift Leader. Tombol ini
+membuka modal pembayaran yang sama, tapi langsung menampilkan field
+tanggal (wajib) & kasir penerima di modal utama SEBELUM metode
+dipilih — bukan lagi tersembunyi di balik checkbox yang bisa
+terlewat. Tombol pembayaran normal ("Bayar Sekarang"/"Lunasi") tidak
+menampilkan field ini sama sekali, behavior-nya identik sebelum
+perubahan ini. Aturan bisnis/backend di atas (validasi tanggal,
+otoritas Admin/Shift Leader) sama sekali tidak berubah — ini murni
+perbaikan UX di titik keputusan "apakah ini backdate".
+
 ---
 
 # 5. Edit transaksi
@@ -1059,12 +1074,16 @@ File: `transaksi/index.php`, `Transaksi.php` (controller).
 
 ## P11 — Fitur Pelunasan Terlambat / Backdate (2026-09-05)
 
-Fitur besar: Admin bisa mencatat pembayaran dengan **tanggal berbeda
+Fitur besar: Admin (dan sejak Tahap 5, Effective Shift Leader saat itu
+— lihat Section 4.5) bisa mencatat pembayaran dengan **tanggal berbeda
 dari sekarang** (uang sudah diterima sebelumnya, baru dicatat
-belakangan) dan memilih **kasir penerima** yang sebenarnya menangani,
-tanpa membuat modal/flow pembayaran baru — cukup checkbox opsional
-"Pembayaran diterima sebelumnya" di modal Tunai/DP/Konfirmasi
-(QRIS/Transfer) yang sudah ada.
+belakangan) dan memilih **kasir penerima** yang sebenarnya menangani.
+Awalnya (2026-09-05) diimplementasikan sebagai checkbox opsional
+"Pembayaran diterima sebelumnya" di dalam modal Tunai/DP/Konfirmasi
+yang sudah ada; sejak 2026-09-16 diganti tombol "Bayar Backdate"/
+"Lunasi Backdate" terpisah di halaman detail transaksi (lihat catatan
+"Perubahan UI" di Section 4.5) — field tanggal/kasir sekarang di modal
+utama, bukan lagi di 3 modal metode.
 
 **Arti field pembayaran (ditegaskan, tidak diubah):**
 - `tanggal` = kapan uang **benar-benar diterima**.
@@ -1106,7 +1125,8 @@ retroaktif bisa berbeda dari hasil opname saat itu. Tidak dibuatkan
 mekanisme koreksi otomatis (di luar scope — tidak boleh bikin
 cash_opname/cash_expense baru).
 
-**Endpoint baru:** `GET /api/kasir-list` (admin-only) untuk dropdown
+**Endpoint baru:** `GET /api/kasir-list` (admin atau Effective Shift
+Leader saat itu, sejak Tahap 5 — lihat Section 4.5) untuk dropdown
 "Kasir Penerima".
 
 **Histori pembayaran** (`transaksi/detail.php`) sekarang menampilkan

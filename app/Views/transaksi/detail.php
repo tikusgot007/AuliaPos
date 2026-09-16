@@ -254,6 +254,17 @@
                     Bayar Sekarang
 
                 </button>
+
+                <?php if (session()->get('role') === 'admin' || $isShiftLeaderUser): ?>
+                    <button
+                        class="btn btn-outline-warning w-100 mb-2"
+                        onclick="bukaPaymentDetail(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, true)">
+
+                        <i class="fas fa-history"></i>
+                        Bayar Backdate
+
+                    </button>
+                <?php endif; ?>
             <?php endif; ?>
 
             <!-- ========================================== -->
@@ -347,6 +358,11 @@
             <button class="btn btn-success w-100 mb-2" onclick="prosesLunasi(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>)">
                 <i class="fas fa-hand-holding-usd"></i> Lunasi (Rp <?= number_format($sisa_tagihan, 0, ',', '.') ?>)
             </button>
+            <?php if (session()->get('role') === 'admin' || $isShiftLeaderUser): ?>
+                <button class="btn btn-outline-warning w-100 mb-2" onclick="prosesLunasi(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, true)">
+                    <i class="fas fa-history"></i> Lunasi Backdate
+                </button>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -509,7 +525,7 @@
 
 
 
-    function bukaPaymentDetail(id, sisa) {
+    function bukaPaymentDetail(id, sisa, backdate = false) {
 
         bukaPaymentModal({
             mode: 'existing',
@@ -517,6 +533,7 @@
             total: sisa,
             sisa: sisa,
             allowPartialNonCash: true,
+            backdate: backdate,
 
             onSuccess: function(response) {
 
@@ -853,7 +870,7 @@
 
 
     // Tagihan detail tetap memakai endpoint pelunasan khusus.
-    function prosesLunasi(id, sisa) {
+    function prosesLunasi(id, sisa, backdate = false) {
         bukaPaymentModal({
             mode: 'existing',
             transaksiId: id,
@@ -861,6 +878,7 @@
             sisa: sisa,
             existingFlow: 'tagihan-lunasi',
             allowDp: false,
+            backdate: backdate,
             onSuccess: function(response) {
                 showToast(response.message || 'Pelunasan berhasil diproses.', 'success');
                 setTimeout(function() {
