@@ -28,7 +28,7 @@
                     <option value="">Semua Kasir</option>
                     <?php foreach ($daftar_kasir as $k): ?>
                         <option value="<?= $k['id'] ?>" <?= $kasir_id_filter === (int) $k['id'] ? 'selected' : '' ?>>
-                            <?= esc($k['nama'] ?? $k['username']) ?>
+                            <?= esc($k['inisial'] ?: ($k['nama'] ?? $k['username'])) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>

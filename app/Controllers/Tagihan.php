@@ -46,7 +46,7 @@ class Tagihan extends BaseController
         // yang nyata (whitelist) sebelum dipakai di WHERE -- jangan
         // percaya ID mentah dari luar.
         $userModel   = new UserModel();
-        $daftarKasir = $userModel->select('id, nama, username')->orderBy('nama', 'ASC')->findAll();
+        $daftarKasir = $userModel->select('id, nama, username, inisial')->orderBy('nama', 'ASC')->findAll();
         // array_column mengembalikan id APA ADANYA dari driver DB (bisa
         // berupa string), jadi di-cast ke int semua supaya perbandingan
         // strict di bawah tidak diam-diam gagal gara-gara "10" !== 10.

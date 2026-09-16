@@ -5,11 +5,17 @@ namespace Tests\Support\Database\Migrations;
 use CodeIgniter\Database\Migration;
 
 /**
- * Tambah kolom role/is_active/priority ke `users` test + tabel
+ * Tambah kolom role/is_active/priority/inisial ke `users` test + tabel
  * `jadwal` minimal, untuk menguji EffectiveShiftLeaderService/
  * Authority/POC otorisasi selesai. up() idempoten (pola sama seperti
  * 2026-09-11-000300_CreatePhase2PaymentTables.php) karena SQLite
  * tidak mendukung DROP COLUMN andal.
+ *
+ * `inisial` ditambahkan supaya SELECT u.inisial di
+ * EffectiveShiftLeaderService (dipakai badge Shift Leader) tidak
+ * gagal di test DB -- tanpa ini Authority::isCurrentShiftLeader()
+ * fail-closed ke false untuk SEMUA test (exception tertelan, bukan
+ * bug logic), bukan cuma test yang benar-benar menguji kolom ini.
  */
 class AddPriorityAndJadwalTestSupport extends Migration
 {
@@ -19,6 +25,7 @@ class AddPriorityAndJadwalTestSupport extends Migration
     {
         $kolom = [
             'nama'      => ['type' => 'varchar', 'constraint' => 100, 'null' => true],
+            'inisial'   => ['type' => 'varchar', 'constraint' => 20, 'null' => true],
             'role'      => ['type' => 'varchar', 'constraint' => 16, 'default' => 'kasir'],
             'is_active' => ['type' => 'integer', 'default' => 1],
             'priority'  => ['type' => 'integer', 'null' => true],

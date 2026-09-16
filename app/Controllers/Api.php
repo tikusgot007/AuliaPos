@@ -1095,10 +1095,16 @@ class Api extends BaseController
      */
     public function kasirList()
     {
-        if (session()->get('role') !== 'admin') {
+        // Dipakai dropdown "Kasir Penerima" saat backdate pembayaran --
+        // Shift Leader boleh backdate persis seperti admin (Tahap 5),
+        // jadi endpoint ini juga harus terbuka untuknya, bukan cuma admin.
+        $isAdmin = session()->get('role') === 'admin';
+        $isShiftLeader = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
+
+        if (!$isAdmin && !$isShiftLeader) {
             return $this->response->setJSON([
                 'status' => 'error',
-                'message' => 'Hanya admin yang dapat mengakses daftar kasir.'
+                'message' => 'Hanya admin atau Shift Leader yang dapat mengakses daftar kasir.'
             ]);
         }
 
