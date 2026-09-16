@@ -423,6 +423,13 @@
                         </td>
                     </tr>
 
+                    <tr>
+                        <td class="label">Kasir :</td>
+                        <td class="nilai">
+                            <?= htmlspecialchars($transaksi['kasir_inisial'] ?: ($transaksi['kasir_nama'] ?? '-')) ?>
+                        </td>
+                    </tr>
+
                 </table>
 
             </div>

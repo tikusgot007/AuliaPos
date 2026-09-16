@@ -21,7 +21,7 @@ class Cetak extends BaseController
         $pembayaranModel = new PembayaranModel();
         $pelangganModel = new PelangganModel();
 
-        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama')
+        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama, users.inisial as kasir_inisial')
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             ->find($id);
 
@@ -73,7 +73,7 @@ class Cetak extends BaseController
         $pembayaranModel = new PembayaranModel();
         $pelangganModel = new PelangganModel();
 
-        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama')
+        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama, users.inisial as kasir_inisial')
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             ->find($id);
 
