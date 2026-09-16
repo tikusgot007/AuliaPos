@@ -7,7 +7,7 @@
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped table-bordered">
+            <table class="table table-striped table-bordered" id="tableUserManagement">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -76,3 +76,31 @@
         </div>
     </div>
 </div>
+
+<?= $this->section('scripts') ?>
+<script>
+    $(document).ready(function() {
+        $('#tableUserManagement').DataTable({
+            responsive: true,
+            pageLength: 25,
+            columnDefs: [
+                { orderable: false, targets: [0, 1, 9] }
+            ],
+            language: {
+                search: "Cari:",
+                lengthMenu: "Tampilkan _MENU_ data per halaman",
+                zeroRecords: "Data tidak ditemukan",
+                info: "Menampilkan _START_ - _END_ dari _TOTAL_ data",
+                infoEmpty: "Tidak ada data",
+                infoFiltered: "(difilter dari _MAX_ total data)",
+                paginate: {
+                    first: "Pertama",
+                    last: "Terakhir",
+                    next: "→",
+                    previous: "←"
+                }
+            }
+        });
+    });
+</script>
+<?= $this->endSection() ?>
