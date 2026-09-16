@@ -15,16 +15,10 @@
 
     // Inisial kasir yang login, dipakai untuk auto-isi "diisi oleh" di
     // alasan selisih opname (lebih ringkas dari username, konsisten dengan
-    // pemakaian kolom inisial di modul Jadwal). Query langsung (bukan dari
-    // session) supaya selalu up-to-date -- lihat pola $__headerFoto di
-    // layout/main.php.
-    $__inisialKasir = null;
-    if (session()->get('id_user')) {
-        $__userKasir = (new \App\Models\UserModel())
-            ->select('inisial, nama')
-            ->find(session()->get('id_user'));
-        $__inisialKasir = $__userKasir['inisial'] ?? $__userKasir['nama'] ?? null;
-    }
+    // pemakaian kolom inisial di modul Jadwal). Diambil dari session
+    // (diisi saat login, lihat Auth::prosesLogin) supaya tidak perlu query
+    // tambahan tiap render halaman kas.
+    $__inisialKasir = session()->get('inisial');
     ?>
 
     <div class="row mt-4">
