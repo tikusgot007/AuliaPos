@@ -350,7 +350,7 @@ class Cetak extends BaseController
         $pelangganModel = new PelangganModel();
 
         $transaksi = $transaksiModel
-            ->select('transaksi.*, users.username as kasir_nama')
+            ->select('transaksi.*, users.username as kasir_nama, users.inisial as kasir_inisial')
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             ->find($id);
 
@@ -433,9 +433,9 @@ class Cetak extends BaseController
             $this->lineThermal('Total', $this->formatUang($transaksi['grand_total'] ?? 0)) . "\n"
         );
 
-        if (!empty($transaksi['kasir_nama'])) {
+        if (!empty($transaksi['kasir_inisial']) || !empty($transaksi['kasir_nama'])) {
             $printer->text(
-                $this->lineThermal('Kasir', $transaksi['kasir_nama']) . "\n"
+                $this->lineThermal('Kasir', $transaksi['kasir_inisial'] ?: $transaksi['kasir_nama']) . "\n"
             );
         }
 
@@ -461,7 +461,7 @@ class Cetak extends BaseController
         $pelangganModel = new PelangganModel();
 
         $transaksi = $transaksiModel
-            ->select('transaksi.*, users.username as kasir_nama')
+            ->select('transaksi.*, users.username as kasir_nama, users.inisial as kasir_inisial')
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             ->find($id);
 
@@ -578,7 +578,7 @@ class Cetak extends BaseController
 
         $printer->text(
             "Kasir   : " .
-                ($transaksi['kasir_nama'] ?? '-') .
+                ($transaksi['kasir_inisial'] ?: ($transaksi['kasir_nama'] ?? '-')) .
                 "\n\n"
         );
 
