@@ -1351,7 +1351,12 @@ class Inbox extends BaseController
             'media_base64' => $mediaBase64,
             'mimetype'     => $mimetype,
             'file_name'    => $fileName,
-            'caption'      => $caption !== '' ? $caption : null,
+            // $caption selalu string (lihat signature method) -- Gateway
+            // menolak null untuk field ini, cuma menerima string (boleh
+            // kosong ''). Sebelumnya dikirim null saat kosong, tidak
+            // pernah ketahuan salah karena outgoing media belum pernah
+            // dites sampai ke Gateway asli.
+            'caption'      => $caption,
         ]);
 
         $ch = curl_init($url);
