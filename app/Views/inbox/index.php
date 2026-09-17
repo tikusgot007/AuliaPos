@@ -147,6 +147,12 @@
         cursor: pointer;
     }
 
+    .inbox-media-sticker {
+        max-width: 130px;
+        max-height: 130px;
+        display: block;
+    }
+
     .inbox-media-document {
         display: flex;
         align-items: center;
@@ -708,6 +714,13 @@
             return '<img src="' + urlMedia + '" alt="Gambar" class="inbox-media-image" ' +
                 'onerror="this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-image&quot;></i> Gambar tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">' +
                 (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+        }
+
+        if (m.message_type === 'sticker') {
+            // Sticker TIDAK PERNAH punya caption di WhatsApp -- beda dari
+            // image/document, tidak perlu render m.text sama sekali.
+            return '<img src="' + urlMedia + '" alt="Sticker" class="inbox-media-sticker" ' +
+                'onerror="this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-icons&quot;></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">';
         }
 
         if (m.message_type === 'document') {

@@ -75,14 +75,20 @@ class InboxGatewayApi extends BaseController
             ]);
         }
 
-        // --- Validasi & ekstrak referensi media (image/document) -------------
+        // --- Validasi & ekstrak referensi media (image/document/sticker) -----
         // Untuk image/document, 'text' adalah CAPTION (opsional, boleh
         // kosong) -- BEDA dari message_type='text' di atas yang wajib.
+        // Sticker TIDAK PERNAH punya caption di WhatsApp (sama seperti
+        // audio) -- 'text' diabaikan kalau dikirim untuk message_type
+        // ini, tidak divalidasi wajib maupun disimpan.
         // File-nya sendiri TIDAK dikirim ke sini -- cuma referensi
         // (directPath + mediaKey) untuk didekripsi ulang ON-DEMAND
         // nanti saat kasir benar-benar membuka pesannya (lihat
         // Inbox::media()). Sesuai keputusan desain: simpan referensi
-        // saja, bukan file permanen.
+        // saja, bukan file permanen. Sticker memakai pola referensi
+        // yang SAMA PERSIS dengan image/document (bukan pola
+        // metadata-saja seperti audio/video) -- kalau referensinya
+        // tidak lengkap, pesan DIBUANG, tidak diteruskan.
         $mediaColumns = [
             'media_path'      => null, // SENGAJA selalu NULL -- tidak pernah menyimpan file lokal.
             'media_mime_type' => null,
@@ -92,7 +98,7 @@ class InboxGatewayApi extends BaseController
             'media_metadata'  => null,
         ];
 
-        if (in_array($messageType, ['image', 'document'], true)) {
+        if (in_array($messageType, ['image', 'document', 'sticker'], true)) {
             $media = $payload['media'] ?? null;
 
             if (!is_array($media) || empty($media['direct_path'] ?? $media['directPath'] ?? null)
