@@ -28,8 +28,8 @@
                         <div class="alert alert-warning py-2 px-3 mb-2 small">
                             <i class="fas fa-history"></i> <strong>Pembayaran Backdate</strong> — isi tanggal diterima sebelum memilih metode.
                         </div>
-                        <label class="form-label small mb-1" for="paymentBackdateTanggal">Tanggal &amp; Jam Diterima <span class="text-danger">*</span></label>
-                        <input type="datetime-local" class="form-control form-control-sm" id="paymentBackdateTanggal">
+                        <label class="form-label small mb-1" for="paymentBackdateTanggal">Tanggal Diterima <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control form-control-sm" id="paymentBackdateTanggal">
                         <label class="form-label small mb-1 mt-2" for="paymentBackdateKasir">Kasir Penerima</label>
                         <select class="form-select form-select-sm" id="paymentBackdateKasir">
                             <option value="">Pilih kasir...</option>

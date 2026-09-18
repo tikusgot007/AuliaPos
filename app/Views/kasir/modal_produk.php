@@ -129,12 +129,19 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Kategori</label>
-                    <select class="form-control" id="manualKategori" onchange="ubahNamaManualOtomatis()">
-                        <option value="">-- Pilih Kategori --</option>
+                    <div id="manualKategoriRadioGroup" class="d-flex flex-wrap gap-3">
                         <?php foreach ($kategori as $k): ?>
-                            <option value="<?= $k['id'] ?>"><?= $k['nama'] ?></option>
+                            <div class="form-check form-check-inline me-0">
+                                <input class="form-check-input" type="radio" name="manualKategoriRadio"
+                                    id="manualKategori_<?= $k['id'] ?>" value="<?= $k['id'] ?>"
+                                    data-nama="<?= esc($k['nama'], 'attr') ?>"
+                                    onchange="ubahNamaManualOtomatis()">
+                                <label class="form-check-label" for="manualKategori_<?= $k['id'] ?>">
+                                    <?= esc($k['nama']) ?>
+                                </label>
+                            </div>
                         <?php endforeach; ?>
-                    </select>
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Nama Item / Deskripsi</label>
@@ -311,11 +318,11 @@ function getManualTotalValue() {
     function tambahManual() {
         const nama = document.getElementById('manualNama').value.trim();
         const total = getManualTotalValue();
-        const kategoriId = parseInt(document.getElementById('manualKategori').value, 10) || 0;
+        const kategoriChecked = document.querySelector('input[name="manualKategoriRadio"]:checked');
+        const kategoriId = parseInt(kategoriChecked ? kategoriChecked.value : '', 10) || 0;
 
         if (!kategoriId) {
             showToast('Silakan pilih kategori terlebih dahulu.', 'warning');
-            document.getElementById('manualKategori').focus();
             return;
         }
 
@@ -376,7 +383,7 @@ function getManualTotalValue() {
                 $('#modalManualInput').modal('hide');
 
                 document.getElementById('manualTotal').value = '';
-                document.getElementById('manualKategori').value = '';
+                document.querySelectorAll('input[name="manualKategoriRadio"]').forEach(r => r.checked = false);
                 document.getElementById('manualNama').value = '';
             },
 
@@ -391,18 +398,15 @@ function getManualTotalValue() {
     // ================================================================
 
     function ubahNamaManualOtomatis() {
-        const kategoriSelect = document.getElementById('manualKategori');
+        const kategoriChecked = document.querySelector('input[name="manualKategoriRadio"]:checked');
         const namaInput = document.getElementById('manualNama');
+        const kategoriNama = kategoriChecked ? kategoriChecked.dataset.nama : '';
 
-        // Ambil teks dari option yang dipilih
-        const selectedOption = kategoriSelect.options[kategoriSelect.selectedIndex];
-        const kategoriNama = selectedOption ? selectedOption.text : '';
-
-        if (kategoriNama && kategoriNama !== '-- Pilih Kategori --') {
-            // Set nama otomatis: "[Nama Kategori] Glondongan"
+        if (kategoriNama) {
+            // Set nama otomatis: "[Nama Kategori]*"
             namaInput.value = kategoriNama + '*';
         } else {
-            // Jika tidak ada kategori dipilih, kosongkan atau set default
+            // Jika tidak ada kategori dipilih, kosongkan
             namaInput.value = '';
         }
     }
@@ -416,13 +420,12 @@ function getManualTotalValue() {
         // Reset form
         document.getElementById('manualNama').value = '';
         document.getElementById('manualTotal').value = '';
-        document.getElementById('manualKategori').value = '';
+        document.querySelectorAll('input[name="manualKategoriRadio"]').forEach(r => r.checked = false);
 
         // 🔥 Ambil kategori pertama sebagai default (jika ada)
-        const kategoriSelect = document.getElementById('manualKategori');
-        if (kategoriSelect.options.length > 1) {
-            // Pilih opsi pertama (setelah placeholder)
-            kategoriSelect.selectedIndex = 1;
+        const radioPertama = document.querySelector('input[name="manualKategoriRadio"]');
+        if (radioPertama) {
+            radioPertama.checked = true;
             ubahNamaManualOtomatis();
         }
     });

@@ -1123,21 +1123,43 @@
         "#paymentBackdateTanggal"
       );
 
-    /*
-     * Prefill waktu sekarang -- kemudahan, tetap wajib diubah user
-     * kalau memang bukan hari ini (itulah tujuan tombol ini).
-     */
-    if (tanggalInput && !tanggalInput.value) {
+    if (tanggalInput) {
 
-      const sekarang = new Date();
       const pad = (n) => String(n).padStart(2, "0");
+      const formatTanggal = (d) =>
+        d.getFullYear() + "-" +
+        pad(d.getMonth() + 1) + "-" +
+        pad(d.getDate());
 
-      tanggalInput.value =
-        sekarang.getFullYear() + "-" +
-        pad(sekarang.getMonth() + 1) + "-" +
-        pad(sekarang.getDate()) + "T" +
-        pad(sekarang.getHours()) + ":" +
-        pad(sekarang.getMinutes());
+      /*
+       * Backdate berarti "bukan hari ini" (kalau hari ini, pakai
+       * "Bayar Sekarang"), jadi batas atas datepicker = kemarin.
+       * Batas bawah = tanggal transaksi -- tidak boleh backdate ke
+       * sebelum transaksinya sendiri dibuat.
+       */
+      const kemarin = new Date();
+      kemarin.setDate(kemarin.getDate() - 1);
+      const maxTanggal = formatTanggal(kemarin);
+
+      const minTanggal = state.transaksiTanggal
+        ? String(state.transaksiTanggal).slice(0, 10)
+        : null;
+
+      tanggalInput.max = maxTanggal;
+
+      if (minTanggal) {
+        tanggalInput.min = minTanggal;
+      } else {
+        tanggalInput.removeAttribute("min");
+      }
+
+      /*
+       * Prefill kemarin -- kemudahan, tetap wajib diubah user kalau
+       * memang bukan kemarin (itulah tujuan tombol ini).
+       */
+      if (!tanggalInput.value) {
+        tanggalInput.value = maxTanggal;
+      }
     }
 
     populateKasirSelect(
@@ -1179,22 +1201,62 @@
       return false;
     }
 
+    /*
+     * Validasi ulang di JS -- atribut min/max di datepicker cuma
+     * mencegah lewat UI normal, bisa saja dilewati (devtools, dsb).
+     * Otoritas sesungguhnya tetap di backend (lihat
+     * TransaksiModel::tambahPembayaran()); ini jaring pengaman sisi
+     * client supaya errornya jelas sebelum submit.
+     */
+    const pad = (n) => String(n).padStart(2, "0");
+    const hariIni = new Date();
+    const hariIniStr =
+      hariIni.getFullYear() + "-" +
+      pad(hariIni.getMonth() + 1) + "-" +
+      pad(hariIni.getDate());
+
+    if (tanggalInput.value >= hariIniStr) {
+
+      notify(
+        "Tanggal backdate tidak boleh hari ini atau setelahnya. Kalau memang hari ini, pakai \"Bayar Sekarang\".",
+        "warning"
+      );
+
+      return false;
+    }
+
+    if (
+      state.transaksiTanggal &&
+      tanggalInput.value < String(state.transaksiTanggal).slice(0, 10)
+    ) {
+
+      notify(
+        "Tanggal backdate tidak boleh sebelum tanggal transaksi.",
+        "warning"
+      );
+
+      return false;
+    }
+
     const kasirSelect =
       element(
         "#paymentBackdateKasir"
       );
 
     /*
-     * <input type="datetime-local"> mengembalikan "YYYY-MM-DDTHH:MM".
-     * Backend menerima string tanggal apa pun yang bisa dibaca
-     * strtotime(); ganti "T" jadi spasi + tambah detik agar format
-     * konsisten dengan kolom datetime di database.
+     * <input type="date"> mengembalikan "YYYY-MM-DD" (tanpa jam --
+     * user cuma memilih tanggal). Backend tetap butuh datetime utuh
+     * untuk kolom pembayaran.tanggal, jadi gabungkan dengan jam saat
+     * ini supaya histori pembayaran punya jam yang realistis (bukan
+     * selalu 00:00:00).
      */
+    const jamSekarang =
+      pad(hariIni.getHours()) + ":" +
+      pad(hariIni.getMinutes()) + ":" +
+      pad(hariIni.getSeconds());
+
     state.backdateTanggal =
-      tanggalInput.value.replace(
-        "T",
-        " "
-      ) + ":00";
+      tanggalInput.value + " " + jamSekarang;
 
     state.backdateKasirId =
       kasirSelect && kasirSelect.value
@@ -2573,6 +2635,10 @@
     state.backdateMode =
       options.backdate === true &&
       backdateAllowed();
+
+    state.transaksiTanggal =
+      options.transaksiTanggal ||
+      null;
 
     state.backdateTanggal =
       null;

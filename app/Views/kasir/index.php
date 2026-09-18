@@ -1,5 +1,31 @@
 <style>
     /* =========================================
+       PENCARIAN PRODUK
+       ========================================= */
+    .produk-search-box {
+        background-color: #eaf3ff;
+        border: 1px solid #b6d7ff;
+        border-radius: 8px;
+        padding: 6px 6px;
+    }
+
+    .produk-search-box .input-group-text {
+        background-color: transparent;
+        border: none;
+    }
+
+    .produk-search-box .form-control {
+        border: none;
+        background-color: transparent;
+        box-shadow: none;
+    }
+
+    .produk-search-box:focus-within {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.15);
+    }
+
+    /* =========================================
        CONTAINER DAFTAR PRODUK
        ========================================= */
     .produk-scroll-container {
@@ -122,142 +148,176 @@
             font-size: 0.68rem;
         }
     }
+
+    /* =========================================
+       AKSI KHUSUS (Banner/Manual/Custom) -- tinggi
+       kartu 1/2 dari kartu produk biasa. Discope ke
+       #aksiKhususList supaya tidak ikut mengecilkan
+       kartu produk biasa (sama class .produk-card-wrap).
+       ========================================= */
+    #aksiKhususList .produk-card-wrap .card {
+        min-height: 54px;
+    }
+
+    @media (max-width: 575.98px) {
+        #aksiKhususList .produk-card-wrap .card {
+            min-height: 48px;
+        }
+    }
 </style>
-
-<!-- DATA PELANGGAN DAN NO ORDER -->
-<div class="row g-2 mb-3">
-
-    <!-- Baris 1 -->
-    <div class="col-md-6">
-        <div class="input-group">
-            <span class="input-group-text">
-                <i class="fas fa-user"></i>
-            </span>
-
-            <input
-                type="text"
-                id="namaPelanggan"
-                class="form-control"
-                autocomplete="off"
-                placeholder="Cari atau masukkan pelanggan baru"
-                oninput="handleCustomerNameInput(this.value)">
-        </div>
-
-        <small class="text-muted">Pelanggan baru akan disimpan saat transaksi berhasil.</small>
-
-        <div
-            id="listPelanggan"
-            class="list-group mt-1"
-            style="display:none; position:absolute; z-index:1000; width:100%; max-height:200px; overflow-y:auto;">
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="input-group">
-            <input
-                type="text"
-                id="telpPelanggan"
-                class="form-control"
-                placeholder="No. Telp (opsional)"
-                readonly>
-
-            <button
-                type="button"
-                id="btnEditTelpPelanggan"
-                class="btn btn-outline-secondary"
-                style="display:none;"
-                onclick="editTelpPelanggan()"
-                title="Edit data pelanggan">
-                Edit
-            </button>
-        </div>
-    </div>
-
-    <!-- Sisa ruang -->
-    <div class="col-md-3"></div>
-
-    <!-- Baris 2 -->
-    <div class="col-md-9">
-        <div class="row g-2 align-items-center">
-
-            <!-- Pilih No Order -->
-            <div class="col-md-5">
-                <div class="input-group">
-                    <span class="input-group-text">
-                        <i class="fas fa-hashtag"></i>
-                    </span>
-
-                    <select
-                        name="no_order_input2"
-                        id="no_order_input2"
-                        class="form-select"
-                        onchange="gantiNo()">
-
-                        <option value="">Pilih No. Order</option>
-
-                        <?php foreach ($available_no_orders as $orderNumber): ?>
-                            <option
-                                value="<?= $orderNumber ?>"
-                                <?= ($orderNumber == $recommended_no_order)
-                                    ? 'style="background-color:pink; font-weight:bold;"'
-                                    : '' ?>>
-                                <?= format_no_order($orderNumber) ?>
-                            </option>
-                        <?php endforeach; ?>
-
-                    </select>
-
-                    <button
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        onclick="generateNewOrder()"
-                        title="Buat No. Order Baru">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- No Order Manual -->
-            <div class="col-md-4">
-                <input
-                    type="text"
-                    id="noOrderInput"
-                    class="form-control"
-                    placeholder="No. Order manual"
-                    disabled
-                    autocomplete="off">
-
-                <input
-                    type="hidden"
-                    id="noOrderAsli"
-                    value="">
-            </div>
-
-            <!-- Checkbox -->
-            <div class="col-md-3">
-                <div class="form-check">
-                    <input
-                        class="form-check-input"
-                        type="checkbox"
-                        id="manual_order_checkbox"
-                        onchange="toggleManualOrder()">
-
-                    <label
-                        class="form-check-label"
-                        for="manual_order_checkbox">
-                        Input No. Order Manual
-                    </label>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-</div>
 
 <div class="row">
 
     <div class="col-md-8">
+
+        <!-- DATA PELANGGAN DAN NO ORDER -->
+        <div class="row g-2 mb-3">
+
+            <!-- Baris 1 -->
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-user"></i>
+                    </span>
+
+                    <input
+                        type="text"
+                        id="namaPelanggan"
+                        class="form-control"
+                        autocomplete="off"
+                        placeholder="Cari atau masukkan pelanggan baru"
+                        oninput="handleCustomerNameInput(this.value)">
+                </div>
+
+                <small class="text-muted">Pelanggan baru akan disimpan saat transaksi berhasil.</small>
+
+                <div
+                    id="listPelanggan"
+                    class="list-group mt-1"
+                    style="display:none; position:absolute; z-index:1000; width:100%; max-height:200px; overflow-y:auto;">
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="telpPelanggan"
+                        class="form-control"
+                        placeholder="No. Telp (opsional)"
+                        readonly>
+
+                    <button
+                        type="button"
+                        id="btnEditTelpPelanggan"
+                        class="btn btn-outline-secondary"
+                        style="display:none;"
+                        onclick="editTelpPelanggan()"
+                        title="Edit data pelanggan">
+                        Edit
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sisa ruang -->
+            <div class="col-md-3"></div>
+
+            <!-- Baris 2 -->
+            <div class="col-md-9">
+                <div class="row g-2 align-items-center">
+
+                    <!-- Pilih No Order -->
+                    <div class="col-md-5">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-hashtag"></i>
+                            </span>
+
+                            <select
+                                name="no_order_input2"
+                                id="no_order_input2"
+                                class="form-select"
+                                onchange="gantiNo()">
+
+                                <option value="">Pilih No. Order</option>
+
+                                <?php foreach ($available_no_orders as $orderNumber): ?>
+                                    <option
+                                        value="<?= $orderNumber ?>"
+                                        <?= ($orderNumber == $recommended_no_order)
+                                            ? 'style="background-color:pink; font-weight:bold;"'
+                                            : '' ?>>
+                                        <?= format_no_order($orderNumber) ?>
+                                    </option>
+                                <?php endforeach; ?>
+
+                            </select>
+
+                            <button
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                onclick="generateNewOrder()"
+                                title="Buat No. Order Baru">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- No Order Manual -->
+                    <div class="col-md-4">
+                        <input
+                            type="text"
+                            id="noOrderInput"
+                            class="form-control"
+                            placeholder="No. Order manual"
+                            disabled
+                            autocomplete="off">
+
+                        <input
+                            type="hidden"
+                            id="noOrderAsli"
+                            value="">
+                    </div>
+
+                    <!-- Checkbox -->
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="manual_order_checkbox"
+                                onchange="toggleManualOrder()">
+
+                            <label
+                                class="form-check-label"
+                                for="manual_order_checkbox">
+                                Input No. Order Manual
+                            </label>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="input-group produk-search-box">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" id="searchProduk" class="form-control"
+                        placeholder="Cari nama atau barcode..."
+                        autocomplete="off">
+                    <button class="btn btn-primary" type="button" onclick="terapkanFilterProduk()" title="Cari produk">
+                        Cari
+                    </button>
+                    <button class="btn btn-outline-secondary d-none" id="resetSearchProduk" type="button" onclick="resetFilterProduk()" title="Reset filter">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
             <h5 class="mb-0"><i class="fas fa-boxes"></i> Pilih Produk</h5>
             <div class="d-flex gap-1 flex-wrap" id="filterKategoriProduk">
@@ -325,22 +385,6 @@
             </div>
         </div>
 
-        <div class="row mb-3">
-            <div class="col-12">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" id="searchProduk" class="form-control"
-                        placeholder="Cari nama atau barcode..."
-                        autocomplete="off">
-                    <button class="btn btn-primary" type="button" onclick="terapkanFilterProduk()" title="Cari produk">
-                        Cari
-                    </button>
-                    <button class="btn btn-outline-secondary d-none" id="resetSearchProduk" type="button" onclick="resetFilterProduk()" title="Reset filter">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
         <h6 class="text-muted mb-2"><i class="fas fa-boxes"></i> Daftar Produk</h6>
         <div id="produkScroll" class="produk-scroll-container">
             <div id="produkList" class="produk-grid">
@@ -381,7 +425,7 @@
                     </button>
                 </div>
             </div>
-            <div class="card-body" style="height: 500px; overflow-y: auto;" id="keranjangContainer">
+            <div class="card-body" style="max-height: 500px; overflow-y: auto;" id="keranjangContainer">
                 <p class="text-muted text-center" id="keranjangKosong">Belum ada item</p>
                 <div id="keranjangList"></div>
             </div>
@@ -456,47 +500,6 @@
 
 <!-- PAYMENT MODAL CONTAINER -->
 <div id="paymentModalContainer"></div>
-
-<!-- MODAL MANUAL INPUT -->
-<div class="modal fade" id="modalManualInput" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-warning">
-                <h5 class="modal-title"><i class="fas fa-pencil-alt"></i> Input Penjualan Manual</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> Gunakan fitur ini jika Anda lupa detail item yang dijual. Cukup masukkan total harga yang diterima dari customer.
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Kategori</label>
-                    <select class="form-control" id="manualKategori" onchange="ubahNamaManualOtomatis()">
-                        <option value="">-- Pilih Kategori --</option>
-                        <?php foreach ($kategori as $k): ?>
-                            <option value="<?= $k['id'] ?>"><?= $k['nama'] ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Nama Item / Deskripsi</label>
-                    <input type="text" class="form-control" id="manualNama" placeholder="Contoh: ATK Campuran, Paket Fotokopi, dll" value="ATK Campuran">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Total Harga (Rp) *</label>
-                    <input type="number" class="form-control" id="manualTotal" placeholder="Masukkan total harga" required>
-                </div>
-
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-warning" onclick="tambahManual()">
-                    <i class="fas fa-plus"></i> Tambahkan ke Keranjang
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- MODAL SUKSES TRANSAKSI -->
 <div class="modal fade" id="modalSukses" tabindex="-1">
@@ -652,7 +655,10 @@
         const total = hitungPembulatan(
             getCartTotal() - (Number(diskonValue) || 0)
         ).grand_total_setelah;
-        if (total === 0 && !(await konfirmasi('Total belanja Rp 0. Lanjutkan transaksi?', { okText: 'Ya, Lanjutkan', okClass: 'btn-primary' }))) return;
+        if (total === 0 && !(await konfirmasi('Total belanja Rp 0. Lanjutkan transaksi?', {
+                okText: 'Ya, Lanjutkan',
+                okClass: 'btn-primary'
+            }))) return;
 
         showToast('⏳ Memproses piutang...', 'info');
 
@@ -794,7 +800,9 @@
         $.ajax({
             url: '<?= base_url('/api/kasir/selesaikan-transaksi') ?>',
             type: 'POST',
-            data: JSON.stringify({ transaksi_id: id }),
+            data: JSON.stringify({
+                transaksi_id: id
+            }),
             contentType: 'application/json',
             dataType: 'json',
             success: function(response) {
@@ -968,32 +976,32 @@
 <script src="<?= base_url('assets/js/payment.js') ?>"></script>
 
 <?php if (($reminderTagihan['show'] ?? false)): ?>
-<script>
-    // Reminder tagihan N hari terakhir (N = Config\Tagihan::$defaultTempoHari,
-    // lihat Kasir::getReminderTagihanSaya()) milik kasir yang login.
-    // Dicek & jeda 15 menitnya juga di method yang sama, aturan
-    // lengkap di docs/aturan-bisnis-AULIA.md Section 25.
-    //
-    // SENGAJA pakai modal konfirmasi() (dua tombol eksplisit: Tutup /
-    // Lihat), BUKAN showToast() -- toast auto-hilang setelah beberapa
-    // detik meski tipe warning, sedangkan reminder ini harus tetap
-    // ada sampai kasir benar-benar meresponnya secara sadar (klik
-    // salah satu tombol), bukan hilang sendiri sambil terlewat.
-    document.addEventListener('DOMContentLoaded', function() {
-        const jumlah = <?= (int) ($reminderTagihan['count'] ?? 0) ?>;
-        const hari = <?= (int) ($reminderTagihan['hari'] ?? 7) ?>;
-        const pesan = 'Ada ' + jumlah + ' tagihan dari ' + hari + ' hari terakhir yang perlu dicek lagi.';
+    <script>
+        // Reminder tagihan N hari terakhir (N = Config\Tagihan::$defaultTempoHari,
+        // lihat Kasir::getReminderTagihanSaya()) milik kasir yang login.
+        // Dicek & jeda 15 menitnya juga di method yang sama, aturan
+        // lengkap di docs/aturan-bisnis-AULIA.md Section 25.
+        //
+        // SENGAJA pakai modal konfirmasi() (dua tombol eksplisit: Tutup /
+        // Lihat), BUKAN showToast() -- toast auto-hilang setelah beberapa
+        // detik meski tipe warning, sedangkan reminder ini harus tetap
+        // ada sampai kasir benar-benar meresponnya secara sadar (klik
+        // salah satu tombol), bukan hilang sendiri sambil terlewat.
+        document.addEventListener('DOMContentLoaded', function() {
+            const jumlah = <?= (int) ($reminderTagihan['count'] ?? 0) ?>;
+            const hari = <?= (int) ($reminderTagihan['hari'] ?? 7) ?>;
+            const pesan = 'Ada ' + jumlah + ' tagihan dari ' + hari + ' hari terakhir yang perlu dicek lagi.';
 
-        konfirmasi(pesan, {
-            title: 'Reminder Tagihan',
-            okText: 'Lihat',
-            okClass: 'btn-warning',
-            cancelText: 'Tutup',
-        }).then(function(lihat) {
-            if (lihat) {
-                window.open('<?= base_url('/tagihan?saya=1') ?>', '_blank');
-            }
+            konfirmasi(pesan, {
+                title: 'Reminder Tagihan',
+                okText: 'Lihat',
+                okClass: 'btn-warning',
+                cancelText: 'Tutup',
+            }).then(function(lihat) {
+                if (lihat) {
+                    window.open('<?= base_url('/tagihan?saya=1') ?>', '_blank');
+                }
+            });
         });
-    });
-</script>
+    </script>
 <?php endif; ?>
