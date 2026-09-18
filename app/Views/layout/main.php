@@ -708,6 +708,7 @@
                             href="<?= base_url('/inbox') ?>">
                             <i class="fab fa-whatsapp"></i>
                             <span>Inbox WhatsApp</span>
+                            <span class="badge bg-danger ms-1" id="sidebarInboxBadge" style="display:none;"></span>
                         </a>
                     </li>
 
@@ -1192,6 +1193,27 @@
         $(document).ready(function() {
             updateBadgeTagihan();
         });
+
+        // ==========================================
+        // BADGE SIDEBAR INBOX WHATSAPP (peripheral awareness lintas halaman)
+        // ==========================================
+        function muatBadgeInboxSidebar() {
+            fetch('<?= base_url('/inbox/api/perlu-dibalas-count') ?>')
+                .then(r => r.json())
+                .then(d => {
+                    const badge = document.getElementById('sidebarInboxBadge');
+                    if (!badge) return;
+                    if (d.count > 0) {
+                        badge.textContent = d.count;
+                        badge.style.display = 'inline-block';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                })
+                .catch(() => {});
+        }
+        muatBadgeInboxSidebar();
+        setInterval(muatBadgeInboxSidebar, 20000); // lebih longgar dari polling di dalam /inbox (6 detik) -- ini cuma peripheral awareness.
 
         // ==========================================
         // JAMIN TOAST SELALU RELATIF KE VIEWPORT

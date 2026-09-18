@@ -49,7 +49,10 @@ $routes->post('/inbox/percakapan/(:num)/lepas', 'Inbox::lepasPercakapan/$1', ['f
 $routes->post('/inbox/percakapan/(:num)/tutup', 'Inbox::tutupPercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/profil', 'Inbox::updateCustomerProfile/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/konfirmasi-nomor', 'Inbox::konfirmasiNomorWhatsapp/$1', ['filter' => 'auth']);
+$routes->post('/inbox/percakapan/(:num)/tandai-dibaca', 'Inbox::tandaiDibaca/$1', ['filter' => 'auth']);
+$routes->post('/inbox/percakapan/(:num)/snooze', 'Inbox::snoozePercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/mulai-percakapan', 'Inbox::mulaiPercakapan', ['filter' => 'auth']);
+$routes->get('/inbox/api/perlu-dibalas-count', 'Inbox::apiPerluDibalasCount', ['filter' => 'auth']);
 
 // ==========================================
 // ROUTE GANTI PASSWORD - OTOMATIS KENA AUTH
