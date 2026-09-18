@@ -7,6 +7,7 @@ use App\Models\MessageModel;
 use App\Models\GatewayStatusModel;
 use App\Models\UserModel;
 use App\Libraries\PhoneNumber;
+use App\Libraries\InboxMediaStorage;
 use Config\Inbox as InboxConfig;
 
 /**
@@ -178,6 +179,40 @@ class Inbox extends BaseController
             ]);
         }
 
+        // 'private'/'immutable' HARUS jadi elemen array tanpa key (bukan
+        // 'private' => true) -- Header::getValueLine() cuma menghasilkan
+        // "key=value" untuk elemen ber-key string, elemen tanpa key
+        // (numeric-indexed) ditulis apa adanya tanpa "=".
+        $etag = '"inbox-media-' . $messageId . '"';
+        $cacheOptions = ['private', 'immutable', 'max-age' => 604800, 'etag' => $etag];
+
+        // Tahap C: cek disk lokal/HDD eksternal dulu SEBELUM live-fetch
+        // ke Gateway (lihat InboxGatewayApi::messages(), yang prefetch
+        // media ini saat pesan masuk). ETag tetap dicek dulu di sini
+        // juga -- kalau match, 304 seperti biasa tanpa perlu baca file
+        // dari disk sama sekali.
+        if (!empty($message['media_local_filename'])) {
+            $storage = new InboxMediaStorage((new InboxConfig())->mediaStoragePath);
+            $binary = $storage->read($message['media_local_filename']);
+
+            if ($binary !== null) {
+                if ($this->request->getHeaderLine('If-None-Match') === $etag) {
+                    return $this->response->setStatusCode(304)->setCache($cacheOptions);
+                }
+
+                return $this->response
+                    ->setStatusCode(200)
+                    ->setContentType($message['media_mime_type'] ?: 'application/octet-stream')
+                    ->setHeader('Content-Disposition', ($message['message_type'] === 'document' ? 'attachment' : 'inline') . '; filename="' . addslashes($message['media_filename'] ?: 'media-' . $messageId) . '"')
+                    ->setCache($cacheOptions)
+                    ->setBody($binary);
+            }
+            // $binary === null: file HARUSNYA ada (filename tercatat)
+            // tapi tidak terbaca -- HDD eksternal sedang tercabut.
+            // JANGAN error, lanjut ke blok fallback live-fetch di bawah
+            // seperti biasa.
+        }
+
         // Media per message_id TIDAK PERNAH berubah setelah pesan
         // tersimpan (tidak ada jalur kode yang UPDATE media_metadata) --
         // aman di-cache lama oleh browser via ETag berbasis ID saja.
@@ -186,14 +221,6 @@ class Inbox extends BaseController
         // SEBELUM memanggil Gateway sama sekali -- mencegah polling
         // Inbox (setiap 4 detik, me-render ulang SELURUH thread) memicu
         // Gateway download+decrypt ulang media yang sudah pernah diambil.
-        //
-        // 'private'/'immutable' HARUS jadi elemen array tanpa key (bukan
-        // 'private' => true) -- Header::getValueLine() cuma menghasilkan
-        // "key=value" untuk elemen ber-key string, elemen tanpa key
-        // (numeric-indexed) ditulis apa adanya tanpa "=".
-        $etag = '"inbox-media-' . $messageId . '"';
-        $cacheOptions = ['private', 'immutable', 'max-age' => 604800, 'etag' => $etag];
-
         if ($this->request->getHeaderLine('If-None-Match') === $etag) {
             return $this->response
                 ->setStatusCode(304)
@@ -247,9 +274,20 @@ class Inbox extends BaseController
      * referensi yang tersimpan, lalu kembalikan isinya (binary) di
      * sini. TIDAK ADA file yang disimpan ke disk CI4 di titik manapun.
      *
+     * $timeoutSeconds default 30 (live-fetch on-demand dari
+     * Inbox::media()) -- InboxGatewayApi::messages() memanggil dengan
+     * timeout lebih pendek (8 detik) untuk prefetch saat pesan masuk,
+     * supaya tidak menahan respons webhook Gateway lama-lama kalau
+     * memang lambat.
+     *
+     * Visibility public (bukan private) supaya bisa dipanggil dari
+     * InboxGatewayApi::messages() lewat instance Inbox -- method ini
+     * TIDAK bergantung pada state/session controller, aman dipanggil
+     * lintas controller.
+     *
      * @return array{ok: bool, binary?: string, status?: int, error?: string}
      */
-    private function callGatewayMediaDownload(InboxConfig $config, array $mediaRef, ?string $mimetype): array
+    public function callGatewayMediaDownload(InboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30): array
     {
         $url = $config->gatewayBaseUrl . '/media/download';
 
@@ -271,7 +309,7 @@ class Inbox extends BaseController
             CURLOPT_RETURNTRANSFER => true,
             // Lebih lama dari kirim teks -- unduh+dekripsi file butuh
             // waktu lebih, terutama untuk dokumen berukuran besar.
-            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_TIMEOUT        => $timeoutSeconds,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
 

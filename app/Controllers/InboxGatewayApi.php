@@ -6,7 +6,9 @@ use App\Models\ConversationModel;
 use App\Models\MessageModel;
 use App\Models\GatewayStatusModel;
 use App\Libraries\PhoneNumber;
+use App\Libraries\InboxMediaStorage;
 use Config\Database;
+use Config\Inbox as InboxConfig;
 
 /**
  * Endpoint machine-to-machine untuk Gateway WhatsApp (Node.js/Baileys)
@@ -98,6 +100,11 @@ class InboxGatewayApi extends BaseController
             'media_metadata'  => null,
         ];
 
+        // Referensi mentah (direct_path/media_key) untuk prefetch Tahap C
+        // di bawah -- HANYA terisi untuk image/document/sticker, sama
+        // seperti media_metadata.
+        $mediaRefUntukPrefetch = null;
+
         if (in_array($messageType, ['image', 'document', 'sticker'], true)) {
             $media = $payload['media'] ?? null;
 
@@ -131,6 +138,13 @@ class InboxGatewayApi extends BaseController
                 'direct_path'      => $directPath,
                 'media_key_base64' => $mediaKeyBase64,
             ]);
+
+            $mediaRefUntukPrefetch = [
+                'media_type'       => $messageType,
+                'direct_path'      => $directPath,
+                'media_key_base64' => $mediaKeyBase64,
+                'mimetype'         => $mimetype,
+            ];
         } elseif (in_array($messageType, ['audio', 'video'], true)) {
             // BEDA PRINSIP dari image/document: audio/video TIDAK PERNAH
             // dibuka ulang lewat Inbox (lihat keputusan desain Task Group
@@ -274,6 +288,37 @@ class InboxGatewayApi extends BaseController
 
         log_message('info', "InboxGatewayApi::messages() sukses menyimpan pesan ({$direction}). chat_id={$chatId}, wa_message_id={$waMessageId}");
 
+        // --- Tahap C: prefetch + simpan permanen ke storage lokal -----------
+        // Best-effort, DILUAR transaksi DB di atas (sudah commit) -- gagal
+        // di sini TIDAK PERNAH menggagalkan penerimaan pesan itu sendiri,
+        // cuma media_local_filename tetap NULL dan fallback live-fetch
+        // (Inbox::media()) tetap jalan seperti sebelum Tahap C.
+        if ($mediaRefUntukPrefetch !== null) {
+            $config = new InboxConfig();
+
+            if ($config->mediaStoragePath !== '') {
+                $newMessageId = $messageModel->getInsertID();
+                $storage = new InboxMediaStorage($config->mediaStoragePath);
+                $ext = self::extensiFromMime($mediaRefUntukPrefetch['mimetype']);
+
+                // 8 detik, BUKAN 30 seperti live-fetch on-demand -- ini
+                // jalan DI DALAM respons webhook Gateway, harus cepat
+                // gagal kalau memang lambat, bukan menahan Gateway lama.
+                $result = (new Inbox())->callGatewayMediaDownload($config, $mediaRefUntukPrefetch, $mediaRefUntukPrefetch['mimetype'], 8);
+
+                $filename = null;
+                if ($result['ok'] && $storage->save($newMessageId . '.' . $ext, $result['binary'])) {
+                    $filename = $newMessageId . '.' . $ext;
+                }
+
+                $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+                $messageModel->update($newMessageId, [
+                    'media_local_filename'        => $filename, // tetap NULL kalau gagal -- fallback tetap jalan
+                    'media_download_attempted_at' => $now,
+                ]);
+            }
+        }
+
         return $this->response->setStatusCode(200)->setJSON([
             'status'          => 'success',
             'duplicate'       => false,
@@ -361,5 +406,22 @@ class InboxGatewayApi extends BaseController
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    /**
+     * Map mimetype -> ekstensi file, untuk penamaan file di
+     * InboxMediaStorage (Tahap C). Default 'bin' kalau tidak dikenali
+     * -- SENGAJA tetap disimpan (bukan ditolak) supaya tidak
+     * menggagalkan prefetch cuma karena mimetype asing.
+     */
+    private static function extensiFromMime(?string $mimetype): string
+    {
+        return match ($mimetype) {
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'application/pdf' => 'pdf',
+            default => 'bin',
+        };
     }
 }

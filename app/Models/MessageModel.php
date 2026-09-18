@@ -41,6 +41,8 @@ class MessageModel extends Model
         'media_size',
         'media_sha256',
         'media_metadata',
+        'media_local_filename',
+        'media_download_attempted_at',
         'message_timestamp',
         'sent_by_user_id',
         'send_status',
