@@ -256,6 +256,7 @@ class InboxGatewayApi extends BaseController
         // ditutup hanya karena staff membalas dari luar POS.
         if ($direction === 'incoming') {
             $conversationUpdate['status'] = 'open';
+            $conversationUpdate['snoozed_until'] = null; // BARU -- reset paksa
         }
 
         $conversationModel->update($conversationId, $conversationUpdate);

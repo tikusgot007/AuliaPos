@@ -229,6 +229,7 @@
             <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalChatBaru">
                 <i class="fas fa-plus"></i> Chat Baru
             </button>
+            <span id="perluDibalasBadge" class="badge bg-danger" style="display:none;"></span>
             <span id="gatewayStatusBadge" class="badge bg-secondary">
                 <i class="fas fa-circle-notch fa-spin"></i> Memeriksa...
             </span>
@@ -240,10 +241,12 @@
             <!-- PANEL KIRI: DAFTAR CONVERSATION               -->
             <!-- ============================================ -->
             <div class="inbox-list-col">
-            <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom" style="background:#fff;">
+            <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom flex-wrap" style="background:#fff;">
                 <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSemua" onclick="setFilterConversation('semua')">Semua</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterOpen" onclick="setFilterConversation('open')">Open</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterClosed" onclick="setFilterConversation('closed')">Closed</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterPerlu_dibalas" onclick="setFilterConversation('perlu_dibalas')">Perlu Dibalas</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterMenunggu_customer" onclick="setFilterConversation('menunggu_customer')">Menunggu Customer</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterFollow_up" onclick="setFilterConversation('follow_up')">Follow-up</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSelesai" onclick="setFilterConversation('selesai')">Selesai</button>
             </div>
             <div class="inbox-list-panel" id="inboxListPanel">
                 <?php if (empty($conversations)): ?>
@@ -504,7 +507,7 @@
     // Tombol filter Semua/Open/Closed -- state visual saja, tidak
     // mengubah conversationAktif/daftarConversation itu sendiri.
     function renderFilterButtons() {
-        ['semua', 'open', 'closed'].forEach(function(f) {
+        ['semua', 'perlu_dibalas', 'menunggu_customer', 'follow_up', 'selesai'].forEach(function(f) {
             const btn = document.getElementById('btnFilter' + f.charAt(0).toUpperCase() + f.slice(1));
             if (btn) btn.classList.toggle('active', filterAktif === f);
         });
@@ -516,13 +519,32 @@
         renderDaftarConversation();
     }
 
+    function renderBadgePerluDibalas() {
+        const badge = document.getElementById('perluDibalasBadge');
+        const jumlah = daftarConversation.filter(function(c) { return c.response_state === 'perlu_dibalas'; }).length;
+        if (jumlah > 0) {
+            badge.textContent = jumlah + ' Perlu Dibalas';
+            badge.style.display = '';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    const RESPONSE_STATE_LABEL = {
+        perlu_dibalas: { text: 'Perlu Dibalas', kelas: 'bg-danger' },
+        menunggu_customer: { text: 'Menunggu Customer', kelas: 'bg-info text-dark' },
+        follow_up: { text: 'Follow-up', kelas: 'bg-warning text-dark' },
+        selesai: { text: 'Selesai', kelas: 'bg-secondary' },
+    };
+
     function renderDaftarConversation() {
         renderFilterButtons();
+        renderBadgePerluDibalas();
 
         const panel = document.getElementById('inboxListPanel');
         const daftarTampil = filterAktif === 'semua'
             ? daftarConversation
-            : daftarConversation.filter(function(c) { return c.status === filterAktif; });
+            : daftarConversation.filter(function(c) { return c.response_state === filterAktif; });
 
         if (!daftarTampil.length) {
             panel.innerHTML = '<div class="p-3 text-muted small text-center">' +
@@ -537,6 +559,8 @@
             const waktu = c.last_message_at ? formatWaktuInbox(c.last_message_at) : '';
             const panah = c.last_message_direction === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '';
             const closedBadge = c.status === 'closed' ? '<span class="badge bg-secondary" style="font-size:0.6rem;">closed</span>' : '';
+            const rsInfo = RESPONSE_STATE_LABEL[c.response_state];
+            const responseStateBadge = rsInfo ? '<span class="badge ' + rsInfo.kelas + '" style="font-size:0.6rem;">' + rsInfo.text + '</span>' : '';
             // String() SENGAJA -- assigned_to dari MySQLi/JSON kadang
             // string ("3"), currentUserId number -- lihat catatan
             // cariConversation() di atas untuk root cause bug yang sama.
@@ -556,7 +580,7 @@
                 '<button type="button" class="btn btn-sm btn-link p-0 text-danger" style="font-size:0.75rem;" title="Hapus percakapan" onclick="event.stopPropagation(); hapusPercakapanDariList(' + c.id + ')"><i class="fas fa-trash-alt"></i></button>' +
                 '</span>' +
                 '</div>' +
-                '<div class="list-preview">' + panah + escapeHtmlInbox(nomorAtauLid) + ' ' + closedBadge + ' ' + assignBadge + '</div>' +
+                '<div class="list-preview">' + panah + escapeHtmlInbox(nomorAtauLid) + ' ' + closedBadge + ' ' + responseStateBadge + ' ' + assignBadge + '</div>' +
                 '</a>';
         }).join('');
     }
@@ -601,6 +625,11 @@
     // ================================================================
     function renderThreadHeader() {
         if (!conversationAktif) return;
+
+        // Jangan render ulang selagi dropdown Follow-up terbuka -- polling
+        // 6 detik (muatUlangDaftarConversation) mengganti innerHTML header
+        // dan menutup paksa dropdown sebelum sempat diklik.
+        if (document.querySelector('#threadHeader .dropdown-menu.show')) return;
 
         const conv = cariConversation(conversationAktif);
         const identitas = formatIdentitasCustomer(conv);
@@ -647,6 +676,24 @@
               '<i class="fas fa-times-circle"></i> Tutup</button>'
             : '';
 
+        // Response state (Langkah 9): "Tandai Dibaca" (perlu_dibalas ->
+        // menunggu_customer) dan "Follow-up" (snooze sementara) -- keduanya
+        // dipanggil lewat endpoint Langkah 5 & 6.
+        const tombolTandaiDibaca = (conv && conv.response_state === 'perlu_dibalas')
+            ? '<button type="button" class="btn btn-sm btn-outline-success me-1" title="Tandai sudah dibaca" onclick="tandaiDibacaAktif()">' +
+              '<i class="fas fa-check"></i> Tandai Dibaca</button>'
+            : '';
+        const tombolFollowUp =
+            '<div class="btn-group me-1">' +
+            '<button type="button" class="btn btn-sm btn-outline-warning dropdown-toggle" data-bs-toggle="dropdown" title="Follow-up nanti">' +
+            '<i class="fas fa-clock"></i> Follow-up</button>' +
+            '<ul class="dropdown-menu dropdown-menu-end">' +
+            '<li><a class="dropdown-item" href="#" onclick="return snoozePercakapanAktif(60)">1 jam</a></li>' +
+            '<li><a class="dropdown-item" href="#" onclick="return snoozePercakapanAktif(180)">3 jam</a></li>' +
+            '<li><a class="dropdown-item" href="#" onclick="return snoozePercakapanAktif(' + menitSampaiBesokPagi() + ')">Besok pagi</a></li>' +
+            (conv && conv.snoozed_until ? '<li><hr class="dropdown-divider"></li><li><a class="dropdown-item text-danger" href="#" onclick="return snoozePercakapanAktif(0)">Batal</a></li>' : '') +
+            '</ul></div>';
+
         // Edit & Hapus TIDAK lagi tampil di header -- dipindah ke masing-
         // masing row percakapan di daftar kiri (lihat editPercakapanDariList()/
         // hapusPercakapanDariList()).
@@ -656,7 +703,56 @@
             tombolKonfirmasiNomor +
             infoAssign +
             '</span>' +
-            '<span>' + tombolTutup + tombolAssign + '</span>';
+            '<span>' + tombolTandaiDibaca + tombolFollowUp + tombolTutup + tombolAssign + '</span>';
+    }
+
+    // Menit dari sekarang sampai jam 08:00 hari berikutnya -- dipakai
+    // opsi "Besok pagi" di dropdown Follow-up.
+    function menitSampaiBesokPagi() {
+        const now = new Date();
+        const besokPagi = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 8, 0, 0);
+        return Math.round((besokPagi.getTime() - now.getTime()) / 60000);
+    }
+
+    function tandaiDibacaAktif() {
+        if (!conversationAktif) return;
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/tandai-dibaca', { method: 'POST' })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    muatUlangDaftarConversation();
+                } else {
+                    showToast(json.message || 'Gagal menandai dibaca.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            });
+    }
+
+    function snoozePercakapanAktif(menit) {
+        if (!conversationAktif) return false;
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/snooze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ menit: menit })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    showToast(menit > 0 ? 'Percakapan di-follow-up.' : 'Follow-up dibatalkan.', 'success');
+                    muatUlangDaftarConversation();
+                } else {
+                    showToast(json.message || 'Gagal follow-up.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            });
+
+        return false;
     }
 
     function tutupPercakapan() {
