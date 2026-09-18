@@ -156,6 +156,28 @@ class Inbox extends BaseController
             ]);
         }
 
+        // Media per message_id TIDAK PERNAH berubah setelah pesan
+        // tersimpan (tidak ada jalur kode yang UPDATE media_metadata) --
+        // aman di-cache lama oleh browser via ETag berbasis ID saja.
+        // Kalau browser masih menyimpan ETag ini (baik dari cache aktif
+        // maupun revalidation setelah cache kedaluwarsa), balas 304
+        // SEBELUM memanggil Gateway sama sekali -- mencegah polling
+        // Inbox (setiap 4 detik, me-render ulang SELURUH thread) memicu
+        // Gateway download+decrypt ulang media yang sudah pernah diambil.
+        //
+        // 'private'/'immutable' HARUS jadi elemen array tanpa key (bukan
+        // 'private' => true) -- Header::getValueLine() cuma menghasilkan
+        // "key=value" untuk elemen ber-key string, elemen tanpa key
+        // (numeric-indexed) ditulis apa adanya tanpa "=".
+        $etag = '"inbox-media-' . $messageId . '"';
+        $cacheOptions = ['private', 'immutable', 'max-age' => 604800, 'etag' => $etag];
+
+        if ($this->request->getHeaderLine('If-None-Match') === $etag) {
+            return $this->response
+                ->setStatusCode(304)
+                ->setCache($cacheOptions);
+        }
+
         $mediaRef = json_decode($message['media_metadata'], true);
 
         if (!is_array($mediaRef) || empty($mediaRef['direct_path']) || empty($mediaRef['media_key_base64'])) {
@@ -193,6 +215,7 @@ class Inbox extends BaseController
             ->setStatusCode(200)
             ->setContentType($message['media_mime_type'] ?: 'application/octet-stream')
             ->setHeader('Content-Disposition', ($message['message_type'] === 'document' ? 'attachment' : 'inline') . '; filename="' . addslashes($filename) . '"')
+            ->setCache($cacheOptions)
             ->setBody($result['binary']);
     }
 
