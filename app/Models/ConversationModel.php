@@ -92,6 +92,8 @@ class ConversationModel extends Model
         'closed_by',
         'profile_updated_at',
         'profile_updated_by',
+        'last_seen_by_assignee_at',
+        'snoozed_until',
     ];
 
     protected $useTimestamps = true;
