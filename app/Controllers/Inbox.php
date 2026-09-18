@@ -769,9 +769,10 @@ class Inbox extends BaseController
         $newMessageId = $messageModel->getInsertID();
 
         $conversationUpdate = [
-            'last_message_at'        => $now,
-            'last_message_direction' => 'outgoing',
-            'last_replied_by'        => $userId,
+            'last_message_at'          => $now,
+            'last_message_direction'   => 'outgoing',
+            'last_replied_by'          => $userId,
+            'last_seen_by_assignee_at' => $now,
         ];
         // Auto-assign ke pengirim pertama kalau belum ada yang menangani
         // -- lihat catatan sama di kirimKeConversation().
