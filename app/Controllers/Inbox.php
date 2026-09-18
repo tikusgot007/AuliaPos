@@ -49,7 +49,7 @@ class Inbox extends BaseController
             'currentUserRole' => (string) session()->get('role'),
         ];
 
-        return view('layout/main', $data);
+        return view('layout/minimal', $data);
     }
 
     /**
