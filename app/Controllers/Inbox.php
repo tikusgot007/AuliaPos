@@ -149,10 +149,10 @@ class Inbox extends BaseController
             ]);
         }
 
-        if (!in_array($message['message_type'], ['image', 'document'], true) || empty($message['media_metadata'])) {
+        if (!in_array($message['message_type'], ['image', 'document', 'sticker'], true) || empty($message['media_metadata'])) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
-                'message' => 'Pesan ini bukan gambar/dokumen, atau referensi media-nya tidak ada.',
+                'message' => 'Pesan ini bukan gambar/dokumen/sticker, atau referensi media-nya tidak ada.',
             ]);
         }
 
@@ -621,16 +621,28 @@ class Inbox extends BaseController
 
         // Mimetype asli dari isi file (bukan dari nama/ekstensi, supaya
         // tidak mudah dikelabui) -- CodeIgniter sudah pakai fileinfo di
-        // baliknya. image/* dianggap 'image', selain itu 'document'
-        // (konsisten dengan VALID_MEDIA_TYPES Gateway yang cuma dua ini).
+        // baliknya. image/webp dianggap 'sticker' (WhatsApp sticker
+        // SELALU WebP -- foto kamera normal tidak pernah WebP, jadi
+        // deteksi otomatis dari mimetype ini aman tanpa perlu tombol/
+        // toggle terpisah di UI). image/* lain dianggap 'image', sisanya
+        // 'document' -- konsisten dengan VALID_MEDIA_TYPES Gateway.
         $mimetype  = $file->getMimeType();
-        $mediaType = str_starts_with((string) $mimetype, 'image/') ? 'image' : 'document';
+        $mediaType = $mimetype === 'image/webp'
+            ? 'sticker'
+            : (str_starts_with((string) $mimetype, 'image/') ? 'image' : 'document');
         $fileName  = $file->getClientName();
         $fileSize  = $file->getSize();
 
+        // Sticker TIDAK PERNAH punya caption di protokol WhatsApp (sama
+        // seperti sisi masuk -- lihat InboxGatewayApi::messages()) --
+        // caption yang mungkin diisi kasir diabaikan, tidak dikirim ke
+        // Gateway maupun disimpan sebagai text pesan, supaya tidak
+        // menyesatkan (terisi di form tapi diam-diam hilang).
+        $captionUntukGateway = $mediaType === 'sticker' ? '' : $caption;
+
         $mediaBase64 = base64_encode(file_get_contents($file->getTempName()));
 
-        $result = $this->callGatewaySendMedia($config, $conversation['chat_id'], $mediaType, $mediaBase64, $mimetype, $fileName, $caption);
+        $result = $this->callGatewaySendMedia($config, $conversation['chat_id'], $mediaType, $mediaBase64, $mimetype, $fileName, $captionUntukGateway);
 
         if (!$result['ok']) {
             log_message('warning', 'Inbox::kirimMedia gagal mengirim ke Gateway. conversation_id=' . $conversationId . ' error=' . $result['error']);
@@ -660,7 +672,7 @@ class Inbox extends BaseController
             'direction'         => 'outgoing',
             'message_type'      => $mediaType,
             'sender_jid'        => null,
-            'text'              => $caption !== '' ? $caption : null,
+            'text'              => $captionUntukGateway !== '' ? $captionUntukGateway : null,
             'media_path'        => null, // SENGAJA selalu NULL -- tidak pernah menyimpan file lokal.
             'media_mime_type'   => $mimetype,
             'media_filename'    => $fileName,
@@ -1339,7 +1351,12 @@ class Inbox extends BaseController
             'media_base64' => $mediaBase64,
             'mimetype'     => $mimetype,
             'file_name'    => $fileName,
-            'caption'      => $caption !== '' ? $caption : null,
+            // $caption selalu string (lihat signature method) -- Gateway
+            // menolak null untuk field ini, cuma menerima string (boleh
+            // kosong ''). Sebelumnya dikirim null saat kosong, tidak
+            // pernah ketahuan salah karena outgoing media belum pernah
+            // dites sampai ke Gateway asli.
+            'caption'      => $caption,
         ]);
 
         $ch = curl_init($url);
