@@ -1,15 +1,11 @@
 # Aturan Bisnis Modul Shared WhatsApp Inbox (Chat) — AuliaPos v3.x
 
-> **Sumber asli:** `aturan-bisnis-CHAT.md` (Section 1–15, penomoran
-> mandiri terpisah dari `aturan-bisnis-AULIA.md`). Dokumen ini berisi
-> **aturan bisnis yang berlaku saat ini** untuk modul Chat/Inbox WhatsApp,
-> disusun ulang per-topik (bukan per-fase kronologis seperti sumber
-> asli). Rujukan ke section asli memakai format `[CHAT §N]`. Riwayat
-> implementasi, daftar file yang diubah, dan catatan
-> "sudah/belum diverifikasi" ada di `CHAT-CHANGELOG.md`.
+> ARCHIVED
 >
-> Untuk aturan bisnis AuliaPos inti (transaksi, kasir, jadwal, dll —
-> yang tidak berkaitan dengan Chat), lihat file `AULIA-*.md`.
+> This document is retained for historical traceability.
+> It is NOT the current source of truth.
+>
+> See [`../CHAT.md`](../CHAT.md) for current rules.
 
 **Status Tahap 5 (Unread/Read):** aturan **disepakati**, namun **belum
 diimplementasikan** pada kode per tanggal dokumen sumber (2026-09-13).
