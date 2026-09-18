@@ -32,6 +32,7 @@ class Filters extends BaseFilters
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
         'auth'          => \App\Filters\AuthFilter::class, // 🔥 TAMBAHKAN INI
+        'gatewaytoken'  => \App\Filters\GatewayTokenFilter::class, // Bearer token untuk endpoint machine-to-machine Gateway WA
     ];
 
     /**
@@ -124,6 +125,13 @@ class Filters extends BaseFilters
                 'auth/proses-login',
                 'assets/*',
                 'favicon.ico',
+                // Endpoint machine-to-machine untuk WhatsApp Gateway --
+                // TIDAK PERNAH punya session (Gateway bukan browser
+                // kasir yang login), diproteksi lewat filter
+                // 'gatewaytoken' (Bearer token) di route-nya sendiri,
+                // bukan lewat session. Lihat app/Filters/GatewayTokenFilter.php
+                // dan docs/aturan-bisnis-AULIA.md Section 28.
+                'api/inbox/gateway/*',
             ]
         ],
     ];
