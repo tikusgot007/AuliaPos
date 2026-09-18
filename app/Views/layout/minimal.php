@@ -31,20 +31,6 @@
             min-height: 0;
         }
 
-        .minimal-header {
-            background-color: #198754;
-            color: #fff;
-            padding: .6rem 1rem;
-        }
-
-        .minimal-header .brand {
-            font-weight: 700;
-        }
-
-        .minimal-header .subtitle {
-            opacity: .85;
-        }
-
         /* Toast Notification -- sama seperti layout/main.php, dipakai
            showToast()/showNotifikasi() yang juga dipanggil oleh
            inbox/index.php lewat window ini. */
@@ -78,11 +64,6 @@
 </head>
 
 <body>
-    <header class="minimal-header">
-        <span class="brand">AULIA</span>
-        <span class="subtitle">&mdash; Inbox WhatsApp</span>
-    </header>
-
     <main class="container-fluid p-0">
         <?php if (session()->getFlashdata('success')): ?>
             <script>
