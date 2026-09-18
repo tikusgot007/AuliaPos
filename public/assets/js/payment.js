@@ -53,6 +53,23 @@
     confirmMetode: null,
     confirmAmount: 0,
     confirmExtras: null,
+
+    /*
+     |--------------------------------------------------------------------------
+     | STATE BACKDATE
+     |--------------------------------------------------------------------------
+     |
+     | Diputuskan SEBELUM modal dibuka (tombol "Bayar Backdate"/"Lunasi
+     | Backdate" di halaman detail, lihat transaksi/detail.php), bukan
+     | lewat checkbox di dalam modal metode -- supaya tidak bisa "lupa
+     | dicentang". backdateTanggal/backdateKasirId disalin dari input di
+     | modal utama begitu user lanjut ke metode pembayaran (lihat
+     | chooseMethod()/openDp()), sebelum modal utama disembunyikan.
+     */
+
+    backdateMode: false,
+    backdateTanggal: null,
+    backdateKasirId: null,
   };
 
   /*
@@ -389,10 +406,6 @@
     if (submit) {
       submit.disabled = true;
     }
-
-    resetBackdateSection(
-      "Cash"
-    );
   }
 
 
@@ -669,10 +682,6 @@
 
     toggleDpInput();
     updateDpSummary();
-
-    resetBackdateSection(
-      "Dp"
-    );
   }
 
 
@@ -955,10 +964,23 @@
   }
 
 
+  // Tahap 5: Effective Shift Leader saat ini boleh backdate persis
+  // seperti admin (lihat App\Services\Authority). Nilai ini dihitung
+  // server-side per-view, sama pola dengan isAdmin di atas -- tidak
+  // pernah dihitung/dipercaya dari client.
+  function isShiftLeaderUser() {
+
+    return (
+      config().isShiftLeader ===
+      true
+    );
+  }
+
+
   function backdateAllowed() {
 
     return (
-      isAdminUser() &&
+      (isAdminUser() || isShiftLeaderUser()) &&
       state.mode === "existing"
     );
   }
@@ -1064,87 +1086,184 @@
 
   /*
   |--------------------------------------------------------------------------
-  | TOGGLE VISIBILITY SECTION BACKDATE PER MODAL
+  | SECTION BACKDATE DI MODAL UTAMA
   |--------------------------------------------------------------------------
   |
-  | scope: "Cash" | "Dp" | "Confirm"
+  | Beda dari desain lama (checkbox opsional di dalam modal Tunai/DP/
+  | Konfirmasi): niat backdate sekarang diputuskan SEBELUM modal
+  | dibuka sama sekali, lewat tombol "Bayar Backdate"/"Lunasi Backdate"
+  | terpisah di halaman detail transaksi (options.backdate dikirim ke
+  | bukaPaymentModal()). Satu section tanggal+kasir di modal utama
+  | (#paymentModal), bukan diduplikasi di 3 modal metode.
   |
   */
 
-  function resetBackdateSection(scope) {
+  function updateBackdateSectionVisibility() {
 
     const section =
       element(
-        "#paymentBackdateSection" +
-          scope
+        "#paymentBackdateSection"
       );
-
-    const checkbox =
-      element(
-        "#paymentBackdateCheck" +
-          scope
-      );
-
-    const fields =
-      element(
-        "#paymentBackdateFields" +
-          scope
-      );
-
-    const tanggalInput =
-      element(
-        "#paymentBackdateTanggal" +
-          scope
-      );
-
-    const kasirSelect =
-      element(
-        "#paymentBackdateKasir" +
-          scope
-      );
-
 
     if (!section) {
       return;
     }
 
-    /*
-     * Tampilkan section hanya untuk admin & transaksi existing.
-     */
     section.classList.toggle(
       "d-none",
-      !backdateAllowed()
+      !state.backdateMode
     );
 
-
-    /*
-     * Selalu reset ke kondisi tidak dicentang saat modal dibuka
-     * ulang — mencegah backdate "nempel" dari transaksi sebelumnya.
-     */
-    if (checkbox) {
-      checkbox.checked = false;
+    if (!state.backdateMode) {
+      return;
     }
 
-    if (fields) {
-      fields.classList.add(
-        "d-none"
+    const tanggalInput =
+      element(
+        "#paymentBackdateTanggal"
       );
-    }
 
     if (tanggalInput) {
-      tanggalInput.value = "";
+
+      const pad = (n) => String(n).padStart(2, "0");
+      const formatTanggal = (d) =>
+        d.getFullYear() + "-" +
+        pad(d.getMonth() + 1) + "-" +
+        pad(d.getDate());
+
+      /*
+       * Backdate berarti "bukan hari ini" (kalau hari ini, pakai
+       * "Bayar Sekarang"), jadi batas atas datepicker = kemarin.
+       * Batas bawah = tanggal transaksi -- tidak boleh backdate ke
+       * sebelum transaksinya sendiri dibuat.
+       */
+      const kemarin = new Date();
+      kemarin.setDate(kemarin.getDate() - 1);
+      const maxTanggal = formatTanggal(kemarin);
+
+      const minTanggal = state.transaksiTanggal
+        ? String(state.transaksiTanggal).slice(0, 10)
+        : null;
+
+      tanggalInput.max = maxTanggal;
+
+      if (minTanggal) {
+        tanggalInput.min = minTanggal;
+      } else {
+        tanggalInput.removeAttribute("min");
+      }
+
+      /*
+       * Prefill kemarin -- kemudahan, tetap wajib diubah user kalau
+       * memang bukan kemarin (itulah tujuan tombol ini).
+       */
+      if (!tanggalInput.value) {
+        tanggalInput.value = maxTanggal;
+      }
     }
 
-    if (kasirSelect) {
-      kasirSelect.value = "";
+    populateKasirSelect(
+      element("#paymentBackdateKasir")
+    );
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | WAJIBKAN TANGGAL TERISI SEBELUM LANJUT KE METODE PEMBAYARAN
+  |--------------------------------------------------------------------------
+  |
+  | Dipanggil di awal chooseMethod()/openDp(). Kalau lolos, salin nilai
+  | tanggal/kasir ke state SAAT ITU JUGA -- backdateExtras() nanti
+  | membaca dari state, bukan mencari elemen DOM modal utama yang
+  | sudah disembunyikan begitu masuk ke modal Cash/Dp/Confirm.
+  |
+  */
+
+  function pastikanBackdateSiapDilanjutkan() {
+
+    if (!state.backdateMode) {
+      return true;
     }
 
-
-    if (backdateAllowed()) {
-      populateKasirSelect(
-        kasirSelect
+    const tanggalInput =
+      element(
+        "#paymentBackdateTanggal"
       );
+
+    if (!tanggalInput || !tanggalInput.value) {
+
+      notify(
+        "Tanggal wajib diisi untuk pembayaran backdate.",
+        "warning"
+      );
+
+      return false;
     }
+
+    /*
+     * Validasi ulang di JS -- atribut min/max di datepicker cuma
+     * mencegah lewat UI normal, bisa saja dilewati (devtools, dsb).
+     * Otoritas sesungguhnya tetap di backend (lihat
+     * TransaksiModel::tambahPembayaran()); ini jaring pengaman sisi
+     * client supaya errornya jelas sebelum submit.
+     */
+    const pad = (n) => String(n).padStart(2, "0");
+    const hariIni = new Date();
+    const hariIniStr =
+      hariIni.getFullYear() + "-" +
+      pad(hariIni.getMonth() + 1) + "-" +
+      pad(hariIni.getDate());
+
+    if (tanggalInput.value >= hariIniStr) {
+
+      notify(
+        "Tanggal backdate tidak boleh hari ini atau setelahnya. Kalau memang hari ini, pakai \"Bayar Sekarang\".",
+        "warning"
+      );
+
+      return false;
+    }
+
+    if (
+      state.transaksiTanggal &&
+      tanggalInput.value < String(state.transaksiTanggal).slice(0, 10)
+    ) {
+
+      notify(
+        "Tanggal backdate tidak boleh sebelum tanggal transaksi.",
+        "warning"
+      );
+
+      return false;
+    }
+
+    const kasirSelect =
+      element(
+        "#paymentBackdateKasir"
+      );
+
+    /*
+     * <input type="date"> mengembalikan "YYYY-MM-DD" (tanpa jam --
+     * user cuma memilih tanggal). Backend tetap butuh datetime utuh
+     * untuk kolom pembayaran.tanggal, jadi gabungkan dengan jam saat
+     * ini supaya histori pembayaran punya jam yang realistis (bukan
+     * selalu 00:00:00).
+     */
+    const jamSekarang =
+      pad(hariIni.getHours()) + ":" +
+      pad(hariIni.getMinutes()) + ":" +
+      pad(hariIni.getSeconds());
+
+    state.backdateTanggal =
+      tanggalInput.value + " " + jamSekarang;
+
+    state.backdateKasirId =
+      kasirSelect && kasirSelect.value
+        ? kasirSelect.value
+        : null;
+
+    return true;
   }
 
 
@@ -1153,71 +1272,26 @@
   | BACA EXTRAS BACKDATE UNTUK PAYLOAD SUBMIT
   |--------------------------------------------------------------------------
   |
-  | Mengembalikan {} (kosong) jika checkbox tidak dicentang, sehingga
+  | Mengembalikan {} (kosong) kalau mode backdate tidak aktif, sehingga
   | behavior default (tanggal = sekarang, kasir_id = kasir login) di
   | backend tidak berubah sama sekali.
   |
   */
 
-  function backdateExtras(scope) {
+  function backdateExtras() {
 
-    if (!backdateAllowed()) {
+    if (!state.backdateMode) {
       return {};
     }
-
-    const checkbox =
-      element(
-        "#paymentBackdateCheck" +
-          scope
-      );
-
-    if (
-      !checkbox ||
-      !checkbox.checked
-    ) {
-      return {};
-    }
-
-    const tanggalInput =
-      element(
-        "#paymentBackdateTanggal" +
-          scope
-      );
-
-    const kasirSelect =
-      element(
-        "#paymentBackdateKasir" +
-          scope
-      );
 
     const extras = {};
 
-
-    /*
-     * <input type="datetime-local"> mengembalikan "YYYY-MM-DDTHH:MM".
-     * Backend menerima string tanggal apa pun yang bisa dibaca
-     * strtotime(); ganti "T" jadi spasi + tambah detik agar format
-     * konsisten dengan kolom datetime di database.
-     */
-    if (
-      tanggalInput &&
-      tanggalInput.value
-    ) {
-
-      extras.tanggal =
-        tanggalInput.value.replace(
-          "T",
-          " "
-        ) + ":00";
+    if (state.backdateTanggal) {
+      extras.tanggal = state.backdateTanggal;
     }
 
-    if (
-      kasirSelect &&
-      kasirSelect.value
-    ) {
-
-      extras.kasir_id =
-        kasirSelect.value;
+    if (state.backdateKasirId) {
+      extras.kasir_id = state.backdateKasirId;
     }
 
     return extras;
@@ -1486,6 +1560,10 @@
 
   function chooseMethod(metode) {
 
+    if (!pastikanBackdateSiapDilanjutkan()) {
+      return;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | TUNAI
@@ -1701,10 +1779,6 @@
     /*
      * Buka konfirmasi.
      */
-    resetBackdateSection(
-      "Confirm"
-    );
-
     showModal(
       selectors.confirm
     );
@@ -1757,9 +1831,7 @@
     */
 
     const backdate =
-      backdateExtras(
-        "Confirm"
-      );
+      backdateExtras();
 
 
     /*
@@ -1874,6 +1946,10 @@
 
   function openDp() {
 
+    if (!pastikanBackdateSiapDilanjutkan()) {
+      return;
+    }
+
     resetDp();
 
     hideModal(
@@ -1936,9 +2012,7 @@
         kembalian:
           received - due,
 
-        ...backdateExtras(
-          "Cash"
-        ),
+        ...backdateExtras(),
       }
     );
   }
@@ -2068,9 +2142,7 @@
           ) +
           ")",
 
-        ...backdateExtras(
-          "Dp"
-        ),
+        ...backdateExtras(),
       }
     );
   }
@@ -2413,81 +2485,6 @@
 
           toggleDpInput();
         }
-
-
-        /*
-         * Checkbox "Pembayaran diterima sebelumnya" —
-         * tampil/sembunyikan field tanggal & kasir penerima.
-         * Berlaku untuk ketiga modal (Cash/Dp/Confirm).
-         */
-        const backdateCheckbox =
-          event.target.closest(
-            '[id^="paymentBackdateCheck"]'
-          );
-
-        if (backdateCheckbox) {
-
-          const scope =
-            backdateCheckbox.id.replace(
-              "paymentBackdateCheck",
-              ""
-            );
-
-          const fields =
-            element(
-              "#paymentBackdateFields" +
-                scope
-            );
-
-          if (fields) {
-
-            fields.classList.toggle(
-              "d-none",
-              !backdateCheckbox.checked
-            );
-          }
-
-          /*
-           * Default tanggal ke waktu sekarang saat pertama
-           * dicentang, supaya admin tinggal mengubah jika perlu
-           * (bukan mulai dari field kosong).
-           */
-          if (backdateCheckbox.checked) {
-
-            const tanggalInput =
-              element(
-                "#paymentBackdateTanggal" +
-                  scope
-              );
-
-            if (
-              tanggalInput &&
-              !tanggalInput.value
-            ) {
-
-              const now =
-                new Date();
-
-              const pad =
-                (n) =>
-                  String(n).padStart(
-                    2,
-                    "0"
-                  );
-
-              tanggalInput.value =
-                now.getFullYear() +
-                "-" +
-                pad(now.getMonth() + 1) +
-                "-" +
-                pad(now.getDate()) +
-                "T" +
-                pad(now.getHours()) +
-                ":" +
-                pad(now.getMinutes());
-            }
-          }
-        }
       }
     );
 
@@ -2622,6 +2619,32 @@
 
     state.dpAmount =
       0;
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | BACKDATE
+    |--------------------------------------------------------------------------
+    |
+    | Diputuskan SEBELUM modal ini dibuka (tombol "Bayar Backdate"/
+    | "Lunasi Backdate" di halaman detail transaksi) -- backdateAllowed()
+    | tetap dicek ulang di sini sebagai jaring pengaman sisi client,
+    | otoritas sesungguhnya tetap di backend.
+    */
+
+    state.backdateMode =
+      options.backdate === true &&
+      backdateAllowed();
+
+    state.transaksiTanggal =
+      options.transaksiTanggal ||
+      null;
+
+    state.backdateTanggal =
+      null;
+
+    state.backdateKasirId =
+      null;
 
 
     /*
@@ -2800,6 +2823,15 @@
           ? ""
           : "none";
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | SECTION BACKDATE (kalau dibuka lewat tombol "Bayar Backdate")
+    |--------------------------------------------------------------------------
+    */
+
+    updateBackdateSectionVisibility();
 
 
     /*

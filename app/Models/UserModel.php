@@ -19,6 +19,7 @@ class UserModel extends Model
         'is_active',
         'no_hp',
         'profile_photo',
+        'priority',
     ];
 
     // Tabel users hanya memiliki created_at,

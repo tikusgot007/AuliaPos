@@ -12,6 +12,13 @@
     $jam = date('H');
     $bolehInputKasAwal = ($jam < 9);
     $kasAwalSaatIni = $kas_awal; // dari controller
+
+    // Inisial kasir yang login, dipakai untuk auto-isi "diisi oleh" di
+    // alasan selisih opname (lebih ringkas dari username, konsisten dengan
+    // pemakaian kolom inisial di modul Jadwal). Diambil dari session
+    // (diisi saat login, lihat Auth::prosesLogin) supaya tidak perlu query
+    // tambahan tiap render halaman kas.
+    $__inisialKasir = session()->get('inisial');
     ?>
 
     <div class="row mt-4">
@@ -790,7 +797,7 @@
 
                     $('#alasanSelisih')
 
-                        .val('diisi oleh <?= esc(session()->get('username') ?? 'Kasir') ?>')
+                        .val('diisi oleh <?= esc($__inisialKasir ?? session()->get('inisial') ?? 'Kasir') ?>')
                         .prop('required', true)
                         .prop('readonly', true);
                 } else {

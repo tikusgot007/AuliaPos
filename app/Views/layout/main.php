@@ -963,6 +963,40 @@
 
 
 
+                            <!-- KIRI: Info Shift Leader saat ini (MURNI INFORMASI, terlihat
+                                 untuk SEMUA role yang login -- tidak ada gate admin/
+                                 kasir di sini). Render awal langsung di server (sama
+                                 seperti $__headerFoto di bawah) supaya tidak ada
+                                 flash "Tidak ada Shift Leader" sebelum JS polling
+                                 pertama kali jalan; sesudah itu di-refresh tiap 60
+                                 detik oleh updateShiftLeaderBadge(). Read-only --
+                                 tidak menyentuh App\Services\Authority/EffectiveShiftLeaderService.
+
+                                 Dibungkus try/catch dengan sengaja: layout ini dipakai
+                                 SEMUA halaman, jadi satu widget info kecil TIDAK BOLEH
+                                 bisa menjatuhkan seluruh situs (mis. migration
+                                 `users.priority` belum dijalankan di DB yang dipakai --
+                                 urutan "deploy kode dulu, migrate belakangan" wajar
+                                 terjadi, termasuk di server production). Kalau gagal,
+                                 degradasi aman ke "Tidak ada Shift Leader" (fallback
+                                 yang sudah ada), bukan crash seluruh halaman. -->
+                            <?php
+                            $__shiftLeaderAwal = null;
+                            try {
+                                $__shiftLeaderAwal = (new \App\Services\EffectiveShiftLeaderService())->shiftLeaderSaatIni();
+                            } catch (\Throwable $e) {
+                                log_message('error', 'Gagal ambil Shift Leader saat ini (layout): ' . $e->getMessage());
+                            }
+                            ?>
+                            <div class="col-md-4 col-6">
+                                <span id="shiftLeaderBadge" class="badge <?= $__shiftLeaderAwal ? 'bg-warning' : 'bg-secondary' ?>"
+                                    style="<?= $__shiftLeaderAwal ? 'color: #145a32;' : '' ?>"
+                                    data-bs-toggle="tooltip" data-bs-placement="bottom" title="Shift Leader saat ini">
+                                    <i class="fas fa-crown"></i>
+                                    <?= $__shiftLeaderAwal ? esc($__shiftLeaderAwal['inisial'] ?? $__shiftLeaderAwal['nama'] ?? $__shiftLeaderAwal['username']) : 'Tidak ada Shift Leader' ?>
+                                </span>
+                            </div>
+
                             <!-- Search Box -->
                             <div class="search-box" style="max-width: 400px; position: relative; margin: 0 auto;">
 
@@ -1427,10 +1461,33 @@
             cekStatusJadwalSaya();
             setInterval(cekStatusJadwalSaya, 60000);
         <?php endif; ?>
-        // ==========================================
-        // UPDATE JAM REAL-TIME
-        // ==========================================
 
+        // ==========================================
+        // INFO SHIFT LEADER SAAT INI (semua role, tidak ada gate)
+        // ==========================================
+        function updateShiftLeaderBadge() {
+            $.ajax({
+                url: '<?= base_url('/roster/shift-leader-saat-ini') ?>',
+                dataType: 'json',
+                type: 'GET',
+                success: function(response) {
+                    const $badge = $('#shiftLeaderBadge');
+                    if (response.leader) {
+                        $badge.removeClass('bg-secondary').addClass('bg-warning').css('color', '#145a32');
+                        $badge.html('<i class="fas fa-crown"></i> ' + (response.leader.inisial || response.leader.nama || response.leader.username));
+                    } else {
+                        $badge.removeClass('bg-warning').addClass('bg-secondary').css('color', '');
+                        $badge.html('<i class="fas fa-crown"></i> Tidak ada Shift Leader');
+                    }
+                },
+                error: function() {
+                    console.error('Gagal cek Shift Leader saat ini.');
+                }
+            });
+        }
+
+        updateShiftLeaderBadge();
+        setInterval(updateShiftLeaderBadge, 60000);
 
         let searchTimeout;
 

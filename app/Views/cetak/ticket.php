@@ -197,10 +197,10 @@
             <div class="value">Rp <?= number_format((float) $transaksi['grand_total'], 0, ',', '.') ?></div>
         </div>
 
-        <?php if (!empty($transaksi['kasir_nama'])): ?>
+        <?php if (!empty($transaksi['kasir_inisial']) || !empty($transaksi['kasir_nama'])): ?>
             <div class="baris">
                 <div class="label">Kasir</div>
-                <div class="value"><?= esc($transaksi['kasir_nama']) ?></div>
+                <div class="value"><?= esc(($transaksi['kasir_inisial'] ?? null) ?: $transaksi['kasir_nama']) ?></div>
             </div>
         <?php endif; ?>
 

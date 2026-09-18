@@ -24,7 +24,7 @@
                         <p><strong>Invoice:</strong> <?= $transaksi['kode_invoice'] ?></p>
                         <p><strong>No Order:</strong> <?= $transaksi['no_order'] ? format_no_order($transaksi['no_order']) : '-' ?></p>
                         <p><strong>Tanggal:</strong> <?= date('d/m/Y H:i', strtotime($transaksi['tanggal'])) ?></p>
-                        <p><strong>Kasir:</strong> <?= $transaksi['kasir_nama'] ?? '-' ?></p>
+                        <p><strong>Kasir:</strong> <?= $transaksi['kasir_inisial'] ?? $transaksi['kasir_nama'] ?? '-' ?></p>
                     </div>
                     <div class="col-md-6">
                         <p><strong>Pelanggan:</strong> <?= $pelanggan['nama'] ?? '-' ?></p>
@@ -137,15 +137,15 @@
                                 <span class="badge bg-<?= $p['metode'] == 'tunai' ? 'primary' : ($p['metode'] == 'qris' ? 'success' : 'info') ?>">
                                     <?= strtoupper($p['metode']) ?>
                                 </span>
-                                <?php if (!empty($p['kasir_nama']) || !empty($p['kasir_username'])): ?>
+                                <?php if (!empty($p['kasir_inisial']) || !empty($p['kasir_nama']) || !empty($p['kasir_username'])): ?>
                                     <small class="text-muted">
                                         <i class="fas fa-user"></i>
-                                        <?= esc($p['kasir_nama'] ?: $p['kasir_username']) ?>
+                                        <?= esc(($p['kasir_inisial'] ?? null) ?: (($p['kasir_nama'] ?? null) ?: ($p['kasir_username'] ?? ''))) ?>
                                     </small>
                                 <?php endif; ?>
                                 <?php if ($p['keterangan']): ?>
                                     <small class="text-muted">
-                                        <?= (!empty($p['kasir_nama']) || !empty($p['kasir_username'])) ? ' · ' : '' ?><?= esc($p['keterangan']) ?>
+                                        <?= (!empty($p['kasir_inisial']) || !empty($p['kasir_nama']) || !empty($p['kasir_username'])) ? ' · ' : '' ?><?= esc($p['keterangan']) ?>
                                     </small>
                                 <?php endif; ?>
                                 <br>
@@ -221,7 +221,15 @@
             <!-- ALUR STATUS: PROSES → SELESAI / BATAL -->
             <!-- ========================================== -->
 
-            <?php if (($transaksi['status'] ?? '') === 'proses' && session()->get('role') === 'admin'): ?>
+            <?php
+            // Tombol "Selesai" (workflow umum): Admin ATAU Effective Shift
+            // Leader saat ini boleh menekannya -- backend
+            // (TransaksiModel::ubahStatus) tetap satu-satunya otoritas
+            // sesungguhnya, ini hanya UI layer 1 (lihat
+            // docs/aturan-bisnis-AULIA.md soal "UI bukan enforcement").
+            $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
+            ?>
+            <?php if (($transaksi['status'] ?? '') === 'proses' && (session()->get('role') === 'admin' || $isShiftLeaderUser)): ?>
                 <button class="btn btn-primary w-100 mb-2" onclick="selesaikanTransaksi(<?= $transaksi['id'] ?>, '<?= esc($transaksi['status_pembayaran'], 'js') ?>')">
                     <i class="fas fa-check"></i> Selesai
                 </button>
@@ -240,12 +248,23 @@
 
                 <button
                     class="btn btn-success w-100 mb-2"
-                    onclick="bukaPaymentDetail(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>)">
+                    onclick="bukaPaymentDetail(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, false, '<?= esc($transaksi['tanggal'], 'js') ?>')">
 
                     <i class="fas fa-hand-holding-usd"></i>
                     Bayar Sekarang
 
                 </button>
+
+                <?php if (session()->get('role') === 'admin' || $isShiftLeaderUser): ?>
+                    <button
+                        class="btn btn-outline-warning w-100 mb-2"
+                        onclick="bukaPaymentDetail(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, true, '<?= esc($transaksi['tanggal'], 'js') ?>')">
+
+                        <i class="fas fa-history"></i>
+                        Bayar Backdate
+
+                    </button>
+                <?php endif; ?>
             <?php endif; ?>
 
             <!-- ========================================== -->
@@ -314,15 +333,16 @@
             <!-- BATAL adalah status terminal; tidak ada tombol aktifkan kembali. -->
             <!-- ========================================== -->
             <!-- 🔥 TOMBOL BATAL                           -->
-            <!-- Muncul untuk 'proses' (semua role) dan     -->
-            <!-- 'selesai' (backend menolak jika bukan admin) -->
+            <!-- Tahap 5.1: khusus admin/Shift Leader, baik dari    -->
+            <!-- 'proses' maupun 'selesai' (sebelumnya 'proses'     -->
+            <!-- terbuka semua role -- diperketat, backend jadi     -->
+            <!-- otoritas, ini hanya visibility layer 1).           -->
             <!-- MANGKRAK tidak bisa langsung ke Batal -- harus  -->
             <!-- diaktifkan kembali ke PROSES dulu.              -->
             <!-- ========================================== -->
-            <?php if (in_array($transaksi['status'] ?? '', ['proses', 'selesai'], true)): ?>
+            <?php if (in_array($transaksi['status'] ?? '', ['proses', 'selesai'], true) && (session()->get('role') === 'admin' || $isShiftLeaderUser)): ?>
                 <button class="btn btn-danger w-100 mb-2" onclick="(async () => { if (await konfirmasi('Yakin ingin membatalkan transaksi ini?', { okText: 'Ya, Batalkan' })) { kirimUbahStatusAjax(<?= $transaksi['id'] ?>, 'batal'); } })()">
                     <i class="fas fa-times"></i> Batalkan
-                    <?= ($transaksi['status'] ?? '') === 'selesai' ? '(khusus admin)' : '' ?>
                 </button>
             <?php endif; ?>
 
@@ -335,9 +355,14 @@
         <!-- 🔥 TOMBOL LUNASI (dari halaman Tagihan)    -->
         <!-- ========================================== -->
         <?php if (isset($dariTagihan) && $dariTagihan && $sisa_tagihan > 0): ?>
-            <button class="btn btn-success w-100 mb-2" onclick="prosesLunasi(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>)">
+            <button class="btn btn-success w-100 mb-2" onclick="prosesLunasi(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, false, '<?= esc($transaksi['tanggal'], 'js') ?>')">
                 <i class="fas fa-hand-holding-usd"></i> Lunasi (Rp <?= number_format($sisa_tagihan, 0, ',', '.') ?>)
             </button>
+            <?php if (session()->get('role') === 'admin' || $isShiftLeaderUser): ?>
+                <button class="btn btn-outline-warning w-100 mb-2" onclick="prosesLunasi(<?= $transaksi['id'] ?>, <?= $sisa_tagihan ?>, true, '<?= esc($transaksi['tanggal'], 'js') ?>')">
+                    <i class="fas fa-history"></i> Lunasi Backdate
+                </button>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -500,7 +525,7 @@
 
 
 
-    function bukaPaymentDetail(id, sisa) {
+    function bukaPaymentDetail(id, sisa, backdate = false, transaksiTanggal = null) {
 
         bukaPaymentModal({
             mode: 'existing',
@@ -508,6 +533,8 @@
             total: sisa,
             sisa: sisa,
             allowPartialNonCash: true,
+            backdate: backdate,
+            transaksiTanggal: transaksiTanggal,
 
             onSuccess: function(response) {
 
@@ -844,7 +871,7 @@
 
 
     // Tagihan detail tetap memakai endpoint pelunasan khusus.
-    function prosesLunasi(id, sisa) {
+    function prosesLunasi(id, sisa, backdate = false, transaksiTanggal = null) {
         bukaPaymentModal({
             mode: 'existing',
             transaksiId: id,
@@ -852,6 +879,8 @@
             sisa: sisa,
             existingFlow: 'tagihan-lunasi',
             allowDp: false,
+            backdate: backdate,
+            transaksiTanggal: transaksiTanggal,
             onSuccess: function(response) {
                 showToast(response.message || 'Pelunasan berhasil diproses.', 'success');
                 setTimeout(function() {
@@ -872,7 +901,8 @@
         existingPaymentUrl: '<?= base_url('/api/tambah-pembayaran') ?>',
         tagihanLunasiUrl: '<?= base_url('/tagihan/lunasi/:id') ?>',
         kasirListUrl: '<?= base_url('/api/kasir-list') ?>',
-        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>
+        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
+        isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
     };
 </script>
 <script src="<?= base_url('assets/js/payment.js') ?>"></script>

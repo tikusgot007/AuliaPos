@@ -3,6 +3,11 @@
 // Backend (TransaksiModel::ubahStatus) tetap sumber kebenaran validasi;
 // pengecekan di sini murni untuk tampilan.
 $isAdminUser = session()->get('role') === 'admin';
+
+// Tombol "Selesai" (workflow umum) juga tampil untuk Effective Shift
+// Leader saat ini -- dihitung SEKALI di sini (bukan per baris transaksi;
+// Leader saat ini sama untuk seluruh baris dalam satu render).
+$isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
 ?>
 <div class="card">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -96,15 +101,15 @@ $isAdminUser = session()->get('role') === 'admin';
                 </select>
             </div>
 
-            <!-- Filter Pelanggan -->
+            <!-- Filter Karyawan -->
             <div class="col-md-3">
-                <label class="form-label">Pelanggan</label>
-                <select class="form-control" id="filterPelanggan">
-                    <option value="">Semua Pelanggan</option>
-                    <?php if (!empty($pelanggan_list)): ?>
-                        <?php foreach ($pelanggan_list as $p): ?>
-                            <option value="<?= $p['id'] ?>" <?= ($pelanggan_filter ?? '') == $p['id'] ? 'selected' : '' ?>>
-                                <?= esc($p['nama']) ?>
+                <label class="form-label">Karyawan</label>
+                <select class="form-control" id="filterKaryawan">
+                    <option value="">Semua Karyawan</option>
+                    <?php if (!empty($daftar_kasir)): ?>
+                        <?php foreach ($daftar_kasir as $k): ?>
+                            <option value="<?= $k['id'] ?>" <?= ($kasir_id_filter ?? '') == $k['id'] ? 'selected' : '' ?>>
+                                <?= esc($k['inisial'] ?: ($k['nama'] ?? $k['username'])) ?>
                             </option>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -198,7 +203,7 @@ $isAdminUser = session()->get('role') === 'admin';
                                     <?= $tanggalDisplay ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? '-' ?></td>
-                                <td><?= $t['kasir_nama'] ?? '-' ?></td>
+                                <td><?= $t['kasir_inisial'] ?? $t['kasir_nama'] ?? '-' ?></td>
                                 <td class="text-end"><?= number_format($t['grand_total'], 0, ',', '.') ?></td>
                                 <td class="text-end"><?= number_format($totalDibayar, 0, ',', '.') ?></td>
                                 <td class="text-end <?= $sisa > 0 ? 'text-danger' : 'text-success' ?>">
@@ -237,7 +242,7 @@ $isAdminUser = session()->get('role') === 'admin';
                                             </button>
                                         <?php endif; ?>
 
-                                        <?php if ($t['status'] === 'proses' && $isAdminUser): ?>
+                                        <?php if ($t['status'] === 'proses' && ($isAdminUser || $isShiftLeaderUser)): ?>
                                             <button type="button" class="btn btn-sm btn-primary"
                                                 title="Tandai Selesai"
                                                 onclick="selesaikanTransaksi(<?= $t['id'] ?>, '<?= esc($t['status_pembayaran'], 'js') ?>')">
@@ -245,9 +250,10 @@ $isAdminUser = session()->get('role') === 'admin';
                                             </button>
                                         <?php endif; ?>
 
-                                        <?php if (in_array($t['status'], ['proses', 'selesai'], true)): ?>
+                                        <?php // Tahap 5.1: khusus admin/Shift Leader, baik 'proses' maupun 'selesai'. ?>
+                                        <?php if (in_array($t['status'], ['proses', 'selesai'], true) && ($isAdminUser || $isShiftLeaderUser)): ?>
                                             <button type="button" class="btn btn-sm btn-danger"
-                                                title="<?= $t['status'] === 'selesai' ? 'Batalkan Transaksi (khusus admin)' : 'Batalkan Transaksi' ?>"
+                                                title="Batalkan Transaksi"
                                                 onclick="ubahStatus(<?= $t['id'] ?>, 'batal')">
                                                 <i class="fas fa-times"></i>
                                             </button>
@@ -372,7 +378,8 @@ $isAdminUser = session()->get('role') === 'admin';
         existingPaymentUrl: '<?= base_url('/api/tambah-pembayaran') ?>',
         tagihanLunasiUrl: '<?= base_url('/tagihan/lunasi/:id') ?>',
         kasirListUrl: '<?= base_url('/api/kasir-list') ?>',
-        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>
+        isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
+        isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
     };
 </script>
 <script src="<?= base_url('assets/js/payment.js') ?>"></script>
@@ -518,8 +525,8 @@ $isAdminUser = session()->get('role') === 'admin';
             var statusTransaksi =
                 $('#filterStatusTransaksi').val();
 
-            var pelanggan =
-                $('#filterPelanggan').val();
+            var karyawan =
+                $('#filterKaryawan').val();
 
 
             var url =
@@ -603,16 +610,16 @@ $isAdminUser = session()->get('role') === 'admin';
 
             /*
             |--------------------------------------------------------------------------
-            | PELANGGAN
+            | KARYAWAN
             |--------------------------------------------------------------------------
             */
 
-            if (pelanggan) {
+            if (karyawan) {
 
                 params.push(
-                    'pelanggan=' +
+                    'kasir_id=' +
                     encodeURIComponent(
-                        pelanggan
+                        karyawan
                     )
                 );
             }

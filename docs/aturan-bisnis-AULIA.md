@@ -340,6 +340,180 @@ langsung tetap tunduk pada semua pemeriksaan di atas.
 
 ---
 
+## 4.3 Kapabilitas SELESAI untuk Effective Shift Leader (2026-09-13, Tahap 3)
+
+**Keputusan resmi:** workflow umum (Daftar/Detail Transaksi,
+`/api/ubah-status`) sekarang menerima **Admin ATAU Effective Shift
+Leader saat itu** — bukan admin-only lagi seperti Section 4.1. Ini
+mengisi tempat yang sudah diantisipasi Section 4.1 ("Role SPV belum
+dibuat; jika dibutuhkan nanti, ditambahkan sebagai perubahan
+terpisah") — Shift Leader mengisi peran itu, **tanpa** menjadi role
+permanen baru.
+
+**Shift Leader BUKAN `users.role`.** `users.role` tetap persis
+`enum('admin','kasir')`, tidak pernah bernilai `'shift_leader'`.
+Shift Leader adalah *effective authority* yang dihitung ON-DEMAND
+setiap request dari: `users.priority` (permanen, unik, lihat kolom
+baru di Section skema `users`) + jadwal aktual hari itu (tabel
+`jadwal`, Section 20) + jam shift (`JadwalModel::DEFINISI_SHIFT`,
+tidak diubah). Definisi lengkap konsep Priority/Shift Member/Shift
+Leader adalah cross-version business rule di
+`docs/aturan-bisnis-USER-SHIFT.md` (saat ini hidup di branch `v3.0`,
+belum di-porting ke `v2.x`) — dokumen ini **tidak mendefinisikan
+ulang** konsepnya, hanya mencatat titik integrasinya ke lifecycle
+transaksi. Satu klarifikasi penting: implementasi di v2.x memakai
+**satu Shift Leader global** untuk seluruh operasional (P/S/PM yang
+overlap masuk satu pool kandidat gabungan) — bukan satu Leader per
+kode shift.
+
+**Syarat kandidat Shift Leader** (`App\Services\EffectiveShiftLeaderService`):
+`users.role = 'kasir'` (Admin tidak pernah ikut kompetisi ini sama
+sekali), `users.is_active = 1`, `users.priority IS NOT NULL`, punya
+row `jadwal` pada tanggal itu dengan `shift != 'L'`, dan sedang berada
+dalam jendela jam kerja shift tersebut
+(`App\Services\EvaluasiJendelaKerjaShift`, dibaca dari
+`JadwalModel::DEFINISI_SHIFT`). Di antara kandidat, Priority tertinggi
+menang. Tidak ada Leader tersimpan di database, tidak ada cache, tidak
+ada fallback ke Leader sebelumnya/shift lain/Admin — kalau tidak ada
+kandidat yang sedang bekerja, hasilnya `null` dan tidak ada Shift
+Leader saat itu.
+
+**Yang TIDAK berubah:**
+
+- Syarat `lunas` (Section 4.1) — berlaku identik untuk admin, konteks
+  kasir POS (Section 4.2), maupun Shift Leader, tanpa kecuali.
+- Kapabilitas kasir POS (Section 4.2) — kasir pemilik transaksi tetap
+  menyelesaikan lewat `/api/kasir/selesaikan-transaksi` persis seperti
+  sebelumnya; jalur ini tidak disentuh oleh perubahan ini.
+- Kasir biasa yang **bukan** Shift Leader saat itu — tetap ditolak di
+  workflow umum, tidak berubah.
+- `JadwalModel::statusSaatIni()` — kontraknya (informational-only,
+  bukan authorization) tidak diubah; perhitungan jendela kerja untuk
+  Shift Leader memakai kalkulator baru yang independen.
+
+**Tabel siapa boleh menyelesaikan (perbarui dari Section 4.1):**
+
+| Role/status saat itu | Workflow umum — `/api/ubah-status` | Workflow Kasir/POS |
+|---|---|---|
+| admin | Ya, jika `lunas` | Ya, jika `lunas` |
+| Effective Shift Leader saat itu (tetap `role='kasir'`) | Ya, jika `lunas` | Ya, jika `lunas` **dan** transaksi miliknya sendiri (aturan POS tak berubah) |
+| kasir biasa (bukan Leader saat itu) | **Tidak** | Ya, jika `lunas` **dan** transaksi miliknya sendiri |
+
+Enforcement tetap di backend
+(`TransaksiModel::ubahStatus()` parameter `$isShiftLeader`, dihitung
+`Api::ubahStatus()` lewat `App\Services\Authority::isCurrentShiftLeader()`)
+— UI (tombol "Selesai" di Daftar/Detail) hanya lapis pertama, sama
+seperti prinsip Section 4.2.
+
+---
+
+## 4.4 Kapabilitas BATAL untuk Effective Shift Leader (2026-09-15, Tahap 5 &amp; 5.1)
+
+**Keputusan resmi (Tahap 5):** `SELESAI → BATAL` sebelumnya admin-only
+(aturan ini sebelum Tahap 5 hanya didokumentasikan lewat komentar kode
+di `TransaksiModel::ubahStatus()`, belum punya prosa di dokumen ini —
+diisi sekaligus di sini). Diperluas jadi **Admin ATAU Effective Shift
+Leader saat itu**, persis pola yang sama dengan Section 4.3 untuk
+SELESAI.
+
+**Keputusan resmi lanjutan (Tahap 5.1, hari yang sama):** `PROSES →
+BATAL` — yang tadinya terbuka untuk **semua role** yang login (tidak
+butuh admin/Shift Leader sama sekali) — **diperketat menyusul
+keputusan produk eksplisit**: "untuk yg bisa membatalkan, sekarang
+hanya admin dan shift leader saja, baik itu proses maupun selesai".
+Jadi sejak Tahap 5.1, **satu aturan tunggal** berlaku untuk kedua
+transisi (`PROSES → BATAL` maupun `SELESAI → BATAL`): hanya Admin atau
+Effective Shift Leader saat itu, kasir biasa tidak lagi bisa
+membatalkan transaksi apa pun (baik miliknya sendiri maupun orang
+lain) lewat workflow umum. Definisi Shift Leader, syarat kandidat, dan
+prinsip "tidak ada fallback/tidak disimpan/tidak di-cache" — semuanya
+identik dengan Section 4.3, tidak diulang di sini.
+
+`PROSES → MANGKRAK` **tetap murni admin-only** (TIDAK ikut diperluas
+ke Shift Leader) — kapabilitas terpisah dari `BATAL`, lihat
+`TransaksiModel::ubahStatus()`.
+
+`/transaksi/batal/(:num)` (`Transaksi::batal()`) — route/controller
+lama yang tidak dipakai di view manapun (dead code, dikonfirmasi lewat
+audit Tahap 5) — **tidak disentuh**, tidak ikut mendapat kapabilitas
+Shift Leader secara eksplisit (tapi karena memanggil
+`TransaksiModel::ubahStatus()` yang sama, gate barunya otomatis
+berlaku juga kalau jalur ini suatu saat dipakai lagi).
+
+**Tabel siapa boleh membatalkan transaksi (berlaku sama untuk PROSES
+maupun SELESAI, sejak Tahap 5.1):**
+
+| Role/status saat itu | Workflow umum — `/api/ubah-status`, `status='batal'` |
+|---|---|
+| admin | Ya |
+| Effective Shift Leader saat itu (tetap `role='kasir'`) | Ya |
+| kasir biasa (bukan Leader saat itu) | **Tidak** |
+
+Enforcement tetap di backend (`TransaksiModel::ubahStatus()` — cabang
+`selesai → batal` memeriksa `$isAdmin || $isShiftLeader`; cabang
+`proses → batal` sejak Tahap 5.1 memeriksa hal yang sama). **Tombol
+"Batalkan" di Daftar/Detail sejak Tahap 5.1 digate visibility-nya**
+(beda dari sebelumnya yang selalu tampil untuk semua role) — konsisten
+dengan tombol "Selesai": hanya tampil untuk admin/Shift Leader, di
+kedua status `proses` dan `selesai`.
+
+## 4.5 Kapabilitas Backdate Payment untuk Effective Shift Leader (2026-09-15, Tahap 5)
+
+**Keputusan resmi:** backdate pembayaran (Section P11 di bawah, Section
+19) sebelumnya admin-only murni (`bool $isAdmin` di
+`TransaksiModel::tambahPembayaran()`). Sekarang menerima **Admin ATAU
+Effective Shift Leader saat itu** — kapabilitas Shift Leader ini
+mencakup DUA hal sekaligus (satu paket, bukan dua keputusan terpisah):
+
+1. Mencatat pembayaran dengan `tanggal` backdate (berbeda >60 detik
+   dari waktu server — lihat P11 untuk definisi lengkap).
+2. Mengoverride `kasir_id` penerima pembayaran (siapa yang benar-benar
+   menangani uangnya) — di `Api::tambahPembayaran()` dan
+   `Tagihan::lunasi()`.
+
+**Validasi yang TETAP berlaku tanpa kecuali untuk Shift Leader** (sama
+seperti syarat `lunas` di Section 4.3 — tidak ada yang dilonggarkan):
+tanggal tidak boleh di masa depan, tanggal tidak boleh sebelum tanggal
+transaksi (granularitas hari). Definisi Shift Leader tetap identik
+Section 4.3.
+
+**Dua titik pemanggilan `tambahPembayaran()` yang terpengaruh** (kedua
+duanya diperbarui, bukan cuma satu — endpoint umum dan endpoint
+pelunasan tagihan berbagi chokepoint yang sama):
+- `Api::tambahPembayaran()` (`POST /api/tambah-pembayaran`, dipakai
+  Daftar/Detail Transaksi).
+- `Tagihan::lunasi()` (`POST /tagihan/lunasi/:id`, dipakai halaman
+  Tagihan Belum Lunas).
+
+**Yang TIDAK berubah:** pembayaran awal transaksi BARU di
+`kasir/index.php` (`Kasir::tambahPembayaran()`) tetap di luar scope
+backdate sama sekali (P11: `transaksi.tanggal` transaksi baru selalu
+"sekarang", tidak ada konsep backdate di sana) — Shift Leader tidak
+mendapat kapabilitas apa pun yang baru di jalur POS ini.
+
+Enforcement tetap di backend (`TransaksiModel::tambahPembayaran()`
+parameter `$isShiftLeader` baru, dihitung di kedua controller di atas
+lewat `App\Services\Authority::isCurrentShiftLeader()`) — UI
+(`public/assets/js/payment.js` `backdateAllowed()`) hanya lapis
+pertama, sama prinsipnya dengan Section 4.2/4.3.
+
+**Perubahan UI (2026-09-16):** setelah insiden nyata (Shift Leader lupa
+mencentang checkbox backdate, pembayaran akhirnya tercatat dengan
+tanggal hari ini tanpa peringatan), mekanisme UI diganti dari checkbox
+opsional di dalam modal Tunai/DP/Konfirmasi menjadi **tombol terpisah**
+("Bayar Backdate" / "Lunasi Backdate") di halaman detail transaksi
+(`transaksi/detail.php`), hanya untuk admin/Shift Leader. Tombol ini
+membuka modal pembayaran yang sama, tapi langsung menampilkan field
+tanggal (wajib) & kasir penerima di modal utama SEBELUM metode
+dipilih — bukan lagi tersembunyi di balik checkbox yang bisa
+terlewat. Tombol pembayaran normal ("Bayar Sekarang"/"Lunasi") tidak
+menampilkan field ini sama sekali, behavior-nya identik sebelum
+perubahan ini. Aturan bisnis/backend di atas (validasi tanggal,
+otoritas Admin/Shift Leader) sama sekali tidak berubah — ini murni
+perbaikan UX di titik keputusan "apakah ini backdate".
+
+---
+
 # 5. Edit transaksi
 
 Edit normal hanya berlaku untuk:
@@ -900,12 +1074,16 @@ File: `transaksi/index.php`, `Transaksi.php` (controller).
 
 ## P11 — Fitur Pelunasan Terlambat / Backdate (2026-09-05)
 
-Fitur besar: Admin bisa mencatat pembayaran dengan **tanggal berbeda
+Fitur besar: Admin (dan sejak Tahap 5, Effective Shift Leader saat itu
+— lihat Section 4.5) bisa mencatat pembayaran dengan **tanggal berbeda
 dari sekarang** (uang sudah diterima sebelumnya, baru dicatat
-belakangan) dan memilih **kasir penerima** yang sebenarnya menangani,
-tanpa membuat modal/flow pembayaran baru — cukup checkbox opsional
-"Pembayaran diterima sebelumnya" di modal Tunai/DP/Konfirmasi
-(QRIS/Transfer) yang sudah ada.
+belakangan) dan memilih **kasir penerima** yang sebenarnya menangani.
+Awalnya (2026-09-05) diimplementasikan sebagai checkbox opsional
+"Pembayaran diterima sebelumnya" di dalam modal Tunai/DP/Konfirmasi
+yang sudah ada; sejak 2026-09-16 diganti tombol "Bayar Backdate"/
+"Lunasi Backdate" terpisah di halaman detail transaksi (lihat catatan
+"Perubahan UI" di Section 4.5) — field tanggal/kasir sekarang di modal
+utama, bukan lagi di 3 modal metode.
 
 **Arti field pembayaran (ditegaskan, tidak diubah):**
 - `tanggal` = kapan uang **benar-benar diterima**.
@@ -947,7 +1125,8 @@ retroaktif bisa berbeda dari hasil opname saat itu. Tidak dibuatkan
 mekanisme koreksi otomatis (di luar scope — tidak boleh bikin
 cash_opname/cash_expense baru).
 
-**Endpoint baru:** `GET /api/kasir-list` (admin-only) untuk dropdown
+**Endpoint baru:** `GET /api/kasir-list` (admin atau Effective Shift
+Leader saat itu, sejak Tahap 5 — lihat Section 4.5) untuk dropdown
 "Kasir Penerima".
 
 **Histori pembayaran** (`transaksi/detail.php`) sekarang menampilkan

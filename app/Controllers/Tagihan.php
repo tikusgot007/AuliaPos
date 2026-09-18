@@ -46,7 +46,7 @@ class Tagihan extends BaseController
         // yang nyata (whitelist) sebelum dipakai di WHERE -- jangan
         // percaya ID mentah dari luar.
         $userModel   = new UserModel();
-        $daftarKasir = $userModel->select('id, nama, username')->orderBy('nama', 'ASC')->findAll();
+        $daftarKasir = $userModel->select('id, nama, username, inisial')->orderBy('nama', 'ASC')->findAll();
         // array_column mengembalikan id APA ADANYA dari driver DB (bisa
         // berupa string), jadi di-cast ke int semua supaya perbandingan
         // strict di bawah tidak diam-diam gagal gara-gara "10" !== 10.
@@ -56,7 +56,7 @@ class Tagihan extends BaseController
         $kasirIdFilter = in_array((int) $kasirIdFilter, $kasirIdValid, true) ? (int) $kasirIdFilter : null;
 
         $query = $transaksiModel
-            ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama')
+            ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama, users.inisial as kasir_inisial')
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
             ->join('users', 'users.id = transaksi.kasir_id', 'left');
 
@@ -159,7 +159,7 @@ class Tagihan extends BaseController
         $pelangganModel = new PelangganModel();
 
         // Ambil data transaksi
-        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama')
+        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama, users.inisial as kasir_inisial')
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             ->find($id);
 
@@ -169,7 +169,7 @@ class Tagihan extends BaseController
 
         $detailItems = $detailModel->where('transaksi_id', $id)->findAll();
         $pembayaran = $pembayaranModel
-            ->select('pembayaran.*, users.nama as kasir_nama, users.username as kasir_username')
+            ->select('pembayaran.*, users.nama as kasir_nama, users.username as kasir_username, users.inisial as kasir_inisial')
             ->join('users', 'users.id = pembayaran.kasir_id', 'left')
             ->where('pembayaran.transaksi_id', $id)
             ->where('pembayaran.status', 'aktif')
@@ -241,6 +241,11 @@ class Tagihan extends BaseController
         $isAdmin = session()->get('role') === 'admin';
         $kasirIdSesi = session()->get('id_user') ?? 1;
 
+        // Tahap 5: Shift Leader boleh backdate persis seperti admin,
+        // sama pola dengan Api::tambahPembayaran() (lihat
+        // App\Services\Authority).
+        $isShiftLeader = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
+
         // Hitung sisa tagihan
         $pembayaranModel = new PembayaranModel();
         $totalDibayar = $pembayaranModel->getTotalDibayar($id);
@@ -259,18 +264,18 @@ class Tagihan extends BaseController
 
         /*
          * Backdate / pembayaran diterima sebelumnya (2026-09-05).
-         * Sama seperti Api::tambahPembayaran() — hanya admin, dan
-         * divalidasi ulang secara otoritatif di
-         * TransaksiModel::tambahPembayaran().
+         * Sama seperti Api::tambahPembayaran() — admin atau Shift
+         * Leader saat ini (Tahap 5), dan divalidasi ulang secara
+         * otoritatif di TransaksiModel::tambahPembayaran().
          */
         $tanggalPembayaran = date('Y-m-d H:i:s');
         $kasirId = $kasirIdSesi;
 
-        if ($isAdmin && !empty($request->tanggal)) {
+        if (($isAdmin || $isShiftLeader) && !empty($request->tanggal)) {
             $tanggalPembayaran = (string) $request->tanggal;
         }
 
-        if ($isAdmin && !empty($request->kasir_id)) {
+        if (($isAdmin || $isShiftLeader) && !empty($request->kasir_id)) {
             $kasirId = (int) $request->kasir_id;
         }
 
@@ -286,7 +291,7 @@ class Tagihan extends BaseController
         ];
 
         try {
-            $transaksiModel->tambahPembayaran($id, $dataPembayaran, $isAdmin);
+            $transaksiModel->tambahPembayaran($id, $dataPembayaran, $isAdmin, $isShiftLeader);
         } catch (\Throwable $e) {
             log_message('error', 'Tagihan::lunasi: ' . $e->getMessage());
 

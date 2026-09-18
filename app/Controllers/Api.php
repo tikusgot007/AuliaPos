@@ -477,12 +477,20 @@ class Api extends BaseController
         $isAdmin = session()->get('role') === 'admin';
         $kasirIdSesi = session()->get('id_user') ?? 1;
 
+        // Tahap 5: Shift Leader boleh backdate persis seperti admin
+        // (lihat App\Services\Authority) -- endpoint ini hanya dipakai
+        // untuk pembayaran transaksi EXISTING (bukan pembayaran awal
+        // transaksi baru di kasir/index.php), jadi tidak perlu dibatasi
+        // per-status seperti di ubahStatus().
+        $isShiftLeader = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
+
         /*
          * Backdate / pembayaran diterima sebelumnya (2026-09-05).
          * Field 'tanggal' dan 'kasir_id' opsional dari client, HANYA
-         * dipakai jika admin. Untuk request normal (tidak backdate,
-         * atau dikirim non-admin), behavior lama tetap: tanggal =
-         * sekarang, kasir_id = kasir yang sedang login.
+         * dipakai jika admin ATAU Shift Leader saat ini (Tahap 5).
+         * Untuk request normal (tidak backdate, atau dikirim kasir
+         * biasa), behavior lama tetap: tanggal = sekarang, kasir_id =
+         * kasir yang sedang login.
          *
          * Validasi rentang tanggal & role dilakukan ulang secara
          * otoritatif di TransaksiModel::tambahPembayaran() — nilai
@@ -491,11 +499,11 @@ class Api extends BaseController
         $tanggalPembayaran = date('Y-m-d H:i:s');
         $kasirId = $kasirIdSesi;
 
-        if ($isAdmin && !empty($request->tanggal)) {
+        if (($isAdmin || $isShiftLeader) && !empty($request->tanggal)) {
             $tanggalPembayaran = (string) $request->tanggal;
         }
 
-        if ($isAdmin && !empty($request->kasir_id)) {
+        if (($isAdmin || $isShiftLeader) && !empty($request->kasir_id)) {
             $kasirId = (int) $request->kasir_id;
         }
 
@@ -511,7 +519,7 @@ class Api extends BaseController
         ];
 
         try {
-            $transaksiModel->tambahPembayaran($transaksiId, $dataPembayaran, $isAdmin);
+            $transaksiModel->tambahPembayaran($transaksiId, $dataPembayaran, $isAdmin, $isShiftLeader);
         } catch (\Throwable $e) {
             return $this->response->setJSON([
                 'status' => 'error',
@@ -694,7 +702,18 @@ class Api extends BaseController
         try {
             $isAdmin = session()->get('role') === 'admin';
 
-            $transaksiModel->ubahStatus($id, $status, $isAdmin);
+            // Shift Leader: kapabilitas tambahan KHUSUS untuk menyelesaikan
+            // ATAU membatalkan transaksi SELESAI di workflow umum ini
+            // (keduanya sebelumnya admin-only, Tahap 3 & 5) -- lihat
+            // App\Services\Authority. Dihitung hanya kalau relevan
+            // (status 'selesai'/'batal'), supaya transisi lain (mangkrak,
+            // reaktivasi) tidak menanggung query tambahan yang tidak
+            // dipakai model untuknya.
+            $isShiftLeader = in_array($status, ['selesai', 'batal'], true)
+                ? \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'))
+                : false;
+
+            $transaksiModel->ubahStatus($id, $status, $isAdmin, false, $isShiftLeader);
 
             return $this->response->setJSON([
                 'status'  => 'success',
@@ -1076,10 +1095,16 @@ class Api extends BaseController
      */
     public function kasirList()
     {
-        if (session()->get('role') !== 'admin') {
+        // Dipakai dropdown "Kasir Penerima" saat backdate pembayaran --
+        // Shift Leader boleh backdate persis seperti admin (Tahap 5),
+        // jadi endpoint ini juga harus terbuka untuknya, bukan cuma admin.
+        $isAdmin = session()->get('role') === 'admin';
+        $isShiftLeader = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
+
+        if (!$isAdmin && !$isShiftLeader) {
             return $this->response->setJSON([
                 'status' => 'error',
-                'message' => 'Hanya admin yang dapat mengakses daftar kasir.'
+                'message' => 'Hanya admin atau Shift Leader yang dapat mengakses daftar kasir.'
             ]);
         }
 

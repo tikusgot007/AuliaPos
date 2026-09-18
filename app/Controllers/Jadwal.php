@@ -937,4 +937,34 @@ class Jadwal extends BaseController
             'toast'         => $hasil['toast'],
         ]);
     }
+
+    /**
+     * Info Shift Leader saat ini -- MURNI INFORMASI, terlihat untuk
+     * SEMUA role yang login (lihat route /roster/shift-leader-saat-ini,
+     * sengaja tidak admin-gated, sama seperti statusJadwalSaya() di
+     * atas). TIDAK dipakai untuk otorisasi apa pun di sini -- itu
+     * tetap satu-satunya lewat App\Services\Authority::isCurrentShiftLeader().
+     *
+     * Dibungkus try/catch dengan sengaja: endpoint ringan ini dipoll
+     * dari SEMUA halaman lewat layout global, jadi kalau terjadi error
+     * DB (mis. migration users.priority belum dijalankan di DB yang
+     * dipakai), tetap balas 'success' dengan leader=null (sama seperti
+     * "memang tidak ada Leader saat ini") -- bukan error 500 yang bikin
+     * console browser penuh error di setiap halaman. Error sesungguhnya
+     * tetap di-log, tidak ditelan diam-diam.
+     */
+    public function shiftLeaderSaatIni()
+    {
+        $leader = null;
+        try {
+            $leader = (new \App\Services\EffectiveShiftLeaderService())->shiftLeaderSaatIni();
+        } catch (\Throwable $e) {
+            log_message('error', 'Gagal ambil Shift Leader saat ini (endpoint): ' . $e->getMessage());
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'leader' => $leader, // ['id','username','nama','inisial','priority'] atau null
+        ]);
+    }
 }

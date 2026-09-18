@@ -8,13 +8,13 @@ use App\Models\PembayaranModel;
 use App\Models\PelangganModel;
 use App\Models\ProdukModel;
 use App\Models\KategoriModel;
+use App\Models\UserModel;
 
 class Transaksi extends BaseController
 {
     public function index()
     {
         $model = new TransaksiModel();
-        $pelangganModel = new PelangganModel();
 
         /*
     |--------------------------------------------------------------------------
@@ -88,12 +88,29 @@ class Transaksi extends BaseController
 
         /*
     |--------------------------------------------------------------------------
-    | FILTER PELANGGAN
+    | FILTER KARYAWAN (KASIR)
     |--------------------------------------------------------------------------
+    |
+    | Dropdown, bukan text search -- daftar kasir sedikit. kasir_id dari
+    | query string DIVALIDASI terhadap daftar user yang nyata (whitelist)
+    | sebelum dipakai di WHERE -- jangan percaya ID mentah dari luar
+    | (sama pola dengan Tagihan::index()).
+    |
     */
 
-        $pelanggan_filter =
-            $this->request->getGet('pelanggan') ?? '';
+        $userModel = new UserModel();
+        $daftar_kasir =
+            $userModel
+            ->select('id, nama, username, inisial')
+            ->orderBy('nama', 'ASC')
+            ->findAll();
+
+        $kasirIdValid = array_map('intval', array_column($daftar_kasir, 'id'));
+
+        $kasir_id_filter = $this->request->getGet('kasir_id');
+        $kasir_id_filter = in_array((int) $kasir_id_filter, $kasirIdValid, true)
+            ? (int) $kasir_id_filter
+            : null;
 
 
         /*
@@ -139,6 +156,7 @@ class Transaksi extends BaseController
              transaksi.status,
              transaksi.sumber,
              users.username AS kasir_nama,
+             users.inisial AS kasir_inisial,
              pelanggan.nama AS pelanggan_nama'
             )
             ->join(
@@ -198,15 +216,15 @@ class Transaksi extends BaseController
 
         /*
     |--------------------------------------------------------------------------
-    | FILTER PELANGGAN
+    | FILTER KARYAWAN (KASIR)
     |--------------------------------------------------------------------------
     */
 
-        if ($pelanggan_filter !== '') {
+        if ($kasir_id_filter !== null) {
 
             $builder->where(
-                'transaksi.pelanggan_id',
-                $pelanggan_filter
+                'transaksi.kasir_id',
+                $kasir_id_filter
             );
         }
 
@@ -280,21 +298,6 @@ class Transaksi extends BaseController
 
         /*
     |--------------------------------------------------------------------------
-    | DAFTAR PELANGGAN
-    |--------------------------------------------------------------------------
-    */
-
-        $pelanggan_list =
-            $pelangganModel
-            ->orderBy(
-                'nama',
-                'ASC'
-            )
-            ->findAll();
-
-
-        /*
-    |--------------------------------------------------------------------------
     | DATA UNTUK VIEW
     |--------------------------------------------------------------------------
     */
@@ -332,10 +335,10 @@ class Transaksi extends BaseController
             $status_transaksi,
 
             /*
-         * Filter pelanggan
+         * Filter karyawan (kasir)
          */
-            'pelanggan_filter' =>
-            $pelanggan_filter,
+            'kasir_id_filter' =>
+            $kasir_id_filter,
 
             /*
          * Keyword
@@ -344,10 +347,10 @@ class Transaksi extends BaseController
             $keyword,
 
             /*
-         * Daftar pelanggan
+         * Daftar karyawan (kasir)
          */
-            'pelanggan_list' =>
-            $pelanggan_list,
+            'daftar_kasir' =>
+            $daftar_kasir,
 
             /*
          * 3 pilihan kelompok status pembayaran (2026-09-09).
@@ -961,7 +964,7 @@ class Transaksi extends BaseController
         $pelangganModel = new PelangganModel();
 
         // Ambil data transaksi
-        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama')
+        $transaksi = $transaksiModel->select('transaksi.*, users.username as kasir_nama, users.inisial as kasir_inisial')
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             ->find($id);
 
@@ -1020,7 +1023,7 @@ class Transaksi extends BaseController
 
         // Ambil pembayaran
         $pembayaran = $pembayaranModel
-            ->select('pembayaran.*, users.nama as kasir_nama, users.username as kasir_username')
+            ->select('pembayaran.*, users.nama as kasir_nama, users.username as kasir_username, users.inisial as kasir_inisial')
             ->join('users', 'users.id = pembayaran.kasir_id', 'left')
             ->where('pembayaran.transaksi_id', $id)
             ->where('pembayaran.status', 'aktif')

@@ -28,7 +28,7 @@
                     <option value="">Semua Kasir</option>
                     <?php foreach ($daftar_kasir as $k): ?>
                         <option value="<?= $k['id'] ?>" <?= $kasir_id_filter === (int) $k['id'] ? 'selected' : '' ?>>
-                            <?= esc($k['nama'] ?? $k['username']) ?>
+                            <?= esc($k['inisial'] ?: ($k['nama'] ?? $k['username'])) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -124,7 +124,7 @@
                                     <?php endif; ?>
                                 </td>
                                 <td><?= $t['pelanggan_nama'] ?? $t['nama_pelanggan'] ?? '-' ?></td>
-                                <td><?= $t['kasir_nama'] ?? $t['nama_kasir'] ?? '-' ?></td>
+                                <td><?= $t['kasir_inisial'] ?? $t['kasir_nama'] ?? $t['nama_kasir'] ?? '-' ?></td>
                                 <td class="text-end"><?= number_format($grandTotal, 0, ',', '.') ?></td>
                                 <td class="text-end"><?= number_format($totalDibayar, 0, ',', '.') ?></td>
                                 <td class="text-end <?= $sisa > 0 ? 'text-danger' : 'text-success' ?>">
@@ -169,6 +169,7 @@
         <?= $this->section('scripts') ?>
 
         <!-- Konfigurasi payment modal untuk halaman tagihan -->
+        <?php $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user')); ?>
         <script>
             // Override konfigurasi untuk halaman tagihan
             window.paymentModalConfig = {
@@ -177,7 +178,8 @@
                 existingPaymentUrl: '<?= base_url('/tagihan/lunasi/:id') ?>', // 🔥 arahkan ke endpoint tagihan
                 tagihanLunasiUrl: '<?= base_url('/tagihan/lunasi/:id') ?>', // opsional, tidak dipakai
                 kasirListUrl: '<?= base_url('/api/kasir-list') ?>',
-                isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>
+                isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
+                isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
             };
         </script>
         <script src="<?= base_url('assets/js/payment.js') ?>"></script>

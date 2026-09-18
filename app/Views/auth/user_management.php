@@ -7,7 +7,7 @@
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped table-bordered">
+            <table class="table table-striped table-bordered" id="tableUserManagement">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -15,6 +15,7 @@
                         <th>Username</th>
                         <th>Nama</th>
                         <th>Divisi</th>
+                        <th>Priority</th>
                         <th>Role</th>
                         <th>Status</th>
                         <th>Dibuat</th>
@@ -40,6 +41,7 @@
                                 <td><strong><?= esc($u['username']) ?></strong></td>
                                 <td><?= esc($u['nama'] ?? '-') ?></td>
                                 <td><?= esc($u['divisi'] ?? '-') ?></td>
+                                <td><?= $u['priority'] !== null ? (int) $u['priority'] : '<span class="text-muted">-</span>' ?></td>
                                 <td>
                                     <span class="badge <?= $u['role'] == 'admin' ? 'bg-danger' : 'bg-primary' ?>">
                                         <?= strtoupper($u['role']) ?>
@@ -66,7 +68,7 @@
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="9" class="text-center">Belum ada user.</td>
+                            <td colspan="10" class="text-center">Belum ada user.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -74,3 +76,31 @@
         </div>
     </div>
 </div>
+
+<?= $this->section('scripts') ?>
+<script>
+    $(document).ready(function() {
+        $('#tableUserManagement').DataTable({
+            responsive: true,
+            pageLength: 25,
+            columnDefs: [
+                { orderable: false, targets: [0, 1, 9] }
+            ],
+            language: {
+                search: "Cari:",
+                lengthMenu: "Tampilkan _MENU_ data per halaman",
+                zeroRecords: "Data tidak ditemukan",
+                info: "Menampilkan _START_ - _END_ dari _TOTAL_ data",
+                infoEmpty: "Tidak ada data",
+                infoFiltered: "(difilter dari _MAX_ total data)",
+                paginate: {
+                    first: "Pertama",
+                    last: "Terakhir",
+                    next: "→",
+                    previous: "←"
+                }
+            }
+        });
+    });
+</script>
+<?= $this->endSection() ?>
