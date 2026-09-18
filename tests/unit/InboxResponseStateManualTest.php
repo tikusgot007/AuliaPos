@@ -89,6 +89,26 @@ namespace {
     check('Skenario 3b: snoozed_until direset ke NULL', null, $conv3b['snoozed_until'], $pass, $fail);
     check('Skenario 3b: response_state balik perlu_dibalas', 'perlu_dibalas', $result3b[0]['response_state'], $pass, $fail);
 
+    // ---------------------------------------------------------------
+    // Skenario 4: kasir balas via kirimMedia() (gambar/dokumen, bukan
+    // teks) -- conversationUpdate hasil kirimMedia() menulis
+    // last_message_direction=outgoing DAN last_seen_by_assignee_at=$now
+    // (sama seperti kirimKeConversation()). Regression check untuk bug
+    // yang sebelumnya lolos: kirimMedia() punya $conversationUpdate
+    // sendiri yang lupa menyertakan last_seen_by_assignee_at, sehingga
+    // conversation tetap perlu_dibalas walau customer sudah dibalas.
+    // ---------------------------------------------------------------
+    $now4 = nowJakarta();
+    $conv4 = [
+        'status' => 'open',
+        'last_message_direction' => 'outgoing', // hasil kirimMedia()
+        'last_message_at' => $now4,
+        'last_seen_by_assignee_at' => $now4, // hasil kirimMedia() (fix)
+        'snoozed_until' => null,
+    ];
+    $result4 = $method->invoke($inbox, [$conv4]);
+    check('Skenario 4: balas via kirimMedia', 'menunggu_customer', $result4[0]['response_state'], $pass, $fail);
+
     echo "\n== $pass PASS, $fail FAIL ==\n";
     exit($fail > 0 ? 1 : 0);
 }
