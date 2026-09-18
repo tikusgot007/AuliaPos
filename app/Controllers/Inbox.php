@@ -412,7 +412,10 @@ class Inbox extends BaseController
             } elseif ($c['last_message_direction'] === 'incoming'
                 && (empty($c['last_seen_by_assignee_at']) || $c['last_seen_by_assignee_at'] < $c['last_message_at'])) {
                 $c['response_state'] = 'perlu_dibalas';
-            } elseif ($c['last_message_direction'] === 'outgoing') {
+            } elseif ($c['last_message_direction'] === 'outgoing' || $c['last_message_direction'] === 'incoming') {
+                // 'incoming' sampai di sini artinya sudah ditandai dibaca
+                // (last_seen_by_assignee_at >= last_message_at) tanpa
+                // perlu membalas -- tetap keluar dari 'perlu_dibalas'.
                 $c['response_state'] = 'menunggu_customer';
             } else {
                 // Fallback: conversation baru tanpa last_message_direction
