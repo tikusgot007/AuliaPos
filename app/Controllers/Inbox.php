@@ -34,7 +34,7 @@ class Inbox extends BaseController
     public function index()
     {
         $conversationModel = new ConversationModel();
-        $conversations = $this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(100));
+        $conversations = $this->attachResponseState($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(100)));
 
         $gatewayStatusModel = new GatewayStatusModel();
         $gatewayStatus = $this->buildGatewayStatusPayload($gatewayStatusModel);
@@ -61,7 +61,7 @@ class Inbox extends BaseController
     public function apiConversations()
     {
         $conversationModel = new ConversationModel();
-        $conversations = $this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(100));
+        $conversations = $this->attachResponseState($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(100)));
 
         return $this->response->setJSON([
             'status'        => 'success',
@@ -96,9 +96,31 @@ class Inbox extends BaseController
 
         return $this->response->setJSON([
             'status'       => 'success',
-            'conversation' => $this->attachAssignedNames([$conversation])[0],
+            'conversation' => $this->attachResponseState($this->attachAssignedNames([$conversation]))[0],
             'messages'     => $messages,
         ]);
+    }
+
+    /**
+     * GET /inbox/api/perlu-dibalas-count
+     *
+     * Hitung ringan jumlah conversation 'perlu_dibalas', dipakai badge
+     * sidebar lintas halaman (bukan cuma /inbox). Reuse
+     * attachResponseState() supaya tidak ada logic kedua (WHERE SQL
+     * terpisah) yang bisa drift dari yang dipakai index()/apiConversations().
+     */
+    public function apiPerluDibalasCount()
+    {
+        $conversationModel = new ConversationModel();
+        $conversations = $conversationModel
+            ->select('status, last_message_direction, last_message_at, last_seen_by_assignee_at, snoozed_until')
+            ->where('status', 'open')
+            ->findAll(500);
+
+        $conversations = $this->attachResponseState($conversations);
+        $count = count(array_filter($conversations, fn ($c) => $c['response_state'] === 'perlu_dibalas'));
+
+        return $this->response->setJSON(['status' => 'success', 'count' => $count]);
     }
 
     /**
@@ -364,6 +386,41 @@ class Inbox extends BaseController
             $conversation['assigned_to_name'] = $conversation['assigned_to']
                 ? ($namesByUserId[$conversation['assigned_to']] ?? ('User #' . $conversation['assigned_to']))
                 : null;
+        }
+
+        return $conversations;
+    }
+
+    /**
+     * Hitung Response State per conversation -- COMPUTED, tidak pernah
+     * disimpan sebagai kolom fisik (lihat review Section 5: kalau jadi
+     * kolom yang ditulis manual di banyak endpoint, risiko "kebalik"/lupa
+     * update jauh lebih tinggi). Satu-satunya tempat logic ini boleh ada.
+     *
+     * @return array Conversation dengan tambahan key 'response_state':
+     *   'selesai' | 'follow_up' | 'perlu_dibalas' | 'menunggu_customer'
+     */
+    private function attachResponseState(array $conversations): array
+    {
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        foreach ($conversations as &$c) {
+            if ($c['status'] === 'closed') {
+                $c['response_state'] = 'selesai';
+            } elseif (!empty($c['snoozed_until']) && $c['snoozed_until'] > $now) {
+                $c['response_state'] = 'follow_up';
+            } elseif ($c['last_message_direction'] === 'incoming'
+                && (empty($c['last_seen_by_assignee_at']) || $c['last_seen_by_assignee_at'] < $c['last_message_at'])) {
+                $c['response_state'] = 'perlu_dibalas';
+            } elseif ($c['last_message_direction'] === 'outgoing') {
+                $c['response_state'] = 'menunggu_customer';
+            } else {
+                // Fallback: conversation baru tanpa last_message_direction
+                // sama sekali seharusnya tidak pernah kena baris ini di
+                // praktiknya (selalu ada minimal 1 pesan saat conversation
+                // dibuat) -- tetap diberi nilai aman.
+                $c['response_state'] = 'perlu_dibalas';
+            }
         }
 
         return $conversations;
@@ -917,6 +974,67 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/percakapan/(:num)/tandai-dibaca
+     *
+     * Tandai conversation sudah dilihat oleh yang menangani -- dipakai
+     * tombol "Tandai Dibaca" di header thread, supaya response_state
+     * tidak lagi 'perlu_dibalas' walau belum ada balasan outgoing baru.
+     */
+    public function tandaiDibaca($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Conversation tidak ditemukan.']);
+        }
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => $ownershipError]);
+        }
+
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+        $conversationModel->update($conversationId, ['last_seen_by_assignee_at' => $now]);
+
+        return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'conversation_id' => $conversationId]);
+    }
+
+    /**
+     * POST /inbox/percakapan/(:num)/snooze
+     *
+     * Follow-up sementara: sembunyikan conversation dari 'perlu_dibalas'
+     * sampai waktu tertentu. Body: { "menit": 120 } (0/kosong = batalkan
+     * snooze). Otomatis di-reset ke null saat ada incoming baru masuk
+     * (lihat InboxGatewayApi::messages()).
+     */
+    public function snoozePercakapan($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Conversation tidak ditemukan.']);
+        }
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => $ownershipError]);
+        }
+
+        $menit = (int) ($this->request->getJSON(true)['menit'] ?? 0);
+        $snoozedUntil = $menit > 0
+            ? (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->modify("+{$menit} minutes")->format('Y-m-d H:i:s')
+            : null;
+
+        $conversationModel->update($conversationId, ['snoozed_until' => $snoozedUntil]);
+
+        return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'conversation_id' => $conversationId]);
+    }
+
+    /**
      * POST /inbox/percakapan/(:num)/tutup
      *
      * Tahap 1 lifecycle status conversation (docs/aturan-bisnis-CHAT.md
@@ -1247,9 +1365,10 @@ class Inbox extends BaseController
         $newMessageId = $messageModel->getInsertID();
 
         $conversationUpdate = [
-            'last_message_at'        => $now,
-            'last_message_direction' => 'outgoing',
-            'last_replied_by'        => $userId,
+            'last_message_at'          => $now,
+            'last_message_direction'   => 'outgoing',
+            'last_replied_by'          => $userId,
+            'last_seen_by_assignee_at' => $now,
         ];
         // Auto-assign ke pengirim pertama kalau belum ada yang menangani
         // conversation ini -- masuk akal untuk kasir yang membalas
