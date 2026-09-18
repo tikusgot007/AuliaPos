@@ -101,15 +101,15 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                 </select>
             </div>
 
-            <!-- Filter Pelanggan -->
+            <!-- Filter Karyawan -->
             <div class="col-md-3">
-                <label class="form-label">Pelanggan</label>
-                <select class="form-control" id="filterPelanggan">
-                    <option value="">Semua Pelanggan</option>
-                    <?php if (!empty($pelanggan_list)): ?>
-                        <?php foreach ($pelanggan_list as $p): ?>
-                            <option value="<?= $p['id'] ?>" <?= ($pelanggan_filter ?? '') == $p['id'] ? 'selected' : '' ?>>
-                                <?= esc($p['nama']) ?>
+                <label class="form-label">Karyawan</label>
+                <select class="form-control" id="filterKaryawan">
+                    <option value="">Semua Karyawan</option>
+                    <?php if (!empty($daftar_kasir)): ?>
+                        <?php foreach ($daftar_kasir as $k): ?>
+                            <option value="<?= $k['id'] ?>" <?= ($kasir_id_filter ?? '') == $k['id'] ? 'selected' : '' ?>>
+                                <?= esc($k['inisial'] ?: ($k['nama'] ?? $k['username'])) ?>
                             </option>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -525,8 +525,8 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
             var statusTransaksi =
                 $('#filterStatusTransaksi').val();
 
-            var pelanggan =
-                $('#filterPelanggan').val();
+            var karyawan =
+                $('#filterKaryawan').val();
 
 
             var url =
@@ -610,16 +610,16 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
 
             /*
             |--------------------------------------------------------------------------
-            | PELANGGAN
+            | KARYAWAN
             |--------------------------------------------------------------------------
             */
 
-            if (pelanggan) {
+            if (karyawan) {
 
                 params.push(
-                    'pelanggan=' +
+                    'kasir_id=' +
                     encodeURIComponent(
-                        pelanggan
+                        karyawan
                     )
                 );
             }
