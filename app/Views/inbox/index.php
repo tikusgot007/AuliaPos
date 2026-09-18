@@ -79,6 +79,33 @@
         display: flex;
         flex-direction: column;
         min-width: 0;
+        position: relative; /* anchor untuk overlay drag-and-drop */
+    }
+
+    .inbox-drop-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        align-items: center;
+        justify-content: center;
+        background: rgba(37, 211, 102, 0.15);
+        border: 3px dashed #25d366;
+        border-radius: 6px;
+        pointer-events: none; /* drop tetap ditangkap panel, bukan overlay */
+    }
+
+    .inbox-drop-overlay.active {
+        display: flex;
+    }
+
+    .inbox-drop-overlay-text {
+        background: #fff;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        color: #075e54;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     }
 
     .inbox-thread-header {
@@ -249,7 +276,11 @@
             <!-- ============================================ -->
             <!-- PANEL KANAN: RIWAYAT PESAN + FORM KIRIM        -->
             <!-- ============================================ -->
-            <div class="inbox-thread-panel">
+            <div class="inbox-thread-panel" id="inboxThreadPanel">
+                <div class="inbox-drop-overlay" id="inboxDropOverlay">
+                    <span class="inbox-drop-overlay-text"><i class="fas fa-paperclip"></i> Lepas file di sini untuk melampirkan</span>
+                </div>
+
                 <div class="inbox-thread-header d-flex justify-content-between align-items-center" id="threadHeader">
                     <span class="text-muted">Pilih percakapan di sebelah kiri untuk mulai.</span>
                 </div>
@@ -851,8 +882,10 @@
     // ================================================================
     let fileMediaBalasan = null;
 
-    function pilihMediaBalasan(e) {
-        const file = e.target.files && e.target.files[0];
+    // Dipakai bersama oleh input file (klik paperclip) dan drag-and-drop --
+    // satu tempat yang menetapkan file terlampir, supaya kedua jalur
+    // selalu berperilaku identik.
+    function terapkanFileMediaBalasan(file) {
         if (!file) return;
 
         fileMediaBalasan = file;
@@ -861,12 +894,58 @@
         document.getElementById('teksBalasan').placeholder = 'Caption (opsional)...';
     }
 
+    function pilihMediaBalasan(e) {
+        const file = e.target.files && e.target.files[0];
+        terapkanFileMediaBalasan(file);
+    }
+
     function batalkanMediaBalasan() {
         fileMediaBalasan = null;
         document.getElementById('inputMediaBalasan').value = '';
         document.getElementById('previewMediaBalasan').style.display = 'none';
         document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
     }
+
+    // --- Drag-and-drop file ke panel chat (mirip WhatsApp Web) ---------
+    // dragCounter menghitung dragenter/dragleave bersarang (browser
+    // memicu dragleave setiap kali kursor pindah ke elemen ANAK di
+    // dalam panel, bukan cuma saat benar-benar keluar panel) -- tanpa
+    // ini, overlay akan flicker hilang-muncul saat drag melintasi
+    // pesan/tombol di dalam panel.
+    let dragCounterInbox = 0;
+
+    (function initDropZoneInbox() {
+        const panel = document.getElementById('inboxThreadPanel');
+        const overlay = document.getElementById('inboxDropOverlay');
+
+        panel.addEventListener('dragenter', function(e) {
+            if (!conversationAktif) return;
+            e.preventDefault();
+            dragCounterInbox++;
+            overlay.classList.add('active');
+        });
+
+        panel.addEventListener('dragover', function(e) {
+            if (!conversationAktif) return;
+            e.preventDefault(); // wajib, supaya browser mengizinkan drop
+        });
+
+        panel.addEventListener('dragleave', function(e) {
+            dragCounterInbox = Math.max(0, dragCounterInbox - 1);
+            if (dragCounterInbox === 0) overlay.classList.remove('active');
+        });
+
+        panel.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dragCounterInbox = 0;
+            overlay.classList.remove('active');
+
+            if (!conversationAktif) return;
+
+            const file = e.dataTransfer.files && e.dataTransfer.files[0];
+            terapkanFileMediaBalasan(file);
+        });
+    })();
 
     function tampilkanBubbleOutgoing(m) {
         const container = document.getElementById('threadMessages');
