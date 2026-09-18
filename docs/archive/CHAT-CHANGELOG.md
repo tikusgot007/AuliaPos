@@ -1,11 +1,12 @@
 # Changelog & Catatan Teknis — Modul Chat/Inbox WhatsApp
 
-> **Sumber asli:** `aturan-bisnis-CHAT.md` (Section 1–15, seluruh
-> subsection "File yang dibuat/diubah", "Keputusan/asumsi", "Yang
-> SUDAH/BELUM diverifikasi", dan bug-fix log). Berisi **riwayat
-> implementasi per fase/tahap** — bukan aturan bisnis final (lihat
-> `CHAT-01-aturan-bisnis-inbox.md` untuk itu). Rujukan ke section asli
-> memakai format `[CHAT §N]`.
+> ARCHIVED
+>
+> This document is retained for historical traceability.
+> It is NOT the current source of truth.
+>
+> See [`../CHANGELOG.md`](../CHANGELOG.md) for current history, or
+> [`../CHAT.md`](../CHAT.md) for current business rules.
 
 ---
 
