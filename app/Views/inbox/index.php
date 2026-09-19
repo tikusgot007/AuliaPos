@@ -4,12 +4,30 @@
     /* ========================================================== */
     .inbox-wrapper {
         display: flex;
-        height: calc(100vh - 220px);
+        flex: 1 1 auto;
         min-height: 480px;
         border: 1px solid #dee2e6;
         border-radius: 8px;
         overflow: hidden;
         background: #fff;
+    }
+
+    /* .card/.card-body di sini adalah SATU-SATUNYA card di halaman ini
+       (langsung anak <main> di layout/minimal.php) -- dibuat flex
+       column mengisi tinggi viewport supaya flex:1 1 auto di atas
+       benar-benar punya ruang untuk tumbuh, bukan cuma ukuran konten. */
+    .card {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .card-body {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
     }
 
     .inbox-list-col {
@@ -876,11 +894,21 @@
         return escapeHtmlInbox(m.text);
     }
 
-    function renderPesan(messages) {
+    function renderPesan(messages, paksaScroll) {
         const container = document.getElementById('threadMessages');
+
+        // Tentukan SEBELUM innerHTML diganti -- scrollHeight/scrollTop
+        // lama masih relevan di sini. Toleransi 80px: kasir yang sudah
+        // scroll ke atas membaca pesan lama TIDAK boleh diseret balik
+        // ke bawah oleh polling (setiap 4 detik); tapi kalau memang
+        // sudah dekat bawah (baru geser dikit / belum sempat scroll),
+        // tetap auto-scroll seperti biasa supaya pesan baru terlihat.
+        const dekatBawah = (container.scrollHeight - container.scrollTop - container.clientHeight) <= 80;
+        const harusScroll = !!paksaScroll || dekatBawah;
 
         if (!messages.length) {
             container.innerHTML = '<div class="inbox-thread-empty"><i class="fas fa-comment-dots fa-2x me-2"></i> Belum ada pesan di percakapan ini.</div>';
+            if (harusScroll) container.scrollTop = container.scrollHeight;
             return;
         }
 
@@ -897,7 +925,9 @@
                 '</div>';
         }).join('');
 
-        container.scrollTop = container.scrollHeight;
+        if (harusScroll) {
+            container.scrollTop = container.scrollHeight;
+        }
     }
 
     function muatUlangPesan(scrollPaksa) {
@@ -907,7 +937,7 @@
             .then(function(res) { return res.json(); })
             .then(function(json) {
                 if (json.status === 'success') {
-                    renderPesan(json.messages);
+                    renderPesan(json.messages, scrollPaksa);
                 }
             })
             .catch(function() {

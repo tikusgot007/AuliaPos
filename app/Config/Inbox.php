@@ -54,6 +54,17 @@ class Inbox extends BaseConfig
      */
     public int $maxMediaUploadMb = 15;
 
+    /**
+     * Folder penyimpanan permanen media inbox (gambar/dokumen/sticker),
+     * SENGAJA di luar direktori aplikasi -- lihat catatan di
+     * InboxMediaStorage. Kosong = fitur nonaktif, semua media otomatis
+     * fallback ke live-fetch dari Gateway seperti sebelum Tahap C
+     * (TIDAK error, cuma lambat lagi seperti sedia kala).
+     *
+     * Diisi lewat .env: inbox.mediaStoragePath (contoh: X:\aulia_inbox_media\)
+     */
+    public string $mediaStoragePath;
+
     public function __construct()
     {
         parent::__construct();
@@ -61,5 +72,6 @@ class Inbox extends BaseConfig
         $this->gatewayToken     = (string) (env('inbox.gatewayToken') ?? '');
         $this->gatewayBaseUrl   = rtrim((string) (env('inbox.gatewayBaseUrl') ?? ''), '/');
         $this->maxMediaUploadMb = (int) (env('inbox.maxMediaUploadMb') ?? $this->maxMediaUploadMb);
+        $this->mediaStoragePath = (string) (env('inbox.mediaStoragePath') ?? '');
     }
 }
