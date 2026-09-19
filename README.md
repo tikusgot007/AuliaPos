@@ -7,8 +7,8 @@ Kasir untuk usaha cetak / foto / banner satu toko. Dibangun di atas **CodeIgnite
 | Branch | Isi |
 |---|---|
 | `v2.x` (branch ini) | POS inti (transaksi, pembayaran, kas, tagihan, jadwal karyawan, laporan, cetak). **Tanpa** modul chat. |
-| `v2.1` | `v2.x` + Shared WhatsApp Inbox (sticker, drag-drop, Response State). |
-| `v2.2` | `v2.1` + Inbox Tahap C–F: penyimpanan media lokal, soft delete, stop retry media kadaluarsa, gate saat Gateway terputus, window standalone. |
+| `v2.1` | Sama dengan `v2.2` **tanpa** fitur chat — baseline produksi bersih. |
+| `v2.2` | `v2.1` + Shared WhatsApp Inbox (Chat): Response State, sticker, drag-drop, penyimpanan media lokal, soft delete, stop retry media kadaluarsa, gate saat Gateway terputus, window standalone. |
 
 Cabang lain sudah dibersihkan. Isi `v3.0` lama tersimpan di tag `archive/v3.0`.
 
