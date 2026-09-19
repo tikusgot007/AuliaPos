@@ -39,8 +39,8 @@ Dokumen pelacak keputusan & pekerjaan yang masih menggantung untuk modul Chat/In
 
 - **Tahap A** — Response State (Perlu Dibalas/Menunggu Customer/Follow-up/Selesai), badge sidebar, snooze, tandai dibaca. Live di `v2.2`.
 - **Port awal + sticker + drag-drop + HTTP cache media** — live di `v2.2`.
-- **Tahap C** — penyimpanan permanen media ke disk lokal/HDD eksternal. Selesai di branch `feature/inbox-media-storage`, **belum di-PR/merge**.
-- **Tahap D** — Soft-Delete Conversation + `hapusPercakapan()` guard admin-only & wajib `status='closed'` (menutup item P0 lama). Selesai di branch `feature/inbox-soft-delete`, **belum di-PR/merge**.
+- **Tahap C** — penyimpanan permanen media ke disk lokal/HDD eksternal. **Live di `v2.2`**.
+- **Tahap D** — Soft-Delete Conversation + `hapusPercakapan()` guard admin-only & wajib `status='closed'` (menutup item P0 lama). **Live di `v2.2`**.
 - `v2.1` dikembalikan bersih ke sebelum ada chat (commit `82a5c68`) — seluruh fitur chat resmi tinggal di `v2.2`, bukan `v2.1`.
 
 ---
