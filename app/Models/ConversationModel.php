@@ -74,7 +74,18 @@ class ConversationModel extends Model
 
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
-    protected $useSoftDeletes   = false;
+
+    /**
+     * Tahap D -- soft-delete. Inbox::hapusPercakapan() TIDAK lagi hard
+     * delete: identitas customer yang sudah dikonfirmasi (nomor asli,
+     * nama benar) hidup di baris ini sendiri (tidak ada tabel
+     * `customers` terpisah), jadi hard delete permanen menghilangkan
+     * identitas itu tanpa bisa dipulihkan. find()/findAll()/where()
+     * otomatis menyembunyikan baris deleted_at terisi -- pakai
+     * withDeleted() kalau perlu melihatnya (lihat revive()).
+     */
+    protected $useSoftDeletes = true;
+    protected $deletedField   = 'deleted_at';
 
     protected $allowedFields = [
         'chat_id',
@@ -94,6 +105,7 @@ class ConversationModel extends Model
         'snoozed_until',
         'profile_updated_at',
         'profile_updated_by',
+        'deleted_at',
     ];
 
     protected $useTimestamps = true;
@@ -194,6 +206,8 @@ class ConversationModel extends Model
         // --- Langkah 1: chat_id sudah dikenal --------------------------
         $existingId = $identityModel->findConversationIdByChatId($chatId);
         if ($existingId !== null) {
+            $this->revive($existingId);
+
             return ['conversation_id' => $existingId, 'created' => false, 'reconciled' => false];
         }
 
@@ -208,8 +222,13 @@ class ConversationModel extends Model
         }
 
         // --- Langkah 3: cocokkan lewat nomor ter-verifikasi ------------
+        // withDeleted() SENGAJA -- tanpa ini, conversation yang sudah
+        // soft-deleted (Tahap D) tidak akan pernah ketemu di sini, jadi
+        // customer yang sama chat lagi akan bikin conversation BARU
+        // (duplikat) alih-alih dihidupkan kembali lewat revive() di
+        // attachAliasToConversation().
         if ($canonicalPhone !== null) {
-            $existing = $this->where('phone', $canonicalPhone)->first();
+            $existing = $this->withDeleted()->where('phone', $canonicalPhone)->first();
 
             if ($existing) {
                 return $this->attachAliasToConversation($identityModel, (int) $existing['id'], $chatId, $jidType);
@@ -226,8 +245,9 @@ class ConversationModel extends Model
         // "AAN XL 2" (nomor cuma tersimpan di manual_phone lewat edit
         // profil biasa) jadi conversation duplikat kedua kalinya kasir
         // memulai chat baru ke nomor yang sama persis.
+        // withDeleted() -- alasan sama seperti Langkah 3 di atas.
         if ($allowManualPhoneMatch && $canonicalPhone !== null) {
-            $existing = $this->where('manual_phone', $canonicalPhone)->first();
+            $existing = $this->withDeleted()->where('manual_phone', $canonicalPhone)->first();
 
             if ($existing) {
                 return $this->attachAliasToConversation($identityModel, (int) $existing['id'], $chatId, $jidType);
@@ -257,6 +277,26 @@ class ConversationModel extends Model
     }
 
     /**
+     * Hidupkan kembali conversation yang sebelumnya soft-deleted (customer
+     * yang sama mengirim pesan baru). TIDAK melakukan apa pun kalau
+     * conversation memang belum/tidak soft-deleted -- aman dipanggil selalu.
+     *
+     * PENTING: pakai withDeleted() supaya bisa MELIHAT baris yang deleted_at
+     * terisi -- find() biasa otomatis menyembunyikannya (itu prinsip
+     * soft-delete), jadi tanpa withDeleted() kita tidak akan pernah tahu
+     * baris ini perlu dihidupkan.
+     */
+    private function revive(int $conversationId): void
+    {
+        $row = $this->withDeleted()->find($conversationId);
+
+        if ($row !== null && $row['deleted_at'] !== null) {
+            $this->update($conversationId, ['deleted_at' => null]);
+            log_message('info', "ConversationModel::revive() -- conversation_id={$conversationId} dihidupkan kembali (customer kirim pesan baru setelah sebelumnya di-soft-delete).");
+        }
+    }
+
+    /**
      * Helper bersama untuk langkah 2 & 3 resolveConversationId():
      * tempelkan $chatId sebagai alias TAMBAHAN ke conversation yang
      * SUDAH ADA ($conversationId), dan mutakhirkan conversations.chat_id
@@ -264,6 +304,13 @@ class ConversationModel extends Model
      */
     private function attachAliasToConversation(ConversationIdentityModel $identityModel, int $conversationId, string $chatId, string $jidType): array
     {
+        // Tahap D -- satu panggilan di sini menutup Langkah 2, 3, & 3b
+        // sekaligus (semuanya lewat method ini): kalau conversation ini
+        // sebelumnya soft-deleted, hidupkan kembali (customer yang sama
+        // kirim pesan baru). Tidak melakukan apa pun kalau memang belum
+        // soft-deleted -- aman dipanggil selalu.
+        $this->revive($conversationId);
+
         $identityModel->insert([
             'conversation_id' => $conversationId,
             'chat_id'         => $chatId,

@@ -26,7 +26,17 @@ class MessageModel extends Model
 
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
-    protected $useSoftDeletes   = false;
+
+    /**
+     * Tahap D -- soft-delete, konsisten dengan ConversationModel (lihat
+     * catatan lengkap di sana). Inbox::hapusPercakapan() saat ini HANYA
+     * soft-delete baris conversations, TIDAK menyentuh baris messages
+     * (tetap deleted_at=NULL) -- kolom ini disiapkan untuk konsistensi
+     * skema/kemungkinan penghapusan pesan individual di masa depan,
+     * bukan dipakai aktif oleh alur hapus percakapan sekarang.
+     */
+    protected $useSoftDeletes = true;
+    protected $deletedField   = 'deleted_at';
 
     protected $allowedFields = [
         'conversation_id',
@@ -44,6 +54,7 @@ class MessageModel extends Model
         'message_timestamp',
         'sent_by_user_id',
         'send_status',
+        'deleted_at',
     ];
 
     protected $useTimestamps = true;

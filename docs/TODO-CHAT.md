@@ -19,8 +19,7 @@ Dokumen pelacak keputusan & pekerjaan yang masih menggantung untuk modul Chat/In
 
 ## 🔴 P0 — belum dikerjakan sama sekali (dari audit awal, masih relevan di `v2.2`)
 
-- [ ] **`hapusPercakapan()` belum menegakkan aturan admin-only + wajib `status='closed'`** — saat ini cuma cek `cekOwnership()`. Ini gap keamanan/data-loss yang sudah disepakati sejak `docs/CHAT.md` awal tapi belum pernah ditutup di kode. *(app/Controllers/Inbox.php)*
-- [ ] **Tidak ada test race-condition untuk `ambilPercakapan()`** — pernah diklaim "diverifikasi lewat test" di changelog lama, tapi tidak ada file test yang bisa dijalankan ulang.
+- [ ] **Tidak ada test race-condition untuk `ambilPercakapan()`** — pernah diklaim "diverifikasi lewat test" di changelog lama, tapi tidak ada file test yang bisa dijalankan ulang. **Masih berdiri sendiri, TIDAK ikut ditutup Tahap D** (Tahap D cuma menutup item `hapusPercakapan()` di bawah).
 
 ## 🟡 P1 — belum dikerjakan
 
@@ -41,6 +40,7 @@ Dokumen pelacak keputusan & pekerjaan yang masih menggantung untuk modul Chat/In
 - **Tahap A** — Response State (Perlu Dibalas/Menunggu Customer/Follow-up/Selesai), badge sidebar, snooze, tandai dibaca. Live di `v2.2`.
 - **Port awal + sticker + drag-drop + HTTP cache media** — live di `v2.2`.
 - **Tahap C** — penyimpanan permanen media ke disk lokal/HDD eksternal. Selesai di branch `feature/inbox-media-storage`, **belum di-PR/merge**.
+- **Tahap D** — Soft-Delete Conversation + `hapusPercakapan()` guard admin-only & wajib `status='closed'` (menutup item P0 lama). Selesai di branch `feature/inbox-soft-delete`, **belum di-PR/merge**.
 - `v2.1` dikembalikan bersih ke sebelum ada chat (commit `82a5c68`) — seluruh fitur chat resmi tinggal di `v2.2`, bukan `v2.1`.
 
 ---
@@ -48,5 +48,6 @@ Dokumen pelacak keputusan & pekerjaan yang masih menggantung untuk modul Chat/In
 ## Catatan arsitektur penting (supaya tidak diulang tanya)
 
 - Prinsip lama "tidak pernah simpan media permanen" **sudah dicabut** — lihat Tahap C. Belum ada kebijakan retensi/pembersihan otomatis (sengaja, hindari kompleksitas prematur untuk skala 1 toko).
+- **Soft-delete diaktifkan (Tahap D)** karena tidak ada tabel `customers` terpisah — identitas customer (nomor terverifikasi, nama, dsb) hidup di baris `conversations` itu sendiri, jadi hard-delete permanen menghilangkan identitas itu tanpa bisa dipulihkan. **Data yang terhapus SEBELUM Tahap D tidak bisa dipulihkan** — soft-delete cuma mencegah kehilangan yang akan datang, bukan retroaktif.
 - Semua kerja chat dibangun di atas **`v2.2`**, bukan `v2.1`. `v2.1` = baseline produksi bersih, jangan disentuh fitur chat apa pun sampai keputusan sadar untuk merilis.
 - Gateway WhatsApp (Node.js/Baileys) ada di **repo terpisah**, tidak pernah diaudit langsung di sesi manapun — kalau ada perubahan yang butuh sisi Gateway (seperti Tahap B1), itu selalu jadi dependency eksternal yang harus dikerjakan terpisah.
