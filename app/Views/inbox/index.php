@@ -484,6 +484,7 @@
     let conversationAktif = null;
     let conversationUntukHapus = null; // target hapus dari row daftar kiri, terpisah dari conversationAktif
     const mediaGagal = new Set(); // id pesan yang medianya sudah dipastikan gagal dimuat -- reset tiap reload halaman (cukup untuk 1 sesi kerja, tidak perlu persisten di frontend).
+    let gatewayTerhubung = true; // Tahap F -- optimistic default sebelum poll pertama datang
     let daftarConversation = <?= json_encode($conversations) ?>;
     // Tahap 1 lifecycle status (docs/aturan-bisnis-CHAT.md Section 12):
     // filter tampilan daftar percakapan SAJA (client-side) -- tidak ada
@@ -860,6 +861,16 @@
                 return '<div class="inbox-media-unavailable"><i class="fas fa-image"></i> Gambar tidak tersedia (kemungkinan sudah kadaluarsa)</div>' +
                     (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
             }
+            // Tahap F -- jangan buat <img> sama sekali kalau sudah TAHU
+            // bakal gagal (belum ada di disk lokal DAN Gateway terputus)
+            // -- beda dari mediaGagal (baru tahu SETELAH gagal request).
+            // Pesan placeholder SENGAJA beda dari yang di atas (410
+            // kadaluarsa, Tahap E) supaya kasir tidak bingung 2 penyebab
+            // berbeda dikira sama.
+            if (!gatewayTerhubung && !m.media_local_filename) {
+                return '<div class="inbox-media-unavailable"><i class="fas fa-wifi"></i> Gateway terputus -- gambar belum bisa dimuat, coba lagi nanti</div>' +
+                    (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+            }
             // onerror: media bisa saja sudah kadaluarsa di server WhatsApp
             // (lihat catatan desain -- kita cuma simpan referensi, bukan
             // file permanen) -- tampilkan placeholder yang jelas, bukan
@@ -874,6 +885,10 @@
             // image/document, tidak perlu render m.text sama sekali.
             if (mediaGagal.has(m.id)) {
                 return '<div class="inbox-media-unavailable"><i class="fas fa-icons"></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>';
+            }
+            // Tahap F -- lihat catatan sama di blok image di atas.
+            if (!gatewayTerhubung && !m.media_local_filename) {
+                return '<div class="inbox-media-unavailable"><i class="fas fa-wifi"></i> Gateway terputus -- sticker belum bisa dimuat, coba lagi nanti</div>';
             }
             return '<img src="' + urlMedia + '" alt="Sticker" class="inbox-media-sticker" ' +
                 'onerror="mediaGagal.add(' + m.id + '); this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-icons&quot;></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">';
@@ -961,6 +976,11 @@
     // ================================================================
     function mulaiChatBaru(e) {
         e.preventDefault();
+
+        if (!gatewayTerhubung) {
+            alert('Gateway terputus -- pesan belum bisa dikirim sekarang. Draft Anda tetap tersimpan, coba lagi begitu status kembali "Terhubung".');
+            return false;
+        }
 
         const nomor = document.getElementById('nomorChatBaru').value.trim();
         const text = document.getElementById('teksChatBaru').value.trim();
@@ -1296,6 +1316,11 @@
     function kirimBalasan(e) {
         e.preventDefault();
 
+        if (!gatewayTerhubung) {
+            alert('Gateway terputus -- pesan belum bisa dikirim sekarang. Draft Anda tetap tersimpan, coba lagi begitu status kembali "Terhubung".');
+            return false;
+        }
+
         if (!conversationAktif) {
             showToast('Pilih percakapan dulu.', 'warning');
             return false;
@@ -1347,6 +1372,11 @@
     }
 
     function kirimMediaBalasan() {
+        if (!gatewayTerhubung) {
+            alert('Gateway terputus -- pesan belum bisa dikirim sekarang. Draft Anda tetap tersimpan, coba lagi begitu status kembali "Terhubung".');
+            return false;
+        }
+
         const textarea = document.getElementById('teksBalasan');
         const btn = document.getElementById('btnKirimBalasan');
         const caption = textarea.value.trim();
@@ -1415,6 +1445,40 @@
         badge.className = 'badge ' + info.kelas;
         badge.innerHTML = '<i class="fas ' + info.icon + '"></i> ' + info.text +
             (gateway.phone ? ' (' + escapeHtmlInbox(gateway.phone) + ')' : '');
+
+        // Tahap F
+        const sebelumnya = gatewayTerhubung;
+        gatewayTerhubung = gateway.effective_status === 'connected';
+
+        perbaruiUIGateway();
+
+        // Baru saja RECONNECT (bukan pertama kali load) -- muat ulang pesan
+        // supaya gambar yang tadinya diblokir otomatis dicoba lagi tanpa
+        // kasir harus pindah-balik conversation manual.
+        if (!sebelumnya && gatewayTerhubung && conversationAktif) {
+            muatUlangPesan(false);
+        }
+    }
+
+    function perbaruiUIGateway() {
+        const btnKirim = document.getElementById('btnKirimBalasan');
+        const btnChatBaru = document.getElementById('btnChatBaru');
+
+        // btnKirimBalasan SUDAH punya logic disabled lain (belum pilih
+        // conversation / teks kosong) -- JANGAN timpa logic itu, cuma
+        // tambah 1 syarat lagi. Lihat kirimBalasan(e) di bawah untuk guard
+        // yang sesungguhnya menahan submit -- disabled di sini murni sinyal
+        // visual, bukan satu-satunya proteksi.
+        if (btnKirim) {
+            btnKirim.title = gatewayTerhubung ? '' : 'Gateway terputus -- belum bisa kirim pesan';
+        }
+        if (btnChatBaru) {
+            btnChatBaru.disabled = !gatewayTerhubung;
+            btnChatBaru.title = gatewayTerhubung ? '' : 'Gateway terputus -- belum bisa kirim pesan';
+        }
+        // teksBalasan SENGAJA TIDAK di-disable/dikosongkan -- kasir tetap
+        // boleh ketik draft sambil Gateway terputus, supaya begitu
+        // tersambung lagi tinggal klik Kirim tanpa ngetik ulang.
     }
 
     function muatUlangStatusGateway() {
