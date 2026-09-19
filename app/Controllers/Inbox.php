@@ -834,19 +834,26 @@ class Inbox extends BaseController
     /**
      * POST /inbox/percakapan/(:num)/hapus
      *
-     * Hapus satu conversation BESERTA SEMUA pesannya dari
-     * aulia_inboxdb. Ini penghapusan PERMANEN dari sisi POS/CI4 saja
-     * -- TIDAK menghapus/mempengaruhi apa pun di WhatsApp maupun di
-     * Gateway (Gateway tidak menyimpan riwayat percakapan sama
-     * sekali, jadi tidak ada yang perlu disinkronkan ke sana).
+     * Hapus satu conversation dari aulia_inboxdb -- TIDAK
+     * menghapus/mempengaruhi apa pun di WhatsApp maupun di Gateway
+     * (Gateway tidak menyimpan riwayat percakapan sama sekali, jadi
+     * tidak ada yang perlu disinkronkan ke sana).
      *
-     * SENGAJA hard delete (bukan soft delete/arsip) -- tabel ini
-     * tidak punya kolom deleted_at ($useSoftDeletes = false di kedua
-     * model), dan tidak ada spec yang minta riwayat hapus disimpan.
-     * Semua baris `messages` milik conversation ini ikut terhapus
-     * otomatis lewat FK `ON DELETE CASCADE` (lihat migration
-     * `2026-09-07-000001_CreateInboxTables.php`) -- tidak perlu query
-     * DELETE terpisah untuk messages.
+     * Tahap D -- SOFT delete (bukan lagi hard delete): identitas
+     * customer yang sudah dikonfirmasi (nomor asli, nama benar) hidup
+     * di baris `conversations` itu sendiri (tidak ada tabel
+     * `customers` terpisah), jadi hard delete permanen menghilangkan
+     * identitas itu tanpa bisa dipulihkan. deleted_at diisi
+     * ($useSoftDeletes=true di ConversationModel), baris `messages`
+     * TIDAK ikut disentuh (tetap ada, cuma "tersembunyi" karena induk
+     * conversation-nya soft-deleted). Kalau customer yang sama kirim
+     * pesan baru, ConversationModel::resolveConversationId() otomatis
+     * menghidupkan kembali lewat revive() -- lihat catatan di sana.
+     *
+     * Guard admin-only + wajib status='closed' -- sesuai kesepakatan
+     * sejak docs/CHAT.md awal, baru ditegakkan di kode sekarang
+     * (Tahap D). Soft-delete di atas adalah jaring pengaman kalau ini
+     * tetap terjadi, tapi guard ini mencegah dari awal.
      */
     public function hapusPercakapan($conversationId = null)
     {
@@ -862,6 +869,20 @@ class Inbox extends BaseController
             ]);
         }
 
+        if ((string) session()->get('role') !== 'admin') {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => 'Hanya admin yang bisa menghapus percakapan.',
+            ]);
+        }
+
+        if ($conversation['status'] !== 'closed') {
+            return $this->response->setStatusCode(409)->setJSON([
+                'status'  => 'error',
+                'message' => 'Percakapan harus ditutup (Selesai) dulu sebelum bisa dihapus.',
+            ]);
+        }
+
         $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
         if ($ownershipError) {
             return $this->response->setStatusCode(403)->setJSON([
@@ -870,7 +891,7 @@ class Inbox extends BaseController
             ]);
         }
 
-        $conversationModel->delete($conversationId);
+        $conversationModel->delete($conversationId); // sekarang SOFT delete (Tahap D)
 
         $userId = (int) session()->get('id_user');
         log_message('info', "Inbox::hapusPercakapan sukses. conversation_id={$conversationId}, chat_id={$conversation['chat_id']}, dihapus_oleh_user_id={$userId}");
