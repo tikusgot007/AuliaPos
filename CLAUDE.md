@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**AULIA** — a single-shop Point of Sale for a print / photo / banner business, built on **CodeIgniter 4** (PHP 8.2+), MySQL/MariaDB (`aulia_kasirdb`), served under XAMPP at `http://localhost/aulia/`. UI language and domain vocabulary are Indonesian (`transaksi`, `pelanggan`, `produk`, `kasir`, `tagihan`, `pembayaran`, `jadwal`). Current branch: `v2.x`.
+**AULIA** — a single-shop Point of Sale for a print / photo / banner business, built on **CodeIgniter 4** (PHP 8.2+), MySQL/MariaDB (`aulia_kasirdb`), served under XAMPP at `http://localhost/aulia/`. UI language and domain vocabulary are Indonesian (`transaksi`, `pelanggan`, `produk`, `kasir`, `tagihan`, `pembayaran`, `jadwal`). Branch: `v2.x` = POS inti tanpa chat, `v2.1` = + Shared WhatsApp Inbox, `v2.2` = v2.1 + perbaikan Inbox (Tahap C-F). Lihat `README.md`.
 
-`docs/aturan-bisnis-AULIA.md` is the **authoritative business-rules document** (~2000 lines). Read the relevant section before changing transaction lifecycle, payment, cash, tagihan, or reporting logic — it records decisions, rejected alternatives, and past bugs. Sections are cited directly in code comments (e.g. "lihat Section 4.2").
+`docs/AULIA.md` is the **authoritative business-rules document** for the POS core; `docs/CHAT.md` for the Inbox; `docs/USER-SHIFT.md` for Priority / Shift Leader; `docs/CHANGELOG.md` records the "why". Start at `docs/README.md`. Read the relevant document before changing transaction lifecycle, payment, cash, tagihan, reporting, or Inbox logic — they record decisions, rejected alternatives, and past bugs. Code comments cite old section numbers (e.g. "lihat Section 4.2"); those resolve in `docs/archive/aturan-bisnis-AULIA.md` (frozen, via the pointer stub at `docs/aturan-bisnis-AULIA.md`) — never edit `docs/archive/`.
 
 ## Commands
 
@@ -53,6 +53,8 @@ For hosting without CLI access, `/migrasi-manual` (admin-only web route) runs mi
 
 **Jadwal (employee scheduling) module** — `Jadwal` controller, `jadwal` / `master_jadwal` / `master_jadwal_detail` tables. Deliberately independent from the transaction/kasir domain: no shared tables, no shared rules (Section 20).
 
+**Inbox (Shared WhatsApp Inbox / Chat)** — `Inbox` + `InboxGatewayApi` controllers, `ConversationModel` / `MessageModel`, `Config\Inbox`. Uses a **separate DB connection `inbox`** (`aulia_inboxdb`; migrations set `$DBGroup = 'inbox'`) and talks to an external Node.js/Baileys WhatsApp Gateway (separate repo, token-authenticated via the `gatewaytoken` filter). Rules live in `docs/CHAT.md`. Like Jadwal, it is independent from the transaction domain.
+v2.2 additions: media can be stored locally when `inbox.mediaStoragePath` is set (`InboxMediaStorage`); conversation delete is a soft delete (admin-only, must be `closed`); confirmed-gone (410) media is never retried; UI blocks all Gateway-dependent actions when the Gateway is not `connected`. `docs/TODO-CHAT.md` tracks open Inbox work.
 **Printing** — `Cetak` controller renders `app/Views/cetak/*` (nota, thermal, ticket); `dompdf` for PDF, `mike42/escpos-php` for ESC/POS. Direct-print settings (`printnota.*`, SumatraPDF path, printer share) come from `.env` / `app/Config/PrintNota.php`.
 
 **Schema** — the baseline is one migration, `2026-09-08-000001_CreateAuliaPosCore.php` (raw `CREATE TABLE` from the verified v2.0 DB, not incremental ALTERs), plus two later `ADD COLUMN` migrations. Two DB views: `v_daftar_pembayaran`, `v_pembayaran_item_harian` (proportional per-item payment allocation for reports). Framework owns the `migrations` table.

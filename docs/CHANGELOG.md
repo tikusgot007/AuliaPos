@@ -198,3 +198,35 @@ Sebelumnya seorang developer perlu membaca README + 2-3 dokumen topik + dokumen 
 
 ### Impact
 Tidak ada perubahan `app/**`/`public/**`/migration/route/test/business logic — murni dokumentasi. Lihat "Documentation Migration Report" pada akhir sesi ini untuk rincian lengkap (rule inventory, konflik, gap yang ditemukan).
+
+---
+
+## 2026-09-16 s/d 2026-09-18 — Port Shared WhatsApp Inbox ke v2.1 + Response State
+
+### Changed
+Modul Inbox diport dari `v3.0` ke `v2.1`, lalu ditambah: sticker (kirim & terima), drag-and-drop file ke panel chat, HTTP cache untuk media (cegah re-fetch berulang ke Gateway), dan **Response State** (Perlu Dibalas / Menunggu Customer / Follow-up / Selesai), tandai dibaca, snooze, badge sidebar, serta filter di `/inbox` (`CHAT.md` Section 19). Migration `2026-09-19-000001_AddResponseStateFoundation` menambah `last_seen_by_assignee_at` dan `snoozed_until` di `conversations`.
+
+### Why
+Kasir butuh melihat cepat conversation mana yang harus dibalas; Response State sengaja dihitung (bukan kolom yang ditulis manual) agar tidak bisa "kebalik" saat endpoint baru lupa memperbaruinya. Bug awal (`tandaiDibaca()` kembali ke `perlu_dibalas`, `kirimMedia()` tidak menulis `last_seen_by_assignee_at`) sudah diperbaiki.
+
+### Impact
+Migration additive di koneksi `inbox`. Tidak ada perubahan pada modul transaksi/kasir.
+---
+
+## 2026-09-19 — Inbox Tahap C–F (media lokal, soft delete, media kadaluarsa, gate Gateway) + window standalone
+
+### Changed
+- **Window standalone:** `/inbox` dibuka di window terpisah (`layout/minimal.php`, tanpa sidebar); scroll otomatis tidak lagi menyeret balik saat polling.
+- **Tahap C:** gambar/dokumen/sticker bisa disimpan permanen di disk lokal/HDD eksternal (`inbox.mediaStoragePath`), di-prefetch dan dicek lebih dulu sebelum live-fetch ke Gateway. Kosong = perilaku lama.
+- **Tahap D:** hapus conversation berubah dari hard delete menjadi **soft delete** (`deleted_at`), admin-only dan wajib `closed`; conversation yang sama otomatis dihidupkan kembali bila customer chat lagi.
+- **Tahap E:** media yang dipastikan kadaluarsa (HTTP 410) tidak dicoba ulang — kolom `media_confirmed_gone_at` (lintas sesi) dan cache `mediaGagal` di browser.
+- **Tahap F:** kirim teks, kirim media, dan "+ Chat Baru" diblokir keras di UI saat status Gateway bukan `connected`; draft tidak dihapus; auto-reload saat tersambung kembali.
+
+### Why
+- C: prinsip lama "media tidak pernah disimpan" membuat gambar lama kadaluarsa di WhatsApp dan terasa lambat dibuka.
+- D: tidak ada tabel `customers` terpisah, jadi hard delete menghilangkan identitas customer yang sudah dikonfirmasi tanpa bisa dipulihkan. Data yang terhapus sebelum Tahap D tidak bisa dipulihkan.
+- E: tanpa ini, polling 4 detik terus meminta media yang pasti gagal.
+- F: kasir bisa mengetik/mengirim padahal Gateway mati dan baru tahu setelah gagal.
+
+### Impact
+Migration baru di koneksi `inbox`: `000002_AddMediaLocalStorage`, `000003_AddSoftDeleteInbox`, `000004_AddMediaConfirmedGone`. Test baru: `InboxMediaStorageTest`, `InboxMediaFallbackTest`, `InboxMediaConfirmedGoneTest`, `InboxSoftDeleteTest`. Prinsip "media tidak pernah disimpan permanen" dicabut untuk sisi AuliaPos (`CHAT.md` Section 6.3, 16, 14.4, 18).

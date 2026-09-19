@@ -9,7 +9,7 @@ Dokumen pelacak keputusan & pekerjaan yang masih menggantung untuk modul Chat/In
 ### Tahap B — Thumbnail instan (jpegThumbnail)
 **Status: PENDING** — menunggu hasil test Tahap C di kondisi nyata.
 
-- Tahap C (penyimpanan permanen media ke disk lokal/HDD eksternal) sudah selesai & teraudit di branch `feature/inbox-media-storage` (belum di-PR/merge ke `v2.2`).
+- Tahap C (penyimpanan permanen media ke disk lokal/HDD eksternal) sudah selesai, teraudit, dan **live di `v2.2`**.
 - Sebelum mengerjakan Tahap B, **test dulu**: kirim beberapa gambar baru ke akun WhatsApp toko (setelah HDD eksternal terpasang & `.env` diisi), buka conversation-nya, rasakan apakah delay "kayak loading" sudah cukup hilang dengan Tahap C saja.
 - Hal yang perlu dipisahkan saat test: apakah delay yang masih terasa (kalau ada) itu soal *media* (harusnya sudah teratasi Tahap C) atau soal *render/JS saat pindah conversation* (Tahap B tidak akan memperbaiki ini).
 - **Kalau Tahap C saja sudah cukup** → coret Tahap B dari rencana, jangan cuma didiamkan. Update dokumen `Tahap-B-C-Thumbnail-dan-Storage-Permanen.md` untuk menandai Bagian TAHAP B sebagai "tidak dikerjakan, keputusan final" + alasannya.
@@ -41,7 +41,9 @@ Dokumen pelacak keputusan & pekerjaan yang masih menggantung untuk modul Chat/In
 - **Port awal + sticker + drag-drop + HTTP cache media** — live di `v2.2`.
 - **Tahap C** — penyimpanan permanen media ke disk lokal/HDD eksternal. **Live di `v2.2`**.
 - **Tahap D** — Soft-Delete Conversation + `hapusPercakapan()` guard admin-only & wajib `status='closed'` (menutup item P0 lama). **Live di `v2.2`**.
-- `v2.1` dikembalikan bersih ke sebelum ada chat (commit `82a5c68`) — seluruh fitur chat resmi tinggal di `v2.2`, bukan `v2.1`.
+- **Tahap E** — media yang pasti kadaluarsa (410) tidak dicoba ulang (backend `media_confirmed_gone_at` + frontend `mediaGagal`). **Live di `v2.2`**.
+- **Tahap F** — semua aksi yang butuh Gateway diblokir saat status bukan `connected`. **Live di `v2.2`**.
+- Window standalone `/inbox` (`layout/minimal.php`). **Live di `v2.2`**.
 
 ---
 
@@ -49,5 +51,5 @@ Dokumen pelacak keputusan & pekerjaan yang masih menggantung untuk modul Chat/In
 
 - Prinsip lama "tidak pernah simpan media permanen" **sudah dicabut** — lihat Tahap C. Belum ada kebijakan retensi/pembersihan otomatis (sengaja, hindari kompleksitas prematur untuk skala 1 toko).
 - **Soft-delete diaktifkan (Tahap D)** karena tidak ada tabel `customers` terpisah — identitas customer (nomor terverifikasi, nama, dsb) hidup di baris `conversations` itu sendiri, jadi hard-delete permanen menghilangkan identitas itu tanpa bisa dipulihkan. **Data yang terhapus SEBELUM Tahap D tidak bisa dipulihkan** — soft-delete cuma mencegah kehilangan yang akan datang, bukan retroaktif.
-- Semua kerja chat dibangun di atas **`v2.2`**, bukan `v2.1`. `v2.1` = baseline produksi bersih, jangan disentuh fitur chat apa pun sampai keputusan sadar untuk merilis.
+- Status branch: `v2.x` tidak punya chat; `v2.1` punya Inbox dasar + Response State (Tahap A, sticker, drag-drop, cache media); `v2.2` = `v2.1` + Tahap C–F + window standalone. Fitur chat baru dikerjakan di atas `v2.2`.
 - Gateway WhatsApp (Node.js/Baileys) ada di **repo terpisah**, tidak pernah diaudit langsung di sesi manapun — kalau ada perubahan yang butuh sisi Gateway (seperti Tahap B1), itu selalu jadi dependency eksternal yang harus dikerjakan terpisah.
