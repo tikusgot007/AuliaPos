@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**AULIA** — a single-shop Point of Sale for a print / photo / banner business, built on **CodeIgniter 4** (PHP 8.2+), MySQL/MariaDB (`aulia_kasirdb`), served under XAMPP at `http://localhost/aulia/`. UI language and domain vocabulary are Indonesian (`transaksi`, `pelanggan`, `produk`, `kasir`, `tagihan`, `pembayaran`, `jadwal`). Current branch: `v2.x`.
+**AULIA** — a single-shop Point of Sale for a print / photo / banner business, built on **CodeIgniter 4** (PHP 8.2+), MySQL/MariaDB (`aulia_kasirdb`), served under XAMPP at `http://localhost/aulia/`. UI language and domain vocabulary are Indonesian (`transaksi`, `pelanggan`, `produk`, `kasir`, `tagihan`, `pembayaran`, `jadwal`). Branch: `v2.x` = POS inti lama, `v2.1` = `v2.2` tanpa chat (branch ini), `v2.2` = v2.1 + Shared WhatsApp Inbox (Chat). Lihat `README.md`.
 
-`docs/aturan-bisnis-AULIA.md` is the **authoritative business-rules document** (~2000 lines). Read the relevant section before changing transaction lifecycle, payment, cash, tagihan, or reporting logic — it records decisions, rejected alternatives, and past bugs. Sections are cited directly in code comments (e.g. "lihat Section 4.2").
+`docs/AULIA.md` is the **authoritative business-rules document** for the POS core; `docs/USER-SHIFT.md` for Priority / Shift Leader; `docs/CHANGELOG.md` records the "why". Start at `docs/README.md`. Read the relevant document before changing transaction lifecycle, payment, cash, tagihan, or reporting logic — they record decisions, rejected alternatives, and past bugs. Code comments cite old section numbers (e.g. "lihat Section 4.2"); those resolve in `docs/archive/aturan-bisnis-AULIA.md` (frozen, via the pointer stub at `docs/aturan-bisnis-AULIA.md`) — never edit `docs/archive/`. The Chat/Inbox module does not exist on this branch (only `v2.2`).
 
 ## Commands
 
