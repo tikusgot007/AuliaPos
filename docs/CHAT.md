@@ -99,7 +99,7 @@ Tampilan: gambar `inline` (`<img>`), dokumen `attachment` (download langsung, ik
 Kalau Gateway tidak mengembalikan referensi media (kasus jarang) untuk pesan **keluar**, pesan tetap tersimpan sebagai terkirim (sudah sampai ke WhatsApp) — hanya tidak bisa dibuka ulang nanti dari Inbox; ini bukan kegagalan kirim, hanya keterbatasan tampil ulang.
 
 ### 6.2 Audio & Video
-Berlaku untuk arah **masuk** (customer → toko) saja. Lokasi, kontak, dan audio/video **keluar** (kasir → customer) di luar scope. **Sticker** sudah didukung (masuk & keluar) sejak port ke v2.1 dan diperlakukan seperti gambar (Section 6.1/6.3).
+Berlaku untuk arah **masuk** (customer → toko) saja. Lokasi, kontak, dan audio/video **keluar** (kasir → customer) di luar scope. **Sticker** sudah didukung (masuk & keluar) sejak port ke v2.2 dan diperlakukan seperti gambar (Section 6.1/6.3).
 
 **Beda prinsip dari 6.1:** audio/video **TIDAK** memakai pola referensi-untuk-didekripsi-ulang. Binary-nya **tidak pernah diambil**, baik oleh Gateway maupun AuliaPos. Yang disimpan hanya metadata pesan (`message_type`, caption/`text` — **audio TIDAK PERNAH punya caption di WhatsApp, `text` selalu `null` untuk audio; video BOLEH punya caption**, mime type, ukuran, timestamp) — `media_path`/`media_metadata` **selalu NULL**.
 

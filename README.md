@@ -7,8 +7,8 @@ Kasir untuk usaha cetak / foto / banner satu toko. Dibangun di atas **CodeIgnite
 | Branch | Isi |
 |---|---|
 | `v2.x` | POS inti (transaksi, pembayaran, kas, tagihan, jadwal karyawan, laporan, cetak). **Tanpa** modul chat. |
-| `v2.1` | `v2.x` + Shared WhatsApp Inbox (sticker, drag-drop, Response State). |
-| `v2.2` | `v2.1` + Inbox Tahap C–F: penyimpanan media lokal, soft delete, stop retry media kadaluarsa, gate saat Gateway terputus, window standalone. |
+| `v2.1` | Sama dengan `v2.2` **tanpa** fitur chat — baseline produksi bersih. |
+| `v2.2` | `v2.1` + Shared WhatsApp Inbox (Chat): Response State, sticker, drag-drop, penyimpanan media lokal, soft delete, stop retry media kadaluarsa, gate saat Gateway terputus, window standalone. |
 
 Cabang lain sudah dibersihkan. Isi `v3.0` lama tersimpan di tag `archive/v3.0`.
 
@@ -24,7 +24,7 @@ composer test
 
 Persyaratan: PHP 8.2+ dengan ekstensi `intl`, `mbstring`, `json`, `mysqlnd`, `curl`. Arahkan web server ke folder `public/`.
 
-Khusus `v2.1`/`v2.2` (Inbox): butuh database kedua (`aulia_inboxdb`, koneksi `inbox`) dan Gateway WhatsApp (Node.js/Baileys) di repo terpisah. Di `v2.2`, isi `inbox.mediaStoragePath` di `.env` bila media ingin disimpan lokal; kosong = ambil langsung dari Gateway.
+Khusus `v2.2` (Inbox): butuh database kedua (`aulia_inboxdb`, koneksi `inbox`) dan Gateway WhatsApp (Node.js/Baileys) di repo terpisah. Isi `inbox.mediaStoragePath` di `.env` bila media ingin disimpan lokal; kosong = ambil langsung dari Gateway.
 
 ## Dokumentasi
 

@@ -201,10 +201,10 @@ Tidak ada perubahan `app/**`/`public/**`/migration/route/test/business logic —
 
 ---
 
-## 2026-09-16 s/d 2026-09-18 — Port Shared WhatsApp Inbox ke v2.1 + Response State
+## 2026-09-16 s/d 2026-09-18 — Port Shared WhatsApp Inbox dari v3.0 + Response State
 
 ### Changed
-Modul Inbox diport dari `v3.0` ke `v2.1`, lalu ditambah: sticker (kirim & terima), drag-and-drop file ke panel chat, HTTP cache untuk media (cegah re-fetch berulang ke Gateway), dan **Response State** (Perlu Dibalas / Menunggu Customer / Follow-up / Selesai), tandai dibaca, snooze, badge sidebar, serta filter di `/inbox` (`CHAT.md` Section 19). Migration `2026-09-19-000001_AddResponseStateFoundation` menambah `last_seen_by_assignee_at` dan `snoozed_until` di `conversations`.
+Modul Inbox diport dari `v3.0` ke jalur `v2.2` (`v2.1` sengaja tetap tanpa chat), lalu ditambah: sticker (kirim & terima), drag-and-drop file ke panel chat, HTTP cache untuk media (cegah re-fetch berulang ke Gateway), dan **Response State** (Perlu Dibalas / Menunggu Customer / Follow-up / Selesai), tandai dibaca, snooze, badge sidebar, serta filter di `/inbox` (`CHAT.md` Section 19). Migration `2026-09-19-000001_AddResponseStateFoundation` menambah `last_seen_by_assignee_at` dan `snoozed_until` di `conversations`.
 
 ### Why
 Kasir butuh melihat cepat conversation mana yang harus dibalas; Response State sengaja dihitung (bukan kolom yang ditulis manual) agar tidak bisa "kebalik" saat endpoint baru lupa memperbaruinya. Bug awal (`tandaiDibaca()` kembali ke `perlu_dibalas`, `kirimMedia()` tidak menulis `last_seen_by_assignee_at`) sudah diperbaiki.
