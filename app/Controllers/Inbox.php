@@ -213,6 +213,18 @@ class Inbox extends BaseController
             // seperti biasa.
         }
 
+        if (empty($message['media_local_filename']) && !empty($message['media_confirmed_gone_at'])) {
+            // Tahap E -- sudah pernah dipastikan gagal PERMANEN (410 dari
+            // WhatsApp) -- jangan hubungi Gateway lagi sama sekali, balas
+            // cepat. Beda dari media_download_attempted_at (Tahap C) yang
+            // bisa gagal sementara dan masih layak dicoba ulang -- kolom
+            // ini SENGAJA hanya diisi untuk 410 yang pasti final.
+            return $this->response->setStatusCode(410)->setJSON([
+                'status'  => 'error',
+                'message' => 'Media sudah tidak tersedia (kedaluwarsa).',
+            ]);
+        }
+
         // Media per message_id TIDAK PERNAH berubah setelah pesan
         // tersimpan (tidak ada jalur kode yang UPDATE media_metadata) --
         // aman di-cache lama oleh browser via ETag berbasis ID saja.
@@ -252,6 +264,18 @@ class Inbox extends BaseController
             // WhatsApp. Dikembalikan sebagai JSON (bukan gambar rusak)
             // supaya UI bisa menampilkan pesan yang jelas, bukan ikon
             // "broken image" generik browser.
+            //
+            // Tahap E -- 410 SPESIFIK dicatat sebagai final (beda dari
+            // timeout/502/dst yang tetap boleh dicoba lagi nanti) supaya
+            // request berikutnya ke pesan ini short-circuit di blok
+            // media_confirmed_gone_at di atas, tidak menghubungi Gateway
+            // lagi sama sekali.
+            if ((int) $result['status'] === 410) {
+                $messageModel->update($messageId, [
+                    'media_confirmed_gone_at' => date('Y-m-d H:i:s'),
+                ]);
+            }
+
             return $this->response->setStatusCode($result['status'] ?: 502)->setJSON([
                 'status'  => 'error',
                 'message' => $result['error'],

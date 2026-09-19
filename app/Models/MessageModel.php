@@ -53,6 +53,7 @@ class MessageModel extends Model
         'media_metadata',
         'media_local_filename',
         'media_download_attempted_at',
+        'media_confirmed_gone_at',
         'message_timestamp',
         'sent_by_user_id',
         'send_status',

@@ -483,6 +483,7 @@
     // ================================================================
     let conversationAktif = null;
     let conversationUntukHapus = null; // target hapus dari row daftar kiri, terpisah dari conversationAktif
+    const mediaGagal = new Set(); // id pesan yang medianya sudah dipastikan gagal dimuat -- reset tiap reload halaman (cukup untuk 1 sesi kerja, tidak perlu persisten di frontend).
     let daftarConversation = <?= json_encode($conversations) ?>;
     // Tahap 1 lifecycle status (docs/aturan-bisnis-CHAT.md Section 12):
     // filter tampilan daftar percakapan SAJA (client-side) -- tidak ada
@@ -852,20 +853,30 @@
         const urlMedia = '<?= base_url('/inbox/media/') ?>' + m.id;
 
         if (m.message_type === 'image') {
+            // Tahap E: sekali gagal, JANGAN buat tag <img> lagi sama
+            // sekali untuk pesan ini -- mencegah polling 4 detik terus
+            // meminta ulang media yang sudah dipastikan kadaluarsa.
+            if (mediaGagal.has(m.id)) {
+                return '<div class="inbox-media-unavailable"><i class="fas fa-image"></i> Gambar tidak tersedia (kemungkinan sudah kadaluarsa)</div>' +
+                    (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+            }
             // onerror: media bisa saja sudah kadaluarsa di server WhatsApp
             // (lihat catatan desain -- kita cuma simpan referensi, bukan
             // file permanen) -- tampilkan placeholder yang jelas, bukan
             // ikon "broken image" generik browser.
             return '<img src="' + urlMedia + '" alt="Gambar" class="inbox-media-image" ' +
-                'onerror="this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-image&quot;></i> Gambar tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">' +
+                'onerror="mediaGagal.add(' + m.id + '); this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-image&quot;></i> Gambar tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">' +
                 (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
         }
 
         if (m.message_type === 'sticker') {
             // Sticker TIDAK PERNAH punya caption di WhatsApp -- beda dari
             // image/document, tidak perlu render m.text sama sekali.
+            if (mediaGagal.has(m.id)) {
+                return '<div class="inbox-media-unavailable"><i class="fas fa-icons"></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>';
+            }
             return '<img src="' + urlMedia + '" alt="Sticker" class="inbox-media-sticker" ' +
-                'onerror="this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-icons&quot;></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">';
+                'onerror="mediaGagal.add(' + m.id + '); this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-icons&quot;></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">';
         }
 
         if (m.message_type === 'document') {
