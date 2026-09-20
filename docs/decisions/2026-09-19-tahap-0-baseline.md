@@ -233,3 +233,20 @@ Perbaikan: `CI4_BASE_URL` di `.env` Gateway diubah ke `http://127.0.0.1/aulia`, 
   mekanisme Gateway) belum diverifikasi. Pesan grup lama 14:19 juga terkirim ulang (id 743). Risiko pesan hilang saat
   CI4 down belum terbukti maupun terbantah.
 - Status: incoming ✔. Outgoing, fromMe=true, WebP/sticker **masih belum**.
+
+### Update 4 — Smoke test Outgoing & fromMe=true (2026-09-20 14:33–14:34 WIB)
+
+Kontak uji: "Muhammad Anshar" (percakapan 79, nomor pemilik sendiri). Diverifikasi dari `aulia_inboxdb` + `GET /api/messages` Gateway.
+
+**Outgoing (POS → WhatsApp)**
+- [x] Tercatat: id 747 "tes outgoing", `direction=outgoing`, `send_status=sent`, `sent_by_user_id=3`, `conversations.last_replied_by=3`.
+- [x] Waktu klik → tercatat di DB: `message_timestamp` = `created_at` = 14:33:15 (selisih 0 dtk). Sampai di HP penerima: dikonfirmasi user ("sudah"), waktu tampil di UI tidak diukur.
+- [x] Gateway juga menangkap echo kirim itu sebagai `fromMe=true` (sender "Gateway (akun sendiri)"), tetapi DB hanya punya **satu** baris untuk `wa_message_id` `3EB0A6D8…` → tidak ada duplikat dari echo.
+- [ ] **Belum diuji:** duplicate send saat Gateway mati/timeout lalu retry manual (butuh mematikan Gateway sesaat setelah klik kirim). Limitation.
+
+**fromMe=true (HP/WhatsApp Web toko → customer)**
+- [x] id 748 "Oke": `direction=outgoing`, `sent_by_user_id=NULL` (bukan dari UI), `wa_message_id` `ACB6EED…`.
+- [x] **Nama customer tetap "Muhammad Anshar"** (`conversations.id=79.whatsapp_name`), tidak tertimpa nama akun toko → fix `5b28eb6` terbukti di runtime nyata (di DB). Catatan: pada `GET /api/messages` Gateway, `sender.name` untuk pesan fromMe berisi "Muhammad Anshar" (nama chat), bukan `null`; AuliaPos menerimanya tanpa masalah.
+- [x] Anomali lain: tidak ada yang terlihat.
+
+Status: incoming ✔, outgoing ✔ (kecuali uji duplicate), fromMe ✔. Tersisa: WebP vs sticker (P2) dan uji duplicate send.
