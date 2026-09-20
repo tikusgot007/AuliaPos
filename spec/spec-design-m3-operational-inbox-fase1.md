@@ -33,18 +33,18 @@ Asumsi: seluruh kerja ini dibangun di atas branch turunan `v2.2` (bukan `v2.1`/`
 
 ## 1.2 Open Questions & Assumptions
 
-Semua ambiguitas mayor sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-2026-09-20.md`). Sisa asumsi teknis minor yang saya buat saat menyusun spec ini (belum pernah digali eksplisit ke user):
+Semua ambiguitas mayor sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-2026-09-20.md`). Ketiga asumsi teknis minor yang sebelumnya ditandai `[!WARNING]` sudah digali eksplisit ke user dan **dikonfirmasi final** lewat sesi klarifikasi kedua (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md`, Readiness Score 87/100):
 
-> [!WARNING]
-> **ASSUMPTION-001:** Filter & Pencarian (Layar 7, Fase 1b) akan ditambahkan sebagai parameter query string baru di `GET /inbox/api/conversations` (`Inbox::apiConversations()`) — bukan endpoint baru — karena blueprint sendiri menyebut ini "ekstensi endpoint existing, bukan gap besar". Query yang diasumsikan: `?status=<tab>&q=<keyword nama/nomor>`. **Perlu dikonfirmasi bentuk pastinya saat `/sdlc-plan-tasks`.**
+> [!IMPORTANT]
+> **ASSUMPTION-001 — CONFIRMED:** Filter & Pencarian (Layar 7, Fase 1b) ditambahkan sebagai parameter query string baru di `GET /inbox/api/conversations` (`Inbox::apiConversations()`) — bukan endpoint baru. Query final: `?status=<tab>&q=<keyword nama/nomor>`. Mekanisme: **filter-after-fetch** di PHP (bukan `WHERE` SQL per tab yang menerjemahkan ulang kondisi `attachResponseState()`, untuk menghindari duplikasi logic sesuai REQ-002). Limit `findAll()` pada `apiConversations()` dinaikkan dari `100` menjadi **`500`** (konsisten dengan limit yang sudah dipakai `apiPerluDibalasCount()`/`apiMessages()` di controller yang sama) supaya filter tab dengan `last_message_at` lama (mis. "Selesai") tidak kehilangan data. Parameter `q` memakai `LIKE '%q%'` mentah terhadap `contact_name`/`phone`, tanpa normalisasi format nomor telepon. Detail lengkap: lihat Bagian 4.4.
 
-> [!WARNING]
-> **ASSUMPTION-002:** SLA warna (Bagian 5) dihitung **hanya untuk conversation yang statusnya bukan `selesai` dan bukan `follow_up` (snoozed)** — snoozed conversation sengaja tidak diberi warna SLA merah/kuning karena secara desain memang "ditunda dengan sengaja", bukan terlambat. Ini belum pernah ditanyakan eksplisit ke user; kalau salah, cukup ubah kondisi di `ConversationModel::withComputedStatus()` tanpa mengubah kontrak API.
+> [!IMPORTANT]
+> **ASSUMPTION-002 — CONFIRMED:** SLA warna (Bagian 5) dihitung **hanya untuk conversation yang statusnya bukan `selesai` dan bukan `follow_up` (snoozed)** — snoozed conversation sengaja tidak diberi warna SLA merah/kuning karena secara desain memang "ditunda dengan sengaja", bukan terlambat. Dikonfirmasi eksplisit bahwa Response State `menunggu_customer` **tetap ikut** dihitung warna SLA (sesuai AC-005 apa adanya) — SLA di sini mengukur usia percakapan sejak `last_message_at`, bukan spesifik kecepatan respons staff, sehingga warna pada tab "Menunggu" berfungsi sebagai reminder follow-up manual ke customer yang lama tidak merespons.
 
-> [!WARNING]
-> **ASSUMPTION-003:** Kolom `is_internal` pada `messages` diberi `default => false` dan **tidak nullable** — konsisten dengan pola boolean lain di skema Inbox (mis. tidak ada kolom boolean nullable di migration existing). Baris lama (sebelum migration) otomatis terisi `false` lewat default kolom, tidak perlu backfill manual.
+> [!IMPORTANT]
+> **ASSUMPTION-003 — CONFIRMED:** Kolom `is_internal` pada `messages` diberi `default => false` dan **tidak nullable**. Justifikasi dikoreksi dari draf awal: klaim "konsisten dengan pola boolean lain di skema Inbox" tidak akurat — verifikasi ke `2026-09-07-000001_CreateInboxTables.php` dan `2026-09-19-000001_AddResponseStateFoundation.php` menunjukkan **tidak ada satu pun kolom `BOOLEAN`** di skema Inbox sampai saat ini. Preseden yang benar adalah pola `tinyint(1) NOT NULL DEFAULT ...` (`is_locked`, `aktif`) di modul POS (`2026-09-08-000001_CreateAuliaPosCore.php`). Kesimpulan (`NOT NULL DEFAULT FALSE`) tetap valid atas dasar ini. Baris lama (sebelum migration) otomatis terisi `false` lewat default kolom saat `ADD COLUMN`, tidak perlu backfill manual.
 
-Kalau tidak ada revisi dari user, ketiga asumsi ini dianggap final saat `/sdlc-plan-tasks` dimulai.
+Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi kedua (di luar 3 ASSUMPTION di atas), dua hal berikut juga sudah diresolusi dan tercermin di Bagian 3/4.3/12: (a) endpoint Internal Note diizinkan ditulis pada conversation berstatus `closed` tanpa pembatasan tambahan; (b) REQ-009 direvisi karena `conversations.last_message_at`/`last_message_direction` adalah kolom denormalized yang di-`update()` manual di titik insert pesan (bukan hasil query agregasi) — lihat REQ-009 dan Bagian 12.
 
 ## 2. Definitions
 
@@ -73,9 +73,9 @@ Istilah berikut mengikuti dokumen sumber (`Panduan_Layar_AuliaPos_M3.md`, `docs/
 ### Fase 1b
 
 - **REQ-007**: Migration baru menambah kolom `is_internal BOOLEAN NOT NULL DEFAULT FALSE` pada tabel `messages` (koneksi `inbox`, additive, mengikuti pola `2026-09-19-000001_AddResponseStateFoundation.php`).
-- **REQ-008**: Endpoint baru untuk menulis Internal Note (POST) — menyisipkan baris ke `messages` dengan `is_internal = TRUE`, `direction` **TIDAK** dikirim ke Gateway (tidak memanggil `POST /send` Gateway sama sekali).
+- **REQ-008**: Endpoint baru untuk menulis Internal Note (POST) — menyisipkan baris ke `messages` dengan `is_internal = TRUE`, `direction` **TIDAK** dikirim ke Gateway (tidak memanggil `POST /send` Gateway sama sekali). Endpoint ini **diizinkan dipanggil pada conversation berstatus apa pun, termasuk `closed`** (Response State `selesai`) — tidak ada pembatasan status conversation, konsisten dengan SEC-001 yang sudah permisif dan dengan REQ-009 yang menjamin Internal Note tidak pernah mengubah `response_state`/SLA, sehingga tidak ada risiko integritas yang perlu dijaga dengan mengunci status (berbeda dari `TransaksiModel` yang mengunci status final demi integritas finansial).
 - **SEC-001**: Penulisan Internal Note **tidak** melalui `cekOwnership()` — staff manapun (assigned atau tidak, bukan hanya admin) boleh menulis Internal Note ke conversation manapun. Ini beda eksplisit dari aturan balas/hapus/snooze yang tetap terkunci `cekOwnership()`.
-- **REQ-009**: Semua query yang menghitung `last_message_at` / `last_message_direction` (baik untuk `attachResponseState()`, `withComputedStatus()`, maupun SLA Timer) **WAJIB** memfilter `WHERE is_internal = FALSE` atau setara — baris Internal Note tidak boleh mengubah nilai-nilai ini.
+- **REQ-009**: `conversations.last_message_at` dan `conversations.last_message_direction` **BUKAN** hasil query agregasi/trigger dari tabel `messages` — keduanya adalah kolom denormalized yang di-`update()` secara eksplisit di setiap titik insert pesan existing (`Inbox::kirim()`, endpoint balas tagihan, `InboxGatewayApi::messages()`). Karena itu, tidak ada "query WHERE" yang perlu difilter. Yang **WAJIB** dipatuhi: endpoint Internal Note baru (REQ-008) **TIDAK BOLEH memanggil `ConversationModel::update()` untuk kolom `last_message_at`/`last_message_direction`** sama sekali — berbeda dari titik-titik insert pesan lain yang melakukannya. Insert-nya cukup menulis ke tabel `messages` dengan `is_internal = TRUE`, tanpa menyentuh tabel `conversations`.
 - **REQ-010**: SLA Timer dihitung di sisi UI/response payload dari `last_message_at`, threshold: Hijau `< 15 menit`, Kuning `15–60 menit`, Merah `> 60 menit`. Threshold disimpan sebagai konstanta di `app/Config/Inbox.php` (properti baru, bukan tabel setting).
 - **REQ-011**: Field Alasan pada Snooze Dialog (Fase 1b) ditulis sebagai baris Internal Note otomatis saat staff snooze dengan alasan diisi — **tidak ada kolom `snooze_reason` baru** di `conversations`.
 - **REQ-012**: `GET /inbox/api/conversations` diperluas menerima parameter filter (lihat ASSUMPTION-001) untuk Layar 7 (Filter & Pencarian) — tab status dan pencarian nama/nomor.
@@ -116,11 +116,17 @@ Tidak melalui `cekOwnership()` (lihat SEC-001). Insert ke `messages` dengan `is_
 
 ### 4.4 Endpoint diperluas — `GET /inbox/api/conversations` (Fase 1b)
 
-Parameter baru (lihat ASSUMPTION-001):
+Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
 - `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View.
-- `q` (opsional): keyword, filter `contact_name LIKE` atau `phone LIKE`.
+- `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default).
 
-Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b) `sla_color` (`hijau|kuning|merah|null`, `null` untuk `selesai`/`ditunda` — lihat ASSUMPTION-002).
+**Mekanisme (filter-after-fetch):**
+1. Query dasar tetap satu `SELECT` (`orderBy('last_message_at', 'DESC')`), **limit dinaikkan dari `findAll(100)` menjadi `findAll(500)`** — konsisten dengan limit yang sudah dipakai `apiPerluDibalasCount()`/`apiMessages()` pada controller yang sama.
+2. `attachResponseState()` dan `withComputedStatus()` (4.2) dijalankan seperti biasa atas seluruh 500 baris.
+3. Filter `status`/`q` diterapkan **setelah** langkah 2, di PHP — bukan sebagai `WHERE` SQL baru yang menerjemahkan ulang kondisi `attachResponseState()` (menghindari duplikasi logic, sesuai REQ-002).
+4. Alasan menaikkan limit ke 500 (bukan tetap 100): filter-after-fetch berisiko kehilangan data untuk tab dengan `last_message_at` yang cenderung lama (mis. "Selesai") kalau 100 baris teratas didominasi conversation aktif; limit 500 mengurangi risiko ini tanpa menambah query SQL baru.
+
+Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b) `sla_color` (`hijau|kuning|merah|null`, `null` untuk `selesai`/`ditunda`; **`menunggu_customer` tetap dihitung** — lihat ASSUMPTION-002 — CONFIRMED).
 
 ## 5. Acceptance Criteria
 
@@ -189,8 +195,8 @@ public function catatanInternal($conversationId = null)
 
 ## 9. Implementation Boundaries
 
-- **Always do:** Reuse `attachResponseState()` (REQ-002), filter `is_internal = FALSE` di semua query computed status/SLA (REQ-009), jalankan `composer test` sebelum menganggap task selesai, migration additive-only.
-- **Ask first:** Bentuk pasti parameter filter di `apiConversations()` (ASSUMPTION-001) jika ternyata butuh field lain di luar `status`/`q`; perubahan pada `Inbox::snoozePercakapan()` yang mengubah kontrak existing (dipakai Fase 1a, jangan pecah backward compatibility saat menambah Fase 1b).
+- **Always do:** Reuse `attachResponseState()` (REQ-002); di endpoint Internal Note, JANGAN panggil `ConversationModel::update()` untuk `last_message_at`/`last_message_direction` (REQ-009); jalankan `composer test` sebelum menganggap task selesai; migration additive-only; `apiConversations()` pakai `findAll(500)` + filter-after-fetch (ASSUMPTION-001 — CONFIRMED, lihat 4.4).
+- **Ask first:** Perubahan pada `Inbox::snoozePercakapan()` yang mengubah kontrak existing (dipakai Fase 1a, jangan pecah backward compatibility saat menambah Fase 1b); field filter tambahan di luar `status`/`q` pada `apiConversations()` yang tidak tercakup spec ini.
 - **Never do:** Menambah kolom `display_status` atau `snooze_reason` baru (sudah diputuskan ditolak di clarification report); membuat Internal Note memicu panggilan ke Gateway; membiarkan Internal Note ikut mengubah `last_message_direction`/`last_message_at`.
 
 ## 10. Rationale, Context & Architecture Decisions (ADRs)
@@ -214,18 +220,31 @@ public function catatanInternal($conversationId = null)
 ```php
 // Contoh: Internal Note TIDAK boleh mengubah response_state (AC-003)
 // Skenario: conversation 'menunggu_customer', staff nulis Internal Note.
-// Query yang menghitung last_message_at/last_message_direction WAJIB begini:
-$conversationModel
-    ->select('conversations.*')
-    ->join('messages', 'messages.conversation_id = conversations.id AND messages.is_internal = 0', 'left')
-    // ... bukan hanya ambil last_message_at dari kolom conversations yang
-    // di-update tanpa syarat is_internal di trigger/hook penyimpanan pesan.
+//
+// conversations.last_message_at/last_message_direction adalah kolom
+// DENORMALIZED yang di-update() eksplisit di titik insert pesan lain
+// (Inbox::kirim(), InboxGatewayApi::messages()) -- BUKAN hasil query
+// agregasi dari tabel messages. Karena itu endpoint Internal Note baru
+// (catatanInternal()) WAJIB begini:
+//
+// 1. Insert baris baru ke `messages` dengan is_internal = TRUE.
+// 2. JANGAN panggil $conversationModel->update($conversationId, [
+//      'last_message_at' => ..., 'last_message_direction' => ...,
+//    ]) sama sekali -- beda dari pola di kirim()/InboxGatewayApi::messages()
+//    yang MEMANG melakukan update() itu untuk pesan biasa.
+//
+// Kalau baris update() itu ikut dipanggil (copy-paste dari method lain),
+// response_state akan salah berubah meski is_internal=TRUE sudah benar
+// tersimpan -- ini pelanggaran diam-diam terhadap AC-003/CON-002 yang
+// TIDAK terdeteksi hanya dengan assert is_internal=TRUE tersimpan; test
+// juga harus assert conversations.last_message_direction TIDAK berubah.
 ```
 
 Edge case eksplisit yang harus ditangani implementasi (dari sesi clarification):
 - Snooze tanpa alasan (Fase 1a) — field Alasan tidak ada, jangan kirim `null`/string kosong ke endpoint yang belum ada di Fase 1a.
 - Staff bukan admin, bukan assignee, menulis Internal Note ke conversation yang di-assign orang lain → tetap 200 (SEC-001), beda hasil dari `cekOwnership()` yang akan menolak aksi balas/hapus/snooze di conversation yang sama.
 - Conversation baru tanpa `last_message_direction` sama sekali (fallback `attachResponseState()` baris ~483-487) → `withComputedStatus()` harus mewarisi fallback yang sama (`perlu_dibalas` → `belum_diambil`/`open` tergantung `assigned_to`), bukan crash/nilai kosong.
+- Internal Note ditulis pada conversation berstatus `closed` (Response State `selesai`) → request tetap 200, tidak ditolak karena status. Endpoint ini tidak mengecek status conversation sama sekali di luar cek "conversation ditemukan" (404).
 
 ## 13. Validation Criteria
 

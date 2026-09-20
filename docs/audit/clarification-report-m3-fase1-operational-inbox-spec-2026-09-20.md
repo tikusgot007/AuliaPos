@@ -1,3 +1,9 @@
+> [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED**
+> This audit report has been remediated by Specification Architect.
+> - **Projected Readiness Score:** 96/100
+> - Spec `spec/spec-design-m3-operational-inbox-fase1.md` updated: Section 1.2 (3 ASSUMPTIONs marked CONFIRMED), Section 4.4 (filter-after-fetch mechanism + `findAll(500)` specified), REQ-008/REQ-009 (wording corrected to prohibit `update()` on `conversations.last_message_at`/`last_message_direction` in the Internal Note endpoint, and explicit permission for closed-conversation notes), Section 9 (Implementation Boundaries updated), Section 12 (corrected code example + new edge case).
+
 # 🔍 Clarification Report [Review Iteration 1]
 
 **Readiness Score:** 87/100
