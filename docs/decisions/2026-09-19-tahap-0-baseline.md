@@ -217,3 +217,19 @@ Limitation eksplisit: butuh HP kedua + sesi WhatsApp ter-pair. Saat pengecekan, 
   Belum diubah/diperbaiki; menunggu keputusan (konfigurasi lokal). Log file Gateway (`logs/gateway.log`) berhenti
   12 Sep, jadi log runtime tidak bisa dipakai untuk konfirmasi.
 - Item smoke test 2–5 tetap belum selesai; outgoing belum dicoba karena mengirim WhatsApp sungguhan.
+
+### Update 3 — Smoke test Incoming setelah perbaikan `CI4_BASE_URL` (2026-09-20 14:31 WIB)
+
+Perbaikan: `CI4_BASE_URL` di `.env` Gateway diubah ke `http://127.0.0.1/aulia`, Gateway di-restart.
+
+- [x] Pesan masuk sampai ke inbox? **Ya** — id 745 "Tea" dan 746 "Tes" (percakapan 79), `direction=incoming`.
+- [x] Latency (`message_timestamp` → `created_at` di DB): **0–1 detik**. Belum diukur sampai tampil di UI `/inbox` (dicek lewat DB, bukan browser).
+- [x] Nama customer: `conversations.whatsapp_name` = "Muhammad Anshar" (benar, bukan nomor mentah). Catatan: pada
+  cek 14:26 baris yang sama (id 79) masih berisi "Aulia Digital Photo Service" (nama akun toko); ter-koreksi setelah
+  pesan incoming ini. Perlu ditelusuri di Tahap 1 apakah nama toko sempat menimpa dari jalur lain (fromMe/outgoing).
+- [x] Error selama proses: tidak ada yang terlihat di DB; log file Gateway tidak bisa dipakai (berhenti 12 Sep).
+- **Koreksi Update 2:** pesan "tes" 14:16 yang saya sebut hilang ternyata **terkirim ulang** saat restart
+  (id 744, created 14:31:21, latency 906 dtk) — bukan hilang. Penyebab replay (Baileys/WhatsApp offline sync vs
+  mekanisme Gateway) belum diverifikasi. Pesan grup lama 14:19 juga terkirim ulang (id 743). Risiko pesan hilang saat
+  CI4 down belum terbukti maupun terbantah.
+- Status: incoming ✔. Outgoing, fromMe=true, WebP/sticker **masih belum**.
