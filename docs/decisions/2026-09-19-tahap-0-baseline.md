@@ -378,3 +378,45 @@ Lingkungan: Windows 11, XAMPP, PHP 8.2.12, MariaDB 10.4.32; Gateway `5b28eb6` (N
 baru ketahuan lewat pengecekan manual; kesalahan identifikasi folder/`auth` Gateway (banyak salinan non-git di flashdisk).
 
 **Status: TAHAP 0 DONE (dinyatakan pemilik, 2026-09-20), dengan limitation di atas. Item 2–3 dikonfirmasi manual oleh user. Berikutnya: TAHAP 1 — Gateway Reliability, mulai tiket 01 (baseline test), lalu 02 (audit enqueue).**
+
+## Verifikasi Ulang — Kasus Dekripsi Gagal fromMe (kondisi bersih) (2026-09-20 16:35–16:44 WIB)
+
+Menguji ulang skenario serupa temuan pesan `AC0B72AD…` (fromMe, gagal didekripsi, tidak masuk `messages`) pada kondisi bersih.
+Ini **bukti tidak langsung**; log lama `AC0B72AD…` tidak diperiksa ulang.
+
+**Konfirmasi lingkungan (diperiksa eksplisit, bukan asumsi)**
+- [x] Gateway: `G:\wa-gateway-5b28eb6`, HEAD `5b28eb6`, `src/whatsapp/connectionManager.js:579` memuat `fromMe ? null : …`; `node.exe` lokal v22;
+  `auth/creds.json` `me.id` = `6281913500707:14`; `CI4_BASE_URL=http://localhost/aulia`. Sebelum start: tidak ada proses `node` lain, port 3000 kosong. Satu sesi WhatsApp.
+- [x] Database: `aulia_inboxdb` (koneksi `inbox` di `.env` AuliaPos; `inbox.gatewayBaseUrl=http://localhost:3000`). `aulia_kasirdb` tidak disentuh.
+- [x] Backup (`mysqldump --single-transaction`, sebelum apa pun dikosongkan): `G:\backup-verifikasi\aulia_inboxdb_sebelum_verifikasi_20260920_1635.sql`
+  (129.545 byte; 4 tabel lengkap, ditutup `Dump completed`).
+- [x] Dikosongkan (`TRUNCATE`, FOREIGN_KEY_CHECKS=0 sesaat): `messages` (302 baris, max id 757), `conversations` (37), `conversation_identities` (40).
+  `gateway_status` tidak disentuh. Struktur/migration utuh.
+  - **Keputusan sadar oleh pemilik:** sebelum TRUNCATE saya menandai keraguan (data 13–20 Sep berisi percakapan yang tampak dari pelanggan nyata,
+    mis. "cetak foto uk 4×3"; 78 file di `D:/media`). Pemilik memilih tetap TRUNCATE dengan backup. Saya menyarankan alternatif tanpa TRUNCATE
+    karena dekripsi Signal terjadi di Gateway (`auth/`), bukan di database, sehingga isi tabel tidak memengaruhi hasil tes.
+  - `ALTER TABLE messages AUTO_INCREMENT=758` agar id tidak mundur ke 1 dan tidak menimpa file lama `D:/media/<id>.*`. 78 file media lama **tidak** dihapus.
+- Gateway di-start sekali (`node.exe src/app/index.js`), `connected` 6281913500707. Posisi log ditandai sebelum start; hanya log setelahnya yang dihitung.
+
+**Tes A — salah arah (tercatat apa adanya).** Percobaan pertama ternyata dikirim ke nomor toko dari HP Anshar: 19 pesan `incoming` (id 758–776:
+T01–T04, 9 teks cepat, 6 sticker), 0 `outgoing`. Bukan skenario fromMe, tetapi berguna sebagai uji beban **incoming**: semua tercatat, latency 1–6 dtk, 0 gagal dekripsi.
+
+**Tes B — fromMe dari nomor toko ke kontak uji "Muhammad Anshar" (percakapan id 1)**
+- Dikirim manual dari HP/WA Web toko: T01–T03 (pendek, jeda ±10 dtk), 1 teks panjang (**1.368 karakter**, tercatat utuh `len=1368`), 12 teks pendek beruntun cepat (±1 dtk).
+- Tercatat di `messages`: **16 baris, semuanya `direction=outgoing`, `send_status=sent`, `sent_by_user_id=NULL`** (id 777–792), latency 1–5 dtk.
+- Buffer Gateway `/api/messages` menangkap **16** event `fromMe:true` → 16 ditangkap = 16 tercatat (tidak ada yang hilang antara Gateway dan AuliaPos).
+  Jumlah yang dikirim manual belum dikonfirmasi user secara eksplisit; ketiadaan error dekripsi mendukung bahwa 16 = jumlah terkirim.
+- Nama percakapan tetap "Muhammad Anshar" (`whatsapp_name`), `contact_name` NULL → nama toko tidak menimpa.
+- Kegagalan dekripsi baru: **tidak ada**. 0 `Bad MAC` / `No matching sessions` / `MessageCounterError` / `Failed to decrypt` (log + stdout).
+  Satu-satunya error: 3× `Timed Out` (Baileys) pada 09:37:57Z, ±2 menit sebelum pesan pertama, saat Gateway baru start; polanya sama dengan kejadian sebelumnya dan tidak menghilangkan pesan.
+
+**Kesimpulan (eksplisit):** hipotesis lingkungan-kotor **diperkuat (bukti tidak langsung)**. Pada satu sesi bersih yang kontinu (satu pairing, `auth` baru, tanpa restart di tengah tes),
+16 pesan fromMe termasuk teks panjang dan burst cepat masuk semua tanpa kegagalan dekripsi. Tidak ditemukan bug sistemik pada jalur fromMe normal.
+
+**Batasan / yang TIDAK terbukti:**
+- Root cause pesan `AC0B72AD…` yang lama **tetap tidak terbukti langsung**.
+- Kegagalan lama terjadi tepat setelah **restart Gateway** (08:50:12Z dan 08:51:13Z, saat uji matikan Gateway), yaitu saat sesi dinegosiasi ulang dan
+  pesan dari HP mungkin terkirim ketika Gateway mati. Kondisi itu **tidak** direproduksi di tes ini (tanpa restart, tanpa pesan saat Gateway mati).
+  Penjelasan alternatif (pesan dari HP saat Gateway mati/restart gagal didekripsi lalu hilang) **belum dibantah** — kandidat uji khusus di Tahap 1 (M1):
+  kirim fromMe saat Gateway dihentikan, nyalakan lagi, hitung yang tercatat.
+- Sampel kecil (16 pesan, satu sesi); tidak membuktikan ketiadaan race pada beban tinggi atau jangka panjang.
