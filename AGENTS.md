@@ -210,9 +210,9 @@ To prevent infinite loops during the Draft ➔ Audit ➔ Update cycle, all clari
 
 ## Memory Configuration
 
-- **Active Memory Path:** `.agents/instructions/memory.instructions.md`
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
 - **Managed by:** `memory-manager` skill
-- **Last Recorded:** 2026-07-07
+- **Last Recorded:** 2026-09-21
 
 ## Agents Specific Guidelines
 
