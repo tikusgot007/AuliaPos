@@ -41,7 +41,7 @@ Kombinasi yang tampak janggal, yaitu `selesai` dengan `belum_bayar` atau `dp`, t
 Dokumentasi bisnis menyebut pendekatan ini **Opsi B**. Dua pintu utama:
 
 | Jenis perubahan | Satu-satunya pintu |
-|---|---|
+| --- | --- |
 | Perubahan `status` transaksi | `TransaksiModel::ubahStatus()` |
 | Penambahan `pembayaran` | `TransaksiModel::tambahPembayaran()` |
 
@@ -75,7 +75,7 @@ Pengertian Effective Shift Leader dijelaskan di [`docs/USER-SHIFT.md`](../USER-S
 Keduanya tampak mirip, yaitu transaksi yang tidak berlanjut, tetapi maknanya berbeda:
 
 | | `batal` | `mangkrak` |
-|---|---|---|
+| --- | --- | --- |
 | Makna | Transaksi dianggap tidak pernah terjadi | Transaksi benar-benar terjadi, tetapi macet tanpa kejelasan |
 | `no_order` | Dikosongkan | Tetap dipertahankan |
 | Jalan keluar | Tidak ada, `batal` bersifat final | Hanya kembali ke `proses` |
@@ -144,7 +144,7 @@ Jatuh tempo dihitung dari `transaksi.tanggal` ditambah `Config\Tagihan::$default
 Logika hitung dipisahkan ke kelas di `app/Services/` yang tidak menyimpan state dan tidak menyentuh database, sehingga dapat diuji tanpa bootstrap framework:
 
 | Service | Tugas | Pengujian |
-|---|---|---|
+| --- | --- | --- |
 | `KalkulasiStatusPembayaran` | Menghitung `status_pembayaran` dari total dibayar dan grand total | `KalkulasiStatusPembayaranTest` |
 | `KalkulasiDiskonTransaksi` | Menghitung diskon, grand total, dan pembulatan | `KalkulasiDiskonTransaksiTest` |
 | `KalkulasiJatuhTempo` | Menghitung tanggal jatuh tempo dan status terlambat | `KalkulasiJatuhTempoTest` |
