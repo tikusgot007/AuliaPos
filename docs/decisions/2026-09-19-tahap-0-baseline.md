@@ -205,3 +205,15 @@ Limitation eksplisit: butuh HP kedua + sesi WhatsApp ter-pair. Saat pengecekan, 
 ### Status
 
 **TAHAP 0 belum DONE** — item 2–5 masih terbuka.
+
+### Update 2 — Cek Gateway lokal (2026-09-20 ±14:30 WIB, read-only)
+
+- Gateway `http://127.0.0.1:3000/api/status`: `connected`, nomor 6281913500707. `GET /api/messages` berisi pesan asli
+  (mis. "tes" dari kontak "Muhammad Anshar", 07:16 UTC = 14:16 WIB) → **event WhatsApp → Gateway berfungsi**.
+- **Temuan (incoming): pesan itu TIDAK sampai ke AuliaPos.** Pesan terakhir di `aulia_inboxdb.messages` adalah
+  2026-09-19 15:05 (id 742, total 287). Penyebab yang terlihat: `CI4_BASE_URL` di `.env` Gateway =
+  `http://127.0.0.1/aulia-v3`, sedangkan AuliaPos di `http://localhost/aulia/`. Uji POST tanpa token:
+  `/aulia/api/inbox/gateway/messages` → 401 (route ada, minta token); `/aulia-v3/...` → 404.
+  Belum diubah/diperbaiki; menunggu keputusan (konfigurasi lokal). Log file Gateway (`logs/gateway.log`) berhenti
+  12 Sep, jadi log runtime tidak bisa dipakai untuk konfirmasi.
+- Item smoke test 2–5 tetap belum selesai; outgoing belum dicoba karena mengirim WhatsApp sungguhan.
