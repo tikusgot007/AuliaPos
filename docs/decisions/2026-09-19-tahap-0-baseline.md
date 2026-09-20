@@ -326,3 +326,29 @@ User tidak punya file WebP non-sticker, jadi tes kirim nyata tidak dijalankan (l
 - Kesimpulan: **risiko P2 terkonfirmasi**. WebP biasa (bukan sticker) yang diupload dari Inbox akan dikirim sebagai sticker, dan lolos
   validasi Gateway. Yang belum diamati adalah perilaku WhatsApp sesungguhnya (ditampilkan/ditolak) — butuh kirim nyata.
 - Sisi masuk tidak terdampak: klasifikasi dilakukan WhatsApp lewat tipe pesan asli (`stickerMessage` → id 753 `sticker`).
+
+### Update 8 — Uji "Gateway mati saat kirim" & `tests/unit/` lokal (2026-09-20)
+
+**Uji matikan Gateway (id 754–757, `logs/gateway.log`)**
+- id 754 "as" (08:47:32Z) dan 755 "as" (08:47:43Z): dua klik terpisah, masing-masing `[SEND] pesan berhasil dikirim` (±0,5 dtk) dan
+  `[SEND-CI4] … berhasil`, `wa_message_id` berbeda. Gateway baru menerima SIGINT pada 08:47:45Z, **1,2 dtk setelah kirim ke-2 selesai**.
+  Jadi keduanya bukan duplikat satu klik, dan Gateway **belum mati** saat kedua kirim itu diproses.
+- Setelah Gateway dinyalakan lagi (pid 5908 08:50:10Z, pid 14744 08:51:11Z): id 756 "sa" dan 757 "ges" terkirim normal (`sent`, ±0,6 dtk).
+  → **Pemulihan setelah restart terbukti**; tidak ada baris ganda akibat restart.
+- **Belum teruji (limitation):** klik kirim **saat Gateway sedang mati**, dan skenario timeout (Gateway sudah mengirim ke WhatsApp
+  tetapi respon ke POS hilang lalu POS/kasir retry) — tidak ada baris `send_status` selain `sent` di DB. Risiko duplicate-on-timeout
+  tetap **belum terbukti maupun terbantah**; masuk Tahap 1 (idempotency).
+- **Temuan baru (tidak diperbaiki):** Baileys mencatat berulang (08:50:12Z, 08:50:19Z `SessionError: No matching sessions found for message`;
+  08:51:13Z `MessageCounterError: Key used already or never filled`) untuk satu pesan `fromMe=true` `AC0B72AD…` di chat
+  `149701252890753@lid` — pesan itu gagal didekripsi dan **tidak ada** di `messages`. Kemungkinan pesan dari HP toko yang terkirim
+  saat Gateway mati/sesi berganti; berpotensi pesan hilang. Perlu ditelusuri di Tahap 1.
+
+**`tests/unit/` (AuliaPos, mesin lokal, PHP 8.2.12; tidak menyentuh DB)**
+- 12 file TestCase via PHPUnit: **82 tests, 144 assertion, 0 failure** (1 warning: tidak ada code coverage driver).
+- 4 skrip standalone (`php tests/unit/<file>.php`): ConfirmedGone 8/0, Fallback 3/0, Storage 12/0, ResponseStateManual 6/0 (PASS/FAIL).
+- Struktur test tercampur (top-level `exit()` di 4 file menghentikan PHPUnit bila dijalankan sekaligus) masih ada, tidak diperbaiki.
+
+### Status Tahap 0 (akhir hari 2026-09-20)
+Terverifikasi nyata: test database/session (SQLite), unit, incoming, outgoing, fromMe (pada build `5b28eb6`), sticker masuk, restart recovery.
+Limitation tercatat: `InboxSoftDeleteTest`, WebP non-sticker kirim nyata, Gateway-mati-saat-klik & duplicate-on-timeout.
+Temuan baru untuk Tahap 1: 2 ERROR `closing_kas` di test session, `CI4_BASE_URL`/token salah tidak terdeteksi cepat, pesan `fromMe` gagal-dekripsi.
