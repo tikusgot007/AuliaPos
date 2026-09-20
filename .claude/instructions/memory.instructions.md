@@ -66,3 +66,37 @@
 <!-- checkpoint-tail: M3 Operational Inbox Fase 1 — clarification report + ADR-0001 merged to v2.2 (PR #28); spec/spec-design-m3-operational-inbox-fase1.md drafted and pushed but not yet PR'd; next step is /sdlc-clarify-reqs on the spec (3 ASSUMPTION flags) in a new session, then /sdlc-plan-tasks. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-20 (third)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification remediated (`/sdlc-define-specs`, Phase 5 Audit Remediation) — spec ready for `/sdlc-plan-tasks`.
+- **Active Artifacts:**
+  - `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md` — Status: ✅ Finalized (Readiness Score: 87/100), remediation status appended (Projected Score 96/100), merged to `v2.2` via PR #30 (clarification report commit only).
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — Status: ✅ Remediated (Projected Readiness 96/100), pushed to `claude/spec-operational-inbox-fase1-tuux4c`, NOT yet PR'd/merged (remediation commit is after PR #30 merged).
+- **Achieved Milestones:**
+  - Ran `/sdlc-clarify-reqs` on `spec/spec-design-m3-operational-inbox-fase1.md`, grilling one question at a time: resolved the 3 tagged ASSUMPTIONs (filter/search mechanism for `apiConversations()`, SLA color scope, `is_internal` column) plus 2 extra gaps found via direct code verification (not asked lazily — actually read `Inbox.php`/migrations first).
+  - Verified via code: `apiConversations()` has no filter params today and hardcodes `findAll(100)`; `conversations.last_message_at`/`last_message_direction` are denormalized columns updated explicitly at 3 message-insert call sites (`Inbox.php:834-835,1455-1456`, `InboxGatewayApi.php:262-263`), not an aggregate query — this invalidated the spec's original REQ-009 wording ("filter WHERE is_internal=FALSE") which implied a query that doesn't exist.
+  - Verified via code that ASSUMPTION-003's justification ("consistent with other boolean columns in the Inbox schema") was factually wrong — the Inbox schema has zero `BOOLEAN` columns; the real precedent is `tinyint(1) NOT NULL DEFAULT ...` in the POS module (`CreateAuliaPosCore.php`). Decision (`NOT NULL DEFAULT FALSE`) stood, only the justification was corrected.
+  - Saved clarification report to `docs/audit/`, committed+pushed, created PR #30, merged to `v2.2` (user explicitly asked "bikin pr, merge").
+  - User asked to continue directly to `/sdlc-define-specs` in the SAME chat session; Clarification Analyst persona was already locked (Strict Session Isolation, AGENTS.md §8) — refused once per protocol, then user gave an explicit override ("Ya, override, lanjut di sesi ini"); proceeded with `[Session Override Active]` warning printed.
+  - As Specification Architect, applied Phase 5 Audit Remediation: 4 surgical edits to the spec (Section 1.2 assumptions → CONFIRMED, Section 4.4 filter mechanism + `findAll(500)`, REQ-008/REQ-009 wording fix, Section 9 boundaries, Section 12 example/edge case), then appended `REMEDIATION STATUS: RESOLVED` block to the clarification report per the mandatory sequence.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** N/A this session — see KB-worthy note below instead.
+- **Updated Files:**
+  - `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md` — new, then remediation status appended (2 commits, 2nd not yet in a PR)
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — remediated per clarification (Sections 1.2, 4.4, 3/REQ-008-009, 9, 12)
+- **Decisions Made:**
+  - `apiConversations()`: filter-after-fetch in PHP (no new SQL WHERE duplicating `attachResponseState()`), limit raised `findAll(100)` → `findAll(500)` (matches existing limit used elsewhere in the same controller). `q` param: raw `LIKE '%q%'`, no phone-number normalization.
+  - SLA color: `menunggu_customer` IS included (per AC-005 as literally written), only `selesai`/`follow_up` (snoozed) are excluded.
+  - `is_internal NOT NULL DEFAULT FALSE` stands, justification corrected to cite the POS module's `tinyint(1)` pattern instead of a nonexistent Inbox boolean pattern.
+  - Internal Note endpoint (`catatanInternal()`) must NEVER call `ConversationModel::update()` for `last_message_at`/`last_message_direction` (the real risk REQ-009 was trying to prevent, worded incorrectly in the original draft).
+  - Internal Note is allowed on `closed` conversations, no status gate — consistent with SEC-001's already-permissive stance.
+- **Next Action / Pending:**
+  - Spec remediation commit (`docs/audit/...` + `spec/...`) on `claude/spec-operational-inbox-fase1-tuux4c` is pushed but NOT yet in a PR (previous PR #30 only carried the first clarification-report commit and is already merged). User asked to create+merge a new PR next — do that before ending the session.
+  - After that PR merges: recommended next step is `/sdlc-plan-tasks` **in a new session**, attaching the approved `spec/spec-design-m3-operational-inbox-fase1.md`.
+  - Unrelated stale note carried over again: `AGENTS.md` still records a stale memory path (`.agents/instructions/...`) instead of the real `.claude/instructions/...` — still not fixed, still low priority, flagged 3 sessions running now.
+
+<!-- checkpoint-tail: M3 Fase 1 spec clarified (Readiness 87) and remediated (Projected 96) — spec/spec-design-m3-operational-inbox-fase1.md + audit report updated on claude/spec-operational-inbox-fase1-tuux4c, pushed but the remediation commit needs its own PR+merge next, then /sdlc-plan-tasks in a new session. -->
+
+---
