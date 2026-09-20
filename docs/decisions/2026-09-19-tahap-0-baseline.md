@@ -314,3 +314,15 @@ diklasifikasikan oleh WhatsApp/Baileys lewat tipe pesan aslinya (`stickerMessage
 - Selesai/terverifikasi: test DB (kecuali `InboxSoftDeleteTest`), incoming, outgoing, fromMe, sticker masuk.
 - Belum: WebP non-sticker (masuk **dan** keluar sebagai sticker), uji duplicate send saat Gateway mati, `tests/unit/` ulang.
 - **TAHAP 0 belum dinyatakan DONE.**
+
+### Update 7 — P2 WebP/sticker: dikonfirmasi lewat kode + eksekusi fungsi (2026-09-20)
+
+User tidak punya file WebP non-sticker, jadi tes kirim nyata tidak dijalankan (limitation). Sebagai gantinya, diverifikasi:
+
+- **AuliaPos** `app/Controllers/Inbox.php` (`kirimMedia`, ±baris 769–777): mimetype file yang diupload dari `/inbox` yang berupa
+  `image/webp` **selalu** dijadikan `mediaType = 'sticker'` (komentar kode: "foto kamera normal tidak pernah WebP"). Tidak ada toggle di UI.
+- **Gateway** `isValidWebp()` dijalankan langsung (Node 22, `require('./src/whatsapp/mediaPayload')`) pada WebP 1×1 piksel (jelas bukan ukuran
+  sticker 512×512): hasil **`true`**. JPEG → `false`, teks acak → `false`. Jadi hanya magic bytes yang dicek.
+- Kesimpulan: **risiko P2 terkonfirmasi**. WebP biasa (bukan sticker) yang diupload dari Inbox akan dikirim sebagai sticker, dan lolos
+  validasi Gateway. Yang belum diamati adalah perilaku WhatsApp sesungguhnya (ditampilkan/ditolak) — butuh kirim nyata.
+- Sisi masuk tidak terdampak: klasifikasi dilakukan WhatsApp lewat tipe pesan asli (`stickerMessage` → id 753 `sticker`).
