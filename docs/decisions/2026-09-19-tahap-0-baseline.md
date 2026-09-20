@@ -157,3 +157,51 @@ mesin lokal** sebelum Tahap 0 benar-benar dinyatakan DONE secara penuh. Sampai
 saat itu, mulai coding Tahap 1 (M1 Reliability) belum direkomendasikan untuk
 risiko P0 yang menyentuh langsung enqueue/queue/idempotency, karena baseline
 runtime nyata (bukan simulasi) belum ada.
+
+## Update — Smoke Test & Runtime Verification (2026-09-20, mesin lokal)
+
+Lingkungan: Windows 11, XAMPP, PHP 8.2.12, MariaDB 10.4.32 (`mysql --version` → `Distrib 10.4.32-MariaDB`).
+
+### 1. Test butuh database (AuliaPos) — DIJALANKAN, dengan catatan
+
+**Temuan:** test di `tests/database/` dan `tests/session/` **tidak berjalan di MySQL**.
+Migration test-support (`tests/_support/Database/Migrations/2026-09-13-000400_AddPriorityAndJadwalTestSupport.php:56`)
+memakai `sqlite_master`, dan grup `tests` default di `app/Config/Database.php` adalah SQLite `:memory:`.
+Mencoba grup `tests` → MySQL (`aulia_test`) gagal: `Table 'aulia_test.sqlite_master' doesn't exist`.
+Jadi `database.tests.*` di `phpunit.dist.xml` **bukan** cara yang benar untuk suite ini; jalankan di SQLite in-memory.
+Ekstensi PHP `sqlite3` tidak aktif di php.ini XAMPP (hanya `pdo_sqlite`), diaktifkan per-proses:
+`php -d extension=sqlite3 vendor/bin/phpunit tests/<folder>`. php.ini tidak diubah.
+
+| Folder | Tests | PASS | FAIL/ERROR | SKIP |
+|---|---|---|---|---|
+| `tests/database/` | 61 (96 assertion) | 61 | 0 | 0 |
+| `tests/session/` (tanpa `InboxSoftDeleteTest`) | 65 | 63 | 2 | 0 |
+
+ERROR (2), keduanya penyebab sama, `LaporanBulananExcludeBatalTest`:
+- `testKategoriTidakIkutkanTransaksiBatal`
+- `testTfQrisTidakIkutkanTransaksiBatal`
+
+Pesan: `DatabaseException: Unable to prepare statement: 1, no such table: db_closing_kas`
+(`app/Models/ClosingKasModel.php:44` ← `app/Controllers/Laporan.php:925`). Tabel `closing_kas`
+(migration `2026-09-14-000001_CreateClosingKasTable`) tidak dibuat oleh test-support migration, jadi
+`Laporan` gagal di SQLite test. Temuan baru, **belum diperbaiki** (scope Tahap 1).
+
+**Limitation — `InboxSoftDeleteTest` TIDAK dijalankan.** Test ini memakai koneksi `inbox` dan
+`emptyTable()` pada `messages`/`conversations`. Override `database.inbox.database` via env proses tidak
+berlaku (nilai `.env` menang), sehingga test akan menghapus data inbox asli (`aulia_inboxdb`).
+Perlu DB inbox terpisah atau mekanisme override sebelum bisa dijalankan aman.
+
+`tests/unit/` tidak dijalankan ulang di sesi ini.
+
+### 2–5. Smoke test Incoming / Outgoing / fromMe / WebP-sticker — BELUM DIJALANKAN
+
+Limitation eksplisit: butuh HP kedua + sesi WhatsApp ter-pair. Saat pengecekan, WA-Gateway
+(port 3000) tidak berjalan, dan `htdocs/wa-gateway` bukan repo git. Tidak ada hasil yang diasumsikan.
+- [ ] Incoming
+- [ ] Outgoing (termasuk uji duplicate send)
+- [ ] fromMe=true (bukti fix `5b28eb6`)
+- [ ] WebP vs sticker (P2)
+
+### Status
+
+**TAHAP 0 belum DONE** — item 2–5 masih terbuka.
