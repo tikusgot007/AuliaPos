@@ -275,3 +275,42 @@ Dampak pada hasil sebelumnya:
   build yang berjalan sudah memakai `http://127.0.0.1/aulia`. Perlu ditinjau ulang apakah edit itu masih relevan.
 
 Status: **smoke test perlu diulang** dengan Gateway dari `5b28eb6` (branch `claude/android-app-p40bl1`). TAHAP 0 belum DONE.
+
+### Update 6 — Smoke test ulang pada Gateway `5b28eb6` (2026-09-20 15:46–15:48 WIB)
+
+**Setup yang benar-benar dipakai**
+- Gateway: clone `tikusgot007/wa-gateway` branch `claude/android-app-p40bl1` di `G:\wa-gateway-5b28eb6`, HEAD `5b28eb6`;
+  `src/whatsapp/connectionManager.js:579` = `const senderName = fromMe ? null : (msg.pushName || null);` (fix ada).
+  Dijalankan dengan `node.exe` (v22) bawaan `G:\AuliaPos Gateway`; `node_modules` disalin dari folder itu (dependensi sama).
+- **Koreksi Update 5:** Gateway yang berjalan sebelumnya ternyata **bukan** `G:\AuliaPos Gateway` (kesimpulan dari kesamaan
+  `public/index.html` keliru). `creds.json` menunjukkan yang terhubung ke 6281913500707 adalah
+  `G:\android wa gateway\WA-Gateway`. `creds.json` per folder: AuliaPos Gateway = 628563324637, xampp/htdocs/wa-gateway = 628563324637,
+  G:\wa-gateway = 62881082323928. Salinan `auth` yang salah sempat membuat Gateway baru terhubung ke akun yang keliru dan
+  menulis heartbeat ke `gateway_status` (Bad MAC karena sesi basi; `[HEARTBEAT]` 401 "Token tidak valid" karena `.env` salah).
+- Diselesaikan dengan logout + pairing ulang (`auth` dan `data/gateway.sqlite*` dikosongkan), nomor uji 6281913500707.
+  Semua nomor yang terlibat adalah nomor uji. Konsekuensi: percakapan lama di `aulia_inboxdb` (id ≤ 749) berasal dari sesi/akun sebelumnya.
+
+**Hasil (diverifikasi dari `aulia_inboxdb` + `logs/gateway.log`, percakapan 79 "Muhammad Anshar")**
+
+| Tes | Bukti | Hasil |
+|---|---|---|
+| Incoming teks | id 750 "Inco", `incoming/received`, ts 15:46:09 → tersimpan 15:46:15 (6 dtk) | ✔ |
+| Nama customer | `whatsapp_name` = "Muhammad Anshar", `contact_name` NULL | ✔ (bukan nomor mentah/nama toko) |
+| Outgoing dari POS | id 751 "clas inco", `outgoing/sent`, `sent_by_user_id=3`, 0 dtk klik→DB | ✔ (penerimaan di HP hanya dikonfirmasi user "sudah semua", tidak diverifikasi terpisah) |
+| fromMe=true | id 752 "Oke", `outgoing`, `sent_by_user_id=NULL`; nama percakapan tetap "Muhammad Anshar" | ✔ — sekarang pada build yang **memuat** fix `5b28eb6`. Catatan: ini konsisten dengan fix, bukan reproduksi terkontrol bug-nya. |
+| Sticker asli (incoming) | id 753 `sticker`, `image/webp`, 7728 byte, tersimpan lokal `753.webp`; log `[MEDIA] … mediaType sticker ukuranByte 7728` | ✔ terklasifikasi benar |
+| WebP non-sticker (incoming) | **tidak ada** pesan lain di DB maupun log selain "Inco" dan sticker | ✖ **tidak teruji** — tidak ada pesan gambar/dokumen WebP yang diterima |
+| Duplicate send | id 754 dan 755, sama-sama "as", `outgoing/sent`, uid 3, 15:47:32 dan 15:47:44, `wa_message_id` **berbeda** (`3EB0C886…`, `3EB075E2…`) | ❓ dua kirim terpisah, bukan duplikat dari satu klik; belum jelas apakah skenario Gateway-mati dijalankan |
+
+**Catatan P2 (isValidWebp):** dari kode (`src/whatsapp/mediaPayload.js`, `src/api/ci4Routes.js:170`), `isValidWebp()` hanya
+dipakai di jalur **kirim keluar** (`mediaType === 'sticker'`) dan hanya mengecek magic bytes RIFF…WEBP. Jadi risiko P2 ada di sisi
+POS→WhatsApp (file WebP apa pun, termasuk foto biasa, lolos sebagai sticker), bukan di klasifikasi pesan masuk. Pesan masuk
+diklasifikasikan oleh WhatsApp/Baileys lewat tipe pesan aslinya (`stickerMessage`). Uji kirim keluar WebP non-sticker sebagai sticker
+**belum dijalankan**.
+
+**Anomali:** `statusCode 515 "Stream Errored (restart required)"` 08:45:19Z tepat setelah pairing (perilaku normal Baileys pasca-QR).
+
+### Status Tahap 0
+- Selesai/terverifikasi: test DB (kecuali `InboxSoftDeleteTest`), incoming, outgoing, fromMe, sticker masuk.
+- Belum: WebP non-sticker (masuk **dan** keluar sebagai sticker), uji duplicate send saat Gateway mati, `tests/unit/` ulang.
+- **TAHAP 0 belum dinyatakan DONE.**
