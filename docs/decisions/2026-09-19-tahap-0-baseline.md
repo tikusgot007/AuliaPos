@@ -364,17 +364,17 @@ Lingkungan: Windows 11, XAMPP, PHP 8.2.12, MariaDB 10.4.32; Gateway `5b28eb6` (N
 | 1 | Test DB `tests/database` | ✔ 61/61 PASS | SQLite in-memory (bukan MySQL — migration test memakai `sqlite_master`), `php -d extension=sqlite3` |
 | 1 | Test `tests/session` | ⚠ 63 PASS, 2 ERROR | `LaporanBulananExcludeBatalTest` (`no such table: db_closing_kas`); `InboxSoftDeleteTest` dilewati (mengosongkan tabel inbox asli) |
 | 1 | `tests/unit` | ✔ 82 test/144 assertion + 4 skrip (8/3/12/6) PASS | tanpa DB |
-| 2 | Incoming | ✔ (sampai DB) | id 750, latency 6 dtk, nama benar; tampil di UI browser tidak diperiksa |
-| 3 | Outgoing | ✔ (sampai DB & Gateway) | id 751 `sent`, uid 3; penerimaan di HP hanya konfirmasi lisan user; waktu di UI tidak diukur |
+| 2 | Incoming | ✔ | id 750, latency 6 dtk, nama benar; tampil di UI `/inbox` dengan nama "Muhammad Anshar" dikonfirmasi user (manual, 2026-09-20) |
+| 3 | Outgoing | ✔ | id 751 `sent`, uid 3; pesan "clas inco" (751) dan "sa" (756) dikonfirmasi user sampai di HP; waktu di UI tidak diukur |
 | 3 | Duplicate send saat Gateway mati/timeout | ✖ tidak teruji | Gateway mati setelah kirim selesai (Update 8) → Tahap 1 (idempotency) |
 | 4 | fromMe=true | ✔ | id 752 `outgoing`, nama tetap benar, pada build yang memuat fix `5b28eb6` |
 | 5 | Sticker masuk | ✔ | id 753 `sticker`, image/webp, 7728 B |
 | 5 | WebP non-sticker (P2) | ⚠ terkonfirmasi lewat kode | `Inbox::kirimMedia` menjadikan semua `image/webp` sticker; `isValidWebp()` menerima WebP 1×1. Kirim nyata tidak dilakukan (tidak ada file uji) |
 
-**Limitation:** `InboxSoftDeleteTest`; MySQL tidak dipakai untuk test DB; UI `/inbox` tidak diperiksa via browser; duplicate-on-timeout; WebP non-sticker kirim nyata.
+**Limitation:** `InboxSoftDeleteTest`; MySQL tidak dipakai untuk test DB; duplicate-on-timeout; WebP non-sticker kirim nyata.
 
 **Temuan baru (untuk Tahap 1, belum diperbaiki):** 2 ERROR `closing_kas` di test session; test unit tercampur TestCase/standalone
 (`exit()` menghentikan PHPUnit); pesan `fromMe` gagal-dekripsi (`AC0B72AD…`) tidak masuk `messages`; `.env` Gateway salah (`CI4_BASE_URL`/token)
 baru ketahuan lewat pengecekan manual; kesalahan identifikasi folder/`auth` Gateway (banyak salinan non-git di flashdisk).
 
-**Status: menunggu keputusan pemilik untuk menyatakan TAHAP 0 DONE (dengan limitation di atas).**
+**Status: item 2–3 dikonfirmasi manual oleh user; menunggu keputusan pemilik untuk menyatakan TAHAP 0 DONE (dengan limitation di atas).**
