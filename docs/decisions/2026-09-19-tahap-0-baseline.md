@@ -250,3 +250,28 @@ Kontak uji: "Muhammad Anshar" (percakapan 79, nomor pemilik sendiri). Diverifika
 - [x] Anomali lain: tidak ada yang terlihat.
 
 Status: incoming ✔, outgoing ✔ (kecuali uji duplicate), fromMe ✔. Tersisa: WebP vs sticker (P2) dan uji duplicate send.
+
+### Update 5 — KOREKSI: smoke test dijalankan pada versi Gateway yang salah (2026-09-20 ±14:40 WIB)
+
+Saat diperiksa, Gateway yang berjalan di `127.0.0.1:3000` (PID 15996, `node src/app/index.js`, start 14:29:45;
+dashboard identik dengan folder `G:\AuliaPos Gateway`) adalah **build lama (file 12 Sep)**:
+- `senderName = msg.pushName || null;` (tanpa `fromMe ? null : …`) → **fix `5b28eb6` TIDAK ada** di build ini.
+- Tidak ada `isValidWebp()` (belum ada penanganan sticker/WebP).
+
+Salinan Gateway lokal lain (semuanya **bukan git repo**, versi tidak dapat diverifikasi dengan `git`):
+`G:\xampp\htdocs\wa-gateway` (POC paling lama, 353 baris `connectionManager.js`), `G:\wa-gateway`, 
+`G:\android wa gateway\WA-Gateway` (root `src/` = sama dengan AuliaPos Gateway, 870 baris) dan
+`…\android\app\src\main\assets\nodejs-project` (punya `isValidWebp`, tetapi masih `msg.pushName || null`).
+**Tidak satu pun salinan lokal memuat `5b28eb6`.** Fix itu hanya terverifikasi ada di branch GitHub
+`claude/android-app-p40bl1` (lihat bagian 1).
+
+Dampak pada hasil sebelumnya:
+- **Update 4, klaim "bukti fix 5b28eb6 bekerja di runtime nyata": DICABUT.** Runtime yang diuji tidak memuat fix itu.
+  Nama percakapan 79 tetap "Muhammad Anshar" pada tes tersebut, tetapi pada cek 14:26 nama itu sempat bernama
+  "Aulia Digital Photo Service" — konsisten dengan bug pushName-akun-sendiri yang justru terlihat pada build ini.
+- Incoming/outgoing (Update 3–4) tetap valid sebagai hasil untuk **build lama**, bukan untuk HEAD `5b28eb6`.
+- Uji WebP/sticker (P2) tidak bermakna pada build ini (tidak ada `isValidWebp`).
+- Perbaikan `CI4_BASE_URL` (Update 2–3) dilakukan di `G:\xampp\htdocs\wa-gateway\.env`, bukan folder yang berjalan;
+  build yang berjalan sudah memakai `http://127.0.0.1/aulia`. Perlu ditinjau ulang apakah edit itu masih relevan.
+
+Status: **smoke test perlu diulang** dengan Gateway dari `5b28eb6` (branch `claude/android-app-p40bl1`). TAHAP 0 belum DONE.
