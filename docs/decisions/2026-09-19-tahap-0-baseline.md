@@ -377,4 +377,4 @@ Lingkungan: Windows 11, XAMPP, PHP 8.2.12, MariaDB 10.4.32; Gateway `5b28eb6` (N
 (`exit()` menghentikan PHPUnit); pesan `fromMe` gagal-dekripsi (`AC0B72AD…`) tidak masuk `messages`; `.env` Gateway salah (`CI4_BASE_URL`/token)
 baru ketahuan lewat pengecekan manual; kesalahan identifikasi folder/`auth` Gateway (banyak salinan non-git di flashdisk).
 
-**Status: item 2–3 dikonfirmasi manual oleh user; menunggu keputusan pemilik untuk menyatakan TAHAP 0 DONE (dengan limitation di atas).**
+**Status: TAHAP 0 DONE (dinyatakan pemilik, 2026-09-20), dengan limitation di atas. Item 2–3 dikonfirmasi manual oleh user. Berikutnya: TAHAP 1 — Gateway Reliability, mulai tiket 01 (baseline test), lalu 02 (audit enqueue).**
