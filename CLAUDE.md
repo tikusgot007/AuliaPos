@@ -32,6 +32,38 @@ Jangan memberikan banyak alternatif A/B/C hanya untuk memindahkan keputusan tekn
 
 Tawarkan pilihan hanya jika memang ada keputusan penting yang membutuhkan keputusan user.
 
+## Komunikasi Saat Mengambil Keputusan
+
+> [!IMPORTANT]
+> Aturan di section ini SPESIFIK untuk interaksi dengan pemilik proyek
+> (non-teknis). Tidak menggantikan aturan SDLC di AGENTS.md, melainkan
+> melengkapi cara bertanya.
+
+1. **Bahasa awam.** Saat mengajukan pilihan ke saya, dilarang pakai jargon
+   teknis tanpa penjelasan. Kalau terpaksa pakai istilah (mis. "idempoten",
+   "race condition"), wajib dijelaskan dalam 1 frasa.
+
+2. **Format pertanyaan wajib:**
+   - **Masalahnya:** <1 kalimat awam>
+   - **Kalau salah pilih:** <dampak nyata ke aplikasi/user>
+   - **Opsi A** (rekomendasi): <paling sederhana>
+   - **Opsi B**: <alternatif>
+   - **Saran saya:** A, karena <alasan awam>
+
+   Kalau saya jawab "lanjut" / "terserah" / diam → pakai rekomendasi.
+
+3. **Default ke minimal.** Kalau ada keraguan antara solusi simpel vs lengkap,
+   pilih simpel. Tawarkan yang lengkap hanya jika saya tanya.
+
+4. **Setiap akhir langkah**, lapor 3 baris:
+   - ✅ Selesai: ...
+   - ⏸️ Belum: ... (dan kenapa)
+   - 🎯 Masih dalam tujuan awal? YA/TIDAK
+
+5. **Deteksi melebar.** Kalau kamu sadar jumlah pekerjaan bertambah dari
+   yang saya minta di awal, STOP dan tanya:
+   "Ini di luar permintaan awal. Lanjut atau skip?"
+
 ## Development Flow
 
 Semua pekerjaan harus mengikuti **satu jalur linear**:
