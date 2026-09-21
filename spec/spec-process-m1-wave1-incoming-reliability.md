@@ -1,7 +1,8 @@
 ---
 title: M1 Gelombang 1 — Keandalan Pesan Masuk WA-Gateway (pesan offline, enqueue, buffer)
-version: 1.0
+version: 1.1
 date_created: 2026-09-21
+last_updated: 2026-09-21
 owner: WA-Gateway reliability (M1)
 tags: [gateway, whatsapp, baileys, m1, reliability, incoming, buffer]
 ---
@@ -42,6 +43,12 @@ Keputusan yang sudah diambil pemilik proyek:
 
 - **D-01 (E-01):** Gateway menerima semua pesan `append`, **kecuali** ID pesan yang baru ia kirim sendiri lewat endpoint kirim (daftar ID di memori). Dipilih di atas dua alternatif: "terima semua dan andalkan AuliaPos" dan "hanya pesan dari pelanggan".
 - **D-02 (E-04):** kalau simpan ke buffer gagal, coba ulang 3 kali dengan jeda singkat, lalu tampung di memori (maksimal 500) disertai error keras. Dipilih di atas alternatif "berkas cadangan di disk" dan "coba ulang saja".
+- **D-03 (E-01, klarifikasi 21 Sep):** Gateway menentukan ID pesan **sebelum** mengirim, mencatatnya ke daftar ID kiriman sendiri, lalu meneruskannya ke Baileys lewat opsi `messageId`.
+  - Alasan: Baileys memancarkan `append` untuk kiriman sendiri lewat `process.nextTick` tepat sebelum `sendMessage()` mengembalikan hasil, sehingga mencatat ID sesudah kirim bisa kalah balapan.
+  - Dipilih di atas "catat setelah kirim dan tunda pengecekan 2 detik" dan "andalkan AuliaPos".
+- **D-04 (E-01, klarifikasi 21 Sep):** untuk pesan `append`, hanya alamat berjenis `pn`, `lid`, dan `group` yang diterima. Alamat lain (mis. channel yang terklasifikasi `unknown`) dilewati dan dicatat. Perilaku pesan `notify` tidak diubah.
+
+Hasil klarifikasi: `docs/audit/clarification-report-m1-wave1-incoming-reliability-2026-09-21.md` (Readiness Score 85/100).
 
 > [!WARNING] ASSUMPTION: Spec ditulis dalam bahasa Indonesia, mengikuti spec M3 dan seluruh decision log M1. `AGENTS.md` menetapkan bahasa Inggris untuk dokumen SDLC. Ubah bila diminta.
 
@@ -57,15 +64,25 @@ Keputusan yang sudah diambil pemilik proyek:
 
 > [!WARNING] ASSUMPTION: Pemulihan JSON memakai satu cadangan (`.bak`) dari penulisan sebelumnya. Bila berkas utama dan cadangan sama-sama rusak, berkas utama dipindah ke `.corrupt-<waktu>` dan antrean mulai dari kosong dengan error keras.
 
-- **CLARIFICATION NEEDED:** `append` juga dipancarkan Baileys dari dua tempat lain (`messages-recv.js` baris 601 dan 957). Perilakunya belum diamati. Asumsi sementara: diperlakukan sama seperti `append` lain (diterima kecuali ID kiriman sendiri, idempotensi menahan duplikat). Perlu dibuktikan lewat uji sebelum rilis.
-- **CLARIFICATION NEEDED:** ambang keberhasilan "0 pesan hilang" diukur dengan protokol Ticket 01 skenario 2. Perlu dikonfirmasi jumlah pesan dan jumlah percobaan minimal (usulan: 15 pesan, 3 percobaan dengan titik kill berbeda).
+> [!WARNING] ASSUMPTION: Protokol AC-001: hentikan Gateway dengan `pm2 stop` sekitar 30 detik, kirim 10 pesan dari HP tes saat Gateway berhenti, lalu `pm2 start`. Ulangi 3 kali. Ini menggantikan kill di tengah burst (Ticket 01) yang hanya menyisakan jendela sekitar 3 detik.
+
+> [!WARNING] ASSUMPTION: Pengurasan penampung sementara memakai satu percobaan per event tanpa jeda di setiap siklus worker. Coba ulang berjeda hanya berlaku pada jalur penerimaan pesan.
+
+> [!WARNING] ASSUMPTION: Kegagalan query LID di-cache negatif 60 detik per JID supaya batch pesan tidak menunggu batas waktu berulang kali.
+
+> [!WARNING] ASSUMPTION: Pesan yang tertinggal di database SQLite korup saat start dianggap hilang dari antrean aktif, tetapi berkasnya dipindah (tidak dihapus) untuk diperiksa manual.
+
+> [!WARNING] ASSUMPTION: Istilah "pesan masuk" dan nama `incoming_queue` dipertahankan walau tabel itu juga berisi balasan dari HP (`outgoing`). Belum ada `CONTEXT.md`, jadi pembakuan istilah ditunda.
+
+Terselesaikan lewat klarifikasi: dua sumber `append` lain di Baileys (`messages-recv.js` baris 601 dan 957) adalah pesan turunan notifikasi (grup atau protokol) dan pesan channel. Stub tanpa isi sudah tertahan oleh `!msg.message`, dan alamat `unknown` ditutup oleh D-04.
 
 ## 2. Definitions
 
 - **Pesan offline (`append`):** pesan yang WhatsApp kirim ulang saat Gateway tersambung kembali. Baileys memberi tipe `append` (`node.attrs.offline` bernilai benar). Di percakapan sehari-hari disebut "pesan titipan".
 - **Pesan `notify`:** pesan yang tiba real-time saat Gateway sedang tersambung.
 - **Kiriman sendiri:** pesan yang Gateway kirim lewat endpoint kirim (`/send`, `/send-media`, dan sejenisnya). Baileys juga memancarkannya sebagai `append` (`emitOwnEvents` aktif).
-- **Daftar ID kiriman sendiri:** himpunan `wa_message_id` dari kiriman sendiri terbaru, disimpan di memori dengan batas waktu dan ukuran.
+- **Daftar ID kiriman sendiri:** himpunan `wa_message_id` dari kiriman sendiri terbaru, disimpan di memori dengan batas waktu dan ukuran. ID dicatat **sebelum** pesan dikirim.
+- **Jenis alamat (`jid_type`):** klasifikasi JID oleh Gateway: `pn` (nomor telepon), `lid`, `group`, atau `unknown`.
 - **Buffer / antrean:** tabel `incoming_queue` (atau berkas JSON fallback) yang menampung pesan masuk sebelum diteruskan ke AuliaPos.
 - **Enqueue:** memasukkan satu pesan masuk ke buffer.
 - **Penampung sementara (overflow):** daftar di memori untuk event yang gagal disimpan ke buffer setelah dicoba ulang.
@@ -78,9 +95,10 @@ Keputusan yang sudah diambil pemilik proyek:
 
 - **REQ-001**: Gateway MUST memproses event `messages.upsert` bertipe `notify` dan `append`. Tipe lain diabaikan dengan log level debug.
 - **REQ-002**: Untuk event `append`, pesan yang `wa_message_id`-nya ada di daftar ID kiriman sendiri MUST NOT dimasukkan ke buffer.
-- **REQ-003**: Setiap pengiriman berhasil oleh Gateway (teks maupun media) MUST mencatat ID hasil kirim ke daftar ID kiriman sendiri. Entri kedaluwarsa setelah 10 menit, dan daftar dibatasi 1000 ID (yang terlama dikeluarkan lebih dulu).
+- **REQ-003**: Setiap pengiriman oleh Gateway (teks maupun media) MUST menentukan ID pesan sebelum mengirim, mencatatnya ke daftar ID kiriman sendiri, lalu meneruskannya ke Baileys lewat opsi `messageId`. Pencatatan tidak boleh menunggu hasil `sendMessage()`. Entri kedaluwarsa setelah 10 menit, dan daftar dibatasi 1000 ID (yang terlama dikeluarkan lebih dulu). ID tetap tercatat walau kirim gagal.
 - **REQ-004**: Pesan `append` yang bukan kiriman sendiri (termasuk balasan yang diketik dari HP saat Gateway mati) MUST dimasukkan ke buffer dengan arah `incoming` atau `outgoing` sesuai `fromMe`.
-- **REQ-005**: Pesan yang sama yang tiba dua kali (mis. lewat `notify` lalu `append`) MUST menghasilkan satu baris dan tidak menghasilkan error.
+- **REQ-005**: Pesan yang sama yang tiba dua kali (mis. lewat `notify` lalu `append`, atau dikirim ulang WhatsApp setelah restart) MUST menghasilkan satu baris dan tidak menghasilkan error.
+- **REQ-018**: Untuk event `append`, Gateway MUST hanya memasukkan pesan beralamat `pn`, `lid`, atau `group` ke buffer. Alamat berjenis lain MUST dilewati dan dicatat pada level info dengan JID dan ID pesan. Perilaku event `notify` MUST tidak berubah.
 
 ### E-03 — Integritas enqueue
 
@@ -92,13 +110,14 @@ Keputusan yang sudah diambil pemilik proyek:
 
 - **REQ-009**: Bila `enqueue()` melempar error selain validasi, pemanggil MUST mencoba ulang 3 kali dengan jeda 50, 200, dan 800 ms.
 - **REQ-010**: Bila semua percobaan gagal, event MUST ditambahkan ke penampung sementara (maksimal 500 event) dan error keras MUST dicatat. Bila penampung penuh, event terbaru dibuang dan log `critical` MUST mencatat jumlah yang dibuang.
-- **REQ-011**: Worker pengiriman MUST mencoba memasukkan isi penampung sementara ke buffer di awal setiap siklus, sebelum mengambil event yang jatuh tempo. Event yang berhasil dikeluarkan dari penampung, yang gagal tetap di sana.
+- **REQ-011**: Worker pengiriman MUST mencoba memasukkan isi penampung sementara ke buffer di awal setiap siklus, sebelum mengambil event yang jatuh tempo. Setiap event dicoba satu kali tanpa jeda. Event yang berhasil dikeluarkan dari penampung, yang gagal tetap di sana.
 - **REQ-012**: Ukuran penampung sementara MUST dicatat di log setiap kali berubah.
-- **REQ-013**: Saat start, Gateway MUST menjalankan `PRAGMA quick_check` pada database SQLite dan mengatur `PRAGMA synchronous` ke `FULL`. Bila pemeriksaan gagal, berkas MUST dipindah ke nama `.corrupt-<waktu>` (bersama berkas `-wal` dan `-shm`), Gateway MUST memulai database baru, dan error keras MUST dicatat.
+- **REQ-013**: Saat start, Gateway MUST menjalankan `PRAGMA quick_check` pada database SQLite dan mengatur `PRAGMA synchronous` ke `FULL`. Bila pemeriksaan gagal, berkas MUST dipindah (tidak dihapus) ke nama `.corrupt-<waktu>` (bersama berkas `-wal` dan `-shm`) supaya dapat diperiksa manual, Gateway MUST memulai database baru, dan error keras MUST dicatat.
 
 ### E-05 — Query LID
 
 - **REQ-014**: Query `onWhatsApp()` untuk petunjuk identitas MUST memiliki batas waktu 2 detik. Jika lewat atau gagal, pesan MUST tetap disimpan tanpa petunjuk identitas dan peringatan MUST dicatat.
+- **REQ-019**: Kegagalan query LID untuk sebuah JID MUST di-cache negatif selama 60 detik, dan selama itu query untuk JID yang sama MUST dilewati tanpa menunggu batas waktu.
 
 ### E-06 — Kegagalan sebelum enqueue
 
@@ -135,8 +154,9 @@ Semua antarmuka bersifat internal Gateway. Tidak ada perubahan pada API HTTP.
 
 | Operasi | Kontrak |
 |---|---|
-| `markSent(messageId)` | Mencatat ID dengan waktu sekarang. Mengeluarkan yang terlama bila melebihi batas |
+| `register(messageId)` | Dipanggil **sebelum** pesan dikirim. Mencatat ID dengan waktu sekarang. Mengeluarkan yang terlama bila melebihi batas |
 | `wasSentByUs(messageId)` | `true` bila ID ada dan belum lewat 10 menit |
+| Pembuatan ID | Gateway membuat ID sebelum kirim dan meneruskannya ke Baileys lewat opsi `messageId` pada `sendMessage()` |
 
 ### 4.3 Penampung sementara
 
@@ -153,13 +173,14 @@ Semua antarmuka bersifat internal Gateway. Tidak ada perubahan pada API HTTP.
 | `OWN_SENT_TTL_MS` | `600000` | Masa berlaku ID kiriman sendiri |
 | `OWN_SENT_MAX` | `1000` | Jumlah maksimum ID |
 | `LID_LOOKUP_TIMEOUT_MS` | `2000` | Batas waktu query LID |
+| `LID_LOOKUP_NEGATIVE_TTL_MS` | `60000` | Masa cache negatif kegagalan query LID per JID |
 | `ENQUEUE_RETRY_DELAYS_MS` | `50,200,800` | Jeda coba ulang enqueue |
 | `ENQUEUE_OVERFLOW_MAX` | `500` | Kapasitas penampung sementara |
 
 ## 5. Acceptance Criteria
 
-- **AC-001**: Given 15 pesan pelanggan tiba saat Gateway mati, When Gateway hidup lagi dan WhatsApp mengirim ulang pesan itu, Then 15 pesan muncul di `incoming_queue` dan AuliaPos (0 hilang), diukur dengan protokol Ticket 01 skenario 2.
-- **AC-002**: Given Gateway mengirim pesan dengan ID X lewat endpoint kirim, When Baileys memancarkan `append` untuk X, Then tidak ada baris baru untuk X di `incoming_queue`.
+- **AC-001**: Given Gateway dihentikan dengan `pm2 stop` sekitar 30 detik dan 10 pesan pelanggan dikirim selama itu, When Gateway dijalankan lagi (`pm2 start`) dan WhatsApp mengirim ulang pesan tertunda, Then 10 pesan muncul di `incoming_queue` dan AuliaPos (0 hilang, 0 duplikat). Diulang 3 kali.
+- **AC-002**: Given Gateway mengirim pesan lewat endpoint kirim dan Baileys memancarkan `append` untuk pesan itu **sebelum** `sendMessage()` mengembalikan hasil (disimulasikan), When event diproses, Then tidak ada baris baru untuk ID pesan itu di `incoming_queue`.
 - **AC-003**: Given balasan diketik dari HP saat Gateway mati (bukan kiriman sendiri), When pesan tiba sebagai `append` dengan `fromMe`, Then tercatat sebagai `outgoing` tanpa identitas staff.
 - **AC-004**: Given pesan yang sama tiba lewat `notify` dan `append`, When keduanya diproses, Then hanya satu baris dan tidak ada log error.
 - **AC-005**: Given event tanpa `messageId`, When `enqueue()` dipanggil, Then error keras tercatat berisi alasan, tidak ada baris tersimpan, dan pesan lain dalam batch tetap diproses.
@@ -172,14 +193,25 @@ Semua antarmuka bersifat internal Gateway. Tidak ada perubahan pada API HTTP.
 - **AC-012**: Given berkas JSON utama korup dan cadangan valid, When dimuat, Then antrean pulih dari cadangan dan peringatan tercatat. Given keduanya korup, Then berkas utama dipindah ke `.corrupt-<waktu>` dan error keras tercatat.
 - **AC-013**: Given exception pada satu pesan, When batch diproses, Then error tercatat dengan ID pesan, JID, dan tipe konten, dan pesan lain dalam batch tetap tersimpan.
 - **AC-014**: Given payload ke AuliaPos sebelum dan sesudah perubahan untuk pesan yang sama, When dibandingkan, Then field identik (kontrak tidak berubah).
+- **AC-015**: Given event `messages.upsert` bertipe selain `notify` dan `append`, When diproses, Then tidak ada baris tersimpan dan hanya ada log level debug (REQ-001).
+- **AC-016**: Given penampung sementara berubah ukuran (masuk atau keluar), When perubahan terjadi, Then ukuran terbaru tercatat di log (REQ-012).
+- **AC-017**: Given pesan `append` beralamat `unknown` (mis. channel) dan pesan `append` beralamat `pn`, `lid`, dan `group`, When diproses, Then hanya tiga yang terakhir tersimpan, dan yang `unknown` dilewati dengan log info (REQ-018). Given pesan `notify` beralamat `unknown`, Then perilakunya sama seperti sebelum perubahan.
+- **AC-018**: Given query LID untuk sebuah JID gagal, When pesan kedua dari JID yang sama tiba dalam 60 detik, Then query dilewati tanpa menunggu batas waktu dan pesan tetap tersimpan (REQ-019).
 
 ## 6. Test Automation Strategy & Testing Seams
 
 - **Testing Seams**: (1) `_onMessagesUpsert` dengan event Baileys palsu (`notify`, `append`, dan ID kiriman sendiri), dan (2) `incomingBuffer` langsung dengan file SQLite atau JSON sementara. Tidak ada seam ketiga.
-- **Test Levels**: skrip integrasi ringan berbasis `assert` (pola `test/simulate-*.js`). Pengukuran akhir memakai uji nyata (kill/restart dan pesan dari HP tes).
+- **Test Levels**: skrip integrasi ringan berbasis `assert` (pola `test/simulate-*.js`). Pengukuran akhir memakai uji nyata (`pm2 stop` sekitar 30 detik dengan 10 pesan dari HP tes, diulang 3 kali).
 - **Test Data Management**: database dan berkas sementara di folder sementara sistem, dihapus setelah tiap skenario (pola `simulate-reliability-baseline.js` yang sudah ada).
 - **CI/CD Integration**: tidak ada pipeline. Skrip dijalankan manual dengan `node`.
 - **Coverage Requirements**: setiap REQ punya minimal satu AC, dan setiap AC punya minimal satu skrip uji atau prosedur ukur tertulis. Tidak ada ambang persentase.
+- **Pemetaan REQ ke AC**:
+  - E-01: REQ-001 ke AC-015, REQ-002 dan REQ-003 ke AC-002, REQ-004 ke AC-003, REQ-005 ke AC-004, REQ-018 ke AC-017.
+  - E-03: REQ-006 dan REQ-008 ke AC-005 dan AC-004, REQ-007 ke AC-006.
+  - E-04 dan Ticket 03: REQ-009 ke AC-007, REQ-010 ke AC-008 dan AC-009, REQ-011 ke AC-008, REQ-012 ke AC-016, REQ-013 ke AC-011.
+  - E-05 dan E-06: REQ-014 ke AC-010, REQ-019 ke AC-018, REQ-015 ke AC-013.
+  - Ticket 04: REQ-016 dan REQ-017 ke AC-012.
+  - Batasan: CON-001 ke AC-014. GUD-001 diverifikasi lewat pemeriksaan konfigurasi saat review kode.
 
 ## 7. Project Structure & Commands
 
@@ -237,10 +269,12 @@ async function enqueueWithRetry(buffer, event, delaysMs) {
 ## 10. Rationale, Context & Architecture Decisions (ADRs)
 
 - **E-01:** filter `type !== 'notify'` terbukti menghilangkan pesan (hilang 3/14 dan 3/15). Filter yang sama secara tidak sengaja menahan pencatatan ganda kiriman sendiri, karena Baileys memancarkan kiriman sendiri sebagai `append`. Karena itu filter tidak boleh dilepas begitu saja (D-01).
+  - Pencatatan ID harus terjadi sebelum kirim, karena Baileys memancarkan `append` kiriman sendiri lewat `process.nextTick` sebelum `sendMessage()` kembali (D-03).
+  - Alamat non-pelanggan pada `append` dilewati (D-04).
 - **E-03:** `INSERT OR IGNORE` mengabaikan pelanggaran `NOT NULL`, `UNIQUE`, dan `CHECK` dengan `changes=0` tanpa exception (diuji). Tanpa memeriksa hasil, penolakan senyap tidak terdeteksi.
 - **E-04:** Baileys sudah mengirim tanda terima sebelum pesan disimpan, jadi pesan yang gagal disimpan tidak akan datang lagi. Penampung di memori menjaga dari gangguan sementara, tetapi bukan dari crash (D-02). Ini batasan yang diterima.
 - **E-05 dan E-06:** memperpendek jendela antara tanda terima dan penyimpanan. Tidak ada pesan darurat untuk kegagalan ekstraksi karena akan menjadi pesan beracun.
-- **ADR:** tidak dibuat. D-01 dan D-02 mudah dibalik, sehingga tidak memenuhi ketiga kriteria (sulit dibalik, mengejutkan tanpa konteks, trade-off nyata) di `.claude/standards/ADR-FORMAT.md`.
+- **ADR:** tidak dibuat. D-01 sampai D-04 mudah dibalik, sehingga tidak memenuhi ketiga kriteria (sulit dibalik, mengejutkan tanpa konteks, trade-off nyata) di `.claude/standards/ADR-FORMAT.md`.
 
 ## 11. Dependencies & External Integrations
 
@@ -266,8 +300,9 @@ Kasus 1 (E-01, offline):
   P1 tidak ada di daftar kiriman sendiri -> disimpan -> terkirim ke AuliaPos.
 
 Kasus 2 (E-01, kiriman sendiri):
-  Kasir mengirim balasan lewat POS -> Gateway mengirim, hasilnya ID R1 -> markSent(R1)
-  Baileys memancarkan append(R1) -> R1 ada di daftar -> dilewati (sudah dicatat AuliaPos).
+  Kasir mengirim balasan lewat POS -> Gateway membuat ID R1 -> register(R1) -> sendMessage(messageId=R1)
+  Baileys memancarkan append(R1) (bisa sebelum sendMessage kembali) -> R1 ada di daftar -> dilewati
+  (sudah dicatat AuliaPos).
 
 Kasus 3 (edge, balasan dari HP saat Gateway mati):
   Staf mengetik "R2" di HP saat Gateway mati -> hidup lagi -> append(R2, fromMe)
@@ -279,12 +314,16 @@ Kasus 4 (edge, proses restart):
 
 Kasus 5 (E-03):
   event.messageId kosong -> enqueue melempar error validasi -> error keras tercatat, tidak ada baris.
+
+Kasus 6 (D-04, alamat non-pelanggan):
+  Gateway mengikuti sebuah channel -> Baileys memancarkan append dengan JID @newsletter
+  -> jid_type unknown -> dilewati dengan log info, tidak masuk antrean.
 ```
 
 ## 13. Validation Criteria
 
-- Semua AC-001 sampai AC-014 lulus, dengan skrip uji otomatis untuk AC-002 sampai AC-014 dan pengukuran nyata untuk AC-001.
-- Pengukuran nyata mengulang protokol Ticket 01 skenario 2 (kill di awal, tengah, dan akhir burst) dan mencatat 0 pesan hilang.
+- Semua AC-001 sampai AC-018 lulus, dengan skrip uji otomatis untuk AC-002 sampai AC-018 dan pengukuran nyata untuk AC-001.
+- Pengukuran nyata memakai protokol AC-001 (`pm2 stop` sekitar 30 detik, 10 pesan dari HP tes, `pm2 start`, diulang 3 kali) dan mencatat 0 pesan hilang dan 0 duplikat.
 - Sepuluh kiriman lewat `/send` tidak menambah baris baru di `incoming_queue` untuk ID kiriman sendiri.
 - Tidak ada `Gateway aktif` yang berubah kodenya selama pengembangan.
 
@@ -294,4 +333,5 @@ Kasus 5 (E-03):
 - `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md`: temuan E-01 sampai E-09.
 - `docs/GATEWAY-REQUIREMENTS.md`: GW-01 sampai GW-25 (terutama GW-08).
 - `docs/CHAT.md`: aturan bisnis Inbox (bagian 2, 4, 6, 7, 9, 14).
+- `docs/audit/clarification-report-m1-wave1-incoming-reliability-2026-09-21.md`: laporan klarifikasi (Readiness Score 85/100) dan keputusan D-03 dan D-04.
 - `spec/spec-design-m3-operational-inbox-fase1.md`: contoh bentuk spec dan pembagian fase.
