@@ -6,7 +6,7 @@
 
 ---
 
-## 📝 Session Checkpoint: 2026-09-21 (fifth)
+## 📝 Session Checkpoint: 2026-09-21 (sixth)
 
 - **Active Memory Path:** `.claude/instructions/memory.instructions.md`
 - **Current SDLC Phase:** Code (`/sdlc-write-code`) for M1 Wave 1, Phases 1–3 done up to TASK-016. Waiting on TASK-017 (real AC-001, stops the live Gateway) and TASK-018. Then `/sdlc-code-review` in a NEW session. This session mixed personas (Orchestrator → Software Engineer) under an explicit user override.
