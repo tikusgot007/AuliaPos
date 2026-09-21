@@ -193,3 +193,37 @@
 <!-- checkpoint-tail: M3 Fase 1 spec clarified (Readiness 87) and remediated (Projected 96) — spec/spec-design-m3-operational-inbox-fase1.md + audit report updated on claude/spec-operational-inbox-fase1-tuux4c, pushed but the remediation commit needs its own PR+merge next, then /sdlc-plan-tasks in a new session. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-21 (fifth)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`) done on the M1 Wave 1 implementation plan. Next is `/sdlc-plan-tasks` (new session) to insert the 6 clarified decisions into the plan, then `/sdlc-write-code` in the WA-Gateway worktree.
+- **Active Artifacts:**
+  - `docs/audit/clarification-report-m1-wave1-incoming-reliability-plan-2026-09-21.md` — Status: ✅ Finalized (Readiness Score: 92/100, Review Iteration 2), NOT yet committed/pushed (created this session, no PR yet).
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — Status: 🔄 Still v1.0, NOT yet revised with this session's 6 decisions (that's the pending `/sdlc-plan-tasks` step).
+- **Achieved Milestones:**
+  - As Clarification Analyst, read the plan (v1.0, 3 phases / 18 tasks), spec v1.1 (Readiness 85/100), and Ticket 02 audit (E-01..E-09).
+  - User asked to focus interrogation on RISK-001 (register-before-send ordering, same bug class as D-03), RISK-002 (unconfirmed `/send`/`/send-media` code structure), and dependency/test-seam clarity for TASK-009-011.
+  - Ran 6 grill rounds, one A/B question at a time (user worked from phone), each with a heavy-lifted recommendation; user picked the recommended option every time (A, A, A, B, A, A).
+  - Readiness Score raised from 85 (spec) → 89/100 (Iteration 1, after 3 questions) → 92/100 (Iteration 2, after 3 more questions) once user said "Lanjut" a second time.
+  - When user said "Lanjut" a third time (ambiguous), correctly interpreted from context as "proceed to next phase" and invoked the Strict Session Isolation rule (AGENTS.md §8) to refuse switching to `/sdlc-plan-tasks` in the same session — gave a ready-to-use handoff prompt with the ` all 6 decisions instead.
+- **Dead-Ends (Do NOT Repeat):** None new this session.
+- **Updated Files:**
+  - `docs/audit/clarification-report-m1-wave1-incoming-reliability-plan-2026-09-21.md` — new (created, then edited twice to append Iteration 2 items; not yet committed)
+- **Decisions Made (all 6, to be inserted into plan v1.1 by `/sdlc-plan-tasks`):**
+  1. TASK-001: verify `incomingBuffer.js`'s current constructor first; add a minimal refactor (extract DB path as a constructor param) if not yet testable in isolation without Baileys.
+  2. TASK-009 (RISK-002): explicit stop/continue criterion — continue if `/send` and `/send-media` share one internal send function; **STOP and report back** if the structure turns out to be >2 separate send points with no shared function (prevents the D-03 race-bug pattern from being duplicated unreviewed).
+  3. TASK-011 (RISK-001): add an automated static guard in `test/simulate-append-handling.js` — read the source file via `fs.readFileSync`, regex-verify `register(` appears before `sendMessage(`/`await` at the TASK-009 send point. Runtime simulation (AC-002) alone was judged insufficient since it can pass by accident with loose simulated timing.
+  4. TASK-013/TASK-014: add an explicit Dep — TASK-014 (per-message error isolation) first, then TASK-013 (LID timeout+negative cache) nested inside the same try-block TASK-014 creates, not a separate catch layer (both edit the same region of `connectionManager.js`).
+  5. TASK-017 (RISK-003): replace the vague "outside busy hours" mitigation with a fixed written schedule — only runnable after >21:00 or before <08:00.
+  6. TASK-006: explicitly note that `test/simulate-durable-buffer.js` calls the `incomingDelivery.js` worker-cycle function directly/manually for the AC-008 scenario, not waiting for the real timer interval (the real interval is undocumented and out of scope for this wave).
+  - RISK-004 (E-02/E-07 scope boundary) and RISK-005 (GW-09 idempotency scope boundary) were intentionally NOT re-interrogated — existing plan mitigations judged clear enough, out of scope for this session.
+- **Next Action / Pending:**
+  - Open a **new chat session**, run `/sdlc-plan-tasks` attaching `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md`, `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1), and this session's clarification report, to bump the plan to v1.1 with the 6 decisions above.
+  - The clarification report itself is not yet committed/pushed — commit it (likely alongside the plan v1.1 bump, or separately first) before or during the `/sdlc-plan-tasks` session.
+  - After plan v1.1 is merged: `/sdlc-write-code` in `C:\projects\WA-Gateway-m1` (branch `feature/stage-1-reliability`) — never in the live Gateway at `C:\projects\WA-Gateway`, never touch `auth/`.
+  - Unrelated stale note carried over yet again (6th session running): `AGENTS.md` still records a stale memory path (`.agents/instructions/...`) instead of the real `.claude/instructions/...` — still not fixed, still low priority.
+
+<!-- checkpoint-tail: M1 Wave 1 plan clarified (Readiness 85→92/100), 6 decisions recorded in docs/audit/clarification-report-m1-wave1-incoming-reliability-plan-2026-09-21.md (not yet committed); next step is /sdlc-plan-tasks in a NEW session to bump the plan to v1.1 with these 6 decisions, then /sdlc-write-code in the WA-Gateway worktree. -->
+
+---
