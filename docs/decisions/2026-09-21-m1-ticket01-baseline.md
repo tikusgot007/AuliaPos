@@ -81,3 +81,59 @@ Metode: `POST /send` (`chat_id`=nomor tes, token dari `.env`), lalu kirim ulang 
 - **Ticket 02 (audit enqueue)**: temuan `type !== 'notify'` adalah kandidat perbaikan langsung untuk risiko P0 #1 (pesan masuk hilang).
 - **Ticket 06–07 (attempt counter, dead-letter)**: konfirmasi dari kode bahwa retry tak terbatas.
 - **Ticket 09–10 (operation ID, idempotency)**: konfirmasi runtime bahwa retry `/send` menduplikasi pesan.
+
+## Pembaruan (21 Sep, sore) — Baseline 1 versi asli dan temuan dekripsi
+
+Gateway tidak dimatikan dalam pengukuran ini. Tiga burst masing-masing 15 pesan diketik manual, dengan label unik, dan dicocokkan dengan `incoming_queue` Gateway dan `messages` AuliaPos.
+
+| Burst | Arah / pengirim | Terkirim | Di Gateway | Di AuliaPos | Hilang | Duplikat | Sebaran waktu tiba |
+|---|---|---|---|---|---|---|---|
+| I01–I15 | incoming, dari WhatsApp Web (perangkat tertaut `:4`) | 15 | 15 | 15 | 0 | 0 | 38 s |
+| J01–J15 | incoming, dari HP tes itu sendiri | 15 | 15 | 15 | 0 | 0 | 28 s |
+| F01–F15 | fromMe, diketik di HP Gateway | 15 | 15 | 15 (`outgoing`, `sent_by_user_id` kosong) | 0 | 0 | 58 s |
+
+Seluruh baris `completed` dengan `attempts=0`. Balasan dari HP diteruskan sebagai `outgoing` tanpa identitas staff, sesuai `CHAT.md` Section 7.
+
+### Temuan: dekripsi gagal lalu retry, urutan dan timestamp bergeser
+
+- Ketiga burst menghasilkan `SessionError: No matching sessions found for message` (`failed to decrypt message`): 13 di burst I, 7 di burst J, 20 di burst F (untuk 12 pesan berbeda, `fromMe=true`), total 40. Baileys me-retry, sehingga pesan tiba terlambat dan tidak berurutan (contoh urutan tiba burst I: `I01 I11 I12 I13 I14 I04 I15 I05 I06 I07 I02 I08 I09 I10 I03`).
+- `message_timestamp` yang tercatat mengikuti waktu tiba setelah retry, bukan waktu kirim (contoh: `I03` tercatat 14:29:29 WIB padahal dikirim di awal burst; `F06` lebih awal daripada `F05`). Inbox mengurutkan berdasarkan `message_timestamp` ascending (`MessageModel.php:94`), jadi urutan di layar setia pada data. Ini bukan bug tampilan, dan waktu kirim asli tidak tersimpan.
+- Status Gateway tetap `connected` selama semua burst. Health saat ini tidak mencerminkan kegagalan dekripsi sesaat itu.
+- Sebelum 07:28 UTC, seluruh log hari itu (sejak 05:09 UTC, termasuk tiga burst dan empat kill pada skenario 2) tidak memuat satu pun error dekripsi seperti ini.
+- Error muncul dari kedua perangkat pengirim (`:4` dan perangkat utama), jadi WhatsApp Web bukan penjelasan tunggal.
+
+### Konfound yang harus dicatat
+
+- Backup "sebelum" tes (13:24 WIB) sudah berisi sesi `session-149701252890753.{0,4,8,9,10}` (alamat `@lid`).
+- File sesi baru `session-628563324637.{0,4,8,9,10}` (alamat nomor telepon) bertanggal 14:02:27 WIB, tepat saat skenario 3 mengirim `/send` ke `628563324637@s.whatsapp.net`.
+- **Dugaan (belum terbukti):** kiriman ke alamat nomor telepon memecah sesi enkripsi kontak itu ke dua ruang alamat, sehingga pesan masuk kadang tidak menemukan sesi yang cocok.
+- Kalau benar, ini efek samping tes, dan Baseline 1 belum mewakili kondisi sehat murni.
+- Di produksi AuliaPos membalas memakai `chat_id` percakapan, sehingga campuran alamat seperti ini mungkin tidak terjadi. Belum diverifikasi.
+- Pembuktiannya butuh uji terkontrol pada sesi yang bersih (belum dilakukan, menyentuh folder `auth/` Gateway aktif).
+
+### Keterbatasan Baileys yang sudah diamati (ringkas)
+
+- **Terbukti hari ini:** pesan offline bertipe `append` dibuang (skenario 2); dekripsi bisa gagal lalu di-retry sehingga urutan dan timestamp bergeser; `/send` tanpa idempotency key.
+- **Dari kode/log, belum diuji berjalan lama:**
+  - retry pesan masuk tanpa batas dan tanpa dead-letter
+  - kontak `@lid` tidak bisa dipetakan balik ke nomor telepon (`phone: null`)
+  - riwayat percakapan tidak ikut (`History sync is disabled by config`)
+  - fallback JSON saat `better-sqlite3` tidak bisa dimuat
+  - satu sesi WhatsApp hanya untuk satu proses
+  - Node 24 tidak didukung `better-sqlite3` (dikunci ke Node 20)
+- **Pengetahuan umum, belum diverifikasi di sesi ini:** API tidak resmi sehingga ada risiko pembatasan nomor; rentan terhadap perubahan protokol WhatsApp; nomor Gateway berstatus perangkat tertaut yang bergantung pada HP utama.
+
+### Requirement Gateway untuk AuliaPos
+
+Daftar GW-01 sampai GW-23 (kontrak antarmuka, perilaku bisnis, operasional, roadmap) disusun dari `CHAT.md`, `InboxGatewayApi.php`, `Inbox.php`, dan spec M3, lalu dicocokkan dengan tes ini. Belum disimpan sebagai berkas di repo.
+
+- Belum terpenuhi: GW-08 (pesan masuk tidak boleh hilang), GW-09 (idempotency `/send`), GW-19 (dead-letter), GW-20 (health).
+- Diragukan: GW-11 (timestamp = waktu asli).
+- Terpenuhi berdasarkan burst F: GW-10 (fromMe sebagai `outgoing`).
+
+### Belum selesai (menggantikan daftar sebelumnya)
+
+- Uji terkontrol dugaan konfound sesi (sesi bersih untuk kontak tes, lalu ulang burst kecil).
+- Skenario 2 percobaan 1 diulang dengan pesan berhuruf unik dan hitungan kirim yang dicatat.
+- Perilaku UI Inbox AuliaPos saat Gateway mati di tengah kirim.
+- Tes reboot sungguhan untuk auto-start PM2.
