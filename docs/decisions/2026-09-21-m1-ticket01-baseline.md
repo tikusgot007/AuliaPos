@@ -137,3 +137,23 @@ Daftar GW-01 sampai GW-23 (kontrak antarmuka, perilaku bisnis, operasional, road
 - Skenario 2 percobaan 1 diulang dengan pesan berhuruf unik dan hitungan kirim yang dicatat.
 - Perilaku UI Inbox AuliaPos saat Gateway mati di tengah kirim.
 - Tes reboot sungguhan untuk auto-start PM2.
+
+## Koreksi (21 Sep, malam) — dugaan konfound sesi melemah
+
+Setelah memeriksa folder `auth/` sebelum uji terkontrol, dugaan "sesi enkripsi tercemar oleh `/send` ke alamat nomor telepon" (bagian Konfound di atas) **tidak lagi didukung**:
+
+- Pesan fromMe (burst F, 20 error) dienkripsi oleh perangkat utama akun Gateway sendiri.
+  - Sesi yang dipakai adalah `session-6281913500707.0` dan `session-255490491736112.0` (nomor dan LID milik akun sendiri), ditulis ulang pukul 16:10 WIB.
+  - Keduanya **sudah ada di backup sebelum semua tes**.
+  - Sesi `session-628563324637.*` (dibuat 14:02) hanya menyangkut kontak tes dan tidak dipakai untuk pesan fromMe.
+- Sesi LID kontak tes (`session-149701252890753.{0,4,8,9,10}`) juga sudah ada di backup sebelum tes, jadi burst I dan J tidak bisa dijelaskan oleh sesi baru itu.
+- Uji yang direncanakan (hapus `session-628563324637.*`, lalu ulang burst) tidak dijalankan karena tidak menguji hipotesis yang relevan. Isi folder `auth/` tidak diubah. Hanya backup yang dibuat.
+
+**Hipotesis alternatif (belum terbukti):**
+
+- Skenario 3 T2 mematikan Gateway secara paksa 30 ms setelah kiriman keluar dimulai (07:02:07 UTC).
+- Itu satu-satunya kill yang jatuh saat proses sedang mengenkripsi pesan keluar. Kill sebelumnya jatuh saat menerima pesan dan tidak diikuti error.
+- Kalau state sesi di disk tertinggal dari state yang diyakini perangkat pengirim, pesan berikutnya dari kedua arah bisa gagal didekripsi sampai sesi disinkronkan lewat retry.
+- Error pertama muncul di burst pertama sesudah kill itu (07:28 UTC).
+
+Hipotesis ini cocok dengan urutan waktu, tetapi baru satu titik data dan tidak pernah direproduksi. Penyebab error dekripsi tetap **belum diketahui**. Catatan sebelumnya soal "konfound sesi" jangan dipakai sebagai kesimpulan.

@@ -87,8 +87,8 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
 - [x] 1. Enqueue normal — otomatis (mock CI4): 50/50 `completed` dalam satu siklus
 - [x] 1. Enqueue normal — versi asli (pesan WhatsApp nyata, dibandingkan dengan `messages` AuliaPos): 3 burst × 15 pesan (incoming dari WhatsApp Web, incoming dari HP tes, fromMe dari HP Gateway) = **45/45 sampai, 0 hilang, 0 duplikat**
   - Tetapi 40 error dekripsi dengan retry, urutan tiba dan `message_timestamp` bergeser (sebaran 28–58 detik)
-  - Kondisi belum sehat murni: sesi enkripsi diduga tercemar oleh tes skenario 3 (dugaan, belum terbukti)
-- [ ] 1. Uji terkontrol dugaan sesi tercemar (sesi bersih untuk kontak tes, lalu burst kecil): belum, menyentuh folder `auth/` Gateway aktif
+  - Penyebab error dekripsi belum diketahui. Dugaan "sesi tercemar oleh `/send` ke alamat nomor telepon" sudah dicabut (lihat koreksi di decision log)
+- [ ] 1. Selidiki penyebab error dekripsi. Hipotesis alternatif (belum terbukti): kill paksa saat Gateway sedang mengenkripsi pesan keluar (skenario 3 T2) membuat state sesi di disk tertinggal
 - [x] 2. Restart Gateway saat burst (3 percobaan, kill di awal/tengah/akhir): hilang 3/14 dan 3/15 pada percobaan 2 dan 3. Penyebab: pesan offline bertipe `append` dibuang di `connectionManager.js:385` (`type !== 'notify'`) setelah di-ack Baileys
 - [ ] 2. Percobaan 1 (K=2) diulang dengan pesan berhuruf unik dan hitungan kirim yang dicatat: tidak bisa dinilai, hitungan kirim tidak ada
 - [x] 3. Duplicate-on-timeout: retry `/send` menduplikasi pesan pada 2 dari 3 percobaan (T1, T3); T2 (Gateway dimatikan) kiriman pertama hilang, tidak duplikat
@@ -118,7 +118,7 @@ Risiko P0 yang jadi alasan M1 ada (semuanya masih terbuka):
 - [ ] 2. JSON fallback corruption — queue rusak berisiko restart dari kosong (belum diuji)
 - [ ] 3. Outgoing duplicate — belum ada idempotency saat timeout. **Terbukti nyata 21 Sep** (skenario 3, 2 dari 3 percobaan)
 - [ ] 4. (baru) Retry pesan masuk tanpa batas percobaan dan tanpa dead-letter — dari kode, belum diamati berjalan lama
-- [ ] 5. (baru) Dekripsi pesan gagal lalu di-retry: urutan tiba dan `message_timestamp` bergeser (sebaran 28–58 detik pada burst 15 pesan), padahal AuliaPos memakai timestamp untuk urutan Inbox dan `last_message_at` (dasar SLA di M3). Health tetap `connected` selama itu. Penyebab belum terbukti (dugaan: sesi enkripsi tercemar oleh tes skenario 3)
+- [ ] 5. (baru) Dekripsi pesan gagal lalu di-retry: urutan tiba dan `message_timestamp` bergeser (sebaran 28–58 detik pada burst 15 pesan), padahal AuliaPos memakai timestamp untuk urutan Inbox dan `last_message_at` (dasar SLA di M3). Health tetap `connected` selama itu. Penyebab belum diketahui
 - [ ] 6. (baru) Requirement Gateway untuk AuliaPos (GW-01 s/d GW-23) belum disimpan sebagai berkas di repo
 
 ---
@@ -215,7 +215,7 @@ Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau And
 - [ ] 2. **Approval checkpoint TASK-006** — review hasil Fase 1a sebelum izinkan lanjut Fase 1b.
 - [x] 3. **Jalankan M1 Ticket 01** (baseline test 4 skenario) — selesai 21 Sep, lihat `docs/decisions/2026-09-21-m1-ticket01-baseline.md`.
   - [x] Baseline 1 versi asli selesai (45/45 sampai, 0 hilang, 0 duplikat; ada error dekripsi dan pergeseran urutan).
-  - [ ] Sisa: uji terkontrol dugaan sesi tercemar, percobaan 1 skenario 2 diulang, dan uji UI Inbox saat Gateway mati di tengah kirim.
+  - [ ] Sisa: selidiki penyebab error dekripsi, percobaan 1 skenario 2 diulang, dan uji UI Inbox saat Gateway mati di tengah kirim.
 - [x] 4. **Rapikan housekeeping environment** — Gateway aktif diberi label (lihat "Environment aktif"), 3 folder lama di drive G dipindah ke `G:\arsip-gateway\` (20 Sep), folder `htdocs\wa-gateway` diarsipkan.
 - [ ] 5. **Eksekusi M3 Fase 1b** (TASK-007 s/d TASK-014) setelah TASK-006 disetujui.
 - [ ] 6. **M1 Ticket 02-16** menyusul. Ticket 02 dimulai dari filter `type !== 'notify'` di `connectionManager.js:385`.
