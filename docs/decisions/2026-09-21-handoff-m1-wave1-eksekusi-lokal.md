@@ -2,6 +2,8 @@
 
 > **Cara pakai:** sematkan/paste dokumen ini di awal sesi Claude Code baru di **Aan-PC** (bukan sandbox). Ditulis oleh sesi Claude Code sandbox setelah menemukan konflik antara kerja ad-hoc yang sudah dilakukan dan plan resmi yang sudah ada di repo.
 
+> **Update 2026-09-21 malam:** handoff ini sudah dieksekusi di Aan-PC dengan **opsi A** (kode ad-hoc ditimpa sesuai spec). Fase 1–3 (TASK-001 s/d TASK-016) selesai dengan bukti simulasi; TASK-017/018 belum. Hasil, penyimpangan, dan batas bukti: `2026-09-21-m1-wave1-eksekusi-fase1-3.md`. Isi di bawah dipertahankan sebagai riwayat.
+
 ## Ringkasan situasi
 
 Ada dua jalur kerja M1 Ticket 02 yang berjalan **tidak sinkron**:
