@@ -6,6 +6,46 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-21 (third)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`) done for M1 Wave 1 (WA-Gateway incoming reliability). Next is `/sdlc-clarify-reqs` on the spec. The user explicitly overrode the session lock to run it in the same session (working from a phone), then `/sdlc-plan-tasks`.
+- **Active Artifacts:**
+  - `spec/spec-process-m1-wave1-incoming-reliability.md` — Status: 🔄 Draft v1.0, not yet clarified (Readiness Score: pending). Committed and pushed to `v2.2`.
+  - `docs/decisions/2026-09-21-m1-ticket01-baseline.md` — Status: ✅ Ticket 01 finished (append-only log with corrections).
+  - `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` — Status: ✅ Audit finished (E-01 to E-09, no code changed).
+  - `docs/GATEWAY-REQUIREMENTS.md` — Status: ✅ GW-01 to GW-25 with measured status.
+  - `docs/TODO-CHAT.md` — Status: 🔄 Master status checklist (roadmap Tahap 0 to M5), kept in sync with the logs.
+- **Achieved Milestones:**
+  - M1 Ticket 01 measured on Aan-PC: offline messages (`append`) are dropped at `connectionManager.js:385` (lost 3/14 and 3/15); `/send` has no idempotency key and the real Inbox UI produced a duplicate to the customer when the Gateway was slower than the 10 s AuliaPos timeout; incoming retry backoff verified 3,6,12,24,48,96,120,120 s with no max attempts or dead-letter (real 6 min AuliaPos outage, 5/5 delivered, 115 s recovery).
+  - Real bursts (45 messages) lost 0 and duplicated 0, but decrypt failures with Baileys retry shifted arrival order and `message_timestamp` (Inbox order wrong). Cause NOT proven.
+  - Ticket 02 audit found 8 loss points; verified by experiment that `INSERT OR IGNORE` silently drops NOT NULL violations, and that Baileys also emits the Gateway's own sent messages as `append`.
+  - Wrote the Wave 1 spec with 17 requirements and 14 acceptance criteria.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Killing the Gateway to hit the "message sent but response lost" window.
+  - **Reason:** The window is about 1 ms. **Note:** suspend the process (NtSuspendProcess) for longer than the 10 s AuliaPos timeout instead.
+  - **Attempted:** Claiming the decrypt errors were caused by session contamination from `/send` to a phone-number address, then claiming the buffer preserves the original message time.
+  - **Reason:** The first was retracted then partly reinstated by correlation data (pn-addressed messages failed 10/10) but is unproven; the second is wrong because the timestamp Gateway receives is already shifted. **Note:** label proven vs hypothesis; a discriminating test needs a second, never-contacted test number.
+  - **Attempted:** Editing `docs/TODO-CHAT.md` while it was open in Word.
+  - **Reason:** Word locks the file (`~$` lock file, EPERM). **Note:** ask the user to close Word first.
+- **Updated Files:**
+  - `spec/spec-process-m1-wave1-incoming-reliability.md` — new spec (created)
+  - `docs/decisions/2026-09-21-m1-ticket01-baseline.md`, `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` — decision log and audit (created)
+  - `docs/GATEWAY-REQUIREMENTS.md`, `docs/README.md`, `docs/TODO-CHAT.md` — requirements, docs map row, checklist
+- **Decisions Made:**
+  - D-01 (E-01): accept all `append` messages except IDs the Gateway just sent itself (in-memory set, 10 min, max 1000).
+  - D-02 (E-04): on enqueue failure retry 3 times, then hold in an in-memory overflow (max 500) with a loud error; no disk journal.
+  - The user struck off the real reboot test and scenario 2 attempt 1 as out of scope. No ADR was created (decisions are easy to reverse).
+  - Code for M1 is changed only in `C:\projects\WA-Gateway-m1` (branch `feature/stage-1-reliability`), never in the running Gateway at `C:\projects\WA-Gateway`. Never touch the live `auth/` folder.
+- **Next Action / Pending:**
+  - Run `/sdlc-clarify-reqs` on the Wave 1 spec (same session, by explicit override), resolve the two CLARIFICATION NEEDED items (other `append` sources at `messages-recv.js` lines 601 and 957; the message count for the "0 lost" threshold), then `/sdlc-plan-tasks`.
+  - Later waves: idempotency for `/send` plus the AuliaPos timeout handling (Wave 2), dead-letter and health (Wave 3); verify E-02 (ephemeral/view-once wrappers) and E-07 before deciding.
+  - Open: the cause of decrypt failures and timestamp shift (GW-11, GW-25) — needs a second test number.
+
+<!-- checkpoint-tail: M1 Wave 1 spec (WA-Gateway incoming reliability, decisions D-01 append-except-own-sent and D-02 retry+in-memory overflow) is written and pushed; next is /sdlc-clarify-reqs on spec/spec-process-m1-wave1-incoming-reliability.md, then /sdlc-plan-tasks. -->
+
+---
+
 ## 📝 Session Checkpoint: 2026-09-21 (second)
 
 - **Active Memory Path:** `.claude/instructions/memory.instructions.md`
