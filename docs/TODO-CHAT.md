@@ -96,7 +96,9 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
 - [x] 3. Perilaku UI Inbox AuliaPos saat Gateway bermasalah di tengah kirim (diuji 21 Sep, 3 percobaan lewat Inbox)
   - Gateway mati sebelum pesan keluar: tampil error jelas, teks tetap di kotak, retry menghasilkan 1 pesan (aman)
   - Gateway lambat lebih dari 10 detik (timeout AuliaPos): tampil "Gagal mengirim pesan", padahal pesan akhirnya terkirim. Retry membuat **pelanggan menerima 2 pesan sama**, dan kiriman pertama tidak tercatat di Inbox
-- [x] 4. Retry/backoff — otomatis (mock CI4): pulih tanpa kehilangan. Dari kode: backoff `min(3s × 2^n, 120s)`, **tanpa batas percobaan dan tanpa dead-letter**
+- [x] 4. Retry/backoff — otomatis (mock CI4) dan **versi nyata** (AuliaPos dimatikan 6 menit, 5 pesan): pulih tanpa kehilangan (5/5, 0 duplikat), pemulihan 115 detik setelah AuliaPos hidup
+  - Interval retry terukur 3, 6, 12, 24, 48, 96, 120, 120 detik. `attempts` naik sampai 8 tanpa batas atau dead-letter (teramati sampai 8, sisanya dari kode)
+  - Buffer tidak menggeser timestamp, tetapi **urutan pesan di Inbox salah**: urutan kirim `Sjjs, Hhaaa, Hhhah, Hss, Hhsj` tampil sebagai `Hhaaa, Hhhah, Sjjs, Hhsj, Hss` (timestamp yang diterima Gateway sudah bergeser)
 - [x] Decision log Ticket 01 ditulis: `docs/decisions/2026-09-21-m1-ticket01-baseline.md`
 
 **Ticket 02-16**: belum dikerjakan. Ticket 02 sebaiknya mulai dari filter `type !== 'notify'` (penyebab pesan hilang di atas). Urutan sesuai daftar awal:

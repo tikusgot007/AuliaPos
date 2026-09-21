@@ -239,3 +239,36 @@ AuliaPos memperbarui `chat_id` percakapan ke alamat terbaru (`CHAT.md` §9.3), j
 - Jumlah data kecil (satu kontak, tiga burst) dan bersifat korelasi.
 - Uji pembeda (membuktikan H1 atau H2) membutuhkan nomor uji kedua yang belum pernah dihubungi, atau mengubah sesi Gateway aktif. Keduanya tidak dilakukan.
 - Status: penyelidikan pasif selesai, penyebab **belum terbukti**. Uji pembeda tercatat sebagai kandidat untuk M1 Ticket 05 (crash/restart test), bukan bagian Ticket 01.
+
+## Baseline 4 versi nyata (21 Sep, malam) — pemadaman AuliaPos
+
+Metode: skrip `outage-test.js` mematikan layanan Apache (AuliaPos) selama 363 detik saat Gateway tetap berjalan. Selama itu 5 pesan dikirim dari HP tes ke nomor Gateway (teks bebas, baris antrean id 101–105). Lalu Apache dinyalakan lagi dan pemulihan diukur. Konfigurasi retry: `DELIVERY_INTERVAL_MS=5000`, awal 3000 ms, faktor 2, batas 120000 ms.
+
+### Hasil
+
+| Ukuran | Hasil |
+|---|---|
+| Interval retry per pesan (dari `next_attempt_at`) | 3, 6, 12, 24, 48, 96, 120, 120 detik. Sesuai rumus `min(3 × 2^n, 120)` dan batas 120 detik |
+| Jumlah percobaan | `attempts` naik sampai 8 dalam sekitar 6 menit. Tidak ada batas percobaan atau dead-letter yang terlihat; semua pesan masih dicoba ulang saat pemadaman berakhir |
+| Pemulihan | Apache hidup 10:01:08 UTC, semua `completed` pukul 10:03:03 (115 detik kemudian). Waktu ini ditentukan oleh jadwal retry berikutnya (batas 120 detik), bukan oleh kecepatan Apache |
+| Kehilangan | 5 dari 5 pesan sampai di AuliaPos, 5 ID berbeda, tanpa duplikat |
+| Urutan | **Salah di Inbox.** Urutan kirim sebenarnya berbeda dari urutan tampil (lihat di bawah) |
+| Koneksi WhatsApp | Tetap `connected`. Heartbeat ke AuliaPos gagal setiap 15 detik selama pemadaman (40 baris `[DELIVERY]` gagal di log) dan pulih setelah Apache hidup |
+
+### Timestamp: buffer tidak menggeser, tetapi urutan pesan tetap salah
+
+- Buffer tidak menambah pergeseran: `message_timestamp` di AuliaPos 16:55:16–16:55:36 WIB, padahal pesan baru tercatat 17:02:53–17:03:03 (selisih 447–460 detik). `last_message_at` percakapan = 16:55:36, sesuai `CHAT.md` §4.
+- Tetapi urutan tidak benar. Urutan kirim sebenarnya (dari tangkapan layar HP tes): `Sjjs`, `Hhaaa`, `Hhhah`, `Hss`, `Hhsj`.
+- Urutan tampil di Inbox (berdasarkan `message_timestamp`): `Hhaaa` (16:55:16), `Hhhah` (:18), `Sjjs` (:30), `Hhsj` (:33), `Hss` (:36). Pesan `Sjjs`, yang dikirim pertama, tampil ketiga, dan `Hss` dan `Hhsj` tertukar.
+- Artinya timestamp yang diterima Gateway sudah tidak mencerminkan waktu kirim untuk sebagian pesan, sebelum masuk buffer. Ini konsisten dengan pergeseran pada burst I, J, dan F. Asalnya belum terbukti.
+- Catatan: pernyataan pada draf pertama bagian ini ("waktu asli pesan terjaga") keliru dan sudah dikoreksi. Yang terjaga hanya nilai yang diterima Gateway, bukan waktu kirim sebenarnya.
+
+### Temuan tambahan dan batasan
+
+- 7 error dekripsi baru terjadi pada 5 pesan ini (2 beralamat nomor telepon, 3 LID). Pola belum hilang, total error hari itu 62.
+- Batasan: satu pemadaman 6 menit dan 5 pesan. Sifat "tanpa batas" hanya teramati sampai `attempts=8`. Kesimpulan bahwa batasnya tidak ada tetap bersandar pada kode, yang juga tidak memuatnya.
+- Nomor baris antrean 95–100 terlewati sebelum pesan pertama masuk. Tidak diselidiki.
+
+### Status
+
+Baseline 4 kini punya pengukuran nyata selain simulasi mock. Ticket 01 selesai.

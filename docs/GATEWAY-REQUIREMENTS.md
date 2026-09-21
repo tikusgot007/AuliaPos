@@ -35,8 +35,11 @@ Legenda status: `[x]` terpenuhi, `[~]` sebagian atau belum pasti, `[ ]` belum te
   Status: **belum**. Retry setelah timeout menduplikasi pesan pada 2 dari 3 percobaan API, dan **terbukti lewat Inbox** (Gateway dijeda 12 detik: pelanggan menerima 2 pesan, Inbox hanya mencatat 1).
 - [x] **GW-10** (Wajib) Balasan dari WA Web atau HP diteruskan sebagai `direction='outgoing'` tanpa identitas staff, supaya kasir lain tahu pesan sudah dibalas.
   Status: terpenuhi, burst F: 15/15 sampai, semuanya `outgoing` dengan `sent_by_user_id` kosong. Pesan dari `/send` tidak terekam di antrean (bukan bagian requirement ini).
-- [~] **GW-11** (Wajib) `message_timestamp` harus waktu asli pesan di WhatsApp, karena AuliaPos memakainya untuk `last_message_at` dan urutan Inbox.
-  Status: **diragukan**. Pada burst tes timestamp mengikuti waktu tiba setelah retry dekripsi (contoh: `I03` tercatat 14:29:29 padahal dikirim di awal burst). Penyebab belum terbukti.
+- [ ] **GW-11** (Wajib) `message_timestamp` harus waktu asli pesan di WhatsApp, karena AuliaPos memakainya untuk `last_message_at` dan urutan Inbox.
+  Status: **belum terpenuhi**.
+  - Buffer retry tidak menambah pergeseran (pemadaman 6 menit: selisih 447–460 detik antara pesan diterima dan dicatat tidak mengubah nilainya).
+  - Tetapi timestamp yang diterima Gateway sudah tidak mencerminkan waktu kirim untuk sebagian pesan.
+  - Pada tes pemadaman urutan kirim `Sjjs, Hhaaa, Hhhah, Hss, Hhsj` tampil di Inbox sebagai `Hhaaa, Hhhah, Sjjs, Hhsj, Hss`. Sama dengan burst I, J, F (contoh `I03`). Asalnya belum terbukti.
 - [~] **GW-12** (Wajib) `jid_type` selalu benar (`lid` atau `pn`). `phone` hanya diisi untuk `pn`, tidak ditebak dari `@lid`. `identity_hint.lid` hanya untuk pesan `pn`.
   Status: `phone` sudah benar (null untuk `@lid`). `identity_hint` belum pernah diverifikasi ke server WhatsApp live (tercatat sebagai gap di `CHAT.md` §17).
 - [x] **GW-13** (Wajib) Update Status WhatsApp (`status@broadcast`) tidak pernah diteruskan.
@@ -50,7 +53,11 @@ Legenda status: `[x]` terpenuhi, `[~]` sebagian atau belum pasti, `[ ]` belum te
 - [x] **GW-24** (Wajib) Pesan yang dikirim ulang oleh WhatsApp setelah Gateway restart (sudah pernah diproses) tidak boleh menghasilkan baris ganda.
   Status: terpenuhi. Setelah restart, F01–F15 dikirim ulang dan gagal didekripsi (kunci sudah terpakai), dan tidak ada duplikat di AuliaPos (15/15 unik).
 - [ ] **GW-25** (Sebaiknya) Pesan masuk tetap terdekripsi pada percobaan pertama walaupun kontak memakai alamat campuran `pn` dan `lid`.
-  Status: **belum terjamin**. Sesudah 07:02 UTC pada 21 Sep, 27 dari 45 pesan gagal didekripsi dulu dan baru berhasil lewat retry. Pesan beralamat `pn`: 10 dari 10. Sebelum itu 0 dari 41. Penyebab belum terbukti (hipotesis: sesi beralamat nomor telepon setelah `/send` ke alamat itu). Lihat bagian "Analisis lanjutan" di decision log.
+  Status: **belum terjamin**.
+  - Sesudah 07:02 UTC pada 21 Sep, 27 dari 45 pesan (burst I, J, F) gagal didekripsi dulu dan baru berhasil lewat retry.
+  - Pola berlanjut pada tes pemadaman (7 error baru pada 5 pesan).
+  - Pesan beralamat `pn`: 10 dari 10 gagal dulu. Sebelum 07:02 UTC: 0 dari 41.
+  - Penyebab belum terbukti (hipotesis: sesi beralamat nomor telepon setelah `/send` ke alamat itu). Lihat bagian "Analisis lanjutan" di decision log.
 
 ## C. Kebutuhan operasional
 
@@ -59,7 +66,7 @@ Legenda status: `[x]` terpenuhi, `[~]` sebagian atau belum pasti, `[ ]` belum te
 - [x] **GW-18** (Wajib) Satu nomor WhatsApp hanya untuk satu proses Gateway (dua proses membuat port 3000 bentrok dan sesi saling melepas).
   Status: terpenuhi. Hanya satu proses Gateway berjalan (dicek 21 Sep). Folder lama di `G:\wa-gateway-5b28eb6` masih ada dan berisiko dijalankan bersamaan.
 - [ ] **GW-19** (Sebaiknya) Antrean retry pesan masuk punya batas percobaan dan dead-letter.
-  Status: **belum**. Retry tanpa batas, backoff `min(3s × 2^n, 120s)`.
+  Status: **belum**. Terukur pada pemadaman AuliaPos 6 menit: interval 3, 6, 12, 24, 48, 96, 120, 120 detik, `attempts` naik sampai 8 tanpa batas atau dead-letter. Pesan tetap sampai 5/5 setelah AuliaPos hidup lagi (115 detik kemudian, ditentukan batas backoff 120 detik).
 - [ ] **GW-20** (Sebaiknya) Health yang bisa dipercaya: `connected` hanya bila benar-benar bisa kirim dan terima.
   Status: **belum diukur**. Status tetap `connected` selama semua burst tes, padahal banyak pesan sempat gagal didekripsi.
 
