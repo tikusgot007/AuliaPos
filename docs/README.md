@@ -10,7 +10,8 @@ Sebagai developer, dokumen mana yang harus dibaca?
 | Chat / Shared WhatsApp Inbox | [`CHAT.md`](./CHAT.md) |
 | Priority karyawan & Effective Shift Leader | [`USER-SHIFT.md`](./USER-SHIFT.md) |
 | Riwayat perubahan ("kenapa") | [`CHANGELOG.md`](./CHANGELOG.md) |
-| Pekerjaan Inbox yang masih terbuka / keputusan tertunda | [`TODO-CHAT.md`](./TODO-CHAT.md) (pelacak kerja, bukan aturan bisnis) |
+| Status proyek AuliaPos + WA-Gateway (checklist roadmap Tahap 0–M5, pekerjaan terbuka) | [`TODO-CHAT.md`](./TODO-CHAT.md) (pelacak kerja, bukan aturan bisnis) |
+| Requirement WA-Gateway untuk AuliaPos dan status terukurnya | [`GATEWAY-REQUIREMENTS.md`](./GATEWAY-REQUIREMENTS.md) (bukan aturan bisnis) |
 
 **Aturan:** dokumen di atas adalah satu-satunya sumber kebenaran aktif. Kalau menambah/mengubah aturan bisnis, edit di sini — bukan di `archive/`.
 

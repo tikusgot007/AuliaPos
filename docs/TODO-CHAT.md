@@ -53,7 +53,7 @@ Urutan bergantung ke bawah: Tahap 0 → M1 → M2 → M3 → M4 → M5.
 - [x] 3 folder Gateway lama di drive G sudah dirapikan: dipindah ke `G:\arsip-gateway\` (20 Sep) lengkap dengan `README.txt` berisi label dan peringatan
 - [x] Folder `htdocs\wa-gateway` (yang `.env`-nya sempat diubah) sudah bukan yang dipakai dan sudah diarsipkan sebagai `htdocs-wa-gateway-poc-2026-09-12`. Isi `.env` di dalamnya tidak saya periksa ulang
 - [x] Setup Aan-PC (21 Sep): XAMPP MySQL dan Apache sebagai Windows Service (Automatic), AuliaPos di `C:\xampp\htdocs\aulia` (HTTP 200), WA-Gateway di PM2
-- [ ] Tes reboot sungguhan untuk auto-start PM2 (baru disimulasikan dengan `pm2 kill`)
+- ~~Tes reboot sungguhan untuk auto-start PM2~~ — **dicoret 21 Sep: di luar scope pengembangan** (auto-start sudah terpasang dan disimulasikan dengan `pm2 kill`)
 
 ---
 
@@ -88,11 +88,14 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
 - [x] 1. Enqueue normal — versi asli (pesan WhatsApp nyata, dibandingkan dengan `messages` AuliaPos): 3 burst × 15 pesan (incoming dari WhatsApp Web, incoming dari HP tes, fromMe dari HP Gateway) = **45/45 sampai, 0 hilang, 0 duplikat**
   - Tetapi 40 error dekripsi dengan retry, urutan tiba dan `message_timestamp` bergeser (sebaran 28–58 detik)
   - Penyebab error dekripsi belum diketahui. Dugaan "sesi tercemar oleh `/send` ke alamat nomor telepon" sudah dicabut (lihat koreksi di decision log)
-- [ ] 1. Selidiki penyebab error dekripsi. Hipotesis alternatif (belum terbukti): kill paksa saat Gateway sedang mengenkripsi pesan keluar (skenario 3 T2) membuat state sesi di disk tertinggal
+- [x] 1. Penyelidikan pasif penyebab error dekripsi selesai (21 Sep). 15 dari 55 error adalah pengiriman ulang pesan yang sudah diproses setelah restart (benign, tanpa duplikat). Sisanya: pesan beralamat nomor telepon gagal dulu 10 dari 10, alamat LID 17 dari 35 sesudah 07:02 UTC, dan 0 dari 41 sebelumnya
+  - [ ] Penyebab **belum terbukti**. Hipotesis utama H1: sesi beralamat nomor telepon setelah `/send` ke alamat itu. H2: kill saat mengenkripsi (skenario 3 T2). Uji pembeda butuh nomor uji kedua, dicatat sebagai kandidat M1 Ticket 05
 - [x] 2. Restart Gateway saat burst (3 percobaan, kill di awal/tengah/akhir): hilang 3/14 dan 3/15 pada percobaan 2 dan 3. Penyebab: pesan offline bertipe `append` dibuang di `connectionManager.js:385` (`type !== 'notify'`) setelah di-ack Baileys
-- [ ] 2. Percobaan 1 (K=2) diulang dengan pesan berhuruf unik dan hitungan kirim yang dicatat: tidak bisa dinilai, hitungan kirim tidak ada
+- ~~2. Percobaan 1 (K=2) diulang dengan pesan berhuruf unik dan hitungan kirim yang dicatat~~ — **dicoret 21 Sep**: pola sudah terlihat di percobaan 2 dan 3 (3 pesan hilang di masing-masing), percobaan 1 tidak bisa dinilai karena hitungan kirim tidak dicatat
 - [x] 3. Duplicate-on-timeout: retry `/send` menduplikasi pesan pada 2 dari 3 percobaan (T1, T3); T2 (Gateway dimatikan) kiriman pertama hilang, tidak duplikat
-- [ ] 3. Perilaku UI Inbox AuliaPos saat Gateway mati di tengah kirim: tidak diuji (Gateway dipanggil langsung)
+- [x] 3. Perilaku UI Inbox AuliaPos saat Gateway bermasalah di tengah kirim (diuji 21 Sep, 3 percobaan lewat Inbox)
+  - Gateway mati sebelum pesan keluar: tampil error jelas, teks tetap di kotak, retry menghasilkan 1 pesan (aman)
+  - Gateway lambat lebih dari 10 detik (timeout AuliaPos): tampil "Gagal mengirim pesan", padahal pesan akhirnya terkirim. Retry membuat **pelanggan menerima 2 pesan sama**, dan kiriman pertama tidak tercatat di Inbox
 - [x] 4. Retry/backoff — otomatis (mock CI4): pulih tanpa kehilangan. Dari kode: backoff `min(3s × 2^n, 120s)`, **tanpa batas percobaan dan tanpa dead-letter**
 - [x] Decision log Ticket 01 ditulis: `docs/decisions/2026-09-21-m1-ticket01-baseline.md`
 
@@ -116,10 +119,11 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
 Risiko P0 yang jadi alasan M1 ada (semuanya masih terbuka):
 - [ ] 1. Incoming enqueue failure — pesan hilang. **Terbukti nyata 21 Sep**: pesan yang tiba saat Gateway offline dibuang diam-diam (3 dari 14 dan 3 dari 15). Tipe `append` belum diamati langsung di runtime; sisanya terverifikasi dari kode dan log
 - [ ] 2. JSON fallback corruption — queue rusak berisiko restart dari kosong (belum diuji)
-- [ ] 3. Outgoing duplicate — belum ada idempotency saat timeout. **Terbukti nyata 21 Sep** (skenario 3, 2 dari 3 percobaan)
+- [ ] 3. Outgoing duplicate — belum ada idempotency saat timeout. **Terbukti nyata 21 Sep** (skenario 3, 2 dari 3 percobaan) dan **terbukti lewat Inbox AuliaPos** (Gateway dijeda 12 detik: `U03` diterima 2× di HP pelanggan)
 - [ ] 4. (baru) Retry pesan masuk tanpa batas percobaan dan tanpa dead-letter — dari kode, belum diamati berjalan lama
 - [ ] 5. (baru) Dekripsi pesan gagal lalu di-retry: urutan tiba dan `message_timestamp` bergeser (sebaran 28–58 detik pada burst 15 pesan), padahal AuliaPos memakai timestamp untuk urutan Inbox dan `last_message_at` (dasar SLA di M3). Health tetap `connected` selama itu. Penyebab belum diketahui
-- [ ] 6. (baru) Requirement Gateway untuk AuliaPos (GW-01 s/d GW-23) belum disimpan sebagai berkas di repo
+- [x] 6. (baru) Requirement Gateway untuk AuliaPos disimpan di `docs/GATEWAY-REQUIREMENTS.md` (GW-01 s/d GW-25, dengan status terukur)
+- [ ] 7. (baru) Pesan masuk beralamat campuran nomor telepon dan LID gagal didekripsi dulu (GW-25), penyebab belum terbukti; belum diuji pada kontak baru
 
 ---
 
@@ -215,13 +219,14 @@ Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau And
 - [ ] 2. **Approval checkpoint TASK-006** — review hasil Fase 1a sebelum izinkan lanjut Fase 1b.
 - [x] 3. **Jalankan M1 Ticket 01** (baseline test 4 skenario) — selesai 21 Sep, lihat `docs/decisions/2026-09-21-m1-ticket01-baseline.md`.
   - [x] Baseline 1 versi asli selesai (45/45 sampai, 0 hilang, 0 duplikat; ada error dekripsi dan pergeseran urutan).
-  - [ ] Sisa: selidiki penyebab error dekripsi, percobaan 1 skenario 2 diulang, dan uji UI Inbox saat Gateway mati di tengah kirim.
+  - [x] Uji UI Inbox saat Gateway bermasalah di tengah kirim selesai (lihat M1 di atas).
+  - [x] Semua sisa Ticket 01 selesai atau dicoret (penyebab error dekripsi diselidiki pasif, belum terbukti; percobaan 1 skenario 2 dicoret).
 - [x] 4. **Rapikan housekeeping environment** — Gateway aktif diberi label (lihat "Environment aktif"), 3 folder lama di drive G dipindah ke `G:\arsip-gateway\` (20 Sep), folder `htdocs\wa-gateway` diarsipkan.
 - [ ] 5. **Eksekusi M3 Fase 1b** (TASK-007 s/d TASK-014) setelah TASK-006 disetujui.
 - [ ] 6. **M1 Ticket 02-16** menyusul. Ticket 02 dimulai dari filter `type !== 'notify'` di `connectionManager.js:385`.
 - [ ] 7. **M2** dimulai setelah M1 selesai (atau tepatnya ticket-ticket kritis M1 seperti idempotency — konfirmasi urutan pasti saat M1 mendekati akhir).
 - [ ] 8. **Fase 2 M3** (Handoff, Collision detection) — **wajib** tunggu M2 selesai, ini sudah tertulis eksplisit di RISK-003 plan resmi, bukan lagi cuma catatan blueprint.
-- [ ] 9. (baru) Tes reboot sungguhan untuk auto-start PM2 di Aan-PC.
+- ~~9. (baru) Tes reboot sungguhan untuk auto-start PM2 di Aan-PC~~ — **dicoret 21 Sep: di luar scope pengembangan.**
 - [ ] 10. (baru) Perbaiki 2 ERROR test session Tahap 0 (`db_closing_kas`) dan putuskan apakah folder `G:\arsip-gateway\` sudah boleh dihapus.
 
 ---

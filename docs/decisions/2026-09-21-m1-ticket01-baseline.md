@@ -157,3 +157,85 @@ Setelah memeriksa folder `auth/` sebelum uji terkontrol, dugaan "sesi enkripsi t
 - Error pertama muncul di burst pertama sesudah kill itu (07:28 UTC).
 
 Hipotesis ini cocok dengan urutan waktu, tetapi baru satu titik data dan tidak pernah direproduksi. Penyebab error dekripsi tetap **belum diketahui**. Catatan sebelumnya soal "konfound sesi" jangan dipakai sebagai kesimpulan.
+
+## Keputusan (21 Sep, malam) — item yang dicoret
+
+- Tes reboot sungguhan untuk auto-start PM2 dicoret oleh pemilik proyek: di luar scope pengembangan. Daftar "Belum selesai" di atas tidak lagi memuat item ini.
+- Catatan koreksi: percakapan tes di AuliaPos memiliki `chat_id` `628563324637@s.whatsapp.net` (alamat nomor telepon), jadi balasan dari AuliaPos ke kontak ini memang memakai alamat itu. Kalimat di bagian Konfound bahwa campuran alamat "mungkin tidak terjadi di produksi" tidak benar untuk kontak ini.
+- Skenario 2 percobaan 1 tidak diulang, dicoret oleh pemilik proyek: pola sudah terlihat di percobaan 2 dan 3. Item "Belum selesai" yang tersisa: penyebab error dekripsi dan uji UI Inbox saat Gateway mati di tengah kirim.
+
+## Uji 2b (21 Sep, malam) — Inbox AuliaPos saat Gateway bermasalah di tengah kirim
+
+Diuji lewat tombol Kirim di Inbox (percakapan tes `conversation_id=1`, akun `aan`). Gateway dimatikan atau dijeda tepat setelah log `[SEND] mengirim pesan keluar`, tanpa mengubah kode. Batas timeout AuliaPos ke Gateway: 10 detik (`callGatewaySend`).
+
+| Percobaan | Gangguan | Yang tampil di layar | Server | HP tes |
+|---|---|---|---|---|
+| U01 | Gateway dimatikan paksa 140 ms setelah kirim dimulai (sebelum pesan keluar) | Kotak merah "Gagal mengirim pesan: Tidak bisa menghubungi Gateway: Recv failure: Connection was reset". Teks `U01` tetap di kotak balasan | Tidak ada baris tersimpan. Retry menyimpan 1 baris (id 88) | `U01` 1× (dari retry) |
+| U02 | Gateway dimatikan 380 ms setelah kirim dimulai | Kirim sukses normal (tidak dilaporkan gagal) | Kiriman selesai dalam 374 ms sebelum kill, tersimpan (id 89) | 1× |
+| U03 | Gateway dijeda 12 detik setelah kirim dimulai (simulasi Gateway lambat) | Kotak merah "Gagal mengirim pesan: Tidak bisa menghubungi Gateway: Operation timed out after 10009 milliseconds with 0 bytes received" | Timeout 16:40:08, tidak tersimpan. Gateway lanjut dan menyelesaikan kirim (`3EB05701…`, +12 s). Retry 16:40:39 mengirim lagi (`3EB034851…`), tersimpan (id 90) | **`U03` 2×** |
+
+### Temuan
+
+- Pesan ganda ke pelanggan terjadi lewat alur Inbox yang sebenarnya, bukan hanya lewat API (mengonfirmasi GW-09). Pemicunya Gateway lambat lebih dari 10 detik, bukan Gateway mati.
+- Kill tidak bisa dipakai untuk mengenai jendela berisiko: jarak antara `[SEND] pesan berhasil dikirim` dan `[SEND-CI4] … berhasil dikirim` sekitar 1 ms. Karena itu penjedaan dipakai sebagai gantinya.
+- Riwayat Inbox tidak sama dengan yang diterima pelanggan: pelanggan menerima 2 pesan `U03`, sedangkan Inbox hanya mencatat 1. Kiriman pertama yang terlambat tidak pernah masuk ke Inbox, jadi kasir tidak bisa melihatnya.
+- Teks error "Tidak bisa menghubungi Gateway" menyesatkan pada kasus timeout, karena pesan bisa saja sudah terkirim. Kasir tidak mendapat petunjuk untuk memeriksa dulu sebelum mengirim ulang. Ini temuan tampilan, belum diputuskan sebagai perbaikan.
+- Perilaku sesuai `CHAT.md` §5 (tidak ada baris tersimpan saat gagal, retry manual oleh kasir). Masalahnya ada di aturan itu sendiri: "gagal" pada timeout berarti tidak pasti, bukan pasti tidak terkirim.
+
+### Batasan
+
+- Satu percobaan per mode. Penjedaan proses mensimulasikan Gateway lambat, bukan gangguan jaringan atau WhatsApp yang sesungguhnya.
+- Isi kotak balasan sesudah error pada U03 tidak dilaporkan.
+- Tidak ada perbaikan yang dikerjakan atau diputuskan di sini. Kandidatnya untuk M1 Ticket 09–10 (operation ID/idempotency) dan penyesuaian aturan/teks di AuliaPos.
+
+### Belum selesai (pembaruan)
+
+- Penyelidikan penyebab error dekripsi.
+- Requirement GW-01 sampai GW-23 belum menjadi berkas di repo.
+
+## Analisis lanjutan penyebab error dekripsi (21 Sep, malam)
+
+Hanya bukti pasif dari log Gateway, `incoming_queue`, dan folder `auth/` yang dipakai. Tidak ada sesi yang diubah dan tidak ada tes tambahan pada Gateway. Total error `failed to decrypt message` hari itu: 55.
+
+### 1. Sebagian error adalah pengiriman ulang pesan yang sudah diproses (benign)
+
+- 15 error terjadi pada 09:31:01–03 UTC, tepat setelah Gateway restart (kill uji U01). Semuanya `fromMe`, dan 15 ID-nya persis sama dengan pesan F01–F15 yang sudah tercatat di antrean.
+- WhatsApp mengirim ulang pesan itu setelah restart. Kunci pesannya sudah terpakai, jadi dekripsi gagal. Tidak ada duplikat karena pesan tidak diproses ulang (15/15 unik di AuliaPos).
+- Kesimpulan: pengiriman ulang pesan yang sudah diproses harus ditoleransi tanpa duplikat, dan ini sudah terpenuhi.
+- Yang tersisa tanpa penjelasan: 40 error pada pengiriman pertama (burst I, J, F).
+
+### 2. Korelasi dengan jenis alamat pesan (`jid_type`)
+
+| Kelompok | Jumlah | Gagal dulu, lalu berhasil lewat retry | Lancar |
+|---|---|---|---|
+| Sebelum 07:02 UTC (semua alamat `lid`) | 41 | 0 | 41 |
+| Sesudah 07:02, alamat `lid` (burst I, J, F) | 35 | 17 | 18 |
+| Sesudah 07:02, alamat `pn` (nomor telepon) (burst J, F) | 10 | **10** | 0 |
+
+- Sebelum 07:02 UTC tidak ada satu pun pesan beralamat `pn` dan tidak ada error. Pesan beralamat `pn` baru muncul sesudahnya, dan **10 dari 10 gagal dulu**.
+- Pesan beralamat `lid` pun gagal jauh lebih sering sesudah 07:02 (17 dari 35) daripada sebelumnya (0 dari 41).
+- Log AuliaPos untuk burst F menampilkan `chat_id` yang berganti antara `628563324637@s.whatsapp.net` dan `149701252890753@lid`.
+- Folder `auth/`: file `session-628563324637.*` (alamat `pn`) tidak pernah ditulis ulang sesudah pembuatannya (14:02:27 WIB). File `session-149701252890753.4` dan `.0` (alamat `lid`) ditulis ulang tepat di akhir burst I dan J (14:29 dan 14:44 WIB), yang cocok dengan sesi yang dibentuk ulang lewat retry.
+
+### 3. Hipotesis (belum terbukti)
+
+Dua kejadian jatuh pada waktu yang sama, sekitar 07:02 UTC:
+
+- **H1 (alamat campuran, kini paling didukung):** kiriman `/send` ke `628563324637@s.whatsapp.net` (07:02:27) membuat sesi beralamat nomor telepon. Sesudahnya kontak itu mulai mengirim pesan dengan alamat campuran `pn` dan `lid`, dan Gateway sering tidak menemukan sesi yang cocok sampai retry membentuk ulang sesi.
+- **H2 (kill saat mengenkripsi):** kill paksa skenario 3 T2 (07:02:07) saat Gateway sedang mengirim.
+
+H1 tidak dibantah oleh temuan pasif ini, dan korelasi `pn` (10 dari 10) tidak bisa dijelaskan oleh H2 saja. Namun keduanya tetap tidak terpisahkan karena terjadi hampir bersamaan.
+
+### 4. Koreksi atas bagian "Koreksi" sebelumnya
+
+Bagian "Koreksi (21 Sep, malam)" menyatakan dugaan sesi tercemar oleh `/send` ke alamat nomor telepon **tidak lagi didukung**. Pencabutan itu terlalu kuat. Yang benar: alasan pencabutan (sesi akun sendiri untuk pesan fromMe sudah ada sejak awal) masih berlaku, tetapi bukti korelasi di atas membuat H1 kembali menjadi hipotesis utama, dengan status **belum terbukti**.
+
+### 5. Relevansi ke produksi (belum diuji)
+
+AuliaPos memperbarui `chat_id` percakapan ke alamat terbaru (`CHAT.md` §9.3), jadi balasan ke kontak yang pernah mengirim pesan beralamat `pn` selalu memakai nomor telepon. Kalau H1 benar, gejala ini bisa muncul pada tiap kontak setelah balasan pertama. Hal ini belum diuji pada kontak baru.
+
+### 6. Batasan dan status
+
+- Jumlah data kecil (satu kontak, tiga burst) dan bersifat korelasi.
+- Uji pembeda (membuktikan H1 atau H2) membutuhkan nomor uji kedua yang belum pernah dihubungi, atau mengubah sesi Gateway aktif. Keduanya tidak dilakukan.
+- Status: penyelidikan pasif selesai, penyebab **belum terbukti**. Uji pembeda tercatat sebagai kandidat untuk M1 Ticket 05 (crash/restart test), bukan bagian Ticket 01.
