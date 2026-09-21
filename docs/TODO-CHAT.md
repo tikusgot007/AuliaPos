@@ -1,7 +1,7 @@
 # Status Proyek — AuliaPos + WA-Gateway (Master Reference)
 
-**Terakhir diupdate:** 21 September 2026, ~sore WIB (Ticket 02 M1: 5 dari 8 perbaikan dikerjakan di sesi Claude Code, branch `claude/buka-todo-chat-omnc7k` di WA-Gateway, belum PR, belum diverifikasi live)
-**Cek centang:** 21 September 2026 ~14:30 WIB untuk isi sebelumnya (diverifikasi langsung ke repo dan mesin Aan-PC). Update Ticket 02 di sore harinya **HANYA diuji simulasi/mock di sandbox, BUKAN di mesin Aan-PC dengan Gateway nyata** — jangan disamakan level buktinya dengan item lain yang sudah dicek di Aan-PC. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
+**Terakhir diupdate:** 21 September 2026, malam WIB. **PENTING**: sesi Claude Code sandbox sempat mengerjakan M1 Ticket 02 (E-01 s/d E-09) secara ad-hoc TANPA sadar `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (plan resmi, sudah di-*clarify*, readiness 94/100) sudah ada di repo untuk pekerjaan yang sama — merge sebelumnya lewat PR #36/#37. Dua fix (E-01, E-06) ternyata bentrok dengan keputusan yang sudah diambil di plan resmi dan **sudah direvert**. Sisanya (E-03/E-04/E-05/E-09) **belum tentu sesuai kontrak plan resmi** (beda parameter, ada bagian yang belum diimplementasikan seperti overflow buffer dan cache negatif LID) — lihat handoff `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md` untuk rincian lengkap dan apa yang perlu dikerjakan ulang. **Jangan anggap M1 Ticket 02 "selesai"** — plan resmi adalah sumber kebenaran untuk pekerjaan ini, bukan kerja ad-hoc sandbox.
+**Cek centang:** 21 September 2026 ~14:30 WIB untuk isi sebelum sore (diverifikasi langsung ke repo dan mesin Aan-PC). Update Ticket 02 sore-malam harinya **HANYA diuji simulasi/mock di sandbox, BUKAN di mesin Aan-PC dengan Gateway nyata**, dan sebagian sudah direvert lagi malam harinya — jangan disamakan level buktinya dengan item lain yang sudah dicek di Aan-PC. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
 **Cara pakai:** Sematkan/paste dokumen ini di awal sesi Claude Code baru sebagai context. Update bagian "Status Sekarang" dan "Yang Menggantung" setiap kali ada progres baru — dokumen ini gampang basi kalau kerja paralel jalan di beberapa sesi Claude Code sekaligus, jadi **selalu `git fetch` + cek HEAD nyata sebelum percaya isi dokumen ini secara buta**.
 
 ---
@@ -43,10 +43,9 @@ Urutan bergantung ke bawah: Tahap 0 → M1 → M2 → M3 → M4 → M5.
 - Repo: `tikusgot007/WA-Gateway`
 - [x] Branch utama sekarang: `master` @ `e18f716` (dicek 21 Sep). Branch `claude/android-app-p40bl1` **sudah tidak ada di remote** — kode `5b28eb6` masuk `master` lewat PR #1
 - [x] `5b28eb6c8a7e6e6c2e1d5b7d7261389f9309c295` adalah ancestor `master`, jadi baseline tetap valid
-- [x] Branch dev aktif: `feature/stage-1-reliability` @ `3fd5f40` (dicek 21 Sep) = `5b28eb6` + 1 commit dokumen (salinan decision log Ticket 01). Belum ada perubahan kode M1
-- [x] `master` sudah merge PR #1 dari `claude/android-app-p40bl1` + commit "Create node.exe" (packaging, di luar scope M1)
+- [ ] `master` sudah merge PR #1 dari `claude/android-app-p40bl1` + commit "Create node.exe" (packaging, di luar scope M1)
 - Branch lain yang muncul (`fix/lid-fromme-pushname-leak`, `claude/cek-bandingkan-mimac-fln1h4`) — dicek, **tidak relevan** dengan kerja saat ini (versi lama/terpisah, salah satunya referensi "AuliaPos v3.0")
-- [ ] Branch baru 21 Sep: `claude/buka-todo-chat-omnc7k` (dari `master` @ `e18f716`, 4 commit) berisi 5 perbaikan M1 Ticket 02 (E-01, E-03, E-04, E-05, E-06, E-09). **Belum di-merge/PR, belum jalan di Aan-PC** — jangan dianggap bagian dari `master`/`feature/stage-1-reliability` sampai di-review dan diverifikasi live
+- [ ] **`feature/stage-1-reliability` SUDAH BERUBAH 21 Sep malam** (via PR #2 lalu PR #3, branch `claude/buka-todo-chat-omnc7k`), TIDAK lagi sama dengan `3fd5f40` + 1 commit dokumen seperti dicek sebelumnya. Isinya sekarang: E-03 (validasi field wajib), E-04 (`_enqueueWithRetry` 3×200ms), E-05 (timeout LID 5 detik), E-09 (karantina+pemulihan `.bak` JSON) — implementasi **ad-hoc, belum tentu sesuai kontrak `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md`** (plan resmi minta jeda retry 50/200/800ms + overflow buffer, timeout LID 2 detik + cache negatif, dll). E-01 dan E-06 sempat ditambah lalu **direvert** (bentrok ALT-002/ALT-004 plan resmi). **Belum jalan di Aan-PC sama sekali.** Rincian lengkap dan instruksi lanjutan: `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md`
 
 ### Environment aktif (hasil verifikasi terakhir)
 - [x] Gateway yang benar-benar jalan **sekarang**: `C:\projects\WA-Gateway` (branch `master` @ `e18f716`, PM2 `wa-gateway`, auto-start via registry `HKCU\...\Run`), nomor `6281913500707` (nomor uji), status `connected`
@@ -102,18 +101,18 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
   - Buffer tidak menggeser timestamp, tetapi **urutan pesan di Inbox salah**: urutan kirim `Sjjs, Hhaaa, Hhhah, Hss, Hhsj` tampil sebagai `Hhaaa, Hhhah, Sjjs, Hhsj, Hss` (timestamp yang diterima Gateway sudah bergeser)
 - [x] Decision log Ticket 01 ditulis: `docs/decisions/2026-09-21-m1-ticket01-baseline.md`
 
-**Ticket 02-16**: Ticket 02 (audit + 5 dari 8 perbaikan) sudah jalan di sesi Claude Code 21 Sep. Ticket 03-16 belum dikerjakan. Urutan sesuai daftar awal:
+**Ticket 02-16**: audit Ticket 02 selesai. **JANGAN pakai baris di bawah ini sebagai acuan eksekusi** — plan resmi `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` sudah ada untuk Ticket 02-04 (gelombang 1) dan itu yang harus diikuti. Baris di bawah ini murni riwayat apa yang sempat terjadi di sesi sandbox 21 Sep, ditulis ulang malam harinya setelah revert:
 - [x] 02. Audit enqueue — audit selesai 21 Sep (8 titik kehilangan, dari E-01 `append` yang terukur sampai E-09 JSON), laporan `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md`.
-  - **Perbaikan kode 21 Sep (repo WA-Gateway, branch `claude/buka-todo-chat-omnc7k`, 4 commit, belum PR):**
-    - [x] E-01 — tipe `append` (pesan offline setelah reconnect) sekarang diproses, bukan dibuang. Ini penyebab pesan hilang yang terbukti nyata di Ticket 01 skenario 2
-    - [x] E-03 — `enqueue()` sekarang memvalidasi field wajib (`messageId`/`chatId`/`jidType`/`timestamp`) sebelum insert, melempar Error kalau kosong, bukan ditelan diam-diam oleh `INSERT OR IGNORE`. Duplikat `wa_message_id` yang sah tetap diabaikan seperti sebelumnya
-    - [x] E-04 — `_enqueueWithRetry()`: enqueue dicoba ulang 3× (jeda 200ms) di dalam proses sebelum menyerah dan log keras
-    - [x] E-05 — query `onWhatsApp()` di `_resolveLidForPhoneJid()` sekarang punya timeout 5 detik, tidak lagi bisa menahan seluruh batch pesan tanpa batas
-    - [x] E-06 — `_enqueueMinimalFallback()`: kalau `_handleIncomingMessage()` gagal sebelum sempat enqueue, disimpan record minimal (ID + chat + waktu, tanpa teks/media) supaya tidak hilang tanpa jejak sama sekali
-    - [x] E-09 — `IncomingBufferJsonFile` (fallback JSON, dipakai kalau `better-sqlite3` tidak tersedia) sekarang menulis cadangan `.bak` tiap `_persist()`; file utama yang korup dikarantina (di-rename) dan dicoba dipulihkan dari `.bak`, bukan langsung ditimpa dari kosong
-    - [ ] E-02 — pesan berbungkus (ephemeral/view-once/edited) dianggap tidak didukung. **Belum dikerjakan** — audit eksplisit minta verifikasi dengan obrolan pesan sementara nyata dulu, tidak bisa diuji di sandbox tanpa koneksi WhatsApp
-    - [ ] E-07 — upsert tanpa `msg.message` (hipotesis terkait error dekripsi Ticket 01). **Belum dikerjakan** — sama, butuh verifikasi runtime dulu sebelum diputuskan, audit eksplisit bilang "jangan dijadikan kesimpulan" tanpa itu
-  - **Semua 6 perbaikan di atas disertai test simulasi baru** (`test/simulate-append-type.js`, `simulate-enqueue-failure.js`, `simulate-e05-e06-fallback.js`, `simulate-e09-json-recovery.js`) — 12 test simulasi total (termasuk yang lama) dijalankan ulang, tidak ada regresi. **Catatan jujur**: ini test simulasi dengan `sock`/Baileys di-mock (pola sama seperti `simulate-identity-hint.js` yang sudah ada), BUKAN pengujian dengan koneksi WhatsApp nyata seperti Ticket 01 — perlu diverifikasi ulang di Aan-PC dengan Gateway aktif sebelum dianggap final
+  - **Perbaikan ad-hoc 21 Sep sore (repo WA-Gateway, branch `claude/buka-todo-chat-omnc7k`, merge PR #2 ke `feature/stage-1-reliability`) — dikerjakan TANPA sadar plan resmi sudah ada:**
+    - [x] → **direvert malam harinya (PR #3)** E-01 — sempat menerima tipe `append`, tapi plan resmi (ALT-002) menemukan Baileys juga memancarkan `append` untuk kiriman Gateway sendiri; tanpa `ownSentRegistry` berisiko duplikat pesan keluar. Kembali ke `notify`-only
+    - [x] **masih ada, belum tentu final** E-03 — `enqueue()` validasi field wajib, throw kalau kosong. Plan resmi (TASK-001) minta kontrak berbeda (`{status:'inserted'|'duplicate'}` + tipe error khusus yang tidak di-retry) — perlu diperiksa ulang
+    - [x] **masih ada, belum tentu final** E-04 — `_enqueueWithRetry()` 3×200ms. Plan resmi (TASK-002/003/004) minta jeda 50/200/800ms + overflow buffer 500 event yang dikuras di siklus worker — belum ada di implementasi ad-hoc
+    - [x] **masih ada, belum tentu final** E-05 — timeout query LID 5 detik. Plan resmi (TASK-013) minta 2 detik + cache negatif 60 detik per JID — cache negatif belum ada
+    - [x] → **direvert malam harinya (PR #3)** E-06 — sempat menyimpan record minimal saat pemrosesan gagal, tapi plan resmi (ALT-004) menolak eksplisit pendekatan ini (jadi poison message). Kembali ke: hanya log
+    - [x] **masih ada, belum tentu final** E-09 — karantina + pemulihan `.bak` JSON fallback. Cukup dekat dengan plan resmi (TASK-015) tapi belum dicocokkan detail
+    - [ ] E-02, E-07 — **belum dikerjakan**, butuh verifikasi WhatsApp nyata dulu (juga eksplisit di luar scope plan resmi)
+  - **Test simulasi (mock, bukan Gateway nyata) ditulis untuk semua di atas**, disesuaikan lagi setelah revert (`test/simulate-e05-lid-timeout.js` menggantikan `simulate-e05-e06-fallback.js`, `simulate-append-type.js` dihapus). Semua lolos, tidak regresi — tapi ini bukti simulasi, bukan bukti Gateway nyata
+  - **Handoff lengkap + instruksi lanjutan untuk sesi Claude Code lokal**: `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md` — baca ini sebelum melanjutkan Ticket 02, bukan ringkasan di atas
 - [ ] 03. Durable buffer
 - [ ] 04. JSON recovery
 - [ ] 05. Crash/restart test
@@ -236,11 +235,11 @@ Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau And
   - [x] Semua sisa Ticket 01 selesai atau dicoret (penyebab error dekripsi diselidiki pasif, belum terbukti; percobaan 1 skenario 2 dicoret).
 - [x] 4. **Rapikan housekeeping environment** — Gateway aktif diberi label (lihat "Environment aktif"), 3 folder lama di drive G dipindah ke `G:\arsip-gateway\` (20 Sep), folder `htdocs\wa-gateway` diarsipkan.
 - [ ] 5. **Eksekusi M3 Fase 1b** (TASK-007 s/d TASK-014) setelah TASK-006 disetujui.
-- [ ] 6. **M1 Ticket 02-16** menyusul. Ticket 02: audit selesai, 5 dari 8 perbaikan (E-01, E-03, E-04, E-05, E-06, E-09) sudah dikerjakan 21 Sep di branch `claude/buka-todo-chat-omnc7k` (WA-Gateway), **tapi baru diuji simulasi/mock, belum jalan di Aan-PC dengan Gateway nyata**. Langkah berikut yang menggantung:
-  - [ ] Review + merge/PR branch `claude/buka-todo-chat-omnc7k` ke `feature/stage-1-reliability` (atau `master`, sesuaikan alur kerja)
-  - [ ] Verifikasi live di Aan-PC: ulangi skenario 2 Ticket 01 (restart Gateway saat burst) untuk pastikan fix E-01 benar-benar menghilangkan message loss yang terukur 21 Sep
-  - [ ] E-02 dan E-07 belum dikerjakan sama sekali — butuh verifikasi dengan WhatsApp nyata dulu (obrolan pesan sementara untuk E-02, pengamatan stub dekripsi untuk E-07) sebelum diputuskan
-  - [ ] Ticket 03-16 belum dimulai
+- [ ] 6. **M1 Gelombang 1 (Ticket 02-04)** — eksekusi lewat `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (plan resmi, `/sdlc-write-code`, worktree `C:\projects\WA-Gateway-m1`), **BUKAN** melanjutkan kerja ad-hoc sandbox. Baca dulu `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md` untuk konteks lengkap (kerja ad-hoc E-03/E-04/E-05/E-09 yang sudah ter-merge ke `feature/stage-1-reliability` kemungkinan perlu ditulis ulang sesuai TASK-001/002-004/013/015 plan resmi, bukan dipakai apa adanya). Langkah menggantung:
+  - [ ] Siapkan worktree `C:\projects\WA-Gateway-m1`, jalankan `/sdlc-write-code` mengikuti plan resmi fase demi fase (berhenti di tiap TASK-xxx APPROVAL)
+  - [ ] TASK-017 (AC-001, `pm2 stop` nyata) — matikan Gateway produksi, **hanya boleh >21:00 atau <08:00** (RISK-003)
+  - [ ] E-02 dan E-07 (di luar scope plan resmi juga) — butuh verifikasi dengan WhatsApp nyata dulu sebelum diputuskan jadi task baru
+  - [ ] Ticket 05, 06-08, 09-11, 12-16 (gelombang 2-3) belum dimulai, menyusul setelah gelombang 1
 - [ ] 7. **M2** dimulai setelah M1 selesai (atau tepatnya ticket-ticket kritis M1 seperti idempotency — konfirmasi urutan pasti saat M1 mendekati akhir).
 - [ ] 8. **Fase 2 M3** (Handoff, Collision detection) — **wajib** tunggu M2 selesai, ini sudah tertulis eksplisit di RISK-003 plan resmi, bukan lagi cuma catatan blueprint.
 - ~~9. (baru) Tes reboot sungguhan untuk auto-start PM2 di Aan-PC~~ — **dicoret 21 Sep: di luar scope pengembangan.**
