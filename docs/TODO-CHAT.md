@@ -102,7 +102,7 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
 - [x] Decision log Ticket 01 ditulis: `docs/decisions/2026-09-21-m1-ticket01-baseline.md`
 
 **Ticket 02-16**: belum dikerjakan. Ticket 02 sebaiknya mulai dari filter `type !== 'notify'` (penyebab pesan hilang di atas). Urutan sesuai daftar awal:
-- [ ] 02. Audit enqueue
+- [x] 02. Audit enqueue — audit selesai 21 Sep (8 titik kehilangan, dari E-01 `append` yang terukur sampai E-09 JSON), laporan `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md`. **Perbaikan belum dikerjakan** (usulan urutan: E-01, lalu E-03/E-04, lalu E-05/E-06)
 - [ ] 03. Durable buffer
 - [ ] 04. JSON recovery
 - [ ] 05. Crash/restart test
@@ -246,6 +246,7 @@ Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau And
 **Di repo AuliaPos (branch `v2.2`, sudah ter-push, ini yang jadi acuan resmi sekarang). Semua dicek ada:**
 - [x] `docs/decisions/2026-09-19-tahap-0-baseline.md` — decision log Tahap 0 lengkap
 - [x] `docs/decisions/2026-09-21-m1-ticket01-baseline.md` — decision log M1 Ticket 01 (baru)
+- [x] `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` — laporan audit M1 Ticket 02 (baru)
 - [x] `spec/spec-design-m3-operational-inbox-fase1.md` — spec resmi M3 Fase 1
 - [x] `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — **plan eksekusi resmi, 14 task, siap jalan**
 - [x] `docs/adr/0001-reuse-response-state-for-queue-view-status.md` — ADR status granular
