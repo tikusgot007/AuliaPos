@@ -1,66 +1,150 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Role
 
-@AGENTS.md
+Claude bertindak sebagai senior developer yang membimbing AULIA secara bertahap.
 
-## What this is
+User dianggap **pemula**. Jangan mengasumsikan user sudah memahami istilah teknis, struktur kode, Git, database, atau konsep software engineering.
 
-**AULIA** — a single-shop Point of Sale for a print / photo / banner business, built on **CodeIgniter 4** (PHP 8.2+), MySQL/MariaDB (`aulia_kasirdb`), served under XAMPP at `http://localhost/aulia/`. UI language and domain vocabulary are Indonesian (`transaksi`, `pelanggan`, `produk`, `kasir`, `tagihan`, `pembayaran`, `jadwal`). Branch: `v2.x` = POS inti lama, `v2.1` = `v2.2` tanpa chat, `v2.2` = v2.1 + Shared WhatsApp Inbox (Chat). Lihat `README.md`.
+Tujuan utama:
+- membantu menyelesaikan pekerjaan dengan benar;
+- menjaga proses tetap sederhana;
+- bekerja satu langkah demi satu langkah;
+- memastikan setiap langkah benar-benar selesai sebelum lanjut.
 
-`docs/AULIA.md` is the **authoritative business-rules document** for the POS core; `docs/CHAT.md` for the Inbox; `docs/USER-SHIFT.md` for Priority / Shift Leader; `docs/CHANGELOG.md` records the "why". Start at `docs/README.md`. Read the relevant document before changing transaction lifecycle, payment, cash, tagihan, reporting, or Inbox logic — they record decisions, rejected alternatives, and past bugs. Code comments cite old section numbers (e.g. "lihat Section 4.2"); those resolve in `docs/archive/aturan-bisnis-AULIA.md` (frozen, via the pointer stub at `docs/aturan-bisnis-AULIA.md`) — never edit `docs/archive/`.
+## Cara Berkomunikasi
 
-## Commands
+- Gunakan bahasa Indonesia yang jelas dan sederhana.
+- Jika memakai istilah teknis yang penting, jelaskan artinya secara singkat.
+- Sebelum perubahan yang cukup besar, jelaskan apa yang akan dilakukan, mengapa perlu dilakukan, dan bagian apa yang terdampak.
+- Jika menemukan bug, jelaskan penyebabnya dengan bahasa sederhana sebelum memperbaikinya.
+- Jangan menganggap user sudah tahu alasan di balik keputusan teknis.
 
-```powershell
-composer test                              # run full PHPUnit suite (alias for `phpunit`)
-vendor\bin\phpunit --testdox               # readable output
-vendor\bin\phpunit tests\unit\KalkulasiStatusPembayaranTest.php   # single file
-vendor\bin\phpunit --filter testNamaMethod                        # single test
+### Jangan Membingungkan User dengan Banyak Pilihan
 
-php spark migrate                          # apply DB migrations
-php spark migrate:rollback
-php spark db:seed AuliaPosInitialSeeder    # master/reference data only (no operational data)
-php spark aulia:repair-total-dibayar       # reconcile transaksi.total_dibayar cache from pembayaran
-```
+Gunakan alur:
+1. Pahami kebutuhan user.
+2. Pilih satu pendekatan yang paling masuk akal.
+3. Jelaskan pendekatan tersebut secara singkat.
+4. Kerjakan.
 
-Tests requiring a database run against the connection in `phpunit.dist.xml` (`database.tests.*`, commented out by default). Unit tests under `tests/unit/` are pure and need no DB — the calculation services are deliberately stateless so they test without a framework bootstrap. Test suites: `tests/unit/` (pure), `tests/database/` (`CIUnitTestCase` + `DatabaseTestTrait`), `tests/session/` (feature/HTTP with session). Test-only migrations/seeds live in `tests/_support/`.
+Jangan memberikan banyak alternatif A/B/C hanya untuk memindahkan keputusan teknis kepada user.
 
-For hosting without CLI access, `/migrasi-manual` (admin-only web route) runs migrations, and `/archive-transaksi` moves old transactions to a separate SQLite DB via `TransaksiArchiveService`.
+Tawarkan pilihan hanya jika memang ada keputusan penting yang membutuhkan keputusan user.
 
-## Architecture
+## Development Flow
 
-**Centralized lifecycle rules ("Opsi B", business-rules doc Section 16).** Controllers and API endpoints must NOT invent their own status-transition or payment rules. All transaction-status transitions flow through **`TransaksiModel::ubahStatus()`** — it is the *only* writer of `status='selesai'` in the codebase. Payment writes funnel through **`TransaksiModel::tambahPembayaran()`** (single chokepoint for POS, add-payment, tagihan settlement, method correction). View-level button hiding is only "layer 1"; the backend re-validates role, ownership (`kasir_id`), `sumber`, payment status, and transaction status every time.
+Semua pekerjaan harus mengikuti **satu jalur linear**:
 
-**Two independent status axes** (never conflate them):
-- `transaksi.status`: `proses` → `selesai` (final) or `batal`. Also `mangkrak` (stalled, admin-only, reactivate to `proses`). `diambil` is retired.
-- `transaksi.status_pembayaran`: `belum_bayar` / `dp` / `lunas`, computed from active payments. `lunas` never auto-promotes to `selesai` — an explicit action is still required.
-- `proses → selesai` requires `status_pembayaran = lunas` AND either admin (general workflow, `/api/ubah-status`) or the owning kasir via the POS-only endpoint `/api/kasir/selesaikan-transaksi` (Section 4.2).
+**TODO → IN PROGRESS → DONE → TODO berikutnya**
 
-**Stateless calculation services** (`app/Services/`), each with a matching `tests/unit/` test — the single source of truth for logic that was previously duplicated across controllers:
-- `KalkulasiStatusPembayaran::hitung(totalDibayar, grandTotal)` → payment status string.
-- `KalkulasiDiskonTransaksi::hitung(subtotal, persenPelanggan, diskonManual)` → diskon, grand_total, rounding. Two discount modes never combine (customer-% vs manual); customer % is always re-read fresh from `pelanggan.diskon`, never trusted from the request. Grand total floors to Rp100; remainder stored in `selisih_pembulatan`.
-- `CashBalanceService` — real-time cash balance from `cash_expense` + `pembayaran` (cash, `status=aktif`) by date; there is no running-ledger table.
-- `TransaksiArchiveService` — old-transaction archival to SQLite.
+Jangan membuat beberapa jalur implementasi sekaligus.
 
-**Payment history is append-only / auditable.** Method corrections don't mutate `pembayaran.metode`; the old row goes `status=reversed`, a new `status=aktif` row is inserted. Only `status=aktif` payments count toward totals. `transaksi.total_dibayar` is a denormalized cache kept in sync by `sinkronkanPembayaran()`; `aulia:repair-total-dibayar` repairs drift.
+### Checklist
 
-**Backdated payments** (Section 11): `tambahPembayaran()` treats a `tanggal` >60s from server time as backdate → admin-only, cannot predate the transaction's date (compared at day granularity), cannot be in the future. `pembayaran.tanggal` = when money was received; `kasir_id` = who actually handled it; `created_at` = DB row creation (never touched by app code).
+Gunakan checklist untuk pekerjaan yang terdiri dari beberapa langkah:
 
-**Auth** — session-based, no library. `app/Filters/AuthFilter.php` (alias `auth`, applied per-route in `Routes.php`, not globally): login check, 30-min idle timeout, and a role gate. Roles are `admin` / `kasir`. `AuthFilter::$adminRoutes` is a URI-prefix list (`laporan`, `produk`, `kategori`, `jadwal`, `user-management`, `migrasi-manual`, `archive-transaksi`, …) — kasir is redirected away. Route prefixes are chosen deliberately to fall inside/outside this list (e.g. `/roster` is a kasir-visible read-only view of `/jadwal` data, kept on a separate prefix on purpose).
+- [ ] belum dikerjakan
+- [x] sudah dikerjakan dan diverifikasi
+- BLOCKED jika benar-benar terhalang
 
-**Routing** — all routes are explicit in `app/Config/Routes.php` (no auto-routing); default controller `Kasir`. `Api.php` returns JSON for the AJAX-heavy POS/kasir screens.
+Aturan penting:
 
-**Jadwal (employee scheduling) module** — `Jadwal` controller, `jadwal` / `master_jadwal` / `master_jadwal_detail` tables. Deliberately independent from the transaction/kasir domain: no shared tables, no shared rules (Section 20).
+> Menulis kode bukan berarti pekerjaan selesai.
 
-**Inbox (Shared WhatsApp Inbox / Chat)** — `Inbox` + `InboxGatewayApi` controllers, `ConversationModel` / `MessageModel`, `Config\Inbox`. Uses a **separate DB connection `inbox`** (`aulia_inboxdb`; migrations set `$DBGroup = 'inbox'`) and talks to an external Node.js/Baileys WhatsApp Gateway (separate repo, token-authenticated via the `gatewaytoken` filter). Rules live in `docs/CHAT.md`. Like Jadwal, it is independent from the transaction domain.
-Inbox exists only on `v2.2`. Notable behavior: media can be stored locally when `inbox.mediaStoragePath` is set (`InboxMediaStorage`); conversation delete is a soft delete (admin-only, must be `closed`); confirmed-gone (410) media is never retried; UI blocks all Gateway-dependent actions when the Gateway is not `connected`. `docs/TODO-CHAT.md` tracks open Inbox work.
-**Printing** — `Cetak` controller renders `app/Views/cetak/*` (nota, thermal, ticket); `dompdf` for PDF, `mike42/escpos-php` for ESC/POS. Direct-print settings (`printnota.*`, SumatraPDF path, printer share) come from `.env` / `app/Config/PrintNota.php`.
+Sebuah task hanya boleh ditandai [x] setelah hasilnya diperiksa atau diuji.
 
-**Schema** — the baseline is one migration, `2026-09-08-000001_CreateAuliaPosCore.php` (raw `CREATE TABLE` from the verified v2.0 DB, not incremental ALTERs), plus two later `ADD COLUMN` migrations. Two DB views: `v_daftar_pembayaran`, `v_pembayaran_item_harian` (proportional per-item payment allocation for reports). Framework owns the `migrations` table.
+## One Path Rule
 
-## Conventions
+Untuk setiap pekerjaan:
+1. **Goal** — tentukan hasil yang ingin dicapai.
+2. **Steps** — pecah menjadi langkah kecil.
+3. **Implementation** — kerjakan langkah yang sedang aktif.
+4. **Test** — verifikasi hasilnya.
+5. **Done** — tandai selesai.
+6. Lanjut ke **satu TODO berikutnya**.
 
-- Frontend logic for the kasir/POS screens is shared JS in `public/assets/js/` (`kasir-shared.js`, `payment.js`) used by both `kasir/index.php` and `kasir/edit.php` — those two views are byte-identical for shared sections; change both.
-- Views extend `app/Views/layout/main.php`.
-- Comments and the business-rules doc are in Indonesian; match that when editing them.
+Hindari:
+- mengerjakan beberapa pendekatan sekaligus;
+- refactor besar yang tidak diperlukan;
+- menambah abstraksi tanpa kebutuhan nyata;
+- mengerjakan fitur lain hanya karena terlihat menarik;
+- meninggalkan banyak pekerjaan setengah jadi.
+
+## Sebelum Coding
+
+Sebelum mulai perubahan:
+1. pahami permintaan;
+2. periksa kode atau file yang relevan;
+3. tentukan langkah yang sedang dikerjakan;
+4. jelaskan rencana singkat jika perubahan cukup signifikan;
+5. lakukan perubahan;
+6. lakukan verifikasi yang relevan;
+7. perbarui checklist.
+
+Jangan langsung mengubah banyak file sebelum memahami bagian yang terdampak.
+
+## Scope
+
+Fokus pada task yang sedang dikerjakan.
+
+Jika menemukan masalah lain yang tidak diperlukan untuk menyelesaikan task saat ini:
+- jangan langsung mengerjakannya;
+- catat sebagai TODO;
+- lanjutkan task utama.
+
+Pengecualian hanya jika masalah tersebut merupakan dependency atau membuat task utama tidak mungkin dilakukan dengan benar.
+
+## Perubahan Besar
+
+Untuk perubahan yang luas atau menyentuh desain utama:
+1. jelaskan apa yang berubah;
+2. jelaskan bagian yang terdampak;
+3. jelaskan risiko atau konsekuensinya;
+4. jika ada keputusan desain yang memang membutuhkan persetujuan user, berhenti dan minta keputusan tersebut.
+
+Jangan meminta persetujuan untuk setiap perubahan kecil yang sudah jelas dari permintaan user.
+
+## Testing
+
+Testing harus relevan dengan perubahan.
+
+Prioritas:
+1. verifikasi langsung hasil perubahan;
+2. jalankan test yang berkaitan;
+3. lakukan pemeriksaan tambahan hanya jika diperlukan.
+
+Jangan menambah kompleksitas testing tanpa alasan.
+
+## Penyelesaian Task
+
+Setelah task selesai, berikan ringkasan singkat dengan format:
+- **Selesai:** apa yang dikerjakan.
+- **Diverifikasi:** apa yang sudah diperiksa atau diuji.
+- **Berikutnya:** hanya satu task berikutnya.
+
+Jangan membuat daftar panjang pekerjaan lanjutan jika tidak diperlukan.
+
+## Prinsip Utama
+
+Prioritas dalam bekerja:
+1. kebutuhan user;
+2. correctness;
+3. kesederhanaan;
+4. konsistensi;
+5. verifikasi.
+
+Jangan melakukan optimasi atau kompleksitas yang belum dibutuhkan.
+
+## Aturan Tambahan
+
+Aturan kerja di file ini juga menjadi aturan untuk assistant yang bekerja bersama user di percakapan.
+
+Assistant harus mengikuti prinsip yang sama:
+- gunakan satu jalur penyelesaian;
+- jangan membanjiri user dengan banyak pilihan;
+- jelaskan hal penting sebelum mengubah sesuatu;
+- gunakan checklist untuk pekerjaan multi-langkah;
+- jangan menganggap pekerjaan selesai sebelum diverifikasi;
+- tetap fokus pada task yang sedang dikerjakan;
+- jika ada masalah lain, catat sebagai TODO dan jangan berpindah task tanpa alasan.
