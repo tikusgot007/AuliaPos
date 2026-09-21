@@ -14,7 +14,7 @@
   - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — Status: 🔄 In progress. Completed/Date columns filled for TASK-001..016 (commit SHAs of the WA-Gateway repo). TASK-017/018 blank on purpose.
   - `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md` — Status: ✅ Written (commits, deviations from spec, evidence, limits of evidence).
   - `docs/TODO-CHAT.md` — Status: ✅ Synced to the new state. All claims are worded as simulation-only evidence.
-  - WA-Gateway repo, worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`: 13 local commits above `091fe19` (`baf1896` … `065f683`), **not pushed, not merged, not running in production**.
+  - WA-Gateway repo, worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`: 13 commits above `091fe19` (`baf1896` … `065f683`), **pushed to origin (fast-forward, no force) but no PR, not merged, not running in production**.
 - **Achieved Milestones:**
   - User dropped the Convia (ready-made WhatsApp inbox) idea; the self-built Baileys Gateway stays. M1 goes before M3.
   - Pulled AuliaPos `v2.2` and fetched/pulled both WA-Gateway checkouts (production `C:\projects\WA-Gateway` only fetched, untouched). The repo is `tikusgot007/WA-Gateway`, not `tikusgot/...`.
@@ -41,11 +41,11 @@
   - Two send insertion points (text and media) for the own-sent ID, within the plan's tolerance.
 - **Next Action / Pending:**
   - TASK-017 needs separate explicit approval and only runs >21:00 or <08:00. Blocked on deciding how the code reaches the Gateway under test (merge to `master` + PM2 restart touches production).
-  - Push the branch and open a PR only when the user asks.
+  - The Gateway branch was pushed (user chose option 1). Open a PR only when the user asks, ideally after `/sdlc-code-review`. The AuliaPos docs commit is on branch `claude/m1-wave1-fase1-3-status`, not pushed.
   - Left alone on purpose: `_resolveLidForPhoneJid` caches `null` forever when the Gateway is not connected; the old `simulate-e05-lid-timeout.js` overlaps the new test; `node.exe` (~87 MB) is committed in WA-Gateway.
   - All evidence so far is mock/simulation. Do not describe M1 Wave 1 as done or verified before TASK-017/018.
 
-<!-- checkpoint-tail: M1 Wave 1 Phases 1–3 (TASK-001..016) are coded and simulation-verified in WA-Gateway worktree (13 local commits, unpushed); plan, TODO-CHAT and a new decision log are synced; next is separate approval for TASK-017 (real pm2 stop test, >21:00 or <08:00) after deciding how to deploy, then a code review in a new session. -->
+<!-- checkpoint-tail: M1 Wave 1 Phases 1–3 (TASK-001..016) are coded and simulation-verified in WA-Gateway worktree (13 commits, pushed to origin without a PR); plan, TODO-CHAT and a new decision log are synced; next is separate approval for TASK-017 (real pm2 stop test, >21:00 or <08:00) after deciding how to deploy, then a code review in a new session. -->
 
 ---
 

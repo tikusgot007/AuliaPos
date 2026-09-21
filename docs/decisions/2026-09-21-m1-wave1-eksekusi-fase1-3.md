@@ -8,7 +8,7 @@
 
 - TASK-001 sampai TASK-016 selesai. TASK-007 dan TASK-012 (APPROVAL) sudah disetujui user. **TASK-017 (AC-001, `pm2 stop` nyata) dan TASK-018 belum dijalankan.**
 - Keputusan awal (opsi A dari handoff): kode ad-hoc sandbox (E-03/E-04/E-05/E-09) dianggap draft dan ditimpa sesuai kontrak plan, bukan dipakai apa adanya.
-- 13 commit di atas `091fe19`, **belum di-push, belum ter-merge, belum berjalan di Gateway produksi** (`C:\projects\WA-Gateway`, `master` `e18f716`, tidak disentuh).
+- 13 commit di atas `091fe19`, **sudah di-push ke `origin` (21 Sep malam, fast-forward `091fe19..065f683`) tetapi belum ada PR, belum ter-merge, belum berjalan di Gateway produksi** (`C:\projects\WA-Gateway`, `master` `e18f716`, tidak disentuh).
 - Lingkungan tes: Node v20.20.2 (`C:\nvm4w\nodejs`, sama dengan PM2 produksi), `npm ci` dari `package-lock.json`, database diarahkan ke folder temp.
 - 17 skrip `test/simulate-*.js` lulus (0 gagal) ditambah guard `test/check-register-before-send.js`.
 
@@ -78,7 +78,7 @@
 
 - **TASK-017:** `pm2 stop wa-gateway` ±30 detik, 10 pesan dari HP tes, `pm2 start`, 3 kali. Mematikan Gateway produksi, **hanya boleh >21:00 atau <08:00** (RISK-003), butuh persetujuan terpisah. Prasyarat: kode ini harus ada di Gateway yang diuji. Sekarang baru di worktree `WA-Gateway-m1`; cara deploy (merge ke `master`, lalu restart PM2) belum diputuskan dan juga menyentuh produksi.
 - **TASK-018:** persetujuan bahwa AC-001 lulus 3 kali.
-- Push branch dan PR belum dilakukan.
+- Branch sudah di-push ke `origin` (tanpa force). PR belum dibuat; disarankan setelah `/sdlc-code-review`.
 - Di luar scope, dibiarkan: `_resolveLidForPhoneJid` masih meng-cache `null` permanen kalau Gateway belum connected saat pesan diproses (identity hint JID itu hilang sampai restart). Skrip lama `simulate-e05-lid-timeout.js` tumpang tindih dengan `simulate-lid-timeout.js`.
 - Gelombang 2 dan 3 (Ticket 05 sampai 16, termasuk idempotency `/send`, GW-09) belum dimulai.
 
