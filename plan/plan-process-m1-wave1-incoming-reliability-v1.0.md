@@ -1,0 +1,150 @@
+---
+goal: M1 Gelombang 1 — Keandalan Pesan Masuk WA-Gateway (enqueue integrity, append handling, LID/JSON recovery)
+version: 1.0
+date_created: 2026-09-21
+last_updated: 2026-09-21
+owner: WA-Gateway reliability (M1)
+status: 'Planned'
+tags: [process, gateway, whatsapp, baileys, m1, reliability, incoming, buffer]
+---
+
+# Introduction
+
+![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+
+Plan ini mengeksekusi `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1, Readiness Score 85/100 setelah klarifikasi, proyeksi 94/100 setelah remediasi) untuk menutup dua risiko P0 di `docs/TODO-CHAT.md`: pesan masuk yang hilang senyap (GW-08) dan antrean JSON yang korup. Semua kode ada di repo **WA-Gateway**, worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`. Plan ini sendiri disimpan di `/plan/` repo AuliaPos, mengikuti pola `plan-feature-m3-operational-inbox-fase1-v1.0.md`. **Sesi ini tidak mengubah kode apa pun** — eksekusi kode dilakukan oleh `/sdlc-write-code` di sesi terpisah pada worktree Gateway.
+
+Dieksekusi dalam 3 fase yang masing-masing dapat di-merge secara independen: Fase 1 (integritas enqueue dan durable buffer), Fase 2 (penanganan pesan `append`), Fase 3 (timeout query LID, isolasi error, pemulihan JSON, dan pengukuran nyata AC-001). AC-001 (uji `pm2 stop` nyata) sengaja ditunda sampai akhir Fase 3 karena baru representatif setelah E-01 (Fase 2) dan E-03/E-04 (Fase 1) tergabung — mengukurnya lebih awal berisiko melaporkan hasil yang belum benar dan mematikan Gateway aktif tanpa perlu.
+
+## 1. Requirements & Constraints
+
+- **REQ-001**: Proses `messages.upsert` tipe `notify` dan `append`; tipe lain diabaikan (log debug).
+- **REQ-002**: Pesan `append` yang ID-nya ada di daftar kiriman sendiri MUST NOT masuk buffer.
+- **REQ-003**: Setiap pengiriman Gateway MUST menentukan ID sebelum kirim, mencatat ke daftar kiriman sendiri, meneruskan ke Baileys lewat opsi `messageId` (D-03).
+- **REQ-004**: Pesan `append` bukan kiriman sendiri MUST masuk buffer dengan arah sesuai `fromMe`.
+- **REQ-005**: Pesan sama yang tiba dua kali MUST menghasilkan satu baris tanpa error.
+- **REQ-006/007/008**: `enqueue()` MUST validasi field wajib, MUST cek hasil insert (`inserted`/`duplicate`), error tak terduga MUST dicatat keras.
+- **REQ-009/010/011/012**: kegagalan enqueue MUST dicoba ulang 3x (50/200/800ms), lalu MUST masuk penampung sementara (maks 500), dikuras di awal siklus worker, ukurannya MUST dicatat tiap berubah.
+- **REQ-013**: saat start, `PRAGMA quick_check` + `PRAGMA synchronous=FULL`; gagal → pindah berkas ke `.corrupt-<waktu>`, database baru, error keras.
+- **REQ-014/019**: query LID MUST timeout 2 detik; kegagalan MUST di-cache negatif 60 detik per JID.
+- **REQ-015**: exception per pesan MUST dicatat (ID, JID, tipe konten) tanpa mengganggu pesan lain dalam batch.
+- **REQ-016/017**: penulisan JSON buffer MUST simpan cadangan sebelum menimpa; pemulihan MUST coba cadangan, lalu MUST pindah ke `.corrupt-<waktu>` jika keduanya gagal.
+- **REQ-018**: pesan `append` MUST hanya diterima untuk alamat `pn`/`lid`/`group`; alamat lain dilewati + dicatat info (D-04).
+- **CON-001**: kontrak HTTP ke AuliaPos (`POST /api/inbox/gateway/messages`) MUST tidak berubah.
+- **CON-002**: perubahan skema `incoming_queue` hanya additive, kompatibel dengan SQLite yang ada.
+- **CON-003**: folder `auth/` dan sesi WhatsApp MUST tidak disentuh.
+- **CON-004**: tidak ada dependensi npm baru.
+- **CON-005 (plan-level)**: tidak ada `git checkout` pada `C:\projects\WA-Gateway` (Gateway aktif). Semua kerja hanya di worktree `C:\projects\WA-Gateway-m1`.
+- **GUD-001**: semua batas (TTL, ukuran, jeda, timeout) SHOULD diatur lewat variabel lingkungan (lihat spec Bagian 4.4).
+- **GUD-002**: setiap kegagalan penyimpanan SHOULD terlihat di log `error` atau lebih tinggi.
+
+## 2. Implementation Steps
+
+> **EXECUTION DIRECTIVE FOR AI AGENTS:**
+> Eksekusi plan ini fase demi fase, di worktree `C:\projects\WA-Gateway-m1` saja. Jalankan task **VERIFY** di akhir tiap fase. Setelah fase diuji, **BERHENTI DAN TUNGGU** persetujuan eksplisit user sebelum lanjut ke fase berikutnya. Jangan pernah menjalankan `git checkout` di `C:\projects\WA-Gateway` (Gateway produksi) dan jangan menyentuh folder `auth/`.
+
+### Implementation Phase 1 — Integritas Enqueue & Durable Buffer
+
+- GOAL-001: Kegagalan `enqueue()` tidak lagi hilang senyap — divalidasi, hasil insert diperiksa, kegagalan sementara dicoba ulang lalu ditampung, dan database SQLite diperiksa integritasnya saat start.
+
+| Task | Description | Ref ID | AC Ref | Dep | Files | Completed | Date |
+|---|---|---|---|---|---|---|---|
+| TASK-001 | Di `src/store/incomingBuffer.js`, tambah validasi field wajib (`wa_message_id`, `chat_id`, `jid_type`, `message_type`, `message_timestamp`) di awal `enqueue()`: field kosong → lempar error bertipe khusus (mis. `EnqueueValidationError`) tanpa insert. Setelah `INSERT OR IGNORE`, periksa `changes`: jika 0, cek apakah `wa_message_id` sudah ada via `SELECT`; ada → kembalikan `{status:'duplicate'}`, tidak ada → lempar error tak terduga. Insert sukses → `{status:'inserted'}`. | REQ-006,007,008 | AC-005,AC-006 | - | 1 | | |
+| TASK-002 | Buat fungsi `enqueueWithRetry(buffer, event, delaysMs)` (pola contoh di spec Bagian 8) di `src/store/incomingBuffer.js` atau modul baru `src/store/enqueueRetry.js`: menangkap error non-validasi dari `enqueue()`, mencoba ulang sesuai `ENQUEUE_RETRY_DELAYS_MS` (bawaan `50,200,800`), melempar ulang error terakhir jika semua percobaan gagal. Error validasi (TASK-001) MUST NOT dicoba ulang — dilempar langsung. | REQ-009 | AC-007 | TASK-001 | 1 | | |
+| TASK-003 | Buat modul baru `src/store/overflowBuffer.js`: `push(event)` menambah ke array in-memory (maks `ENQUEUE_OVERFLOW_MAX`, bawaan 500; penuh → buang event terbaru, log `critical` dengan jumlah dibuang, kembalikan `dropped`), `drain(tryEnqueue)` mencoba tiap event sekali tanpa jeda lewat callback, menghapus yang berhasil, mengembalikan sisa, `size()` mengembalikan jumlah saat ini. Setiap perubahan ukuran (push atau drain) MUST memanggil `logger.info`/`logger.warn` dengan ukuran terbaru. | REQ-010,012 | AC-008,AC-009,AC-016 | TASK-002 | 1 | | |
+| TASK-004 | Wiring di `src/whatsapp/connectionManager.js` (jalur terima pesan) dan `src/delivery/incomingDelivery.js` (siklus worker): pemanggil `enqueue()` diganti memakai `enqueueWithRetry()` (TASK-002); jika semua percobaan gagal, event MUST didorong ke `overflowBuffer.push()` (TASK-003) dan error keras dicatat. Di awal tiap siklus `incomingDelivery.js`, MUST panggil `overflowBuffer.drain(tryEnqueue)` sebelum mengambil event yang jatuh tempo dari buffer utama. | REQ-011 | AC-007,AC-008 | TASK-002,TASK-003 | 2 | | |
+| TASK-005 | Tambah pemeriksaan integritas SQLite di titik inisialisasi buffer (`src/store/incomingBuffer.js` atau tempat koneksi `better-sqlite3` dibuka): jalankan `PRAGMA quick_check`; gagal → pindahkan berkas database (beserta `-wal`/`-shm` jika ada) ke `<nama>.corrupt-<timestamp>`, buat database baru, catat error keras. Selalu set `PRAGMA synchronous = FULL` setelah koneksi dibuka (baik integritas lolos maupun database baru dibuat). Tambah variabel lingkungan baru ke `src/config/index.js`: `ENQUEUE_RETRY_DELAYS_MS` (bawaan `50,200,800`), `ENQUEUE_OVERFLOW_MAX` (bawaan `500`). | REQ-013,GUD-001 | AC-011 | - | 2 | | |
+| TASK-006 | **VERIFY**: Tulis `test/simulate-enqueue-integrity.js` dan `test/simulate-durable-buffer.js` (pola `assert`, database/berkas sementara dihapus setelah tes) mencakup AC-005 (field kosong → error keras, tanpa baris), AC-006 (insert tak menghasilkan baris tapi ID belum ada → error tak terduga, disimulasikan), AC-007 (gagal 2x lalu berhasil → tersimpan, overflow kosong), AC-008 (gagal terus → masuk overflow, lalu pulih saat siklus worker jalan), AC-009 (overflow penuh 500 → event terbaru dibuang, log `critical`), AC-011 (database korup saat start → dipindah, database baru dibuat), AC-016 (ukuran overflow berubah → tercatat di log). Jalankan `node test/simulate-enqueue-integrity.js` dan `node test/simulate-durable-buffer.js` — semua assert lolos. | - | - | - | - | | |
+| TASK-007 | **APPROVAL**: Tunggu konfirmasi eksplisit user sebelum lanjut ke Fase 2. | - | - | - | - | | |
+
+### Implementation Phase 2 — Penanganan Pesan `append`
+
+- GOAL-002: Pesan yang tiba saat Gateway offline (`append`) diproses dan tersimpan, tanpa mencatat ulang kiriman Gateway sendiri dan tanpa memasukkan alamat non-pelanggan.
+
+| Task | Description | Ref ID | AC Ref | Dep | Files | Completed | Date |
+|---|---|---|---|---|---|---|---|
+| TASK-008 | Buat modul baru `src/whatsapp/ownSentRegistry.js`: `register(messageId)` mencatat ID + waktu sekarang ke `Map` in-memory, mengeluarkan entri tertua jika melebihi `OWN_SENT_MAX` (bawaan 1000); `wasSentByUs(messageId)` mengembalikan `true` jika ID ada dan belum lewat `OWN_SENT_TTL_MS` (bawaan 600000ms/10 menit) sejak dicatat, else `false` (dan membersihkan entri kedaluwarsa). Tambah `OWN_SENT_TTL_MS`, `OWN_SENT_MAX` ke `src/config/index.js`. | REQ-003 (kontrak), GUD-001 | - | - | 2 | | |
+| TASK-009 | Di titik pengiriman pesan Gateway (endpoint `/send` dan `/send-media`, kemungkinan di `src/whatsapp/connectionManager.js` atau controller kirim terpisah — cek struktur repo saat eksekusi): sebelum memanggil `sock.sendMessage()`, generate ID pesan baru, panggil `ownSentRegistry.register(id)` (TASK-008) **sebelum** kirim (tidak menunggu hasil), lalu teruskan ID itu ke Baileys lewat opsi `messageId` pada `sendMessage(jid, content, { messageId: id })`. ID MUST tetap tercatat walau `sendMessage()` gagal/reject — `register()` dipanggil sebelum `await`, bukan di blok `.then()`/setelah `await`. Berlaku untuk jalur teks maupun media (cek apakah keduanya melalui fungsi kirim yang sama atau terpisah). | REQ-003 | AC-002 | TASK-008 | 1-2 | | |
+| TASK-010 | Di `src/whatsapp/connectionManager.js`, ubah `_onMessagesUpsert`: hapus/ubah filter `type !== 'notify'` menjadi menerima `notify` dan `append` (tipe lain → `return` dengan log debug, REQ-001). Untuk tiap pesan bertipe `append`: (a) jika `wasSentByUs(msg.key.id)` (TASK-008) → lewati, tidak masuk buffer (REQ-002); (b) jika bukan kiriman sendiri → lanjut proses seperti `notify`, arah `incoming`/`outgoing` sesuai `msg.key.fromMe` (REQ-004); (c) klasifikasi `jid_type` via `classifyJid()` (fungsi existing) — jika hasilnya bukan `pn`/`lid`/`group` → lewati dengan `logger.info` berisi JID dan ID pesan, tidak masuk buffer (REQ-018, D-04). Perilaku pesan `notify` MUST tidak berubah (alamat `unknown` pada `notify` tetap diproses seperti sebelumnya). | REQ-001,002,004,018 | AC-002,AC-003,AC-004,AC-015,AC-017 | TASK-008,TASK-009 | 1 | | |
+| TASK-011 | **VERIFY**: Tulis `test/simulate-append-handling.js` mencakup AC-002 (event `append` disimulasikan tiba **sebelum** `sendMessage()` selesai untuk ID yang sudah di-`register()` → tidak ada baris baru), AC-003 (`append` dengan `fromMe=true`, ID bukan kiriman sendiri → tersimpan `outgoing` tanpa identitas staff), AC-004 (pesan sama lewat `notify` lalu `append` → satu baris, tidak ada log error), AC-015 (tipe selain `notify`/`append` → tidak ada baris, hanya log debug), AC-017 (pesan `append` alamat `unknown` dilewati dengan log info; pesan `append` alamat `pn`/`lid`/`group` tersimpan; pesan `notify` alamat `unknown` tetap diproses seperti semula). Jalankan `node test/simulate-append-handling.js` — semua assert lolos. Jalankan ulang `test/simulate-enqueue-integrity.js` dan `test/simulate-durable-buffer.js` (TASK-006) untuk pastikan tidak regresi. | - | - | - | - | | |
+| TASK-012 | **APPROVAL**: Tunggu konfirmasi eksplisit user sebelum lanjut ke Fase 3. | - | - | - | - | | |
+
+### Implementation Phase 3 — Query LID, Isolasi Error, Pemulihan JSON, dan Pengukuran AC-001
+
+- GOAL-003: Query LID yang lambat tidak menahan penyimpanan, kegagalan satu pesan tidak mengganggu pesan lain dalam batch, buffer JSON fallback pulih dari cadangan saat korup, dan hasil akhir gelombang 1 diukur lewat AC-001 nyata.
+
+| Task | Description | Ref ID | AC Ref | Dep | Files | Completed | Date |
+|---|---|---|---|---|---|---|---|
+| TASK-013 | Di `src/whatsapp/connectionManager.js`, bungkus panggilan `this.sock.onWhatsApp(phoneJid)` (fungsi `_resolveLidForPhoneJid()` atau setara) dengan timeout `LID_LOOKUP_TIMEOUT_MS` (bawaan 2000ms, via `Promise.race`); timeout/gagal → pesan tetap disimpan tanpa `identity_hint`, `logger.warn` dicatat. Tambah cache negatif in-memory (`Map<jid, timestamp>`) per JID: kegagalan dicatat dengan waktu sekarang, dan selama `LID_LOOKUP_NEGATIVE_TTL_MS` (bawaan 60000ms) belum lewat, query untuk JID yang sama dilewati langsung (tanpa memanggil `onWhatsApp()` lagi). Tambah `LID_LOOKUP_TIMEOUT_MS`, `LID_LOOKUP_NEGATIVE_TTL_MS` ke `src/config/index.js`. | REQ-014,019,GUD-001 | AC-010,AC-018 | - | 2 | | |
+| TASK-014 | Di `src/whatsapp/connectionManager.js`, pastikan catch-all di sekitar pemrosesan tiap pesan (baris ~395, `_handleIncomingMessage` per pesan dalam batch `_onMessagesUpsert`) mencatat `logger.error` dengan `messageId`, `jid`, dan tipe konten (`message_type` atau `Object.keys(msg.message)[0]` bila tersedia) sebelum melanjutkan ke pesan berikutnya dalam batch yang sama — konfirmasi loop pemrosesan batch tidak berhenti pada satu exception. | REQ-015 | AC-013 | - | 1 | | |
+| TASK-015 | Di `src/store/incomingBuffer.js` (kelas `IncomingBufferJsonFile`, hanya path fallback JSON): sebelum menimpa berkas utama dengan data baru, salin isi berkas lama saat ini ke `<nama>.bak` terlebih dahulu (write lalu rename tetap dipertahankan seperti sekarang). Pada `_load()`: jika berkas utama gagal dibaca/parse, coba muat dari `.bak` dan catat `logger.warn`; jika `.bak` juga gagal, pindahkan berkas utama ke `<nama>.corrupt-<timestamp>`, mulai antrean dari kosong, dan catat error keras berisi ukuran berkas asli (`fs.statSync(...).size` sebelum dipindah). | REQ-016,017 | AC-012 | - | 1 | | |
+| TASK-016 | **VERIFY**: Tulis `test/simulate-lid-timeout.js` (AC-010: `onWhatsApp()` disimulasikan tidak pernah selesai → pesan tersimpan tanpa `identity_hint` dalam ~2 detik, peringatan tercatat; AC-018: query gagal untuk JID X → pesan kedua dari JID X dalam 60 detik tidak menunggu timeout lagi), `test/simulate-error-isolation.js` (AC-013: satu pesan melempar exception saat ekstraksi konten → pesan lain dalam batch tetap tersimpan, error tercatat lengkap), dan `test/simulate-json-recovery.js` (AC-012: berkas utama korup + `.bak` valid → pulih dari `.bak` dengan peringatan; berkas utama dan `.bak` sama-sama korup → berkas utama dipindah ke `.corrupt-<waktu>`, error keras, antrean kosong). Jalankan ketiga skrip — semua assert lolos. Jalankan ulang seluruh skrip `simulate-*.js` dari Fase 1 dan Fase 2 — pastikan tidak regresi. Bandingkan payload `POST /api/inbox/gateway/messages` sebelum/sesudah seluruh perubahan Gelombang 1 untuk pesan yang sama (AC-014, CON-001) — field harus identik. | - | - | - | - | | |
+| TASK-017 | **VERIFY/APPROVAL (mematikan Gateway aktif)**: Minta persetujuan eksplisit user sebelum menjalankan — task ini menghentikan Gateway produksi (`wa-gateway` di PM2) selama ~30 detik per percobaan. Setelah disetujui, jalankan protokol AC-001: `pm2 stop wa-gateway`, tunggu ~30 detik, kirim 10 pesan dari HP tes ke nomor Gateway selama Gateway berhenti, `pm2 start wa-gateway`, verifikasi 10 pesan muncul di `incoming_queue` dan di AuliaPos (0 hilang, 0 duplikat). Ulangi total 3 kali (bisa berurutan atau di sesi terpisah). Catat hasil tiap percobaan (jumlah diterima, hilang, duplikat) sebagai bukti di decision log baru (`docs/decisions/`, repo AuliaPos) sebelum lanjut ke TASK-018. | - | AC-001 | TASK-006,TASK-011,TASK-016 | - | | |
+| TASK-018 | **APPROVAL**: Tunggu konfirmasi eksplisit user bahwa AC-001 lulus 3x percobaan dan Gelombang 1 selesai, sebelum handoff ke `/sdlc-clarify-reqs` / penutupan M1 Gelombang 1. | - | - | - | - | | |
+
+## 3. Alternatives
+
+- **ALT-001**: Menyimpan overflow buffer ke berkas cadangan di disk alih-alih in-memory — ditolak eksplisit oleh D-02 (spec Bagian 1.2), karena menambah kompleksitas I/O untuk skenario kegagalan sementara yang diasumsikan pulih dalam hitungan siklus worker, bukan untuk bertahan dari crash proses (batasan yang diterima, lihat spec Bagian 10 E-04).
+- **ALT-002**: Mencatat ID kiriman sendiri **setelah** `sendMessage()` selesai (bukan sebelum) — ditolak eksplisit oleh D-03 karena Baileys memancarkan `append` untuk kiriman sendiri lewat `process.nextTick` sebelum `sendMessage()` kembali, sehingga pencatatan setelah kirim kalah balapan (terbukti dari pembacaan kode `messages-send.js:703-708`).
+- **ALT-003**: Mengandalkan AuliaPos sepenuhnya untuk menyaring kiriman sendiri (tanpa daftar ID di Gateway) — ditolak (spec Bagian 1.2, D-01) karena AuliaPos hanya punya jaring pengaman idempotensi `wa_message_id`, bukan mekanisme deteksi "ini kiriman kita sendiri vs pesan pelanggan asli" pada payload yang sama bentuknya.
+- **ALT-004**: Menyimpan pesan "minimal"/placeholder saat ekstraksi konten gagal (E-06) alih-alih hanya mencatat error — ditolak eksplisit di spec (ASSUMPTION Bagian 1.2) karena kontrak AuliaPos menolak event tidak lengkap, sehingga pesan minimal akan menjadi pesan beracun yang dicoba ulang tanpa batas; dead-letter baru ada di gelombang 3.
+
+## 4. Dependencies
+
+- **DEP-001**: `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` — sumber temuan E-01 s/d E-09 yang menjadi dasar tiap task.
+- **DEP-002**: `docs/GATEWAY-REQUIREMENTS.md` (GW-08) — kriteria "pesan masuk tidak boleh hilang" yang divalidasi lewat AC-001.
+- **DEP-003**: Baileys 6.7.24 terpasang di worktree `C:\projects\WA-Gateway-m1` — perilaku `append` dan opsi `messageId` pada `sendMessage()` (EXT-001 di spec).
+- **DEP-004**: `better-sqlite3` — dipakai TASK-001, TASK-005; fallback JSON (TASK-015) hanya aktif bila `better-sqlite3` tidak tersedia (INF-001 di spec).
+- **DEP-005**: PM2 (`wa-gateway`) di Aan-PC — prasyarat TASK-017 (AC-001 nyata).
+
+## 5. Files
+
+- **FILE-001**: `src/store/incomingBuffer.js` — validasi enqueue, cek hasil insert (TASK-001), retry wrapper (TASK-002, opsional), pemeriksaan integritas SQLite (TASK-005), pemulihan JSON fallback (TASK-015).
+- **FILE-002**: `src/store/enqueueRetry.js` (baru, jika dipisah dari FILE-001) — TASK-002.
+- **FILE-003**: `src/store/overflowBuffer.js` (baru) — TASK-003.
+- **FILE-004**: `src/whatsapp/connectionManager.js` — wiring retry+overflow (TASK-004), pengiriman ID sebelum kirim (TASK-009, sebagian), filter `append`/`jid_type` (TASK-010), timeout+cache LID (TASK-013), isolasi error per pesan (TASK-014).
+- **FILE-005**: `src/whatsapp/ownSentRegistry.js` (baru) — TASK-008.
+- **FILE-006**: `src/delivery/incomingDelivery.js` — drain overflow di awal siklus worker (TASK-004).
+- **FILE-007**: `src/config/index.js` — variabel lingkungan baru (TASK-005, TASK-008, TASK-013): `OWN_SENT_TTL_MS`, `OWN_SENT_MAX`, `LID_LOOKUP_TIMEOUT_MS`, `LID_LOOKUP_NEGATIVE_TTL_MS`, `ENQUEUE_RETRY_DELAYS_MS`, `ENQUEUE_OVERFLOW_MAX`.
+- **FILE-008**: `test/simulate-enqueue-integrity.js`, `test/simulate-durable-buffer.js`, `test/simulate-append-handling.js`, `test/simulate-lid-timeout.js`, `test/simulate-error-isolation.js`, `test/simulate-json-recovery.js` (semua baru) — TASK-006, TASK-011, TASK-016.
+- **FILE-009**: titik pengiriman pesan (`/send`, `/send-media` — nama file pasti dikonfirmasi saat eksekusi, kemungkinan bagian dari `connectionManager.js` atau controller HTTP terpisah) — TASK-009.
+
+## 6. Testing
+
+- **TEST-001**: `test/simulate-enqueue-integrity.js` — validasi field wajib, cek hasil insert, klasifikasi duplikat vs error tak terduga (AC-005, AC-006).
+- **TEST-002**: `test/simulate-durable-buffer.js` — retry, overflow (push/drain/size), drain di siklus worker, batas 500, integritas SQLite saat start (AC-007, AC-008, AC-009, AC-011, AC-016).
+- **TEST-003**: `test/simulate-append-handling.js` — balapan `append` kiriman sendiri, balasan dari HP saat mati, duplikat `notify`+`append`, tipe event lain, filter alamat `unknown` (AC-002, AC-003, AC-004, AC-015, AC-017).
+- **TEST-004**: `test/simulate-lid-timeout.js` — timeout 2 detik dan cache negatif 60 detik (AC-010, AC-018).
+- **TEST-005**: `test/simulate-error-isolation.js` — exception satu pesan tidak mengganggu batch (AC-013).
+- **TEST-006**: `test/simulate-json-recovery.js` — pemulihan dari `.bak`, korup ganda (AC-012).
+- **TEST-007 (Regresi)**: seluruh skrip `simulate-*.js` dari fase sebelumnya dijalankan ulang di akhir tiap fase berikutnya, memastikan tidak ada regresi kumulatif.
+- **TEST-008 (Kontrak)**: perbandingan payload `POST /api/inbox/gateway/messages` sebelum/sesudah — field identik (AC-014, CON-001), dijalankan di TASK-016.
+- **TEST-009 (Macro Gate, nyata)**: TASK-017 — protokol AC-001 (`pm2 stop` ~30 detik, 10 pesan, `pm2 start`, 3 kali ulangan), satu-satunya uji yang menyentuh Gateway aktif, dan satu-satunya kriteria kelulusan akhir Gelombang 1.
+
+## 7. Risks & Assumptions
+
+- **ASSUMPTION-001 (dari spec Bagian 1.2)**: Daftar ID kiriman sendiri disimpan in-memory, TTL 10 menit, maksimal 1000 ID, hilang saat proses restart — idempotensi `wa_message_id` di Gateway dan AuliaPos menjadi jaring pengaman kedua (Kasus 4, spec Bagian 12). Task terkait: TASK-008. Risiko rendah, sudah diverifikasi lewat pembacaan kode.
+- **ASSUMPTION-002 (dari spec Bagian 1.2)**: Tidak ada pesan "minimal" darurat untuk kegagalan ekstraksi konten (E-06) — pesan yang gagal diekstrak murni dicatat sebagai error keras tanpa disimpan. Task terkait: TASK-014. Risiko rendah, keputusan eksplisit pemilik proyek.
+- **ASSUMPTION-003 (dari spec Bagian 1.2)**: Pengurasan penampung sementara memakai satu percobaan per event tanpa jeda di setiap siklus worker (beda dari retry berjeda di jalur penerimaan). Task terkait: TASK-004. Risiko rendah.
+- **RISK-001 (High Risk — bergantung D-03)**: TASK-009 rawan human error jika `register(id)` (TASK-008) dipanggil **setelah** `await sock.sendMessage(...)` alih-alih sebelum — ini akan mengulang bug balapan yang sama yang mendasari seluruh D-03. Mitigasi: TASK-011 wajib assert eksplisit skenario "event `append` tiba sebelum `sendMessage()` mengembalikan hasil" (AC-002), bukan hanya "ID tercatat setelah kirim sukses". Review manual kode TASK-009 sebelum merge Fase 2.
+- **RISK-002**: TASK-009 mengasumsikan endpoint `/send` dan `/send-media` melalui titik kirim yang bisa disisipi opsi `messageId` dengan mudah — struktur kode pasti (nama file, apakah dua endpoint berbagi satu fungsi kirim internal) belum dikonfirmasi dari spec/audit, hanya dari `spec` Bagian 7 (`connectionManager.js` disebut sebagai lokasi jalur event masuk dan daftar ID, tapi tidak eksplisit untuk titik kirim). Mitigasi: task eksekusi (`/sdlc-write-code`) MUST membaca struktur aktual kode kirim di awal TASK-009 sebelum mengedit, dan melaporkan jika titik kirim ternyata terpisah lebih dari dua tempat (di luar FILE-009 yang diasumsikan).
+- **RISK-003**: TASK-017 (AC-001 nyata) mematikan Gateway produksi selama total ~90 detik (3×30 detik) plus waktu pengiriman manual 10 pesan tiap percobaan — berdampak langsung ke staf yang memakai Inbox selama jendela itu. Mitigasi: dijadwalkan di luar jam sibuk toko, dan APPROVAL eksplisit (bukan hanya VERIFY) diwajibkan sebelum dijalankan.
+- **RISK-004**: E-02 (pesan ephemeral/view-once) dan E-07 (upsert tanpa konten) di luar scope plan ini (spec Bagian 1.1) — jika ditemukan selama Fase 2/3 bahwa keduanya berkontribusi pada kehilangan pesan yang terukur di TASK-017, plan ini TIDAK diperluas untuk menanganinya; dicatat sebagai temuan baru untuk gelombang berikutnya, bukan diselesaikan diam-diam di sini.
+- **RISK-005**: GW-09 (idempotensi `/send`, duplikasi saat retry manual kasir) eksplisit di luar scope Gelombang 1 (Gelombang 2, Ticket 09-11) — TASK-009 hanya menyentuh pencatatan ID untuk keperluan filter `append` (D-03), BUKAN mekanisme idempotency key end-to-end. Jangan diperluas untuk menutup GW-09 dalam plan ini.
+
+## 8. Related Specifications / Further Reading
+
+- `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1)
+- `docs/audit/clarification-report-m1-wave1-incoming-reliability-2026-09-21.md` (Readiness Score 85/100, keputusan D-03/D-04)
+- `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` (temuan E-01 s/d E-09)
+- `docs/decisions/2026-09-21-m1-ticket01-baseline.md` (bukti terukur baseline)
+- `docs/GATEWAY-REQUIREMENTS.md` (GW-08, GW-09)
+- `docs/TODO-CHAT.md` (risiko P0 #1 dan #2)
+- `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (pola struktur plan yang diikuti)
+
+## 9. Rollback / Recovery Plan
+
+- **Umum**: setiap task dikerjakan sebagai commit terpisah di branch `feature/stage-1-reliability` (worktree `C:\projects\WA-Gateway-m1`). Rollback per fase = `git revert` commit-commit task terkait fase itu (bukan `reset --hard`), agar histori tetap bisa diaudit. `auth/` dan sesi WhatsApp tidak pernah tersentuh sehingga tidak ada risiko kehilangan sesi Gateway pada rollback apa pun.
+- **Fase 1**: tidak ada perubahan skema DB (hanya logika enqueue/retry/overflow dan `PRAGMA`). Rollback aman lewat `git revert`. Jika `PRAGMA synchronous=FULL` (TASK-005) terbukti memperlambat write secara signifikan di produksi, revert khusus TASK-005 sambil mempertahankan TASK-001 s/d TASK-004.
+- **Fase 2**: jika filter `append` baru (TASK-010) ternyata memasukkan pesan yang tidak diinginkan ke buffer (mis. filter `jid_type` D-04 kurang ketat), mitigasi cepat: kembalikan sementara ke filter lama (`type !== 'notify'` → skip) via revert TASK-010 saja, sambil mempertahankan TASK-008/TASK-009 (registry dan pre-register ID tidak berbahaya berdiri sendiri). Tidak ada perubahan skema.
+- **Fase 3**: TASK-015 (pemulihan JSON) hanya relevan jika Gateway berjalan tanpa `better-sqlite3` (fallback). Jika pemulihan `.bak` ternyata memuat data usang yang membingungkan, berkas `.corrupt-<waktu>` yang dipindah TASK-013/015 tidak pernah dihapus — bisa diperiksa manual dan datanya direkonsiliasi manual ke AuliaPos bila perlu. TASK-017 (AC-001 nyata) tidak mengubah kode — jika hasil pengukuran gagal (pesan hilang/duplikat), Gelombang 1 TIDAK ditutup; temuan dicatat sebagai decision log baru dan fase terkait (kemungkinan Fase 1 atau 2) dibuka kembali untuk perbaikan sebelum TASK-018 disetujui.
