@@ -1,7 +1,7 @@
 # Status Proyek — AuliaPos + WA-Gateway (Master Reference)
 
-**Terakhir diupdate:** 21 September 2026, malam WIB. **PENTING**: sesi Claude Code sandbox sempat mengerjakan M1 Ticket 02 (E-01 s/d E-09) secara ad-hoc TANPA sadar `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (plan resmi, sudah di-*clarify*, readiness 94/100) sudah ada di repo untuk pekerjaan yang sama — merge sebelumnya lewat PR #36/#37. Dua fix (E-01, E-06) ternyata bentrok dengan keputusan yang sudah diambil di plan resmi dan **sudah direvert**. Sisanya (E-03/E-04/E-05/E-09) **belum tentu sesuai kontrak plan resmi** (beda parameter, ada bagian yang belum diimplementasikan seperti overflow buffer dan cache negatif LID) — lihat handoff `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md` untuk rincian lengkap dan apa yang perlu dikerjakan ulang. **Jangan anggap M1 Ticket 02 "selesai"** — plan resmi adalah sumber kebenaran untuk pekerjaan ini, bukan kerja ad-hoc sandbox.
-**Cek centang:** 21 September 2026 ~14:30 WIB untuk isi sebelum sore (diverifikasi langsung ke repo dan mesin Aan-PC). Update Ticket 02 sore-malam harinya **HANYA diuji simulasi/mock di sandbox, BUKAN di mesin Aan-PC dengan Gateway nyata**, dan sebagian sudah direvert lagi malam harinya — jangan disamakan level buktinya dengan item lain yang sudah dicek di Aan-PC. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
+**Terakhir diupdate:** 21 September 2026, malam WIB, setelah eksekusi plan resmi M1 Wave 1 Fase 1–3 di worktree `C:\projects\WA-Gateway-m1`. **Status M1 Wave 1:** TASK-001 s/d TASK-016 sudah dikerjakan mengikuti `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (branch `feature/stage-1-reliability`, 13 commit di atas `091fe19`, **sudah di-push ke `origin` (21 Sep malam, fast-forward `091fe19..065f683`) tetapi belum ada PR, belum ter-merge, belum berjalan di Gateway produksi**). Kode ad-hoc sandbox (E-03/E-04/E-05/E-09) sudah ditimpa/disesuaikan sesuai kontrak plan, dan E-01/E-06 diimplementasikan ulang sesuai plan — rincian dan penyimpangan dari spec: `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`. **Semua bukti saat ini simulasi/mock; belum ada bukti dengan Gateway nyata.** TASK-017 (AC-001, `pm2 stop` nyata) belum dijalankan. **Jangan anggap M1 Wave 1 "selesai"** sampai TASK-017 dan TASK-018 lulus.
+**Cek centang:** 21 September 2026 ~14:30 WIB untuk isi sebelum sore (diverifikasi langsung ke repo dan mesin Aan-PC). Update M1 Wave 1 malam harinya dikerjakan di worktree Aan-PC tetapi **HANYA diuji simulasi/mock (bukan koneksi WhatsApp nyata, bukan Gateway produksi)** — jangan disamakan level buktinya dengan item lain yang sudah dicek di Aan-PC. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
 **Cara pakai:** Sematkan/paste dokumen ini di awal sesi Claude Code baru sebagai context. Update bagian "Status Sekarang" dan "Yang Menggantung" setiap kali ada progres baru — dokumen ini gampang basi kalau kerja paralel jalan di beberapa sesi Claude Code sekaligus, jadi **selalu `git fetch` + cek HEAD nyata sebelum percaya isi dokumen ini secara buta**.
 
 ---
@@ -13,7 +13,7 @@
 ## Roadmap Besar
 
 - [x] Tahap 0 — Baseline (DONE 20 Sep; decision log `docs/decisions/2026-09-19-tahap-0-baseline.md`)
-- [ ] M1 — Reliability (Ticket 01 pengukuran selesai, sisa uji lanjutan di bawah; Ticket 02–16 belum)
+- [ ] M1 — Reliability (Ticket 01 selesai; Wave 1 = Ticket 02–04: kode + simulasi selesai di worktree, menunggu uji nyata TASK-017; Ticket 05–16 belum)
 - [ ] M2 — State Consistency (belum mulai)
 - [ ] M3 — Operational Workflow (spec + plan siap, 0 dari 14 task dikerjakan)
 - [ ] M4 — POS / Customer Context (belum dibahas)
@@ -34,7 +34,7 @@ Urutan bergantung ke bawah: Tahap 0 → M1 → M2 → M3 → M4 → M5.
 ### AuliaPos
 - Repo: `tikusgot007/AuliaPos`
 - Branch: `v2.2`
-- HEAD terverifikasi (21 Sep): `0ee6a49` — "Write 7 clarification resolutions into M3 Inbox Fase 1 plan tasks (#34)"
+- HEAD terverifikasi (21 Sep): `d7abf1d` (merge PR #39, sebelum commit dokumen ini); pengecekan penuh terakhir di `0ee6a49` (#34). Sejak itu masuk plan/spec/handoff M1 Wave 1 (PR #35 s/d #39)
 - 37 commit masuk sejak HEAD lama (`07d30c8`) — mencakup merge Tahap 0 (PR #24, #25) + rangkaian spec/plan M3 Fase 1 (PR #26, #28, #29, #30, #31, #32, #33, #34)
 - Branch kerja M3 yang sudah ter-merge/selesai perannya: `claude/tahap-0-aulia-wa-handoff-ic861g`, `claude/cek-dulu-ubvqe2`, `claude/spec-operational-inbox-fase1-tuux4c`, `claude/m3-operational-inbox-plan-h244ji`, `claude/m3-inbox-plan-review-y9mbw3`
 - Tooling baru: `.claude/standards/` berisi skema SDLC (spec → clarification report → plan → ADR), `AGENTS.md` diganti "SDLC Orchestrator template"
@@ -45,7 +45,7 @@ Urutan bergantung ke bawah: Tahap 0 → M1 → M2 → M3 → M4 → M5.
 - [x] `5b28eb6c8a7e6e6c2e1d5b7d7261389f9309c295` adalah ancestor `master`, jadi baseline tetap valid
 - [ ] `master` sudah merge PR #1 dari `claude/android-app-p40bl1` + commit "Create node.exe" (packaging, di luar scope M1)
 - Branch lain yang muncul (`fix/lid-fromme-pushname-leak`, `claude/cek-bandingkan-mimac-fln1h4`) — dicek, **tidak relevan** dengan kerja saat ini (versi lama/terpisah, salah satunya referensi "AuliaPos v3.0")
-- [ ] **`feature/stage-1-reliability` SUDAH BERUBAH 21 Sep malam** (via PR #2 lalu PR #3, branch `claude/buka-todo-chat-omnc7k`), TIDAK lagi sama dengan `3fd5f40` + 1 commit dokumen seperti dicek sebelumnya. Isinya sekarang: E-03 (validasi field wajib), E-04 (`_enqueueWithRetry` 3×200ms), E-05 (timeout LID 5 detik), E-09 (karantina+pemulihan `.bak` JSON) — implementasi **ad-hoc, belum tentu sesuai kontrak `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md`** (plan resmi minta jeda retry 50/200/800ms + overflow buffer, timeout LID 2 detik + cache negatif, dll). E-01 dan E-06 sempat ditambah lalu **direvert** (bentrok ALT-002/ALT-004 plan resmi). **Belum jalan di Aan-PC sama sekali.** Rincian lengkap dan instruksi lanjutan: `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md`
+- [ ] **`feature/stage-1-reliability` (worktree `C:\projects\WA-Gateway-m1`) berisi eksekusi plan resmi M1 Wave 1 Fase 1–3**: 13 commit di atas `091fe19` (`baf1896` s/d `065f683`), **sudah di-push ke `origin` (21 Sep malam, fast-forward `091fe19..065f683`) tetapi belum ada PR, belum ter-merge, belum berjalan di Gateway produksi**. Kode ad-hoc sandbox sudah ditimpa sesuai kontrak plan (retry 50/200/800 ms + overflow 500 event, timeout LID 2 detik + cache negatif 60 detik, dst.); E-01 dan E-06 diimplementasikan ulang sesuai plan (`ownSentRegistry`, isolasi error tanpa pesan minimal). Semua bukti **simulasi/mock**. Rincian: `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`. Riwayat kerja ad-hoc dan konfliknya dengan plan: `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md`
 
 ### Environment aktif (hasil verifikasi terakhir)
 - [x] Gateway yang benar-benar jalan **sekarang**: `C:\projects\WA-Gateway` (branch `master` @ `e18f716`, PM2 `wa-gateway`, auto-start via registry `HKCU\...\Run`), nomor `6281913500707` (nomor uji), status `connected`
@@ -79,9 +79,9 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
 
 ---
 
-### M1 — Reliability 🔄 SEDANG JALAN — Ticket 01 (pengukuran) selesai 21 Sep, perbaikan belum dimulai
+### M1 — Reliability 🔄 SEDANG JALAN — Ticket 01 (pengukuran) selesai 21 Sep; Wave 1 (Ticket 02–04) kode + simulasi selesai 21 Sep malam, uji nyata (TASK-017) belum
 
-**Status nyata (dicek 21 Sep)**: Ticket 01 dijalankan di Aan-PC pada 21 Sep. Hasil lengkap: `docs/decisions/2026-09-21-m1-ticket01-baseline.md`. Ticket 01 murni pengukuran, jadi **tidak ada perbaikan kode** dan risiko P0 di bawah masih **belum tertangani**. Tiga risiko itu kini punya bukti runtime (kecuali yang ditandai).
+**Status nyata (dicek 21 Sep)**: Ticket 01 dijalankan di Aan-PC pada 21 Sep. Hasil lengkap: `docs/decisions/2026-09-21-m1-ticket01-baseline.md`. Ticket 01 murni pengukuran (tanpa perbaikan kode). **Update malam 21 Sep:** perbaikan Wave 1 sudah dikodekan dan diuji simulasi di worktree (lihat Ticket 02–04 di bawah), tetapi risiko P0 masih **belum terbukti tertangani** karena belum diuji dengan Gateway nyata. Tiga risiko itu kini punya bukti runtime (kecuali yang ditandai).
 
 **Ticket 01 — Baseline Test** (rencana asli: `m1-ticket01-baseline-eksekusi.md`, di luar repo):
 - [x] 1. Enqueue normal — otomatis (mock CI4): 50/50 `completed` dalam satu siklus
@@ -111,10 +111,13 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
     - [x] → **direvert malam harinya (PR #3)** E-06 — sempat menyimpan record minimal saat pemrosesan gagal, tapi plan resmi (ALT-004) menolak eksplisit pendekatan ini (jadi poison message). Kembali ke: hanya log
     - [x] **masih ada, belum tentu final** E-09 — karantina + pemulihan `.bak` JSON fallback. Cukup dekat dengan plan resmi (TASK-015) tapi belum dicocokkan detail
     - [ ] E-02, E-07 — **belum dikerjakan**, butuh verifikasi WhatsApp nyata dulu (juga eksplisit di luar scope plan resmi)
+  - **Status akhir (malam 21 Sep, setelah eksekusi plan resmi di worktree `C:\projects\WA-Gateway-m1`):** butir E-03/E-04/E-05/E-09 bertanda "masih ada, belum tentu final" di atas sudah **ditimpa/disesuaikan** mengikuti plan resmi (TASK-001 s/d TASK-004, 013, 015). E-01 diimplementasikan ulang lewat `ownSentRegistry` (TASK-008 s/d TASK-010) dan E-06 sebagai isolasi error + log lengkap tanpa pesan minimal (TASK-014). Bukti **simulasi saja**. Rincian: `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`
   - **Test simulasi (mock, bukan Gateway nyata) ditulis untuk semua di atas**, disesuaikan lagi setelah revert (`test/simulate-e05-lid-timeout.js` menggantikan `simulate-e05-e06-fallback.js`, `simulate-append-type.js` dihapus). Semua lolos, tidak regresi — tapi ini bukti simulasi, bukan bukti Gateway nyata
   - **Handoff lengkap + instruksi lanjutan untuk sesi Claude Code lokal**: `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md` — baca ini sebelum melanjutkan Ticket 02, bukan ringkasan di atas
-- [ ] 03. Durable buffer
-- [ ] 04. JSON recovery
+- [x] 03. Durable buffer — kode + simulasi selesai (TASK-002 s/d TASK-006: retry 50/200/800 ms, overflow 500 event, `PRAGMA quick_check` SQLite); bukti **simulasi**, di worktree, belum di-merge
+- [ ] 03. Durable buffer — verifikasi nyata (TASK-017, AC-001) dan merge ke `master`
+- [x] 04. JSON recovery — kode + simulasi selesai (TASK-015: 8 skenario, lima celah E-09 ditutup); bukti **simulasi**
+- [ ] 04. JSON recovery — verifikasi di lingkungan yang benar-benar memakai fallback JSON (mis. build Android)
 - [ ] 05. Crash/restart test
 - [ ] 06. Attempt counter
 - [ ] 07. Dead-letter
@@ -129,8 +132,8 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
 - [ ] 16. Merge
 
 Risiko P0 yang jadi alasan M1 ada:
-- [ ] 1. Incoming enqueue failure — pesan hilang. **Terbukti nyata 21 Sep**: pesan yang tiba saat Gateway offline dibuang diam-diam (3 dari 14 dan 3 dari 15). **Fix kode sudah ada 21 Sep** (E-01, lihat Ticket 02 di atas) tapi **belum diverifikasi ulang dengan restart Gateway sungguhan** (baru diuji simulasi/mock) — jangan ditutup sampai skenario 2 Ticket 01 diulang dan hasilnya 0 pesan hilang
-- [ ] 2. JSON fallback corruption — queue rusak berisiko restart dari kosong. **Fix kode sudah ada 21 Sep** (E-09, karantina + pemulihan `.bak`), diuji lewat simulasi file korup (bukan Gateway nyata) — belum diverifikasi di lingkungan yang benar-benar memakai fallback JSON (mis. build Android)
+- [ ] 1. Incoming enqueue failure — pesan hilang. **Terbukti nyata 21 Sep**: pesan yang tiba saat Gateway offline dibuang diam-diam (3 dari 14 dan 3 dari 15). **Fix kode sesuai plan resmi sudah ada 21 Sep malam** (TASK-008 s/d TASK-010, di worktree, belum di-merge) tapi **belum diverifikasi dengan restart Gateway sungguhan** (baru simulasi/mock) — jangan ditutup sampai TASK-017 (AC-001, `pm2 stop` nyata, 3 kali) menghasilkan 0 pesan hilang dan 0 duplikat
+- [ ] 2. JSON fallback corruption — queue rusak berisiko restart dari kosong. **Fix kode sesuai plan resmi sudah ada 21 Sep malam** (TASK-015: karantina, pemulihan `.bak`, cadangan divalidasi sebelum disalin), diuji lewat simulasi 8 skenario (bukan Gateway nyata) — belum diverifikasi di lingkungan yang benar-benar memakai fallback JSON (mis. build Android)
 - [ ] 3. Outgoing duplicate — belum ada idempotency saat timeout. **Terbukti nyata 21 Sep** (skenario 3, 2 dari 3 percobaan) dan **terbukti lewat Inbox AuliaPos** (Gateway dijeda 12 detik: `U03` diterima 2× di HP pelanggan)
 - [ ] 4. (baru) Retry pesan masuk tanpa batas percobaan dan tanpa dead-letter — dari kode, belum diamati berjalan lama
 - [ ] 5. (baru) Dekripsi pesan gagal lalu di-retry: urutan tiba dan `message_timestamp` bergeser (sebaran 28–58 detik pada burst 15 pesan), padahal AuliaPos memakai timestamp untuk urutan Inbox dan `last_message_at` (dasar SLA di M3). Health tetap `connected` selama itu. Penyebab belum diketahui
@@ -235,9 +238,13 @@ Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau And
   - [x] Semua sisa Ticket 01 selesai atau dicoret (penyebab error dekripsi diselidiki pasif, belum terbukti; percobaan 1 skenario 2 dicoret).
 - [x] 4. **Rapikan housekeeping environment** — Gateway aktif diberi label (lihat "Environment aktif"), 3 folder lama di drive G dipindah ke `G:\arsip-gateway\` (20 Sep), folder `htdocs\wa-gateway` diarsipkan.
 - [ ] 5. **Eksekusi M3 Fase 1b** (TASK-007 s/d TASK-014) setelah TASK-006 disetujui.
-- [ ] 6. **M1 Gelombang 1 (Ticket 02-04)** — eksekusi lewat `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (plan resmi, `/sdlc-write-code`, worktree `C:\projects\WA-Gateway-m1`), **BUKAN** melanjutkan kerja ad-hoc sandbox. Baca dulu `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md` untuk konteks lengkap (kerja ad-hoc E-03/E-04/E-05/E-09 yang sudah ter-merge ke `feature/stage-1-reliability` kemungkinan perlu ditulis ulang sesuai TASK-001/002-004/013/015 plan resmi, bukan dipakai apa adanya). Langkah menggantung:
-  - [ ] Siapkan worktree `C:\projects\WA-Gateway-m1`, jalankan `/sdlc-write-code` mengikuti plan resmi fase demi fase (berhenti di tiap TASK-xxx APPROVAL)
+- [ ] 6. **M1 Gelombang 1 (Ticket 02-04)** — eksekusi lewat `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (plan resmi, `/sdlc-write-code`, worktree `C:\projects\WA-Gateway-m1`), **BUKAN** melanjutkan kerja ad-hoc sandbox. Baca dulu `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md` untuk konteks lengkap (kerja ad-hoc E-03/E-04/E-05/E-09 yang sudah ter-merge ke `feature/stage-1-reliability` **sudah ditulis ulang/disesuaikan (lihat decision log 21 Sep malam)** sesuai TASK-001/002-004/013/015 plan resmi, bukan dipakai apa adanya). Langkah menggantung:
+  - [x] Worktree `C:\projects\WA-Gateway-m1` siap; Fase 1, 2, dan 3 (TASK-001 s/d TASK-016) dieksekusi lewat `/sdlc-write-code`, APPROVAL TASK-007 dan TASK-012 diberikan. 13 commit, sudah di-push ke `origin`. Lihat `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`
   - [ ] TASK-017 (AC-001, `pm2 stop` nyata) — matikan Gateway produksi, **hanya boleh >21:00 atau <08:00** (RISK-003)
+    - **Belum dijalankan.** Prasyarat: kode harus ada di Gateway yang diuji, dan cara men-deploy-nya (merge ke `master` lalu restart PM2) belum diputuskan — itu juga menyentuh produksi
+  - [ ] TASK-018 — persetujuan bahwa AC-001 lulus 3 kali, lalu penutupan M1 Gelombang 1
+  - [x] Push branch `feature/stage-1-reliability` ke `origin` (21 Sep malam, fast-forward `091fe19..065f683`, tanpa force)
+  - [ ] Buat PR (belum dilakukan; disarankan setelah `/sdlc-code-review`)
   - [ ] E-02 dan E-07 (di luar scope plan resmi juga) — butuh verifikasi dengan WhatsApp nyata dulu sebelum diputuskan jadi task baru
   - [ ] Ticket 05, 06-08, 09-11, 12-16 (gelombang 2-3) belum dimulai, menyusul setelah gelombang 1
 - [ ] 7. **M2** dimulai setelah M1 selesai (atau tepatnya ticket-ticket kritis M1 seperti idempotency — konfirmasi urutan pasti saat M1 mendekati akhir).
@@ -261,6 +268,7 @@ Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau And
 - [x] `docs/decisions/2026-09-19-tahap-0-baseline.md` — decision log Tahap 0 lengkap
 - [x] `docs/decisions/2026-09-21-m1-ticket01-baseline.md` — decision log M1 Ticket 01 (baru)
 - [x] `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` — laporan audit M1 Ticket 02 (baru)
+- [x] `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md` — eksekusi M1 Wave 1 Fase 1–3: commit, penyimpangan dari spec, bukti simulasi, batas bukti (baru)
 - [x] `spec/spec-design-m3-operational-inbox-fase1.md` — spec resmi M3 Fase 1
 - [x] `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — **plan eksekusi resmi, 14 task, siap jalan**
 - [x] `docs/adr/0001-reuse-response-state-for-queue-view-status.md` — ADR status granular

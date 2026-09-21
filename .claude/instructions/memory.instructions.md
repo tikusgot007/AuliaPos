@@ -6,6 +6,49 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-21 (sixth)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code (`/sdlc-write-code`) for M1 Wave 1, Phases 1–3 done up to TASK-016. Waiting on TASK-017 (real AC-001, stops the live Gateway) and TASK-018. Then `/sdlc-code-review` in a NEW session. This session mixed personas (Orchestrator → Software Engineer) under an explicit user override.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — Status: 🔄 In progress. Completed/Date columns filled for TASK-001..016 (commit SHAs of the WA-Gateway repo). TASK-017/018 blank on purpose.
+  - `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md` — Status: ✅ Written (commits, deviations from spec, evidence, limits of evidence).
+  - `docs/TODO-CHAT.md` — Status: ✅ Synced to the new state. All claims are worded as simulation-only evidence.
+  - WA-Gateway repo, worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`: 13 commits above `091fe19` (`baf1896` … `065f683`), **pushed to origin (fast-forward, no force) but no PR, not merged, not running in production**.
+- **Achieved Milestones:**
+  - User dropped the Convia (ready-made WhatsApp inbox) idea; the self-built Baileys Gateway stays. M1 goes before M3.
+  - Pulled AuliaPos `v2.2` and fetched/pulled both WA-Gateway checkouts (production `C:\projects\WA-Gateway` only fetched, untouched). The repo is `tikusgot007/WA-Gateway`, not `tikusgot/...`.
+  - Executed plan Phases 1–3 with per-task commits and a mutation test for every new test (helper script lives outside the repo). 17 `test/simulate-*.js` scripts + the static guard `test/check-register-before-send.js` pass. AC-014 verified by replaying 12 identical messages against `origin/master` (`e18f716`, production code) and HEAD: payloads identical, negative control detected.
+  - Audited the ad-hoc E-09 code against the spec and found 5 gaps; found that the ad-hoc E-05 cached a failed LID lookup as `null` forever.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Integrity-checking a suspect SQLite file by opening it with a writable connection, then moving `-wal`/`-shm` aside.
+  - **Reason:** closing a writable connection lets SQLite delete `-wal`/`-shm` itself, so only 1 of 3 files was quarantined (violates REQ-013). **Note:** probe with a read-only connection first (`{ readonly: true, fileMustExist: true }`).
+  - **Attempted:** `git commit -F -` from PowerShell 5.1.
+  - **Reason:** PowerShell 5.1 does not feed stdin that way; git treats the message as a pathspec. **Note:** commit from Git Bash with a heredoc (`git commit -F - <<'EOF'`).
+  - **Attempted:** PowerShell commands that combine `Remove-Item` with a regex containing `\s*` or with `cmd /c`.
+  - **Reason:** the command-safety check blocks them before anything runs. **Note:** split into separate calls; detach a junction with `cmd /c rmdir` (never `Remove-Item -Recurse` over a junction in PS 5.1); do file rewrites with a small Node script.
+  - **Note:** the Windows checkouts are CRLF, so text-mutation helpers must convert `\n` to `\r\n`, otherwise mutations silently do not apply. `node` is not on the bash PATH: use `C:\nvm4w\nodejs` (v20.20.2, same as PM2). `SQLITE_PATH` must be set before requiring any `src/` module (config is read once).
+- **Updated Files:**
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — status + Completed/Date columns
+  - `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md` — new
+  - `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md` — one pointer line (marked as executed)
+  - `docs/TODO-CHAT.md` — M1 status, P0 risks, action items, references
+- **Decisions Made:**
+  - Option A from the handoff: ad-hoc code overwritten to match the plan.
+  - `messageType` is mandatory in `enqueue()` (no `'text'` default), user's choice.
+  - No `critical` log level exists: hard errors use `logger.error('[CRITICAL] …', { severity: 'critical' })`. **Assumption, needs confirmation.**
+  - JSON fallback quarantines a corrupt main file first even when `.bak` recovers it (deviates from the letter of REQ-017, keeps evidence and protects `.bak`).
+  - Two send insertion points (text and media) for the own-sent ID, within the plan's tolerance.
+- **Next Action / Pending:**
+  - TASK-017 needs separate explicit approval and only runs >21:00 or <08:00. Blocked on deciding how the code reaches the Gateway under test (merge to `master` + PM2 restart touches production).
+  - The Gateway branch was pushed (user chose option 1). Open a PR only when the user asks, ideally after `/sdlc-code-review`. The AuliaPos docs commit is on branch `claude/m1-wave1-fase1-3-status`, not pushed.
+  - Left alone on purpose: `_resolveLidForPhoneJid` caches `null` forever when the Gateway is not connected; the old `simulate-e05-lid-timeout.js` overlaps the new test; `node.exe` (~87 MB) is committed in WA-Gateway.
+  - All evidence so far is mock/simulation. Do not describe M1 Wave 1 as done or verified before TASK-017/018.
+
+<!-- checkpoint-tail: M1 Wave 1 Phases 1–3 (TASK-001..016) are coded and simulation-verified in WA-Gateway worktree (13 commits, pushed to origin without a PR); plan, TODO-CHAT and a new decision log are synced; next is separate approval for TASK-017 (real pm2 stop test, >21:00 or <08:00) after deciding how to deploy, then a code review in a new session. -->
+
+---
+
 ## 📝 Session Checkpoint: 2026-09-21 (fourth)
 
 - **Active Memory Path:** `.claude/instructions/memory.instructions.md`
