@@ -6,6 +6,33 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-21 (fourth)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`) done for M1 Wave 1 (WA-Gateway incoming reliability). Next is `/sdlc-clarify-reqs` on the new plan, then `/sdlc-write-code` in the WA-Gateway worktree.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — Status: ✅ Created (second file in `/plan/`), 3 phases / 18 tasks, based on `spec/spec-process-m1-wave1-incoming-reliability.md` v1.1 (Readiness 85/100, projected 94/100 after remediation). Committed and pushed to `claude/m1-wave1-implementation-plan-4ehgjv`.
+- **Achieved Milestones:**
+  - As Planner Architect, read spec v1.1, the clarification report (D-03 pre-register ID before send via Baileys `messageId` option; D-04 append accepted only for `pn`/`lid`/`group` JIDs), Ticket 02 audit (E-01..E-09), and `docs/GATEWAY-REQUIREMENTS.md` (GW-08/GW-09 status).
+  - Phased the work exactly as the user suggested, validated via `AskUserQuestion`: Phase 1 = enqueue integrity + durable buffer (E-03, E-04, Ticket 03), Phase 2 = append handling (E-01, D-03, D-04), Phase 3 = LID timeout/negative cache + error isolation + JSON recovery (E-05, E-06, Ticket 04) + the real AC-001 measurement.
+  - Key structural decision (confirmed by user): AC-001 (`pm2 stop` ~30s, 10 messages, 3 repetitions — the only test that stops the live Gateway) is placed as a single VERIFY/APPROVAL checkpoint at the **end of Phase 3 only**, not repeated per phase, because it's only representative once E-01 (Phase 2) and E-03/E-04 (Phase 1) are both merged.
+  - Confirmed granularity via a second `AskUserQuestion` — user accepted the draft breakdown as-is (including the two M-sized tasks: overflow-buffer wiring, and pre-register-ID-before-send touching 2 send paths) without further splitting.
+  - Generated `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md`: every task traces to REQ-0xx/AC-0xx, dependency-ordered bottom-up, Risks section flags TASK-009 (pre-register ID before `sendMessage()`) as *High Risk* for the same race-condition bug class D-03 already fixed once (register must happen before `await`, not after).
+  - Committed and pushed the plan directly to `claude/m1-wave1-implementation-plan-4ehgjv` (this session's designated branch) in response to a stop-hook requiring untracked files to be committed.
+- **Dead-Ends (Do NOT Repeat):** None new this session.
+- **Updated Files:**
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — new plan (created)
+- **Decisions Made:**
+  - AC-001 placement: end of Phase 3 only (see Achieved Milestones above).
+  - Task granularity: kept as originally drafted, no further splitting of the two M-sized tasks.
+- **Next Action / Pending:**
+  - Create a PR for branch `claude/m1-wave1-implementation-plan-4ehgjv` (repo `tikusgot007/AuliaPos`) and merge it — requested by the user this session, in progress after this checkpoint.
+  - After merge: run `/sdlc-clarify-reqs` on the new plan (new session), then `/sdlc-write-code` in `C:\projects\WA-Gateway-m1` (branch `feature/stage-1-reliability`) — never in the live Gateway at `C:\projects\WA-Gateway`, never touch `auth/`.
+
+<!-- checkpoint-tail: M1 Wave 1 implementation plan (3 phases: enqueue integrity, append handling, LID/JSON recovery + AC-001 at the very end) is written and pushed to claude/m1-wave1-implementation-plan-4ehgjv; next is PR+merge (in progress), then /sdlc-clarify-reqs on the plan, then /sdlc-write-code in the WA-Gateway worktree. -->
+
+---
+
 ## 📝 Session Checkpoint: 2026-09-21 (third)
 
 - **Active Memory Path:** `.claude/instructions/memory.instructions.md`
