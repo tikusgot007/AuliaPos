@@ -1,7 +1,7 @@
 # Status Proyek — AuliaPos + WA-Gateway (Master Reference)
 
-**Terakhir diupdate:** 21 September 2026 (revisi setelah cek langsung ke remote — banyak progres di Claude Code belum tercermin di versi sebelumnya)
-**Cek centang:** 21 September 2026 ~14:30 WIB, diverifikasi langsung ke repo dan mesin Aan-PC. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
+**Terakhir diupdate:** 21 September 2026, ~sore WIB (Ticket 02 M1: 5 dari 8 perbaikan dikerjakan di sesi Claude Code, branch `claude/buka-todo-chat-omnc7k` di WA-Gateway, belum PR, belum diverifikasi live)
+**Cek centang:** 21 September 2026 ~14:30 WIB untuk isi sebelumnya (diverifikasi langsung ke repo dan mesin Aan-PC). Update Ticket 02 di sore harinya **HANYA diuji simulasi/mock di sandbox, BUKAN di mesin Aan-PC dengan Gateway nyata** — jangan disamakan level buktinya dengan item lain yang sudah dicek di Aan-PC. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
 **Cara pakai:** Sematkan/paste dokumen ini di awal sesi Claude Code baru sebagai context. Update bagian "Status Sekarang" dan "Yang Menggantung" setiap kali ada progres baru — dokumen ini gampang basi kalau kerja paralel jalan di beberapa sesi Claude Code sekaligus, jadi **selalu `git fetch` + cek HEAD nyata sebelum percaya isi dokumen ini secara buta**.
 
 ---
@@ -46,6 +46,7 @@ Urutan bergantung ke bawah: Tahap 0 → M1 → M2 → M3 → M4 → M5.
 - [x] Branch dev aktif: `feature/stage-1-reliability` @ `3fd5f40` (dicek 21 Sep) = `5b28eb6` + 1 commit dokumen (salinan decision log Ticket 01). Belum ada perubahan kode M1
 - [x] `master` sudah merge PR #1 dari `claude/android-app-p40bl1` + commit "Create node.exe" (packaging, di luar scope M1)
 - Branch lain yang muncul (`fix/lid-fromme-pushname-leak`, `claude/cek-bandingkan-mimac-fln1h4`) — dicek, **tidak relevan** dengan kerja saat ini (versi lama/terpisah, salah satunya referensi "AuliaPos v3.0")
+- [ ] Branch baru 21 Sep: `claude/buka-todo-chat-omnc7k` (dari `master` @ `e18f716`, 4 commit) berisi 5 perbaikan M1 Ticket 02 (E-01, E-03, E-04, E-05, E-06, E-09). **Belum di-merge/PR, belum jalan di Aan-PC** — jangan dianggap bagian dari `master`/`feature/stage-1-reliability` sampai di-review dan diverifikasi live
 
 ### Environment aktif (hasil verifikasi terakhir)
 - [x] Gateway yang benar-benar jalan **sekarang**: `C:\projects\WA-Gateway` (branch `master` @ `e18f716`, PM2 `wa-gateway`, auto-start via registry `HKCU\...\Run`), nomor `6281913500707` (nomor uji), status `connected`
@@ -101,8 +102,18 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
   - Buffer tidak menggeser timestamp, tetapi **urutan pesan di Inbox salah**: urutan kirim `Sjjs, Hhaaa, Hhhah, Hss, Hhsj` tampil sebagai `Hhaaa, Hhhah, Sjjs, Hhsj, Hss` (timestamp yang diterima Gateway sudah bergeser)
 - [x] Decision log Ticket 01 ditulis: `docs/decisions/2026-09-21-m1-ticket01-baseline.md`
 
-**Ticket 02-16**: belum dikerjakan. Ticket 02 sebaiknya mulai dari filter `type !== 'notify'` (penyebab pesan hilang di atas). Urutan sesuai daftar awal:
-- [x] 02. Audit enqueue — audit selesai 21 Sep (8 titik kehilangan, dari E-01 `append` yang terukur sampai E-09 JSON), laporan `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md`. **Perbaikan belum dikerjakan** (usulan urutan: E-01, lalu E-03/E-04, lalu E-05/E-06)
+**Ticket 02-16**: Ticket 02 (audit + 5 dari 8 perbaikan) sudah jalan di sesi Claude Code 21 Sep. Ticket 03-16 belum dikerjakan. Urutan sesuai daftar awal:
+- [x] 02. Audit enqueue — audit selesai 21 Sep (8 titik kehilangan, dari E-01 `append` yang terukur sampai E-09 JSON), laporan `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md`.
+  - **Perbaikan kode 21 Sep (repo WA-Gateway, branch `claude/buka-todo-chat-omnc7k`, 4 commit, belum PR):**
+    - [x] E-01 — tipe `append` (pesan offline setelah reconnect) sekarang diproses, bukan dibuang. Ini penyebab pesan hilang yang terbukti nyata di Ticket 01 skenario 2
+    - [x] E-03 — `enqueue()` sekarang memvalidasi field wajib (`messageId`/`chatId`/`jidType`/`timestamp`) sebelum insert, melempar Error kalau kosong, bukan ditelan diam-diam oleh `INSERT OR IGNORE`. Duplikat `wa_message_id` yang sah tetap diabaikan seperti sebelumnya
+    - [x] E-04 — `_enqueueWithRetry()`: enqueue dicoba ulang 3× (jeda 200ms) di dalam proses sebelum menyerah dan log keras
+    - [x] E-05 — query `onWhatsApp()` di `_resolveLidForPhoneJid()` sekarang punya timeout 5 detik, tidak lagi bisa menahan seluruh batch pesan tanpa batas
+    - [x] E-06 — `_enqueueMinimalFallback()`: kalau `_handleIncomingMessage()` gagal sebelum sempat enqueue, disimpan record minimal (ID + chat + waktu, tanpa teks/media) supaya tidak hilang tanpa jejak sama sekali
+    - [x] E-09 — `IncomingBufferJsonFile` (fallback JSON, dipakai kalau `better-sqlite3` tidak tersedia) sekarang menulis cadangan `.bak` tiap `_persist()`; file utama yang korup dikarantina (di-rename) dan dicoba dipulihkan dari `.bak`, bukan langsung ditimpa dari kosong
+    - [ ] E-02 — pesan berbungkus (ephemeral/view-once/edited) dianggap tidak didukung. **Belum dikerjakan** — audit eksplisit minta verifikasi dengan obrolan pesan sementara nyata dulu, tidak bisa diuji di sandbox tanpa koneksi WhatsApp
+    - [ ] E-07 — upsert tanpa `msg.message` (hipotesis terkait error dekripsi Ticket 01). **Belum dikerjakan** — sama, butuh verifikasi runtime dulu sebelum diputuskan, audit eksplisit bilang "jangan dijadikan kesimpulan" tanpa itu
+  - **Semua 6 perbaikan di atas disertai test simulasi baru** (`test/simulate-append-type.js`, `simulate-enqueue-failure.js`, `simulate-e05-e06-fallback.js`, `simulate-e09-json-recovery.js`) — 12 test simulasi total (termasuk yang lama) dijalankan ulang, tidak ada regresi. **Catatan jujur**: ini test simulasi dengan `sock`/Baileys di-mock (pola sama seperti `simulate-identity-hint.js` yang sudah ada), BUKAN pengujian dengan koneksi WhatsApp nyata seperti Ticket 01 — perlu diverifikasi ulang di Aan-PC dengan Gateway aktif sebelum dianggap final
 - [ ] 03. Durable buffer
 - [ ] 04. JSON recovery
 - [ ] 05. Crash/restart test
@@ -118,9 +129,9 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
 - [ ] 15. Full reliability test matrix
 - [ ] 16. Merge
 
-Risiko P0 yang jadi alasan M1 ada (semuanya masih terbuka):
-- [ ] 1. Incoming enqueue failure — pesan hilang. **Terbukti nyata 21 Sep**: pesan yang tiba saat Gateway offline dibuang diam-diam (3 dari 14 dan 3 dari 15). Tipe `append` belum diamati langsung di runtime; sisanya terverifikasi dari kode dan log
-- [ ] 2. JSON fallback corruption — queue rusak berisiko restart dari kosong (belum diuji)
+Risiko P0 yang jadi alasan M1 ada:
+- [ ] 1. Incoming enqueue failure — pesan hilang. **Terbukti nyata 21 Sep**: pesan yang tiba saat Gateway offline dibuang diam-diam (3 dari 14 dan 3 dari 15). **Fix kode sudah ada 21 Sep** (E-01, lihat Ticket 02 di atas) tapi **belum diverifikasi ulang dengan restart Gateway sungguhan** (baru diuji simulasi/mock) — jangan ditutup sampai skenario 2 Ticket 01 diulang dan hasilnya 0 pesan hilang
+- [ ] 2. JSON fallback corruption — queue rusak berisiko restart dari kosong. **Fix kode sudah ada 21 Sep** (E-09, karantina + pemulihan `.bak`), diuji lewat simulasi file korup (bukan Gateway nyata) — belum diverifikasi di lingkungan yang benar-benar memakai fallback JSON (mis. build Android)
 - [ ] 3. Outgoing duplicate — belum ada idempotency saat timeout. **Terbukti nyata 21 Sep** (skenario 3, 2 dari 3 percobaan) dan **terbukti lewat Inbox AuliaPos** (Gateway dijeda 12 detik: `U03` diterima 2× di HP pelanggan)
 - [ ] 4. (baru) Retry pesan masuk tanpa batas percobaan dan tanpa dead-letter — dari kode, belum diamati berjalan lama
 - [ ] 5. (baru) Dekripsi pesan gagal lalu di-retry: urutan tiba dan `message_timestamp` bergeser (sebaran 28–58 detik pada burst 15 pesan), padahal AuliaPos memakai timestamp untuk urutan Inbox dan `last_message_at` (dasar SLA di M3). Health tetap `connected` selama itu. Penyebab belum diketahui
@@ -225,7 +236,11 @@ Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau And
   - [x] Semua sisa Ticket 01 selesai atau dicoret (penyebab error dekripsi diselidiki pasif, belum terbukti; percobaan 1 skenario 2 dicoret).
 - [x] 4. **Rapikan housekeeping environment** — Gateway aktif diberi label (lihat "Environment aktif"), 3 folder lama di drive G dipindah ke `G:\arsip-gateway\` (20 Sep), folder `htdocs\wa-gateway` diarsipkan.
 - [ ] 5. **Eksekusi M3 Fase 1b** (TASK-007 s/d TASK-014) setelah TASK-006 disetujui.
-- [ ] 6. **M1 Ticket 02-16** menyusul. Ticket 02 dimulai dari filter `type !== 'notify'` di `connectionManager.js:385`.
+- [ ] 6. **M1 Ticket 02-16** menyusul. Ticket 02: audit selesai, 5 dari 8 perbaikan (E-01, E-03, E-04, E-05, E-06, E-09) sudah dikerjakan 21 Sep di branch `claude/buka-todo-chat-omnc7k` (WA-Gateway), **tapi baru diuji simulasi/mock, belum jalan di Aan-PC dengan Gateway nyata**. Langkah berikut yang menggantung:
+  - [ ] Review + merge/PR branch `claude/buka-todo-chat-omnc7k` ke `feature/stage-1-reliability` (atau `master`, sesuaikan alur kerja)
+  - [ ] Verifikasi live di Aan-PC: ulangi skenario 2 Ticket 01 (restart Gateway saat burst) untuk pastikan fix E-01 benar-benar menghilangkan message loss yang terukur 21 Sep
+  - [ ] E-02 dan E-07 belum dikerjakan sama sekali — butuh verifikasi dengan WhatsApp nyata dulu (obrolan pesan sementara untuk E-02, pengamatan stub dekripsi untuk E-07) sebelum diputuskan
+  - [ ] Ticket 03-16 belum dimulai
 - [ ] 7. **M2** dimulai setelah M1 selesai (atau tepatnya ticket-ticket kritis M1 seperti idempotency — konfirmasi urutan pasti saat M1 mendekati akhir).
 - [ ] 8. **Fase 2 M3** (Handoff, Collision detection) — **wajib** tunggu M2 selesai, ini sudah tertulis eksplisit di RISK-003 plan resmi, bukan lagi cuma catatan blueprint.
 - ~~9. (baru) Tes reboot sungguhan untuk auto-start PM2 di Aan-PC~~ — **dicoret 21 Sep: di luar scope pengembangan.**
