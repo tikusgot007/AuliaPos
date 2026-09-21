@@ -6,6 +6,32 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-21 (second)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`) done — plan created, next is `/sdlc-clarify-reqs` on the plan, then `/sdlc-write-code`.
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — Status: ✅ Created (first file in `/plan/`), committed on `claude/m3-operational-inbox-plan-h244ji`; PR creation+merge in progress this session.
+- **Achieved Milestones:**
+  - As Planner Architect, read the approved spec (`spec/spec-design-m3-operational-inbox-fase1.md`, remediated 96/100), the clarification report, and ADR-0001, then built a dependency graph and phasing strategy (Fase 1a: no migration, reuse existing endpoints; Fase 1b: additive migration + new endpoints).
+  - Ran the mandatory interactive validation (quiz) with the user via `AskUserQuestion` before finalizing: user chose to merge the originally separate "SLA Service" and "extend `apiConversations()` filter" tasks into one task.
+  - Generated `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md`: 14 tasks across 2 phases (Phase 1 = 6 tasks incl. VERIFY/APPROVAL, Phase 2 = 8 tasks incl. VERIFY/APPROVAL), each with Ref ID traceability to spec REQ-00x/AC-00x, dependency graph, sizing all XS-M (no task >3 files), Risks section flagging TASK-008 (Internal Note endpoint) as *High Risk* for a silent copy-paste bug (calling `ConversationModel::update()` on `last_message_at`/`last_message_direction`, which spec Section 12 explicitly warns is undetectable by a naive `is_internal=TRUE` assertion alone).
+  - Committed and pushed the plan file directly to `claude/m3-operational-inbox-plan-h244ji` (this session's designated branch).
+- **Updated Files:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — new (created, committed, pushed)
+- **Decisions Made:**
+  - Merged "SLA Color Service" and "extend `apiConversations()` with `?status=`/`?q=`" into a single task (TASK-011) per explicit user choice during the quiz step, since both touch the same `apiConversations()` payload.
+  - No `CONTEXT.md` update needed (no new canonical domain term coined in the plan itself, terms already defined in the spec's Definitions section).
+  - No new ADR needed for plan-level decisions (all are easily-reversible implementation details, same reasoning as the spec's own ADR-skip note).
+- **Next Action / Pending:**
+  - Create a PR for `claude/m3-operational-inbox-plan-h244ji` and merge it to `v2.2` (user explicitly requested this — in progress, do before ending session).
+  - After merge: recommended next step is `/sdlc-clarify-reqs` on `@plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` in a **new chat session**, referencing the spec.
+  - Unrelated stale note carried over yet again (4th session running): `AGENTS.md` still records a stale memory path (`.agents/instructions/...`) instead of the real `.claude/instructions/...` — still not fixed, still low priority.
+
+<!-- checkpoint-tail: M3 Fase 1 implementation plan created (plan/plan-feature-m3-operational-inbox-fase1-v1.0.md, 14 tasks, 2 phases) on claude/m3-operational-inbox-plan-h244ji; PR+merge to v2.2 in progress this session; next step after merge is /sdlc-clarify-reqs on the plan in a new session, then /sdlc-write-code. -->
+
+---
+
 ## 📝 Session Checkpoint: 2026-09-21
 
 - **Active Memory Path:** `.claude/instructions/memory.instructions.md`
