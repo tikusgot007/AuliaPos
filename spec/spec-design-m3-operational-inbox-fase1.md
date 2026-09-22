@@ -46,6 +46,9 @@ Asumsi: seluruh kerja ini dibangun di atas branch turunan `v2.2` (bukan `v2.1`/`
 
 Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi kedua (di luar 3 ASSUMPTION di atas), dua hal berikut juga sudah diresolusi dan tercermin di Bagian 3/4.3/12: (a) endpoint Internal Note diizinkan ditulis pada conversation berstatus `closed` tanpa pembatasan tambahan; (b) REQ-009 direvisi karena `conversations.last_message_at`/`last_message_direction` adalah kolom denormalized yang di-`update()` manual di titik insert pesan (bukan hasil query agregasi) — lihat REQ-009 dan Bagian 12.
 
+> [!NOTE]
+> **Aturan klarifikasi:** hanya keputusan yang memengaruhi perilaku bisnis atau kontrak publik yang perlu dikunci lewat sesi klarifikasi. Detail implementasi dan edge case teknis yang tidak membutuhkan keputusan bisnis diselesaikan saat implementasi melalui guard/handling yang wajar dan test.
+
 ### 1.2.1 Decision Log — hasil klarifikasi sesi berjalan
 
 | ID | Keputusan | Dampak pada Blueprint |
