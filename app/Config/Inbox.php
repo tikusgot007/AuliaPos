@@ -44,6 +44,13 @@ class Inbox extends BaseConfig
     public int $heartbeatStaleSeconds = 30;
 
     /**
+     * SLA threshold Inbox: usia <15 menit = hijau, 15-60 menit = kuning,
+     * >60 menit = merah. Diisi lewat .env bila perlu.
+     */
+    public int $slaGreenMinutes = 15;
+    public int $slaYellowMinutes = 60;
+
+    /**
      * Batas ukuran file media KELUAR (kasir upload dari POS) dalam MB,
      * dicek di sisi CI4 SEBELUM file di-base64-encode dan dikirim ke
      * Gateway. SENGAJA dibuat <= MAX_MEDIA_UPLOAD_MB milik Gateway
@@ -70,6 +77,8 @@ class Inbox extends BaseConfig
         parent::__construct();
 
         $this->gatewayToken     = (string) (env('inbox.gatewayToken') ?? '');
+        $this->slaGreenMinutes   = (int) (env('inbox.slaGreenMinutes') ?? $this->slaGreenMinutes);
+        $this->slaYellowMinutes  = (int) (env('inbox.slaYellowMinutes') ?? $this->slaYellowMinutes);
         $this->gatewayBaseUrl   = rtrim((string) (env('inbox.gatewayBaseUrl') ?? ''), '/');
         $this->maxMediaUploadMb = (int) (env('inbox.maxMediaUploadMb') ?? $this->maxMediaUploadMb);
         $this->mediaStoragePath = (string) (env('inbox.mediaStoragePath') ?? '');
