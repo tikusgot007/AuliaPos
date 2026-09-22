@@ -53,6 +53,7 @@ Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi 
 | CL-001 | **Search `q` harus mencari seluruh conversation yang relevan, bukan hanya 500 terbaru.** Cara teknisnya boleh berubah/dioptimalkan setelah sistem berjalan. | ASSUMPTION-001 dan Bagian 4.4 direvisi; tidak ada kontrak bisnis `limit=500` untuk search. |
 | CL-002 | **`status` yang tidak termasuk 5 status Queue View harus ditolak dengan HTTP `400 Bad Request`.** Tidak boleh diam-diam diabaikan sebagai tanpa filter. | Bagian 4.4 menetapkan `status` sebagai enum; implementasi wajib memvalidasi nilai dan mengembalikan `400` untuk nilai lain. |
 | CL-003 | **Jika `status` dan `q` dipakai bersama, keduanya harus berlaku sekaligus (AND).** Contoh `status=open&q=Budi` hanya menampilkan conversation yang statusnya `open` dan cocok dengan pencarian `Budi`. | Bagian 4.4 menetapkan kombinasi filter sebagai satu request; implementasi tidak boleh memperlakukan `q` sebagai pencarian terpisah. |
+| CL-004 | **Semua staff yang login boleh melihat semua conversation.** Ownership tidak membatasi visibility; ownership hanya membatasi aksi yang memang mensyaratkannya (mis. balas/snooze/hapus sesuai aturan existing). | Kontrak visibility Queue View dan daftar conversation ditetapkan sebagai shared inbox untuk semua staff login. |
 
 ## 2. Definitions
 
