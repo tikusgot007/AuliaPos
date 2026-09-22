@@ -51,6 +51,7 @@ Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi 
 | ID | Keputusan | Dampak pada Blueprint |
 |---|---|---|
 | CL-001 | **Search `q` harus mencari seluruh conversation yang relevan, bukan hanya 500 terbaru.** Cara teknisnya boleh berubah/dioptimalkan setelah sistem berjalan. | ASSUMPTION-001 dan Bagian 4.4 direvisi; tidak ada kontrak bisnis `limit=500` untuk search. |
+| CL-002 | **`status` yang tidak termasuk 5 status Queue View harus ditolak dengan HTTP `400 Bad Request`.** Tidak boleh diam-diam diabaikan sebagai tanpa filter. | Bagian 4.4 menetapkan `status` sebagai enum; implementasi wajib memvalidasi nilai dan mengembalikan `400` untuk nilai lain. |
 
 ## 2. Definitions
 
@@ -123,7 +124,7 @@ Tidak melalui `cekOwnership()` (lihat SEC-001). Insert ke `messages` dengan `is_
 ### 4.4 Endpoint diperluas — `GET /inbox/api/conversations` (Fase 1b)
 
 Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
-- `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View.
+- `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View. **Nilai selain enum tersebut wajib ditolak dengan HTTP 400.**
 - `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default).
 
 **Kontrak hasil:**
