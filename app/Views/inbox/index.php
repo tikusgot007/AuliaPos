@@ -170,6 +170,26 @@
         border-top-right-radius: 2px;
     }
 
+    .inbox-bubble.internal-note {
+        background: #fff3cd;
+        margin-left: auto;
+        margin-right: auto;
+        border: 1px dashed #d39e00;
+        max-width: 78%;
+    }
+
+    .inbox-bubble.internal-note .bubble-sender {
+        color: #856404;
+    }
+
+    .inbox-internal-label {
+        display: inline-block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #856404;
+        margin-bottom: 4px;
+    }
+
     .inbox-bubble .bubble-meta {
         font-size: 0.68rem;
         color: #8a8a8a;
@@ -968,12 +988,17 @@
         }
 
         container.innerHTML = messages.map(function(m) {
-            const arah = m.direction === 'outgoing' ? 'outgoing' : 'incoming';
-            const senderLabel = (m.direction === 'outgoing' && m.sender_name)
+            const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
+            const arah = internal ? 'internal-note' : (m.direction === 'outgoing' ? 'outgoing' : 'incoming');
+            const senderLabel = (m.sender_name)
                 ? '<div class="bubble-sender">' + escapeHtmlInbox(m.sender_name) + '</div>'
+                : '';
+            const internalLabel = internal
+                ? '<div class="inbox-internal-label"><i class="fas fa-sticky-note"></i> Internal</div>'
                 : '';
 
             return '<div class="inbox-bubble ' + arah + '">' +
+                internalLabel +
                 senderLabel +
                 renderIsiPesan(m) +
                 '<div class="bubble-meta">' + formatWaktuInbox(m.message_timestamp) + '</div>' +
