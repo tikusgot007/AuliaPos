@@ -406,10 +406,14 @@ class Api extends BaseController
             log_message('error', 'Error simpanTransaksi: ' . $e->getMessage());
             log_message('error', 'Trace: ' . $e->getTraceAsString());
 
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Gagal menyimpan transaksi: ' . $e->getMessage()
-            ]);
+            $httpStatus = ((int) $e->getCode() === 409) ? 409 : 500;
+
+            return $this->response
+                ->setStatusCode($httpStatus)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Gagal menyimpan transaksi: ' . $e->getMessage()
+                ]);
         }
     }
 
