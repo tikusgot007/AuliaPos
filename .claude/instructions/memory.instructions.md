@@ -270,3 +270,30 @@
 <!-- checkpoint-tail: M1 Wave 1 plan clarified (Readiness 85→92/100), 6 decisions recorded in docs/audit/clarification-report-m1-wave1-incoming-reliability-plan-2026-09-21.md (not yet committed); next step is /sdlc-plan-tasks in a NEW session to bump the plan to v1.1 with these 6 decisions, then /sdlc-write-code in the WA-Gateway worktree. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-22
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** PRD (`/sdlc-draft-prd`) done — retroactive PRD written for the Chat/WhatsApp Inbox feature. Next is `/sdlc-clarify-reqs` on the new PRD in a NEW session.
+- **Active Artifacts:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — Status: 🔄 Drafted (v1.0, retroactive), NOT yet clarified. Committed and pushed to `v2.3` (commit `8733cba`).
+- **Achieved Milestones:**
+  - User reported the old designated branch (`claude/m1-wave1-plan-clarify-y1km3u`) no longer exists on remote (archived as tag `archive/claude/m1-wave1-plan-clarify-y1km3u-20260921`); the project now runs on branch **`v2.3`** (fetched and checked out, tracking `origin/v2.3`).
+  - Confirmed `docs/` on `v2.3` only contains the 11 core-POS documents — no Chat/Inbox docs exist on this branch (only one mention of Chat as branch-history context in doc 11).
+  - As Senior Product Manager (`/sdlc-draft-prd`), wrote a retroactive PRD for the Chat feature (M1 Gateway reliability + M3 Fase 1 Operational Inbox) since the PRD phase was originally bypassed in this project's history.
+  - Ran the Context Check Protocol: no Project Discovery Draft exists; user explicitly agreed to proceed without one, using `spec/spec-design-m3-operational-inbox-fase1.md` and `spec/spec-process-m1-wave1-incoming-reliability.md` plus prior-session memory as sources.
+  - Clarified WHY/WHO via `AskUserQuestion`: business goal = tidying up kasir/admin's chat-reply workflow; primary persona = kasir.
+  - Generated `prd-20260922-0141-chat-whatsapp-inbox.md` per the Mandatory PRD Template (10 sections, 5 user stories GH-001..GH-005), covering M1 (reliability) and M3 Fase 1a/1b (Queue View, Conversation Detail, Snooze, Internal Note, SLA color, Filter/Search) as in-scope, with M2/M4/M5 and Fase 2/3 explicitly as non-goals.
+- **Dead-Ends (Do NOT Repeat):** None new this session.
+- **Updated Files:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — new (created, committed, pushed to `v2.3`)
+- **Decisions Made:**
+  - PRD scope = whole Chat/Inbox feature (M1 + M3 Fase 1), not split into separate PRDs per milestone (user's explicit choice).
+  - Proceed without a Discovery Draft, PRD built directly from existing specs (user's explicit choice, per PRD Bypass allowance in AGENTS.md).
+- **Next Action / Pending:**
+  - Recommended next: open a NEW chat session, run `/sdlc-clarify-reqs` attaching `@prd-20260922-0141-chat-whatsapp-inbox.md`, to check for ambiguities before the PRD is considered final.
+  - Unrelated stale note carried over yet again (7th session running): `AGENTS.md`'s Memory Configuration section is actually correct now (`.claude/instructions/memory.instructions.md`) — this was previously flagged stale; verify if still an issue next time it's checked.
+
+<!-- checkpoint-tail: Branch moved from the archived claude/m1-wave1-plan-clarify-y1km3u to v2.3 (now active, tracked). Wrote a retroactive PRD for Chat/WhatsApp Inbox (M1 + M3 Fase 1) at prd-20260922-0141-chat-whatsapp-inbox.md, committed+pushed to v2.3 (8733cba); next step is /sdlc-clarify-reqs on the PRD in a new session. -->
+
+---
