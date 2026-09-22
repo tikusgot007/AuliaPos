@@ -3,7 +3,7 @@
 ## Checkpoint
 - Repository: `tikusgot007/AuliaPos`
 - Branch: `feature/m3-operational-inbox-fase1a-task001`
-- Latest branch commit: `db3b563`
+- Latest branch commit: `44bc842` (verified 2026-09-22 via `git log -1`; the previously recorded `db3b563` was stale by 3 commits and the branch is up to date with `origin`)
 - Status: M3 Operational Inbox Phase 1a + Phase 1b implementation and verification complete.
 - Working tree on the development machine was clean after verification.
 
@@ -77,7 +77,24 @@
   - A previously assigned conversation remains with its owner even when that staff member becomes unavailable; no automatic reassignment.
 - Existing schedule source reviewed: `JadwalModel` stores employee/date/shift and defines shift working sessions in code; schedule status is distinct from authorization.
 
+## M2 Gate Verification (2026-09-22)
+
+- Verified with primary evidence that M3 Phase 2 (Handoff, Collision Detection, Auto-assignment) is gated on M2 State Consistency by these upstream documents:
+  - `blueprint-m3-operational-inbox.md` line 100 ("Handoff ... dan collision detection (Fase 2) harus tunggu M2 selesai"), lines 117-120 ("Fase 2 - Tunggu M2 selesai"), line 133 (`conversation_handoffs` table -> "Fase 2, setelah M2").
+  - `spec/spec-design-m3-operational-inbox-fase1.md` section 1.1 (Out of Scope).
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` line 41 (Phase 2 listed as a Non-Goal).
+  - `docs/ARCHITECTURE.md` section 12 (lines 279-284): ownership checking is application-level read-then-write, **not an atomic concurrency primitive**; M2 is deferred; Phase 2 must not silently expand into a general state-consistency redesign.
+- No M2 artifact exists anywhere in the repository. A full-history scan (`git log --all --name-only`) found no `*m2*`, no `*consistency*`, and no `status-proyek-master.md` file.
+- Evidence documents referenced by the Fase 1 spec are **not** on this branch. `docs/adr/0001-reuse-response-state-for-queue-view-status.md`, the five `docs/audit/clarification-report-m3-*` reports, and `docs/decisions/*` (11 files total) exist **only on branch `v2.2`**; they are absent on `v2.3` and on the active branch. Read them read-only with `git show v2.2:<path>`.
+- The `AGENTS.md` pointer `.agents/standards/` is **stale** (the `.agents/` folder does not exist). The real standards live at `.claude/standards/ADR-FORMAT.md` and `.claude/standards/CONTEXT-FORMAT.md`. There is also no `CONTEXT.md` / `CONTEXT-MAP.md` in the repository.
+- Narrow-atomicity candidate for the gate: the already-recorded Handoff conflict policy ("first write wins; a losing request is rejected without overwriting ownership") implies a DB-level conditional write on the Handoff path only, so the gate can likely be satisfied without a general state-consistency redesign. This must be decided in `/sdlc-clarify-reqs` and written explicitly into the Spec - never assumed silently.
+- Routing outcome: M3 Phase 2 must **not** go straight to `/sdlc-define-specs`. The agreed path is one `/sdlc-clarify-reqs` session to open the M2 gate, including whether the PRD needs an amendment because it currently declares Phase 2 a Non-Goal (otherwise the Spec becomes an Orphaned Item and fails `/sdlc-audit-consistency`).
+
+---
+
 ## Next Handoff
 - M3 Phase 1 plan still ends at TASK-014.
 - The next SDLC work is the formal clarification/specification flow for M3 Phase 2; do not start implementation until the next upstream specification and implementation plan are available and approved.
 - Preserve M2 as a deferred dependency; do not silently expand scope into M2 work.
+- Immediate next step (decided 2026-09-22): open a NEW chat session and run `/sdlc-clarify-reqs` to formally open the M2 gate before any M3 Phase 2 Spec is written. Expected output: a clarification report with a Readiness Score, saved under `docs/audit/` (that folder does not exist on the active branch yet).
+- The active branch is `feature/m3-operational-inbox-fase1a-task001` at `44bc842`; this `memory.instructions.md` refresh is modified locally but not yet committed.
