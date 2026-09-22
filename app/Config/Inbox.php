@@ -81,8 +81,6 @@ class Inbox extends BaseConfig
         $this->slaYellowMinutes  = (int) (env('inbox.slaYellowMinutes') ?? $this->slaYellowMinutes);
         $this->gatewayBaseUrl   = rtrim((string) (env('inbox.gatewayBaseUrl') ?? ''), '/');
         $this->maxMediaUploadMb = (int) (env('inbox.maxMediaUploadMb') ?? $this->maxMediaUploadMb);
-        $this->slaGreenMinutes   = (int) (env('inbox.slaGreenMinutes') ?? $this->slaGreenMinutes);
-        $this->slaYellowMinutes  = (int) (env('inbox.slaYellowMinutes') ?? $this->slaYellowMinutes);
         $this->mediaStoragePath = (string) (env('inbox.mediaStoragePath') ?? '');
     }
 }
