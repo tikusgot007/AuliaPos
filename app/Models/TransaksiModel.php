@@ -108,6 +108,7 @@ class TransaksiModel extends Model
             if ($status === 'batal' && ($isAdmin || $isShiftLeader)) {
                 $data = [
                     'status'   => 'batal',
+                    'no_order' => null,
                 ];
 
                 if (!$this->update($id, $data)) {
@@ -285,8 +286,13 @@ class TransaksiModel extends Model
             'status' => $status,
         ];
 
-        // No Order tetap disimpan pada histori transaksi yang dibatalkan.
-        // Validasi pemakaian No Order hanya berlaku untuk transaksi aktif.
+        // Saat transaksi BATAL, No Order dikosongkan agar nomor tersebut
+        // dapat dipakai kembali. Duplikasi No Order tetap diperbolehkan
+        // pada histori transaksi yang sudah tidak aktif.
+
+        if ($status === 'batal') {
+            $data['no_order'] = null;
+        }
 
         if (!$this->update($id, $data)) {
             throw new \Exception('Gagal mengubah status transaksi.');
