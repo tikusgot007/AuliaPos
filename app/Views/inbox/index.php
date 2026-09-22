@@ -260,11 +260,12 @@
             <!-- ============================================ -->
             <div class="inbox-list-col">
             <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom flex-wrap" style="background:#fff;">
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSemua" onclick="setFilterConversation('semua')">Semua</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterPerlu_dibalas" onclick="setFilterConversation('perlu_dibalas')">Perlu Dibalas</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterMenunggu_customer" onclick="setFilterConversation('menunggu_customer')">Menunggu Customer</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterFollow_up" onclick="setFilterConversation('follow_up')">Follow-up</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSelesai" onclick="setFilterConversation('selesai')">Selesai</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSemua" onclick="setFilterConversation('semua')">Semua <span class="badge bg-light text-dark border tab-count" data-count-for="semua">0</span></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterBelum_diambil" onclick="setFilterConversation('belum_diambil')">Belum Diambil <span class="badge bg-light text-dark border tab-count" data-count-for="belum_diambil">0</span></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterOpen" onclick="setFilterConversation('open')">Open <span class="badge bg-light text-dark border tab-count" data-count-for="open">0</span></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterMenunggu" onclick="setFilterConversation('menunggu')">Menunggu <span class="badge bg-light text-dark border tab-count" data-count-for="menunggu">0</span></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterDitunda" onclick="setFilterConversation('ditunda')">Ditunda <span class="badge bg-light text-dark border tab-count" data-count-for="ditunda">0</span></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSelesai" onclick="setFilterConversation('selesai')">Selesai <span class="badge bg-light text-dark border tab-count" data-count-for="selesai">0</span></button>
             </div>
             <div class="inbox-list-panel" id="inboxListPanel">
                 <?php if (empty($conversations)): ?>
@@ -489,7 +490,7 @@
     // Tahap 1 lifecycle status (docs/aturan-bisnis-CHAT.md Section 12):
     // filter tampilan daftar percakapan SAJA (client-side) -- tidak ada
     // endpoint/query baru, data lengkap tetap dimuat seperti sebelumnya.
-    let filterAktif = 'semua'; // 'semua' | 'open' | 'closed'
+    let filterAktif = 'semua'; // 'semua' | 'belum_diambil' | 'open' | 'menunggu' | 'ditunda' | 'selesai'
     const currentUserId = <?= (int) $currentUserId ?>;
     const currentUserRole = <?= json_encode($currentUserRole) ?>;
 
@@ -526,10 +527,35 @@
     // ================================================================
     // Tombol filter Semua/Open/Closed -- state visual saja, tidak
     // mengubah conversationAktif/daftarConversation itu sendiri.
+    const QUEUE_STATUS_LABEL = {
+        belum_diambil: 'Belum Diambil',
+        open: 'Open',
+        menunggu: 'Menunggu',
+        ditunda: 'Ditunda',
+        selesai: 'Selesai',
+    };
+
     function renderFilterButtons() {
-        ['semua', 'perlu_dibalas', 'menunggu_customer', 'follow_up', 'selesai'].forEach(function(f) {
-            const btn = document.getElementById('btnFilter' + f.charAt(0).toUpperCase() + f.slice(1));
+        ['semua', 'belum_diambil', 'open', 'menunggu', 'ditunda', 'selesai'].forEach(function(f) {
+            const idSuffix = f === 'semua'
+                ? 'Semua'
+                : f.charAt(0).toUpperCase() + f.slice(1);
+            const btn = document.getElementById('btnFilter' + idSuffix);
             if (btn) btn.classList.toggle('active', filterAktif === f);
+        });
+    }
+
+    function renderTabCounts() {
+        const counts = { semua: daftarConversation.length };
+        Object.keys(QUEUE_STATUS_LABEL).forEach(function(status) {
+            counts[status] = daftarConversation.filter(function(c) {
+                return c.queue_status === status;
+            }).length;
+        });
+
+        document.querySelectorAll('.tab-count').forEach(function(el) {
+            const status = el.getAttribute('data-count-for');
+            el.textContent = counts[status] ?? 0;
         });
     }
 
@@ -541,7 +567,9 @@
 
     function renderBadgePerluDibalas() {
         const badge = document.getElementById('perluDibalasBadge');
-        const jumlah = daftarConversation.filter(function(c) { return c.response_state === 'perlu_dibalas'; }).length;
+        const jumlah = daftarConversation.filter(function(c) {
+            return c.queue_status === 'belum_diambil' || c.queue_status === 'open';
+        }).length;
         if (jumlah > 0) {
             badge.textContent = jumlah + ' Perlu Dibalas';
             badge.style.display = '';
@@ -559,16 +587,17 @@
 
     function renderDaftarConversation() {
         renderFilterButtons();
+        renderTabCounts();
         renderBadgePerluDibalas();
 
         const panel = document.getElementById('inboxListPanel');
         const daftarTampil = filterAktif === 'semua'
             ? daftarConversation
-            : daftarConversation.filter(function(c) { return c.response_state === filterAktif; });
+            : daftarConversation.filter(function(c) { return c.queue_status === filterAktif; });
 
         if (!daftarTampil.length) {
             panel.innerHTML = '<div class="p-3 text-muted small text-center">' +
-                (daftarConversation.length ? 'Tidak ada percakapan ' + filterAktif + '.' : 'Belum ada percakapan masuk.') +
+                (daftarConversation.length ? 'Tidak ada percakapan ' + (QUEUE_STATUS_LABEL[filterAktif] || filterAktif) + '.' : 'Belum ada percakapan masuk.') +
                 '</div>';
             return;
         }
