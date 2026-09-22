@@ -56,6 +56,7 @@ Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi 
 | CL-004 | **Semua staff yang login boleh melihat semua conversation.** Ownership tidak membatasi visibility; ownership hanya membatasi aksi yang memang mensyaratkannya (mis. balas/snooze/hapus sesuai aturan existing). | Kontrak visibility Queue View dan daftar conversation ditetapkan sebagai shared inbox untuk semua staff login. |
 | CL-005 | **Jika pencarian/filter tidak menemukan hasil, endpoint tetap mengembalikan HTTP 200 dengan hasil kosong `[]`.** Ini bukan kondisi `404`. | Perilaku empty result ditetapkan sebagai hasil normal dari filter/pencarian. |
 | CL-006 | **Alasan Snooze maksimal 4096 karakter**, sama dengan batas panjang Internal Note. Jika melebihi batas, request ditolak `400` dan perubahan Snooze tidak dilakukan. | Batas validasi alasan ditetapkan di kontrak Snooze Fase 1b. |
+| CL-007 | **Nilai `q` yang setelah di-trim hanya berisi spasi dianggap kosong.** Sistem tidak menjalankan pencarian untuk nilai tersebut; hasil mengikuti filter `status` bila ada. | Input pencarian harus di-trim sebelum dipakai sebagai keyword. |
 
 ## 2. Definitions
 
@@ -130,7 +131,7 @@ Tidak melalui `cekOwnership()` (lihat SEC-001). Insert ke `messages` dengan `is_
 Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
 - `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View. **Nilai selain enum tersebut wajib ditolak dengan HTTP 400.**
 - Bila filter `status`/`q` valid tetapi tidak ada conversation yang cocok, response tetap **HTTP 200** dengan array hasil kosong `[]`.
-- `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default).
+- `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default). Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian.
 
 **Kontrak hasil:**
 1. `q` harus dapat menemukan conversation yang cocok di seluruh dataset yang relevan, termasuk conversation lama; tidak boleh ada batas implisit "hanya N conversation terbaru" sebagai bagian dari kontrak bisnis M3.
