@@ -464,29 +464,12 @@ class Inbox extends BaseController
      */
     private function attachResponseState(array $conversations): array
     {
-        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+        $conversations = (new ConversationModel())->withComputedStatus($conversations);
 
-        foreach ($conversations as &$c) {
-            if ($c['status'] === 'closed') {
-                $c['response_state'] = 'selesai';
-            } elseif (!empty($c['snoozed_until']) && $c['snoozed_until'] > $now) {
-                $c['response_state'] = 'follow_up';
-            } elseif ($c['last_message_direction'] === 'incoming'
-                && (empty($c['last_seen_by_assignee_at']) || $c['last_seen_by_assignee_at'] < $c['last_message_at'])) {
-                $c['response_state'] = 'perlu_dibalas';
-            } elseif ($c['last_message_direction'] === 'outgoing' || $c['last_message_direction'] === 'incoming') {
-                // 'incoming' sampai di sini artinya sudah ditandai dibaca
-                // (last_seen_by_assignee_at >= last_message_at) tanpa
-                // perlu membalas -- tetap keluar dari 'perlu_dibalas'.
-                $c['response_state'] = 'menunggu_customer';
-            } else {
-                // Fallback: conversation baru tanpa last_message_direction
-                // sama sekali seharusnya tidak pernah kena baris ini di
-                // praktiknya (selalu ada minimal 1 pesan saat conversation
-                // dibuat) -- tetap diberi nilai aman.
-                $c['response_state'] = 'perlu_dibalas';
-            }
+        foreach ($conversations as &$conversation) {
+            unset($conversation['queue_status']);
         }
+        unset($conversation);
 
         return $conversations;
     }
