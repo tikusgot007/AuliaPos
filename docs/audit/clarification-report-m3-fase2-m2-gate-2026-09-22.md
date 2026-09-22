@@ -1,3 +1,15 @@
+> [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED**
+> This audit report has been remediated by Product Manager PRD (`/sdlc-draft-prd`).
+>
+> - **Projected Readiness Score:** 91/100 (up from 79/100 — the **Critical Flaw Veto is lifted** because the PRD no longer contradicts the new scope). Breakdown: Completeness 37/40, Clarity 29/30, Alignment 25/30.
+> - **Remediated artifact:** `prd-20260922-0141-chat-whatsapp-inbox.md`, version 1.0 amended to **v1.1** (amendment log added in Section 1.1).
+> - **Finding closed — F-05 / K-02:** the PRD no longer declares Fase 2 a Non-Goal. Section 2.3 was rewritten: the Fase 2 bullet is removed, an explicit **constraint** callout records the narrow M2 gate (K-01) and forbids any expansion into a general state-consistency redesign, and the formerly invisible open items are now named:
+> - **Items now named as deferred in Section 2.3:** Auto-assignment (Fase 2b, GH-008); Presence (named precondition: a proven need to stop simultaneous opening); notification and unread-per-user (named precondition: an offline Handoff target provably missing a handed-over conversation); and no Handoff history purge.
+> - **New user stories with Acceptance Criteria:** **GH-006** (Handoff, Fase 2a, 8 criteria), **GH-007** (Collision Detection, Fase 2a, 5 criteria), **GH-008** (Auto-assignment, explicitly marked as the **Fase 2b increment**, 4 criteria). Section 9.2 now lists M3 Fase 2a and M3 Fase 2b; Sections 1.2, 2.1, 2.2, 3.3, 4, 5.2, 5.3, 7.1, 8.2, and 8.3 were synced.
+> - **Residual findings NOT closed by this remediation (outside the Product Manager scope):** F-07 — `docs/adr/` is still absent on the active branch; F-10 / F-11 — the external baseline documents (`Panduan_Layar_AuliaPos_M3.md`, `status-proyek-master.md`) remain unavailable.
+> - **Documents still carrying the old blanket statement, to be synced by their own phases:** `blueprint-m3-operational-inbox.md` Sections 3-4, `spec/spec-design-m3-operational-inbox-fase1.md` Section 1.1, and `docs/ARCHITECTURE.md` Section 12. Owners: `/sdlc-define-specs` (Spec 2a) and `/sdlc-map-architecture` (architecture map). They were deliberately not edited by this PRD-only remediation.
+
 # 🔍 Clarification Report [Review Iteration 1]
 
 **Tanggal:** 2026-09-22

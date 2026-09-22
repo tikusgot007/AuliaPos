@@ -389,3 +389,37 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-22 (M3 Fase 2a PRD Amendment)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** PRD amendment (`/sdlc-draft-prd`) **completed** as the Senior Product Manager persona. No source code touched. The 3-Step Remediation Sequence was executed, so the M3 Fase 2a pipeline is now unblocked for `/sdlc-define-specs`.
+- **Active Artifacts:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — Status: ✅ **v1.1** (amended from v1.0, 286 lines). Fase 2 removed from Section 2.3 Non-goals; GH-006/GH-007/GH-008 added with acceptance criteria; the M2 gate recorded as constraint K-01; deferred items named (Presence, notification/unread, Fase 2b Auto-assignment, no Handoff history purge). Sections 1.1 (version + amendment log), 1.2, 2.1, 2.2, 3.3, 4, 5.2, 5.3, 7.1, 8.2, 8.3, and 9.2 synced.
+  - `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` — Status: ✅ **Remediated**. The `REMEDIATION STATUS: RESOLVED` block (English) sits at line 1; projected **91/100** (up from 79, Critical Flaw Veto lifted).
+  - `CONTEXT.md` — unchanged; every term used by the PRD matches it (Handoff, Handoff Summary, Next Action, Handoff Note, Collision Detection, Presence).
+  - `spec/spec-design-m3-operational-inbox-fase1.md`, `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md`, `blueprint-m3-operational-inbox.md`, `docs/ARCHITECTURE.md` — **unchanged and now stale** on the Fase 2 gate wording (see Next Action).
+- **Achieved Milestones:**
+  - Amended the PRD to v1.1 with an amendment-log table, closing finding F-05 / decision K-02 that had capped the clarification report at 79/100.
+  - Added 3 user stories with formal acceptance criteria: GH-006 (Handoff, 8 criteria), GH-007 (Collision Detection, 5 criteria), GH-008 (Auto-assignment, 4 criteria, explicitly marked as the **Fase 2b** increment).
+  - Executed the mandatory 3-Step Remediation Sequence: rubric calculation (Completeness 37/40, Clarity 29/30, Alignment 25/30 = **91/100**), the RESOLVED block, and the routing report.
+  - Verified with `npx --no-install markdownlint-cli 0.49.1`: the PRD has **no** finding other than the repo-wide pre-existing `MD013`; the audit report retains only `MD041`, identical to the accepted convention of its `v2.2` predecessor. All newly written lines are ≤ 400 characters.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Replace PRD Section 2.3 by passing one large multi-line `old_text` block to the editor tool.
+  - **Reason:** The block did not match exactly once, so the edit failed twice with "text not found" even though the text looked identical. What works: anchor on **one** line or a short unique substring, or use `insert_line`, then follow up with a second targeted edit.
+  - **Note:** On Windows PowerShell 5.1 never measure file content with bare `Get-Content` (it decodes UTF-8 as CP1252 and shows mojibake dashes); use `[System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)`.
+- **Updated Files:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — v1.1 amendment (92 insertions / 6 deletions).
+  - `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` — remediation block at the top (12 insertions).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only; no history removed).
+- **Decisions Made:**
+  - The PRD body stays in **Indonesian** (consistency with the existing v1.0 document and the audit report) while the remediation block is in **English** because AGENTS.md mandates it explicitly; a full English conversion of the PRD remains an open item needing an explicit user command.
+  - Section 2.3 now separates "deferred but named" items from true Non-goals, and the M2 gate lives as a `> [!IMPORTANT]` **constraint**, never as a Non-goal — this is the exact wording the next consistency audit will check.
+  - This remediation deliberately did **not** edit `blueprint-m3-operational-inbox.md`, `spec/spec-design-m3-operational-inbox-fase1.md`, or `docs/ARCHITECTURE.md` (persona boundary) and recorded their staleness as residual findings instead.
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-define-specs` for **M3 Fase 2a (Handoff + Collision Detection)**, attaching `@prd-20260922-0141-chat-whatsapp-inbox.md`, `@docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md`, `@CONTEXT.md`, and `@docs/ARCHITECTURE.md`. The Spec **must not** contain Presence, unread/notification, or Auto-assignment.
+  - Residual: `docs/adr/` still absent on the active branch (F-07) plus one new ADR for the expected-owner conditional write; `blueprint` §3-4, `spec/...fase1.md` §1.1, and `docs/ARCHITECTURE.md` §12 still carry the blanket "Fase 2 waits for M2" statement.
+  - Repo-root `memory.instructions.md` is still modified and uncommitted (pre-existing, not skill-managed) — deliberately excluded from this session's commit.
+
+<!-- checkpoint-tail: PRD amended to v1.1 (Fase 2 out of Non-goals, GH-006/GH-007/GH-008 with acceptance criteria, M2 gate recorded as constraint K-01, Presence/notification/Fase 2b deferred by name) and the clarification report now carries REMEDIATION STATUS: RESOLVED at a projected 91/100; next is /sdlc-define-specs for M3 Fase 2a in a new session with the PRD attached. -->
+
+---
