@@ -84,7 +84,7 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
             ->get('inbox/api/conversations?status=selesai');
 
         $res->assertOK();
-        $data = $res->getJSON(true);
+        $data = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame('success', $data['status']);
         $this->assertCount(1, $data['conversations']);
@@ -108,7 +108,7 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
 
         $resName = $this->withSession($this->sesi())
             ->get('inbox/api/conversations?q=Surabaya');
-        $nameData = $resName->getJSON(true);
+        $nameData = json_decode($resName->getJSON(), true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame('success', $nameData['status']);
         $this->assertCount(1, $nameData['conversations']);
@@ -116,7 +116,7 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
 
         $resPhone = $this->withSession($this->sesi())
             ->get('inbox/api/conversations?q=9999');
-        $phoneData = $resPhone->getJSON(true);
+        $phoneData = json_decode($resPhone->getJSON(), true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame('success', $phoneData['status']);
         $this->assertCount(1, $phoneData['conversations']);
@@ -130,7 +130,7 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
 
         $res = $this->withSession($this->sesi())
             ->get('inbox/api/conversations?q=');
-        $data = $res->getJSON(true);
+        $data = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame('success', $data['status']);
         $ids = array_map(static fn (array $row): int => (int) $row['id'], $data['conversations']);
@@ -175,7 +175,7 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
             ->get('inbox/api/conversations/' . $conversationId . '/messages');
 
         $res->assertOK();
-        $data = $res->getJSON(true);
+        $data = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame('success', $data['status']);
         $this->assertCount(2, $data['messages']);
