@@ -280,7 +280,6 @@
             <!-- ============================================ -->
             <div class="inbox-list-col">
             <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom flex-wrap" style="background:#fff;">
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSemua" onclick="setFilterConversation('semua')">Semua <span class="badge bg-light text-dark border tab-count" data-count-for="semua">0</span></button>
                 <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterBelum_diambil" onclick="setFilterConversation('belum_diambil')">Belum Diambil <span class="badge bg-light text-dark border tab-count" data-count-for="belum_diambil">0</span></button>
                 <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterOpen" onclick="setFilterConversation('open')">Open <span class="badge bg-light text-dark border tab-count" data-count-for="open">0</span></button>
                 <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterMenunggu" onclick="setFilterConversation('menunggu')">Menunggu <span class="badge bg-light text-dark border tab-count" data-count-for="menunggu">0</span></button>
@@ -507,10 +506,10 @@
     const mediaGagal = new Set(); // id pesan yang medianya sudah dipastikan gagal dimuat -- reset tiap reload halaman (cukup untuk 1 sesi kerja, tidak perlu persisten di frontend).
     let gatewayTerhubung = true; // Tahap F -- optimistic default sebelum poll pertama datang
     let daftarConversation = <?= json_encode($conversations) ?>;
-    // Tahap 1 lifecycle status (docs/aturan-bisnis-CHAT.md Section 12):
-    // filter tampilan daftar percakapan SAJA (client-side) -- tidak ada
-    // endpoint/query baru, data lengkap tetap dimuat seperti sebelumnya.
-    let filterAktif = 'semua'; // 'semua' | 'belum_diambil' | 'open' | 'menunggu' | 'ditunda' | 'selesai'
+    // Queue View: tab aktif hanya memilih hasil dari queue_status yang
+    // sudah dihitung backend oleh ConversationModel::withComputedStatus().
+    // Tidak ada perhitungan status di client-side.
+    let filterAktif = 'belum_diambil';
     const currentUserId = <?= (int) $currentUserId ?>;
     const currentUserRole = <?= json_encode($currentUserRole) ?>;
 
@@ -545,8 +544,8 @@
     // ================================================================
     // DAFTAR CONVERSATION
     // ================================================================
-    // Tombol filter Semua/Open/Closed -- state visual saja, tidak
-    // mengubah conversationAktif/daftarConversation itu sendiri.
+    // Tombol filter Queue View -- state visual saja, tidak mengubah
+    // conversationAktif/daftarConversation itu sendiri.
     const QUEUE_STATUS_LABEL = {
         belum_diambil: 'Belum Diambil',
         open: 'Open',
@@ -556,17 +555,15 @@
     };
 
     function renderFilterButtons() {
-        ['semua', 'belum_diambil', 'open', 'menunggu', 'ditunda', 'selesai'].forEach(function(f) {
-            const idSuffix = f === 'semua'
-                ? 'Semua'
-                : f.charAt(0).toUpperCase() + f.slice(1);
+        Object.keys(QUEUE_STATUS_LABEL).forEach(function(f) {
+            const idSuffix = f.charAt(0).toUpperCase() + f.slice(1);
             const btn = document.getElementById('btnFilter' + idSuffix);
             if (btn) btn.classList.toggle('active', filterAktif === f);
         });
     }
 
     function renderTabCounts() {
-        const counts = { semua: daftarConversation.length };
+        const counts = {};
         Object.keys(QUEUE_STATUS_LABEL).forEach(function(status) {
             counts[status] = daftarConversation.filter(function(c) {
                 return c.queue_status === status;
@@ -611,9 +608,9 @@
         renderBadgePerluDibalas();
 
         const panel = document.getElementById('inboxListPanel');
-        const daftarTampil = filterAktif === 'semua'
-            ? daftarConversation
-            : daftarConversation.filter(function(c) { return c.queue_status === filterAktif; });
+        const daftarTampil = daftarConversation.filter(function(c) {
+            return c.queue_status === filterAktif;
+        });
 
         if (!daftarTampil.length) {
             panel.innerHTML = '<div class="p-3 text-muted small text-center">' +
