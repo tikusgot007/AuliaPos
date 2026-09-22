@@ -464,14 +464,7 @@ class Inbox extends BaseController
      */
     private function attachResponseState(array $conversations): array
     {
-        $conversations = (new ConversationModel())->withComputedStatus($conversations);
-
-        foreach ($conversations as &$conversation) {
-            unset($conversation['queue_status']);
-        }
-        unset($conversation);
-
-        return $conversations;
+        return (new ConversationModel())->withComputedStatus($conversations);
     }
 
     /**
