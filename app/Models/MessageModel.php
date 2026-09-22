@@ -57,6 +57,7 @@ class MessageModel extends Model
         'message_timestamp',
         'sent_by_user_id',
         'send_status',
+        'is_internal',
         'deleted_at',
     ];
 
