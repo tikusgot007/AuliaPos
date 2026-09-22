@@ -297,3 +297,95 @@
 <!-- checkpoint-tail: Branch moved from the archived claude/m1-wave1-plan-clarify-y1km3u to v2.3 (now active, tracked). Wrote a retroactive PRD for Chat/WhatsApp Inbox (M1 + M3 Fase 1) at prd-20260922-0141-chat-whatsapp-inbox.md, committed+pushed to v2.3 (8733cba); next step is /sdlc-clarify-reqs on the PRD in a new session. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-22 (M3 Fase 2 gate verification)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Orchestration/routing only (no SDLC artifact produced in this session). The next phase is the **Clarification checkpoint** (`/sdlc-clarify-reqs`) to formally open the M2 gate for M3 Fase 2. No Spec work was started.
+- **Active Artifacts:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` - Status: 🔄 Drafted v1.0 (retroactive), still not clarified; line 41 lists M3 Fase 2 as a **Non-Goal**.
+  - `spec/spec-design-m3-operational-inbox-fase1.md` - Status: ✅ Fase 1 only; section 1.1 locks Fase 2 until M2 State Consistency.
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` - Status: ✅ Fase 1a + 1b executed; the plan physically ends at TASK-014.
+  - `docs/ARCHITECTURE.md` - Status: ✅ Present on the active branch; section 12 holds the Phase 2 constraints.
+  - M3 Fase 2 Spec/Plan - Status: ⏳ Pending, **blocked by the M2 gate**.
+- **Achieved Milestones:**
+  - As SDLC Orchestrator, ran the full session bootstrap (AGENTS.md, instruction dirs, both memory files, git state) and restored project context.
+  - Verified the M3 Fase 2 blocker against primary sources instead of trusting memory: 4 upstream documents gate Fase 2 on M2 (`blueprint-m3-operational-inbox.md` lines 100, 117-120, 133; `spec-design-m3-operational-inbox-fase1.md` section 1.1; `prd-20260922-0141-chat-whatsapp-inbox.md` line 41) and `docs/ARCHITECTURE.md` section 12 (lines 279-284) states ownership checking is application-level read-then-write, not an atomic concurrency primitive.
+  - Confirmed that **no M2 document exists anywhere**: a full-history scan (`git log --all --name-only`) found no `*m2*`, `*consistency*`, or `status-proyek-master.md` file. M2 currently exists only as a deferral note.
+  - Located the evidence documents that the Fase 1 spec references: `docs/adr/0001-reuse-response-state-for-queue-view-status.md`, five `docs/audit/clarification-report-m3-*` reports, and `docs/decisions/*` (11 files) exist **only on branch `v2.2`**, absent on `v2.3` and on the active branch.
+  - User chose routing option A: resolve the gate through `/sdlc-clarify-reqs` before any M3 Fase 2 Spec is written.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Route straight to `/sdlc-define-specs` for M3 Fase 2 because the Fase 2 clarification checkpoint was already recorded in repo memory.
+  - **Reason:** Fase 2 is gated on M2 by three upstream documents, and a Fase 2 Spec would additionally be an **Orphaned Item** because the PRD declares Fase 2 a Non-Goal - PRD traceability would fail at `/sdlc-audit-consistency`.
+  - **Note:** the fix is one `/sdlc-clarify-reqs` session that decides the **narrow atomicity scope** (conditional write on the Handoff path only), then `/sdlc-define-specs`.
+  - **Note:** pointer staleness recurs across sessions - see the `.agents/standards/` finding under "Decisions Made".
+- **Updated Files:**
+  - `.claude/instructions/memory.instructions.md` - this checkpoint appended (append-only, no history removed).
+  - `memory.instructions.md` (repo root, the M3 handoff note) - stale commit hash refreshed and a "M2 Gate Verification (2026-09-22)" section appended.
+- **Decisions Made:**
+  - M3 Fase 2 is **not** spec'd yet: the M2 gate must first be resolved through the Clarification checkpoint (user's explicit choice, routing option A).
+  - **Narrow atomicity candidate** recorded: the already-approved Handoff conflict policy ("first write wins; a losing request is rejected without overwriting ownership") implies a DB-level conditional write on the Handoff path only, so the M2 gate can probably be satisfied **without** a general state-consistency redesign. This aligns with `docs/ARCHITECTURE.md` section 12 ("must not silently expand into a general state-consistency redesign"). It must be written down explicitly in the Spec, never assumed silently.
+  - PRD scope may need an update: the PRD lists Fase 2 as a Non-Goal, so opening the gate likely requires a PRD revision for traceability.
+  - The `AGENTS.md` pointer `.agents/standards/` is **stale** (the whole `.agents/` folder does not exist); the real standards are `.claude/standards/ADR-FORMAT.md` and `.claude/standards/CONTEXT-FORMAT.md`. There is also no `CONTEXT.md` / `CONTEXT-MAP.md` in the repo.
+  - This `.claude/instructions/memory.instructions.md` file still has **no Knowledge Base zone** (checkpoints only); a future Compaction Mode run should create it and promote the durable findings.
+- **Next Action / Pending:**
+  - Open a **NEW chat session** and run the prepared `/sdlc-clarify-reqs` handoff prompt, attaching: `blueprint-m3-operational-inbox.md`, `prd-20260922-0141-chat-whatsapp-inbox.md`, `spec/spec-design-m3-operational-inbox-fase1.md`, `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md`, `docs/ARCHITECTURE.md`, `memory.instructions.md`.
+  - Expected output of that session: `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` with a Readiness Score. Note: the `docs/audit/` folder does not exist on the active branch yet.
+  - After the gate decision is recorded: `/sdlc-define-specs` for M3 Fase 2, then `/sdlc-clarify-reqs` -> `/sdlc-plan-tasks` -> `/sdlc-write-code`.
+  - Open blockers: (1) no M2 artifacts exist to reference; (2) the PRD must be amended so Fase 2 stops being an Orphaned Item; (3) repo-root `memory.instructions.md` is modified but **not committed**; (4) the working tree is otherwise clean on branch `feature/m3-operational-inbox-fase1a-task001` at `44bc842`.
+
+<!-- checkpoint-tail: M3 Fase 2 (Handoff/Collision/Auto-assignment) is gated on M2 State Consistency by 4 upstream docs while no M2 doc exists anywhere - user chose /sdlc-clarify-reqs first (option A) to open the gate; evidence docs (docs/adr, docs/audit, docs/decisions) live only on branch v2.2 and the AGENTS.md pointer `.agents/standards/` is stale (real path `.claude/standards/`). -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-22 (M3 Fase 2a Gate Clarification)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`) **completed** for the M3 Fase 2 scope gate (the "M2 gate"). No source code was touched (persona boundary). Next is `/sdlc-draft-prd` in a NEW session to amend the PRD to v1.1, then `/sdlc-define-specs`.
+- **Active Artifacts:**
+  - `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` — Status: ✅ Written (Readiness Score **79/100**, capped by Critical Flaw Veto from a raw 82; projected 88 after remediation). 95 lines, template-compliant.
+  - `CONTEXT.md` (repo root) — Status: ✅ Created for the first time (33 lines, 6 canonical terms, 1:1 `_Avoid_:` lines).
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — Status: 🔄 Drafted v1.0, NOT yet amended; line 41 still declares Fase 2 a **Non-Goal** (this is the blocker).
+  - `spec/spec-design-m3-operational-inbox-fase1.md` + `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — unchanged (Fase 1, ends at TASK-014).
+  - `blueprint-m3-operational-inbox.md` — unchanged; its gate text (line 100, 117-120) is now **superseded** by decision K-01.
+- **Achieved Milestones:**
+  - Opened the M2 gate with a **narrow-atomicity** decision, grounded in verified code rather than the blueprint's claim.
+  - Ran a 9-question sequential clarification; the user answered the recommended option every time (A/A/A/C/A/A/A/A/A).
+  - Produced 3 blocker findings and 18 code-verification findings (F-01..F-18) with `file:line` evidence.
+  - Created `docs/audit/` on this branch (the folder did not exist before) and the repo's first `CONTEXT.md` (lazy creation, terms resolved this session only).
+
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Accept the blueprint/spec claim "ownership is application-level, not atomic" and design a general state-consistency fix (Q1 option B).
+  - **Reason:** The claim is **stale for the take path** — `Inbox::ambilPercakapan()` (`app/Controllers/Inbox.php:1069-1097`, docblock 1029-1040) already performs a conditional `UPDATE ... WHERE assigned_to IS NULL` + `affectedRows()` → 409 without application locking. A general redesign would also violate `docs/ARCHITECTURE.md` §12.
+  - **Note:** Any future "M2 is required for atomicity" statement must name **which** path is non-atomic; F-02 lists the 5 that still are (`lepas` :1137, `tutup` :1254, `snooze` :1203, `tandaiDibaca` :1170, `hapus` :1002).
+  - **Attempted:** Look up the M3 baseline documents to derive Fase 2 behavior.
+  - **Reason:** `Panduan_Layar_AuliaPos_M3.md` and `status-proyek-master.md` were **never added to git in any branch or tag** (`git log --all --diff-filter=A --name-only`) although `blueprint` line 5, `spec` line 13 and `spec` §1.1 cite them as the basis. Fase 2 behavior must come from recorded decisions, never from those files.
+  - **Attempted:** Read `docs/adr/0001-reuse-response-state-for-queue-view-status.md` on the active branch.
+  - **Reason:** `docs/adr/` does not exist there; it lives only on `v2.2`. Read it read-only with `git show v2.2:<path>`.
+- **Updated Files:**
+  - `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` — new.
+  - `CONTEXT.md` — new (repo root).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only; no history removed).
+  - Repo-root `memory.instructions.md` (the M3 handoff note, **not** skill-managed) — deliberately left untouched; still uncommitted from the prior session.
+
+- **Decisions Made:**
+  - **K-01** Gate M2 opened **narrowly**: expected-owner conditional write (`WHERE id = ? AND assigned_to = :expected` → `affectedRows() === 0` = 409, ownership never overwritten), reused from the existing Ambil primitive. M2 as a program stays **deferred**; Spec 2a must say this explicitly and must not expand into a general consistency redesign.
+  - **K-02** PRD must be amended to **v1.1**: Fase 2 out of §2.3 Non-goals, new user stories GH-006 (Handoff), GH-007 (Collision detection), GH-008 (Auto-assignment), §9.2 synced.
+  - **K-03** Spec 2a = **Handoff + Collision Detection**; Auto-assignment split out to **Fase 2b**.
+  - **K-04** Collision Detection = **write-time conflict only** (409 + name of the lawful owner); **Presence** deferred with a named precondition.
+  - **K-05** Handoff recorded **only** in a new `conversation_handoffs` table (DB group `inbox`, additive migration), English snake_case columns (`summary`, `next_action`, `note`), indexes `(conversation_id, created_at)` + `to_user_id`, **no cross-DB FK** to `users`; the `messages` thread is untouched, so REQ-009 stays safe.
+  - **K-06** Two identity columns: `from_user_id` (nullable previous owner) + `initiated_by_user_id` (NOT NULL, always from session).
+  - **K-07** Handoff allowed on **every tab except `selesai`**; the rule collapses to `queue_status !== 'selesai'`.
+  - **K-08** **No notification** in 2a; notification/unread-per-user deferred; the accepted operational risk (offline target may not notice) is recorded, mitigations are procedural.
+  - **K-09** HTTP contract: `403` not permitted, `409` lost the race (idempotency for free), `400` validation; `summary`/`next_action`/`note` max 4096; success body mirrors `tutupPercakapan()` :1263-1268.
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-draft-prd` to amend the PRD to v1.1 (K-02), then run the 3-step Remediation Sequence and append `REMEDIATION STATUS: RESOLVED` to the clarification report.
+  - **Then NEW session:** `/sdlc-define-specs` for M3 Fase 2a. Do NOT implement before the Spec and Plan are approved.
+  - `docs/adr/` must be restored on the active branch (ADR-0001 is missing) plus one new ADR for the expected-owner conditional write (triple gate passes).
+  - Open items: `CONTEXT.md` and `docs/audit/` are **untracked** (a commit was offered but the user chose the memory checkpoint instead); repo-root `memory.instructions.md` is still modified and uncommitted; `AGENTS.md` still points documentation standards at the stale `.agents/standards/` (real path `.claude/standards/`); this memory file still has **no Knowledge Base zone**, so a future Compaction Mode run should create it.
+  - AGENTS.md `## Memory Configuration` already records the correct active path → no recording offer needed.
+
+<!-- checkpoint-tail: M3 Fase 2 gate opened narrowly (expected-owner conditional write, M2 stays deferred) via a 9-question clarification; report at docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md scored 79/100 (Critical Flaw Veto because the PRD still lists Fase 2 as a Non-Goal); CONTEXT.md created; next is /sdlc-draft-prd to amend the PRD to v1.1. -->
+
+---
+
