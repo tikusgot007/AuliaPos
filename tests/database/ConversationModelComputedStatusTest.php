@@ -198,7 +198,8 @@ final class ConversationModelComputedStatusTest extends CIUnitTestCase
         $this->assertArrayHasKey('queue_status', $result[0]);
         $this->assertSame('perlu_dibalas', $result[0]['response_state']);
         $this->assertSame('belum_diambil', $result[0]['queue_status']);
-        $this->assertSame($input, [$result[0]] ? array_intersect_key($result[0], $input[0]) : []);
+        $this->assertArrayNotHasKey('response_state', $input[0]);
+        $this->assertArrayNotHasKey('queue_status', $input[0]);
     }
 
 }
