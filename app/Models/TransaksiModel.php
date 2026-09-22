@@ -423,6 +423,11 @@ class TransaksiModel extends Model
                     */
                         $db->transRollback();
 
+                        if ($noOrderLockAcquired && $noOrderLockName !== null) {
+                            $db->query('SELECT RELEASE_LOCK(?)', [$noOrderLockName]);
+                            $noOrderLockAcquired = false;
+                        }
+
                         /*
                     | Buat kode invoice baru.
                     */
