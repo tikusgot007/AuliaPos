@@ -258,3 +258,21 @@ Edge case eksplisit yang harus ditangani implementasi (dari sesi clarification):
 - `docs/adr/0001-reuse-response-state-for-queue-view-status.md`
 - `docs/CHAT.md`, `docs/TODO-CHAT.md`
 - `blueprint-m3-operational-inbox.md`, `Panduan_Layar_AuliaPos_M3.md`, `status-proyek-master.md` (dokumen sumber, di luar repo)
+
+## 15. PRD Traceability
+
+The product-level requirements are documented in `prd-20260922-0141-chat-whatsapp-inbox.md`. This technical specification is the implementation contract for the M3 Operational Inbox portion of that PRD.
+
+| PRD area | Technical specification coverage |
+| --- | --- |
+| Queue View | REQ-001 to REQ-004; AC-001 to AC-002 |
+| Conversation Detail | REQ-005 |
+| Snooze | REQ-006 and REQ-011 |
+| Internal Note | REQ-007 to REQ-009; AC-003 to AC-004; AC-007 |
+| SLA indicator | REQ-010; AC-005 to AC-006 |
+| Filter & Search | REQ-012 and Section 4.4 |
+| Gateway changes | Explicitly out of scope; covered separately by the M1 Gateway specification |
+| M3 Phase 2 / AI / full Customer Context | Explicitly out of scope per Section 1.1 |
+
+The M1 reliability requirements in the PRD remain governed by the separate `spec/spec-process-m1-wave1-incoming-reliability.md`; they are not duplicated here.
+
