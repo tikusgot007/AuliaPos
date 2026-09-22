@@ -55,6 +55,7 @@ Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi 
 | CL-003 | **Jika `status` dan `q` dipakai bersama, keduanya harus berlaku sekaligus (AND).** Contoh `status=open&q=Budi` hanya menampilkan conversation yang statusnya `open` dan cocok dengan pencarian `Budi`. | Bagian 4.4 menetapkan kombinasi filter sebagai satu request; implementasi tidak boleh memperlakukan `q` sebagai pencarian terpisah. |
 | CL-004 | **Semua staff yang login boleh melihat semua conversation.** Ownership tidak membatasi visibility; ownership hanya membatasi aksi yang memang mensyaratkannya (mis. balas/snooze/hapus sesuai aturan existing). | Kontrak visibility Queue View dan daftar conversation ditetapkan sebagai shared inbox untuk semua staff login. |
 | CL-005 | **Jika pencarian/filter tidak menemukan hasil, endpoint tetap mengembalikan HTTP 200 dengan hasil kosong `[]`.** Ini bukan kondisi `404`. | Perilaku empty result ditetapkan sebagai hasil normal dari filter/pencarian. |
+| CL-006 | **Alasan Snooze maksimal 4096 karakter**, sama dengan batas panjang Internal Note. Jika melebihi batas, request ditolak `400` dan perubahan Snooze tidak dilakukan. | Batas validasi alasan ditetapkan di kontrak Snooze Fase 1b. |
 
 ## 2. Definitions
 
@@ -252,6 +253,7 @@ public function catatanInternal($conversationId = null)
 
 Edge case eksplisit yang harus ditangani implementasi (dari sesi clarification):
 - Snooze tanpa alasan (Fase 1a) — field Alasan tidak ada, jangan kirim `null`/string kosong ke endpoint yang belum ada di Fase 1a.
+- Alasan Snooze (Fase 1b) — maksimal **4096 karakter**; lebih dari itu ditolak dengan HTTP 400 dan Snooze tidak boleh tersimpan sebagian.
 - Staff bukan admin, bukan assignee, menulis Internal Note ke conversation yang di-assign orang lain → tetap 200 (SEC-001), beda hasil dari `cekOwnership()` yang akan menolak aksi balas/hapus/snooze di conversation yang sama.
 - Conversation baru tanpa `last_message_direction` sama sekali (fallback `attachResponseState()` baris ~483-487) → `withComputedStatus()` harus mewarisi fallback yang sama (`perlu_dibalas` → `belum_diambil`/`open` tergantung `assigned_to`), bukan crash/nilai kosong.
 - Internal Note ditulis pada conversation berstatus `closed` (Response State `selesai`) → request tetap 200, tidak ditolak karena status. Endpoint ini tidak mengecek status conversation sama sekali di luar cek "conversation ditemukan" (404).
