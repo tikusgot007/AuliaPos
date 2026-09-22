@@ -831,6 +831,74 @@ class Inbox extends BaseController
         ]);
     }
 
+
+    /**
+     * POST /inbox/percakapan/(:num)/catatan
+     *
+     * Simpan catatan internal staff ke conversation tanpa mengirim
+     * apa pun ke Gateway dan tanpa mengubah denormalized last-message
+     * fields di conversations. Endpoint ini sengaja tidak memakai
+     * cekOwnership(): semua staff yang sudah login boleh menulis note.
+     */
+    public function catatanInternal($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $text = trim((string) ($this->request->getPost('teks') ?? ''));
+
+        if ($text === '') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Teks catatan tidak boleh kosong.',
+            ]);
+        }
+
+        if (strlen($text) > 4096) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Teks catatan terlalu panjang (maksimal 4096 karakter).',
+            ]);
+        }
+
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+        $userId = (int) session()->get('id_user');
+
+        $messageModel = new MessageModel();
+        $messageModel->insert([
+            'conversation_id'   => $conversationId,
+            'wa_message_id'     => 'internal-' . $conversationId . '-' . bin2hex(random_bytes(8)),
+            'direction'         => 'outgoing',
+            'message_type'      => 'text',
+            'sender_jid'        => null,
+            'text'              => $text,
+            'message_timestamp' => $now,
+            'sent_by_user_id'   => $userId,
+            'send_status'       => 'sent',
+            'is_internal'       => true,
+        ]);
+
+        $messageId = $messageModel->getInsertID();
+        $message = $messageModel->find($messageId);
+        $message = $this->attachSenderNames([$message])[0];
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'          => 'success',
+            'conversation_id' => $conversationId,
+            'message'         => $message,
+        ]);
+    }
+
+
     /**
      * POST /inbox/percakapan/(:num)/hapus
      *
