@@ -33,10 +33,10 @@ Asumsi: seluruh kerja ini dibangun di atas branch turunan `v2.2` (bukan `v2.1`/`
 
 ## 1.2 Open Questions & Assumptions
 
-Semua ambiguitas mayor sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-2026-09-20.md`). Ketiga asumsi teknis minor yang sebelumnya ditandai `[!WARNING]` sudah digali eksplisit ke user dan **dikonfirmasi final** lewat sesi klarifikasi kedua (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md`, Readiness Score 87/100):
+> [!NOTE]\n> **Klarifikasi berjalan — keputusan dicatat langsung di Blueprint M3.** Setiap keputusan baru pada sesi clarification wajib ditulis di dokumen ini agar tidak dibahas ulang.\n\nSemua ambiguitas mayor sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-2026-09-20.md`). Ketiga asumsi teknis minor yang sebelumnya ditandai `[!WARNING]` sudah digali eksplisit ke user dan **dikonfirmasi final** lewat sesi klarifikasi kedua (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md`, Readiness Score 87/100):
 
 > [!IMPORTANT]
-> **ASSUMPTION-001 — CONFIRMED:** Filter & Pencarian (Layar 7, Fase 1b) ditambahkan sebagai parameter query string baru di `GET /inbox/api/conversations` (`Inbox::apiConversations()`) — bukan endpoint baru. Query final: `?status=<tab>&q=<keyword nama/nomor>`. Mekanisme: **filter-after-fetch** di PHP (bukan `WHERE` SQL per tab yang menerjemahkan ulang kondisi `attachResponseState()`, untuk menghindari duplikasi logic sesuai REQ-002). Limit `findAll()` pada `apiConversations()` dinaikkan dari `100` menjadi **`500`** (konsisten dengan limit yang sudah dipakai `apiPerluDibalasCount()`/`apiMessages()` di controller yang sama) supaya filter tab dengan `last_message_at` lama (mis. "Selesai") tidak kehilangan data. Parameter `q` memakai `LIKE '%q%'` mentah terhadap `contact_name`/`phone`, tanpa normalisasi format nomor telepon. Detail lengkap: lihat Bagian 4.4.
+> **ASSUMPTION-001 — CONFIRMED:** Filter & Pencarian (Layar 7, Fase 1b) ditambahkan sebagai parameter query string baru di `GET /inbox/api/conversations` (`Inbox::apiConversations()`) — bukan endpoint baru. Query final: `?status=<tab>&q=<keyword nama/nomor>`. **Kontrak pencarian tidak boleh dibatasi hanya pada conversation terbaru atau limit tetap tertentu**: ketika `q` diberikan, hasil harus dapat menemukan conversation yang sesuai di seluruh dataset conversation yang relevan, termasuk conversation lama. Mekanisme teknis boleh menggunakan query DB/pagination/index atau cara lain yang tetap memenuhi kontrak ini; Blueprint tidak mengunci implementasi internal. Parameter `q` memakai pencarian terhadap `contact_name` atau `phone`, tanpa normalisasi format nomor telepon. Detail lengkap: lihat Bagian 4.4.
 
 > [!IMPORTANT]
 > **ASSUMPTION-002 — CONFIRMED:** SLA warna (Bagian 5) dihitung **hanya untuk conversation yang statusnya bukan `selesai` dan bukan `follow_up` (snoozed)** — snoozed conversation sengaja tidak diberi warna SLA merah/kuning karena secara desain memang "ditunda dengan sengaja", bukan terlambat. Dikonfirmasi eksplisit bahwa Response State `menunggu_customer` **tetap ikut** dihitung warna SLA (sesuai AC-005 apa adanya) — SLA di sini mengukur usia percakapan sejak `last_message_at`, bukan spesifik kecepatan respons staff, sehingga warna pada tab "Menunggu" berfungsi sebagai reminder follow-up manual ke customer yang lama tidak merespons.
@@ -45,6 +45,12 @@ Semua ambiguitas mayor sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` (lihat
 > **ASSUMPTION-003 — CONFIRMED:** Kolom `is_internal` pada `messages` diberi `default => false` dan **tidak nullable**. Justifikasi dikoreksi dari draf awal: klaim "konsisten dengan pola boolean lain di skema Inbox" tidak akurat — verifikasi ke `2026-09-07-000001_CreateInboxTables.php` dan `2026-09-19-000001_AddResponseStateFoundation.php` menunjukkan **tidak ada satu pun kolom `BOOLEAN`** di skema Inbox sampai saat ini. Preseden yang benar adalah pola `tinyint(1) NOT NULL DEFAULT ...` (`is_locked`, `aktif`) di modul POS (`2026-09-08-000001_CreateAuliaPosCore.php`). Kesimpulan (`NOT NULL DEFAULT FALSE`) tetap valid atas dasar ini. Baris lama (sebelum migration) otomatis terisi `false` lewat default kolom saat `ADD COLUMN`, tidak perlu backfill manual.
 
 Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi kedua (di luar 3 ASSUMPTION di atas), dua hal berikut juga sudah diresolusi dan tercermin di Bagian 3/4.3/12: (a) endpoint Internal Note diizinkan ditulis pada conversation berstatus `closed` tanpa pembatasan tambahan; (b) REQ-009 direvisi karena `conversations.last_message_at`/`last_message_direction` adalah kolom denormalized yang di-`update()` manual di titik insert pesan (bukan hasil query agregasi) — lihat REQ-009 dan Bagian 12.
+
+### 1.2.1 Decision Log — hasil klarifikasi sesi berjalan
+
+| ID | Keputusan | Dampak pada Blueprint |
+|---|---|---|
+| CL-001 | **Search `q` harus mencari seluruh conversation yang relevan, bukan hanya 500 terbaru.** Cara teknisnya boleh berubah/dioptimalkan setelah sistem berjalan. | ASSUMPTION-001 dan Bagian 4.4 direvisi; tidak ada kontrak bisnis `limit=500` untuk search. |
 
 ## 2. Definitions
 
@@ -120,11 +126,10 @@ Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
 - `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View.
 - `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default).
 
-**Mekanisme (filter-after-fetch):**
-1. Query dasar tetap satu `SELECT` (`orderBy('last_message_at', 'DESC')`), **limit dinaikkan dari `findAll(100)` menjadi `findAll(500)`** — konsisten dengan limit yang sudah dipakai `apiPerluDibalasCount()`/`apiMessages()` pada controller yang sama.
-2. `attachResponseState()` dan `withComputedStatus()` (4.2) dijalankan seperti biasa atas seluruh 500 baris.
-3. Filter `status`/`q` diterapkan **setelah** langkah 2, di PHP — bukan sebagai `WHERE` SQL baru yang menerjemahkan ulang kondisi `attachResponseState()` (menghindari duplikasi logic, sesuai REQ-002).
-4. Alasan menaikkan limit ke 500 (bukan tetap 100): filter-after-fetch berisiko kehilangan data untuk tab dengan `last_message_at` yang cenderung lama (mis. "Selesai") kalau 100 baris teratas didominasi conversation aktif; limit 500 mengurangi risiko ini tanpa menambah query SQL baru.
+**Kontrak hasil:**
+1. `q` harus dapat menemukan conversation yang cocok di seluruh dataset yang relevan, termasuk conversation lama; tidak boleh ada batas implisit "hanya N conversation terbaru" sebagai bagian dari kontrak bisnis M3.
+2. `status` tetap memfilter menggunakan `queue_status` hasil `withComputedStatus()`, bukan menduplikasi logika status di tempat lain.
+3. Cara teknis mencapai kontrak tersebut (query SQL, pagination, index, filter-after-fetch, atau kombinasi) boleh dipilih saat implementasi dan **tidak dikunci oleh Blueprint** selama hasil pencarian lengkap dan tidak menduplikasi sumber computed status.
 
 Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b) `sla_color` (`hijau|kuning|merah|null`, `null` untuk `selesai`/`ditunda`; **`menunggu_customer` tetap dihitung** — lihat ASSUMPTION-002 — CONFIRMED).
 
