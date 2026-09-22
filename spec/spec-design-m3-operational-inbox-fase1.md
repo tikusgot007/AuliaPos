@@ -54,6 +54,7 @@ Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi 
 | CL-002 | **`status` yang tidak termasuk 5 status Queue View harus ditolak dengan HTTP `400 Bad Request`.** Tidak boleh diam-diam diabaikan sebagai tanpa filter. | Bagian 4.4 menetapkan `status` sebagai enum; implementasi wajib memvalidasi nilai dan mengembalikan `400` untuk nilai lain. |
 | CL-003 | **Jika `status` dan `q` dipakai bersama, keduanya harus berlaku sekaligus (AND).** Contoh `status=open&q=Budi` hanya menampilkan conversation yang statusnya `open` dan cocok dengan pencarian `Budi`. | Bagian 4.4 menetapkan kombinasi filter sebagai satu request; implementasi tidak boleh memperlakukan `q` sebagai pencarian terpisah. |
 | CL-004 | **Semua staff yang login boleh melihat semua conversation.** Ownership tidak membatasi visibility; ownership hanya membatasi aksi yang memang mensyaratkannya (mis. balas/snooze/hapus sesuai aturan existing). | Kontrak visibility Queue View dan daftar conversation ditetapkan sebagai shared inbox untuk semua staff login. |
+| CL-005 | **Jika pencarian/filter tidak menemukan hasil, endpoint tetap mengembalikan HTTP 200 dengan hasil kosong `[]`.** Ini bukan kondisi `404`. | Perilaku empty result ditetapkan sebagai hasil normal dari filter/pencarian. |
 
 ## 2. Definitions
 
@@ -127,6 +128,7 @@ Tidak melalui `cekOwnership()` (lihat SEC-001). Insert ke `messages` dengan `is_
 
 Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
 - `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View. **Nilai selain enum tersebut wajib ditolak dengan HTTP 400.**
+- Bila filter `status`/`q` valid tetapi tidak ada conversation yang cocok, response tetap **HTTP 200** dengan array hasil kosong `[]`.
 - `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default).
 
 **Kontrak hasil:**
