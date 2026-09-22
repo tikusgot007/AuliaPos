@@ -6,11 +6,14 @@
 // tests/unit/InboxResponseStateManualTest.php`).
 
 namespace CodeIgniter {
-    class Controller {}
+    if (!class_exists(Controller::class)) {
+        class Controller {}
+    }
 }
 
 namespace {
-    require __DIR__ . '/../../app/Controllers/BaseController.php';
+    if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+        require __DIR__ . '/../../app/Controllers/BaseController.php';
     require __DIR__ . '/../../app/Controllers/Inbox.php';
 
     $ref = new ReflectionClass(\App\Controllers\Inbox::class);
@@ -110,5 +113,6 @@ namespace {
     check('Skenario 4: balas via kirimMedia', 'menunggu_customer', $result4[0]['response_state'], $pass, $fail);
 
     echo "\n== $pass PASS, $fail FAIL ==\n";
-    exit($fail > 0 ? 1 : 0);
+        exit($fail > 0 ? 1 : 0);
+    }
 }
