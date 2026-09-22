@@ -36,7 +36,7 @@ class Inbox extends BaseController
     public function index()
     {
         $conversationModel = new ConversationModel();
-        $conversations = $this->attachResponseState($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(500)));
+        $conversations = $this->attachResponseState($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll()));
 
         $gatewayStatusModel = new GatewayStatusModel();
         $gatewayStatus = $this->buildGatewayStatusPayload($gatewayStatusModel);
@@ -65,7 +65,7 @@ class Inbox extends BaseController
         $conversationModel = new ConversationModel();
         $conversations = $conversationModel
             ->orderBy('last_message_at', 'DESC')
-            ->findAll(500);
+            ->findAll();
 
         $conversations = $this->attachResponseState($this->attachAssignedNames($conversations));
 
@@ -156,7 +156,7 @@ class Inbox extends BaseController
         $conversations = $conversationModel
             ->select('status, last_message_direction, last_message_at, last_seen_by_assignee_at, snoozed_until')
             ->where('status', 'open')
-            ->findAll(500);
+            ->findAll();
 
         $conversations = $this->attachResponseState($conversations);
         $count = count(array_filter($conversations, fn ($c) => $c['response_state'] === 'perlu_dibalas'));
