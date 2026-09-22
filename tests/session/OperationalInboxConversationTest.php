@@ -95,6 +95,89 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
         $this->assertNotSame($belum, (int) $data['conversations'][0]['id']);
     }
 
+    public function testApiPayloadMemuatKelimaQueueStatusTanpaDuplikasi(): void
+    {
+        $ids = [
+            'belum_diambil' => $this->seedConversation([
+                'assigned_to' => null,
+                'last_message_direction' => 'incoming',
+                'last_seen_by_assignee_at' => null,
+            ]),
+            'open' => $this->seedConversation([
+                'assigned_to' => 7,
+                'last_message_direction' => 'incoming',
+                'last_seen_by_assignee_at' => null,
+            ]),
+            'menunggu' => $this->seedConversation([
+                'assigned_to' => 7,
+                'last_message_direction' => 'outgoing',
+                'last_seen_by_assignee_at' => null,
+            ]),
+            'ditunda' => $this->seedConversation([
+                'assigned_to' => 7,
+                'last_message_direction' => 'incoming',
+                'last_seen_by_assignee_at' => null,
+                'snoozed_until' => '2099-01-01 00:00:00',
+            ]),
+            'selesai' => $this->seedConversation([
+                'status' => 'closed',
+                'assigned_to' => 7,
+                'last_message_direction' => 'outgoing',
+            ]),
+        ];
+
+        $res = $this->withSession($this->sesi())
+            ->get('inbox/api/conversations');
+
+        $res->assertOK();
+        $data = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame('success', $data['status']);
+
+        $queueById = [];
+        foreach ($data['conversations'] as $conversation) {
+            $id = (int) $conversation['id'];
+            if (in_array($id, $ids, true)) {
+                $queueById[$id] = $conversation['queue_status'];
+            }
+        }
+
+        foreach ($ids as $expectedStatus => $id) {
+            $this->assertArrayHasKey($id, $queueById);
+            $this->assertSame($expectedStatus, $queueById[$id]);
+        }
+
+        $this->assertCount(5, array_unique(array_values($queueById)));
+    }
+
+    public function testApiStatusFilterDapatMenemukanConversationLamaDiLuarLatest500(): void
+    {
+        for ($i = 0; $i < 500; $i++) {
+            $this->seedConversation([
+                'last_message_at' => '2099-01-01 10:00:00',
+                'updated_at' => '2099-01-01 10:00:00',
+            ]);
+        }
+
+        $oldConversationId = $this->seedConversation([
+            'status' => 'closed',
+            'contact_name' => 'Conversation Lama',
+            'last_message_at' => '2020-01-01 10:00:00',
+            'updated_at' => '2020-01-01 10:00:00',
+        ]);
+
+        $res = $this->withSession($this->sesi())
+            ->get('inbox/api/conversations?status=selesai');
+
+        $res->assertOK();
+        $data = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame('success', $data['status']);
+        $this->assertCount(1, $data['conversations']);
+        $this->assertSame($oldConversationId, (int) $data['conversations'][0]['id']);
+        $this->assertSame('selesai', $data['conversations'][0]['queue_status']);
+    }
+
     public function testQFilterCocokContactNameDanPhone(): void
     {
         $byName = $this->seedConversation([
