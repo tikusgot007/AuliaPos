@@ -59,6 +59,7 @@ Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi 
 | CL-007 | **Nilai `q` yang setelah di-trim hanya berisi spasi dianggap kosong.** Sistem tidak menjalankan pencarian untuk nilai tersebut; hasil mengikuti filter `status` bila ada. | Input pencarian harus di-trim sebelum dipakai sebagai keyword. |
 | CL-008 | **Karakter `%` dan `_` pada `q` diperlakukan sebagai teks biasa, bukan wildcard SQL.** | Pencarian harus meng-escape wildcard tersebut sebelum menjalankan `LIKE`, sehingga keyword dicari apa adanya. |
 | CL-009 | **Panjang `q` maksimal 255 karakter.** Jika setelah trim panjangnya lebih dari 255 karakter, request ditolak dengan HTTP `400` dan tidak menjalankan pencarian. | Batas input pencarian ditetapkan eksplisit di kontrak API. |
+| CL-010 | **Hasil `GET /inbox/api/conversations` ditampilkan bertahap, 50 conversation per halaman.** Search `q` tetap berlaku ke seluruh dataset yang relevan; pagination hanya mengatur hasil yang dikirim per halaman. | Kontrak response perlu mendukung pagination; implementasi tidak boleh memotong search hanya ke 50/500 data terbaru. |
 
 ## 2. Definitions
 
@@ -137,8 +138,9 @@ Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
 
 **Kontrak hasil:**
 1. `q` harus dapat menemukan conversation yang cocok di seluruh dataset yang relevan, termasuk conversation lama; tidak boleh ada batas implisit "hanya N conversation terbaru" sebagai bagian dari kontrak bisnis M3.
-2. `status` tetap memfilter menggunakan `queue_status` hasil `withComputedStatus()`, bukan menduplikasi logika status di tempat lain.
-3. Cara teknis mencapai kontrak tersebut (query SQL, pagination, index, filter-after-fetch, atau kombinasi) boleh dipilih saat implementasi dan **tidak dikunci oleh Blueprint** selama hasil pencarian lengkap dan tidak menduplikasi sumber computed status.
+2. Hasil dikirim **50 conversation per halaman**. Pagination mengatur hasil yang dikirim, bukan membatasi dataset yang dicari.
+3. `status` tetap memfilter menggunakan `queue_status` hasil `withComputedStatus()`, bukan menduplikasi logika status di tempat lain.
+4. Cara teknis mencapai kontrak tersebut (query SQL, pagination, index, filter-after-fetch, atau kombinasi) boleh dipilih saat implementasi dan **tidak dikunci oleh Blueprint** selama hasil pencarian lengkap dan tidak menduplikasi sumber computed status.
 
 Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b) `sla_color` (`hijau|kuning|merah|null`, `null` untuk `selesai`/`ditunda`; **`menunggu_customer` tetap dihitung** — lihat ASSUMPTION-002 — CONFIRMED).
 
