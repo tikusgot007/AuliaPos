@@ -63,6 +63,7 @@ Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi 
 | CL-011 | **Pagination menggunakan parameter `page`, dimulai dari `page=1`.** | Endpoint `GET /inbox/api/conversations` harus mendukung pagination berbasis halaman; implementasi tidak memakai `offset` sebagai kontrak publik. |
 | CL-012 | **Nilai `page` harus bilangan bulat positif mulai dari `1`.** `page=0`, nilai negatif, atau nilai yang bukan angka valid ditolak dengan HTTP `400`. | Validasi parameter pagination wajib dilakukan di API sebelum query diproses. |
 | CL-013 | **Jika `page` valid tetapi tidak ada data pada halaman tersebut, endpoint tetap mengembalikan HTTP `200` dengan hasil kosong `[]`.** | Halaman di luar jumlah data dianggap empty result normal, bukan `404` atau `400`. |
+| CL-014 | **Jika `last_message_at` kosong/null, `sla_color` harus `null`** dan conversation tidak diberi warna SLA. | SLA hanya dihitung bila timestamp pesan terakhir tersedia. |
 
 ## 2. Definitions
 
@@ -156,6 +157,7 @@ Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b)
 - **AC-004**: Given staff BUKAN assignee menulis Internal Note pada conversation yang di-assign staff lain, When request dikirim, Then request BERHASIL (200), tidak ditolak `cekOwnership()`.
 - **AC-005**: Given `last_message_at` = 20 menit lalu dan conversation berstatus `perlu_dibalas`/`menunggu_customer`, When SLA dihitung, Then warna = kuning.
 - **AC-006**: Given conversation berstatus `ditunda` (snoozed), When SLA dihitung, Then warna = `null` (tidak diwarnai merah/kuning) — sesuai ASSUMPTION-002.
+- **AC-008**: Given conversation `last_message_at = NULL`, When SLA dihitung, Then `sla_color = null`.
 - **AC-007**: Given staff mengisi field Alasan di Snooze Dialog (Fase 1b), When snooze disimpan, Then muncul 1 baris Internal Note baru berisi alasan tersebut, dan TIDAK ada kolom `snooze_reason` yang terisi (kolom itu tidak ada).
 
 ## 6. Test Automation Strategy & Testing Seams
