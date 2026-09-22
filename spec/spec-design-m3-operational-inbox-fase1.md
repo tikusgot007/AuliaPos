@@ -61,6 +61,7 @@ Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi 
 | CL-009 | **Panjang `q` maksimal 255 karakter.** Jika setelah trim panjangnya lebih dari 255 karakter, request ditolak dengan HTTP `400` dan tidak menjalankan pencarian. | Batas input pencarian ditetapkan eksplisit di kontrak API. |
 | CL-010 | **Hasil `GET /inbox/api/conversations` ditampilkan bertahap, 50 conversation per halaman.** Search `q` tetap berlaku ke seluruh dataset yang relevan; pagination hanya mengatur hasil yang dikirim per halaman. | Kontrak response perlu mendukung pagination; implementasi tidak boleh memotong search hanya ke 50/500 data terbaru. |
 | CL-011 | **Pagination menggunakan parameter `page`, dimulai dari `page=1`.** | Endpoint `GET /inbox/api/conversations` harus mendukung pagination berbasis halaman; implementasi tidak memakai `offset` sebagai kontrak publik. |
+| CL-012 | **Nilai `page` harus bilangan bulat positif mulai dari `1`.** `page=0`, nilai negatif, atau nilai yang bukan angka valid ditolak dengan HTTP `400`. | Validasi parameter pagination wajib dilakukan di API sebelum query diproses. |
 
 ## 2. Definitions
 
@@ -133,7 +134,7 @@ Tidak melalui `cekOwnership()` (lihat SEC-001). Insert ke `messages` dengan `is_
 ### 4.4 Endpoint diperluas — `GET /inbox/api/conversations` (Fase 1b)
 
 Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
-- `page` (opsional): nomor halaman, mulai dari `1`. Jika tidak diisi, gunakan `page=1`.
+- `page` (opsional): nomor halaman, mulai dari `1`. Jika tidak diisi, gunakan `page=1`. Nilai `page` yang bukan bilangan bulat positif (termasuk `0` atau negatif) wajib menghasilkan HTTP 400.
 - `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View. **Nilai selain enum tersebut wajib ditolak dengan HTTP 400.**
 - Bila filter `status`/`q` valid tetapi tidak ada conversation yang cocok, response tetap **HTTP 200** dengan array hasil kosong `[]`.
 - `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default). Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian. Karakter `%` dan `_` harus diperlakukan sebagai teks biasa, bukan wildcard.- `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default). Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian. Karakter `%` dan `_` harus diperlakukan sebagai teks biasa, bukan wildcard. Panjang `q` maksimal 255 karakter; nilai yang lebih panjang wajib menghasilkan HTTP 400.
