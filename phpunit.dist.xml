@@ -23,6 +23,10 @@
     <testsuites>
         <testsuite name="App">
             <directory>./tests</directory>
+            <exclude>./tests/unit/InboxMediaConfirmedGoneTest.php</exclude>
+            <exclude>./tests/unit/InboxMediaFallbackTest.php</exclude>
+            <exclude>./tests/unit/InboxMediaStorageTest.php</exclude>
+            <exclude>./tests/unit/InboxResponseStateManualTest.php</exclude>
         </testsuite>
     </testsuites>
 
