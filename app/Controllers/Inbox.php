@@ -8,6 +8,7 @@ use App\Models\GatewayStatusModel;
 use App\Models\UserModel;
 use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
+use App\Services\InboxSlaService;
 use Config\Inbox as InboxConfig;
 
 /**
@@ -35,7 +36,7 @@ class Inbox extends BaseController
     public function index()
     {
         $conversationModel = new ConversationModel();
-        $conversations = $this->attachResponseState($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(100)));
+        $conversations = $this->attachResponseState($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(500)));
 
         $gatewayStatusModel = new GatewayStatusModel();
         $gatewayStatus = $this->buildGatewayStatusPayload($gatewayStatusModel);
@@ -62,7 +63,41 @@ class Inbox extends BaseController
     public function apiConversations()
     {
         $conversationModel = new ConversationModel();
-        $conversations = $this->attachResponseState($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll(100)));
+        $conversations = $conversationModel
+            ->orderBy('last_message_at', 'DESC')
+            ->findAll(500);
+
+        $conversations = $this->attachResponseState($this->attachAssignedNames($conversations));
+
+        $slaService = new InboxSlaService();
+        foreach ($conversations as &$conversation) {
+            $conversation['sla_color'] = $slaService->hitung(
+                $conversation['last_message_at'] ?? null,
+                $conversation['queue_status'] ?? 'selesai'
+            );
+        }
+        unset($conversation);
+
+        $status = trim((string) ($this->request->getGet('status') ?? ''));
+        $q = trim((string) ($this->request->getGet('q') ?? ''));
+
+        if ($status !== '') {
+            $conversations = array_values(array_filter(
+                $conversations,
+                static fn (array $conversation): bool =>
+                    ($conversation['queue_status'] ?? null) === $status
+            ));
+        }
+
+        if ($q !== '') {
+            $needle = $q;
+            $conversations = array_values(array_filter(
+                $conversations,
+                static fn (array $conversation): bool =>
+                    str_contains((string) ($conversation['contact_name'] ?? ''), $needle)
+                    || str_contains((string) ($conversation['phone'] ?? ''), $needle)
+            ));
+        }
 
         return $this->response->setJSON([
             'status'        => 'success',
@@ -94,6 +129,11 @@ class Inbox extends BaseController
 
         $messageModel = new MessageModel();
         $messages = $this->attachSenderNames($messageModel->getByConversation($conversationId, 500));
+
+        foreach ($messages as &$message) {
+            $message['is_internal'] = (bool) ($message['is_internal'] ?? false);
+        }
+        unset($message);
 
         return $this->response->setJSON([
             'status'       => 'success',
