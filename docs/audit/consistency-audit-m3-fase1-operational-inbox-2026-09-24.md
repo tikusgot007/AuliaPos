@@ -1,5 +1,12 @@
 <!-- markdownlint-disable -->
 
+> [!SUCCESS]
+> **REMEDIATION STATUS: PARTIALLY RESOLVED (Plan scope only)**
+> This audit report has been remediated by Planner Architect on 2026-09-24 in `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.1.
+> - **Resolved in the Plan:** MC-01..03 (new Phase 3: TASK-015 Internal Note input, TASK-016 SLA Timer dot, TASK-017 search box, TASK-018 VERIFY, TASK-019 APPROVAL). CT-01 (TASK-001..011 ticked with code evidence, `status` back to `In progress`). CT-02 on the Plan side (TASK-011, TASK-013, ASSUMPTION-001, RISK-002, TEST-003 no longer say `findAll(500)`).
+> - **Still open (outside Plan scope):** CT-02 in Spec §9, CT-03 (Spec §4.3), the REQ-012 AC and screen-level ACs in the Spec (`/sdlc-define-specs`). ST-03 PRD §9.2 (`/sdlc-draft-prd`). ST-01/ST-02 (Fase 2a plans). All Minor Gaps.
+> - **Projected Readiness Score:** 78/100 (Completeness 33/40, Clarity 23/30, Alignment 22/30). The Critical Flaw Veto is lifted at plan level: GH-002 now has an owning task. It stays true in the running app until TASK-015 is coded.
+
 # 🔍 Consistency Audit Report [Review Iteration 1]
 
 **Date:** 2026-09-24 · **Scope:** M3 Fase 1 (Operational Inbox) after PR #41 merged into `v2.3`
