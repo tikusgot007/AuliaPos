@@ -1481,3 +1481,34 @@
 <!-- checkpoint-tail: REFINE step 1 done (plan NG-02/NG-03 fixed, projected 91/100); next is /sdlc-draft-prd for ST-03 + GH-001..004 + glossary terms. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (REFINE step 2: PRD v1.2 + v1.3 full search)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** PRD remediation done (REFINE step 2 of 4) + new PRD requirement (full search) → next is REFINE step 3 (`/sdlc-define-specs`) and a separate `/sdlc-plan-tasks` for ST-01/ST-02.
+- **Active Artifacts:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — v1.3.
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — new `PARTIALLY RESOLVED (PRD scope, REFINE step 2)` block; projected 94/100 (C 38, Cl 28, A 28).
+- **Achieved Milestones:**
+  - PRD v1.2: §9.2 synced (Fase 1a/1b merged via PR #41; new Fase 1c row; Fase 2a Spec v1.2 + code + review done, plan status sync pending). GH-001..004 ticked with evidence note. Terms "catatan internal" → Internal Note, "indikator/warna prioritas" → SLA Timer.
+  - PRD v1.3: new GH-009 (Fase 1d: search every name/number shown in the list incl. WhatsApp profile name, closes NG-01/TODO-SEARCH-01) and GH-010 (Fase 1e: search message text: customer, staff, Internal Note; matching snippet under the name). Updated §2.2, §2.3, §4, §5.2, §5.3, §8.3, §9.2, §10.
+- **Dead-Ends (Do NOT Repeat):**
+  - None.
+- **Updated Files:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — v1.2 + v1.3.
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — remediation block + NG-01 decision.
+- **Decisions Made:**
+  - Owner use case: order done, nota says "Saerah" (named in chat), saved contact is "Jamet" (her employee) → search must cover message text.
+  - Q2 A: all names/numbers shown in the list are searchable. Q3 A: customer + staff + Internal Note messages searchable. Q4 A: snippet under the name; Internal Note snippet labelled "Internal"; one row per conversation, newest matching snippet.
+  - Deferred (PRD §2.3): Opsi B jump-to-message (owner: "cukup A dulu"); search by POS nota/transaction data → M4.
+  - GH-010 performance target ≤ 3 detik (owner did not object; can be revised in Spec/clarify).
+  - Order: Fase 1d first (small, Spec only), then Fase 1e (run `/sdlc-clarify-reqs` on GH-010 before its Spec).
+- **Next Action / Pending:**
+  - Session A: `/sdlc-define-specs` — GH-009 contract (NG-01), NG-04 (literal `\n` §1.2), NG-05 ("4096 byte").
+  - Session B: `/sdlc-plan-tasks` — ST-01/ST-02 sync both Fase 2a plans with merged code.
+  - Later: `/sdlc-clarify-reqs` GH-010 (Fase 1e); final `/sdlc-audit-consistency`.
+  - Still pending: NIT STD-03, FYI STD-04; check WA Gateway `data/` before moving the gateway.
+
+<!-- checkpoint-tail: PRD v1.3 done (status synced, GH-001..004 ticked, terms aligned, new GH-009 name/number search + GH-010 message-text search with snippet); next: /sdlc-define-specs for GH-009 + NG-04/05, and /sdlc-plan-tasks for ST-01/ST-02. -->
+
+---
