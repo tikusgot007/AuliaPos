@@ -658,8 +658,8 @@
     selector; phpunit piped through PowerShell is the slow part.
 
 - **Updated Files:**
-  - `docs/audit/code-review-m3-fase2a-2026-09-23.md` — new review report artifact (untracked).
-  - `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — new refactoring plan artifact (untracked).
+  - `docs/audit/code-review-m3-fase2a-2026-09-23.md` — new review report artifact (committed in `811221d`).
+  - `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — new refactoring plan artifact (committed in `811221d`).
   - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
   - `git status --porcelain` shows **only those two untracked files** — no `app/`, `tests/`, or config file was modified.
 - **Decisions Made:**
@@ -675,8 +675,8 @@
     (TASK-101..TASK-109), run the VERIFY gate, then stop at TASK-110 for explicit approval.
   - **NEW session:** `/sdlc-clarify-reqs` for CR-03 (gate reading), CR-04 (fail-fast 409) and the still-open
     Plan-vs-Q2 admin question; those answers unblock Phase 2 (TASK-201..TASK-205).
-  - Both artifacts are uncommitted on `feature/m3-operational-inbox-fase1a-task001`; commit them (and offer a push) only
-    when the user asks.
+  - Both artifacts plus this checkpoint are committed and pushed as `811221d` on
+    `feature/m3-operational-inbox-fase1a-task001` (origin in sync, fast-forward `3968aa0..811221d`).
   - This memory file **still has no Knowledge Base zone** — the dead-end list has now survived four checkpoints
     (git-lock, PS range operator, `assertSee` signature, phpunit pipe, plus `php -r` quoting and the missing markdownlint
     CLI); a Compaction Mode run is overdue and should finally create the Knowledge Base zone.
