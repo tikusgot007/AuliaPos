@@ -960,11 +960,11 @@
   - AC-003 "tanpa identitas staff": the deliverOne contract has no staff field (CI4 sets `sent_by_user_id` NULL), so the assertion pins same key set as incoming + no staff-like key + `contact_name` null (own-account pushName not forwarded).
   - Floor-guard grep `xit(` also matches `process.exit(`; HEAD hits (7) are all `process.exit`, down from 13 because 3 files were deleted.
 - **Next Action / Pending:**
-  - **Push** `bf23d2f..fb585f1` to `origin/feature/stage-1-reliability` (user approved; blocked by permission classifier — user must allow or run `git -C C:\projects\WA-Gateway-m1 push origin feature/stage-1-reliability`).
+  - ✅ **Pushed** `bf23d2f..fb585f1` to `origin/feature/stage-1-reliability` (after user said "push"; origin = `fb585f1`).
   - Then user decision: PR `feature/stage-1-reliability` → `master`. Deploy to live folder is NOT part of this plan.
   - Not run: 6 pre-M1 scripts in `test/` (audio-video, identity-hint, lid-conversation, send-media, sticker, tmpdir-override) — outside the plan's 9-script list.
   - Backlog unchanged: CR-05..CR-11, CR-15, pino async `LOG_FOLDER` TODO; owner confirmation of deviation (b).
 
-<!-- checkpoint-tail: Refactor plan is COMPLETED — Phase 2 (CR-02/03/04/13/14/16) landed as 6 local commits on WA-Gateway feature/stage-1-reliability (bf23d2f..fb585f1: drain before isRunning, OWN_SENT_TTL_MS min 1, no null LID cache while disconnected, AC-003/007/008 asserts, 3 old tests removed with mapping, stale decision-log copy removed); 9/9 pass and 7 mutations caught; push is approved but was blocked by the permission classifier, then PR decision. -->
+<!-- checkpoint-tail: Refactor plan is COMPLETED — Phase 2 (CR-02/03/04/13/14/16) landed as 6 local commits on WA-Gateway feature/stage-1-reliability (bf23d2f..fb585f1: drain before isRunning, OWN_SENT_TTL_MS min 1, no null LID cache while disconnected, AC-003/007/008 asserts, 3 old tests removed with mapping, stale decision-log copy removed); 9/9 pass and 7 mutations caught; pushed to origin (fb585f1); next is the PR decision. -->
 
 ---
