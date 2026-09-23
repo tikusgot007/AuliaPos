@@ -1245,3 +1245,32 @@
 <!-- checkpoint-tail: Audit 2026-09-24 scored M3 Fase 1 at 66/100 because the Internal Note input, SLA colors and search exist in the API but not on the Inbox screen, and the plan is wrongly marked Completed; next step is /sdlc-plan-tasks to add the missing UI tasks. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (M3 Fase 1 plan rev 1.1, audit remediation)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Plan (post-audit remediation). Next: Spec fix.
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.1, Status: 🔄 In progress (Phase 3 open). Projected Readiness Score 78/100 (whole audit, not only the plan).
+  - `spec/spec-design-m3-operational-inbox-fase1.md` v1.0 — still needs CT-02 (§9 `findAll(500)`), CT-03 (§4.3 real contract: form field `teks`, response `{conversation_id, message}`, 4096 limit), AC for REQ-012 + screen-level ACs, duplicate `q` bullet in §4.4.
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 — §9.2 still stale.
+  - Both Fase 2a plans — still stale (ST-01/ST-02).
+- **Achieved Milestones:**
+  - Plan rev 1.1: TASK-001..011 ticked with file/line/commit evidence (all implemented 2026-09-22). TASK-006 marked "implied only" (no written Phase 1 approval found). TASK-009 notes AC-003 is tested only indirectly (via `last_message_direction` unchanged).
+  - New Phase 3 (Fase 1c, screen only, all in `app/Views/inbox/index.php`): TASK-015 Internal Note button + `#modalCatatanInternal` (all staff, all statuses, reuse `simpanAlasanSnooze()` fetch), TASK-016 SLA Timer dot from `c.sla_color` (null/missing = no dot), TASK-017 search box `#inputCariConversation` sending `q` through `ambilSemuaConversation()`, TASK-018 VERIFY (new `tests/session/OperationalInboxScreenTest.php` + manual browser checklist + `composer test`), TASK-019 APPROVAL.
+  - `findAll(500)` text removed from TASK-011, TASK-013, ASSUMPTION-001, RISK-002, TEST-003 (CT-02, plan side).
+  - Audit report got a "PARTIALLY RESOLVED (Plan scope only)" block.
+- **Decisions Made:**
+  - Search goes to the server via `q` (not client-only filtering) so the search rules stay in one place (ALT-004).
+  - SLA dot may appear only after the first 6-second refresh, because `index()` sends no `sla_color`; accepted, no backend change (ALT-005).
+- **Updated Files:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.1
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — remediation status block
+- **Next Action / Pending:**
+  - `/sdlc-define-specs` in a new session: CT-02, CT-03, REQ-012 AC + screen ACs, §4.4 duplicate (optional backlog: §1.1, §6, §13).
+  - Then `/sdlc-draft-prd` (§9.2), sync the two Fase 2a plans, re-run `/sdlc-audit-consistency`, then `/sdlc-write-code` for TASK-015..019.
+  - Tooling note: `python` is not installed on this PC; use `/c/xampp/php/php.exe` for helper scripts.
+
+<!-- checkpoint-tail: Fase 1 plan rev 1.1 adds screen tasks TASK-015..019 (Internal Note input, SLA dot, search box) and ticks TASK-001..011 with evidence; projected score 78/100, next step is /sdlc-define-specs to fix the spec (CT-02, CT-03, REQ-012 AC). -->
+
+---
