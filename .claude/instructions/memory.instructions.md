@@ -423,3 +423,93 @@
 <!-- checkpoint-tail: PRD amended to v1.1 (Fase 2 out of Non-goals, GH-006/GH-007/GH-008 with acceptance criteria, M2 gate recorded as constraint K-01, Presence/notification/Fase 2b deferred by name) and the clarification report now carries REMEDIATION STATUS: RESOLVED at a projected 91/100; next is /sdlc-define-specs for M3 Fase 2a in a new session with the PRD attached. -->
 
 ---
+## 📝 Session Checkpoint: 2026-09-22 (M3 Fase 2a Spec Clarification)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`) **completed** on `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` v1.0 (target utama). No source code touched (persona boundary). User chose PROCEED; next is `/sdlc-plan-tasks` in a NEW session.
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` v1.0 — Status: 🔄 Clarified, Readiness Score **97/100** (Iteration 2, no Critical Flaw Veto). NOT yet patched; 6 surgical patch points recorded for finalization.
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 (GH-006, GH-007) — Status: ✅ Normative upstream, unchanged this session.
+  - `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` (K-01..K-09) — Status: ✅ Normative source, unchanged this session.
+  - `CONTEXT.md` + `docs/ARCHITECTURE.md` — Status: ✅ Glossary/map reference, unchanged this session.
+- **Achieved Milestones:**
+  - Ran sequential clarification (9 questions: Q1 + Q2 + Q3-length + Q4-admin + Q5..Q8 + REFINE F-C05); user answers locked: A001=Opsi A (dedicated GET handoff), A002=Opsi A (409 for selesai), length=Opsi B (4096), admin=Opsi B (kasir-only, admin rejected 403), A004=Opsi A (409 names lawful owner), A005=Opsi A (Asia/Jakarta), A006=Opsi A (FK CASCADE, soft-delete keeps history), A007=Opsi A (next_action free text), F-C05=Opsi A (initiator = current assignee except belum_diambil).
+  - Iteration 1 scored 90/100 (Completeness 36/40, Clarity 27/30, Alignment 27/30); after F-C05 REFINE, Iteration 2 scored 97/100 (38/29/30) with REMEDIATION STATUS: RESOLVED.
+  - Defined 6 surgical Spec patch points (F-C01 selesai 403→409 in §4.3+AC-H02; F-C02 500→4096 in §4.1/4.3/4.4; F-C03 reject admin target in REQ-H03; F-C04 new §4.3b formal GET handoff contract; F-C05 REQ-H01+flow+edge case+§4.4+new AC-H08+1 test) — no redesign.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Re-asking any locked Q1–Q8 / F-C05 item in a follow-up session.
+  - **Reason:** All are recorded [Disepakati — kunci]; re-prompting violates the session rule (mark accepted items [Assumed / Out of Scope] and never re-ask).
+  - **Note:** If the Plan session questions these again, point it back to this checkpoint instead of reopening.
+- **Updated Files:**
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only; no history removed).
+  - No Spec/PRD/code files modified this session (clarification persona boundary).
+- **Decisions Made:**
+  - Selesai-rejection = 409 (state-reload family, hapusPercakapan precedent), overriding the 403 text currently in §4.3/AC-H02.
+  - Length cap = 4096 (K-09 precedent), overriding the 500 text in §4.1/4.3/4.4.
+  - Target = kasir aktif only (conscious product deviation from backlog recommendation); admin target = 403.
+  - Initiator = current assignee only (PRD v1.1 §3.3 + GH-006 normative); non-assignee = 403 with new AC-H08; from_user_id = initiator except unassigned NULL case.
+- **Next Action / Pending:**
+  - NEW session: `/sdlc-plan-tasks` for M3 Fase 2a, attaching Spec v1.0 + this clarification outcome (Q1–Q8 + F-C05) + PRD v1.1; apply the 6 surgical patches during Spec finalization or at Plan start.
+  - Residual: patched Spec text not yet written or lint/test-verified; plan must include AC-H08 test and §4.3b GET handoff contract tests.
+
+<!-- checkpoint-tail: Fase 2a spec clarified to 97/100 with 9 locked decisions (409 selesai, 4096 cap, kasir-only target, assignee-only initiator + AC-H08) and 6 surgical patch points; next is /sdlc-plan-tasks in a new session. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-23 (M3 Fase 2a TB-01 Code Execution)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code (`/sdlc-write-code`) — **TB-01 (TASK-001..TASK-005) COMPLETE and user-approved** ("setuju"). Execution stopped at the TB-01 boundary exactly as the Plan's execution directive requires; **TB-02 was NOT started**.
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` — Status: ✅ Normative (v1.0, unchanged). TB-01 delivered; TB-02 (TASK-006..008), TB-03 (TASK-009..011), TB-04 (TASK-012..014) still pending.
+  - `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` — Status: 🔄 Unchanged v1.0; the 6 patches P-01..P-06 + Q1/Q5/Q6/Q7 live in the Plan (RISK-01: Plan wins on conflict).
+  - `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q9 locks) — Status: ✅ Honoured, unchanged this session.
+- **Achieved Milestones:**
+  - **TASK-001** additive migration `app/Database/Migrations/2026-09-23-000001_CreateConversationHandoffs.php` (DB group `inbox`, `tableExists` guard, FK CASCADE, `VARCHAR(4096)`, Asia/Jakarta `created_at`) + `tests/database/ConversationHandoffsMigrationTest.php` (7 tests / 94 assertions).
+  - **TASK-002** `app/Models/ConversationHandoffModel.php` (`insertHandoff`, `forConversation` newest-first cap 50) + `UserModel::daftarKasirAktif()` (Q6 contract) + `tests/database/ConversationHandoffModelTest.php` (7) and `tests/database/UserModelDaftarKasirAktifTest.php` (4).
+  - **TASK-003** `Inbox::handoffPercakapan()` (new method only) + `POST /inbox/percakapan/(:num)/handoff` (auth) implementing the normative order 404 → 409 selesai (P-01) → 400 validation (P-02/Q5) → 403 initiator (P-05/AC-H08) → 403 target incl. admin (P-03) → inbox transaction with `assigned_to <=> expected` + history insert; `tests/session/InboxHandoffTest.php` H01–H08 (8 tests).
+  - **TASK-004** Handoff dialog in `app/Views/inbox/index.php` (modal + dropdown of active kasir + `expected_owner` captured at dialog OPEN + 400/403/409 notice) and a `daftarKasir` data key on `Inbox::index()`.
+  - **TASK-005 VERIFY** `vendor/bin/phpunit --no-coverage`: **OK (265 tests, 729 assertions)** — baseline was 239/553, so TB-01 added exactly 26 tests. Boundary audit: `git diff --numstat` shows `Inbox.php` 266 insertions / **0 deletions** (the 7 protected methods untouched), no ALTER on old tables, `GET messages` untouched, no Gateway / presence / notification / unread.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Append test methods with `editor insert_line` at an estimated line number, and send >6000-char `new_text` blocks.
+  - **Reason:** The tool rejects oversized payloads and an approximated `insert_line` splits an in-progress method, producing "unexpected token public" / "Cannot redeclare" fatals that then needed a full-file rewrite. **Note:** count lines first (`(Get-Content $f).Count`) or anchor with a unique short `old_text`; keep chunks well under 6000 chars.
+  - **Attempted:** Read a feature-test JSON body with `json_decode($response->getBody(), true)`.
+  - **Reason:** It returns `null` (body already consumed/stream). **Note:** `TestResponse::getJSON()` returns a JSON **string** here — use `json_decode($response->getJSON(), true)`.
+  - **Attempted:** Instantiate a migration class directly in a test (`new CreateConversationHandoffs()`).
+  - **Reason:** Migrations are excluded from the composer classmap (`exclude-from-classmap **/Database/Migrations/**`). **Note:** `require_once APPPATH . 'Database/Migrations/<file>.php';` first.
+  - **Attempted:** Declare the migration FK child column `INT UNSIGNED` to match the Plan/Spec wording while pointing at `conversations.id`.
+  - **Reason:** MariaDB 10.4 rejects mismatched FK types (errno 150). **Note:** the child must be `BIGINT UNSIGNED` (same as `messages.conversation_id`); the deviation is documented in the migration docblock.
+
+  - **Attempted:** Assert a composite index by expecting one `SHOW INDEX` row.
+  - **Reason:** `SHOW INDEX` returns one row **per indexed column** (the two-column index = 2 rows), so `assertSame(1, …)` fails. Also MariaDB 10.x parses then normalizes `id DESC` in index DDL (backward scan still avoids filesort).
+  - **Attempted:** Compare DB integer ids with `assertSame(int)` straight from a query result.
+  - **Reason:** `Config\Database::$inbox['numberNative'] = false`, so ids arrive as **strings**. **Note:** cast with `(int)` in assertions (existing test convention).
+  - **Attempted:** Use bare `composer test` as the green/red signal in this environment.
+  - **Reason:** It exits 1 solely because `phpunit.dist.xml` sets `failOnWarning="true"` plus coverage reports while no driver (xdebug/pcov) is installed → "No code coverage driver available"; pre-existing, identical before TB-01. **Note:** use `vendor/bin/phpunit --no-coverage` for an exit-0 signal; every test still passes.
+  - **Attempted:** Use `grep`, `head`, `dir /b`, `&&` in the shell.
+  - **Reason:** The shell is Windows PowerShell 5.1. **Note:** use `Select-String`, `Get-ChildItem`, `;`, and `cmd /c` when real redirection is needed.
+- **Updated Files:**
+  - `app/Database/Migrations/2026-09-23-000001_CreateConversationHandoffs.php` — new (TASK-001).
+  - `app/Models/ConversationHandoffModel.php` — new (TASK-002).
+  - `app/Models/UserModel.php` — `+daftarKasirAktif()` (24 insertions, 0 deletions).
+  - `app/Controllers/Inbox.php` — `+use ConversationHandoffModel`, `+handoffPercakapan()`, `+daftarKasir` in `index()` (266 insertions, 0 deletions).
+  - `app/Config/Routes.php` — 1 auth route (POST handoff).
+  - `app/Views/inbox/index.php` — Handoff modal, header button, `bukaModalHandoff/kirimHandoff` JS (156 insertions, 1 line replaced).
+  - `tests/database/ConversationHandoffsMigrationTest.php`, `tests/database/ConversationHandoffModelTest.php`, `tests/database/UserModelDaftarKasirAktifTest.php`, `tests/session/InboxHandoffTest.php` — new.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+- **Decisions Made:**
+  - `conversation_handoffs.conversation_id` = **BIGINT UNSIGNED** (FK compatibility, forced) — deviation from Plan/Spec text, documented in the migration.
+  - `from_user_id` = owner **before** the write (NULL when unassigned, K-06) — identical to the initiator under the P-05 gate.
+  - Initiation gate strict reading: on `belum_diambil` the initiator must be a member of `daftarKasirAktif`, so a non-assignee **admin** also gets 403 there; the UI button mirrors this so no action is offered that the server would refuse.
+  - `expected_owner` (Q5): absent field = **400**; `null`/empty string = lawful "saw unassigned" claim decided by the `<=>` write.
+  - Success envelope = `tutupPercakapan()` shape + `message` + `to_user_id` + `handoff_id`; the losing 409 carries `current_owner_id` plus the winner's name with the `User #{id}` fallback.
+  - `Inbox::index()` gained a `daftarKasir` data key — `index()` is **not** one of the 7 protected methods (REQ-H10), and the alternative (querying a model inside the view) is worse.
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-write-code` for **TB-02 (TASK-006..008 — Collision Detection hardening + loser UX)**, attaching `@plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md`; then TB-03 (TASK-009..011, dedicated `GET /inbox/percakapan/(:num)/handoff` + history panel) and TB-04 (TASK-012..014, edge cases + `docs/ARCHITECTURE.md` Living Map update).
+  - **TB-01 work is uncommitted** on branch `feature/m3-operational-inbox-fase1a-task001` (4 modified files + 1 new migration + 1 new model + 4 new test files); a commit was offered and the user has not yet decided.
+  - Residual: the memory file still has **no Knowledge Base zone** (a Compaction Mode run should create it and promote these dead-ends); Spec v1.0 still carries the stale 500/403/admin wording until physically finalized (RISK-01 mitigates); the Plan-tasks session apparently never wrote its own checkpoint (only the uncommitted Spec-clarification checkpoint from 2026-09-22 exists).
+
+<!-- checkpoint-tail: M3 Fase 2a TB-01 (TASK-001..005) implemented, verified and user-approved — additive conversation_handoffs migration + model + UserModel::daftarKasirAktif + Inbox::handoffPercakapan with the normative 404/409/400/403/403/transaction order + Handoff dialog UI, 26 new tests, full suite OK at 265 tests / 729 assertions, old methods untouched; next is TB-02 in a new session, TB-01 changes still uncommitted. -->
+
+---
+
