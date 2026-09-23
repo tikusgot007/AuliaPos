@@ -1398,3 +1398,32 @@
 <!-- checkpoint-tail: Refactor plan for f3bd8fa done (dd9e864 fix + 5cfd3ba plan close, 317/317, manual pass, pushed to v2.3); next is /sdlc-code-review of dd9e864; side task: check wa-gateway data/ before moving the gateway. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (code review of dd9e864, M3 Fase 1c fix)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review done (verdict: Merge) → next is Consistency Check.
+- **Active Artifacts:**
+  - `plan/plan-refactor-m3-fase1c-inbox-screen-v1.0.md` — ✅ Completed (no new refactor plan needed).
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.1 (unchanged).
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — MC-01..03 still marked open "until TASK-015..017 are coded"; they are now coded and reviewed.
+- **Achieved Milestones:**
+  - `/sdlc-code-review` of `dd9e864`: STD-01 and STD-02 confirmed closed. 0 CRITICAL/REQUIRED, 0 spec issues. Screen test re-run 3/3 (13 assertions).
+  - STD-01 traced for 5 cases (reopen in flight, edit after reopen, close without reopen, failure, no `hidden.bs.modal` reset) — all OK.
+  - STD-02: all 8 asserted strings have count 0 in `f3bd8fa~1` and 1 now.
+- **Dead-Ends (Do NOT Repeat):**
+  - None new.
+- **Updated Files:**
+  - `.claude/instructions/memory.instructions.md` — this checkpoint only.
+- **Decisions Made:**
+  - New TODOs (not fixed, low priority):
+    - [NIT] STD-03: `catatanInternalSedangKirim = false;` at `app/Views/inbox/index.php:1289` is now dead (always false there). Remove when the file is touched again.
+    - [FYI] STD-04: while a note for conversation A is saving, switching to B and opening the dialog shows A's text with Save disabled until the save finishes. No wrong data; cosmetic only.
+- **Next Action / Pending:**
+  - `/sdlc-audit-consistency` for M3 Fase 1 (PRD + spec rev 1.1 + plan) to re-check and close MC-01..03 (and the TASK-017 wording "REQ-012 has no spec AC yet").
+  - Then `/sdlc-define-specs` for TODO-SEARCH-01.
+  - Side task still pending: check WA Gateway `data/` before moving the gateway (see previous checkpoint).
+
+<!-- checkpoint-tail: Review of dd9e864 passed (STD-01/02 closed, verdict Merge, NIT STD-03 + FYI STD-04 as TODOs); next is /sdlc-audit-consistency for M3 Fase 1 to close MC-01..03. -->
+
+---
