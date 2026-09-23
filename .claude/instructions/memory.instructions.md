@@ -1044,3 +1044,31 @@
 <!-- checkpoint-tail: M3 Fase 1 TASK-012 is done on branch feature/m3-operational-inbox-fase1a-task001 — the Follow-up presets open #modalSnooze with an optional Alasan saved as one Internal Note after a successful snooze (partial-failure warning toast, >4096-byte reason blocked before snooze); 301/301 tests pass; next is /sdlc-code-review and a manual browser check. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-23 (Code review of M3 TASK-012, commit f0d6b94)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (M3 Fase 1b TASK-012) → done, verdict **Merge**
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — unchanged
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — unchanged by the review (TASK-012 ✅, TASK-013 Partial)
+  - No refactoring plan created (no CRITICAL/REQUIRED findings).
+- **Achieved Milestones:**
+  - `/sdlc-code-review` of `f0d6b94` (done inline, not with 2 sub-agents, because the diff is small). Spec compliant: REQ-011/AC-007, partial-failure toast, CL-006 byte check before `/snooze`, and `snoozePercakapan()` unchanged (no diff in `app/Controllers`, `app/Config`, `app/Models`).
+  - XSS: no new risk. The reason never goes into `showToast()` (which uses `innerHTML`), the duration label uses `textContent`, and the note is escaped in the thread by `escapeHtmlInbox()`.
+- **Decisions Made:**
+  - Findings are only NITs/FYIs, all optional:
+    - NIT STD-01: the error text says "4096 karakter", but the limit is counted in bytes.
+    - NIT SPEC-01: `maxlength="4096"` on `#snoozeAlasan` ([index.php:629]) cuts pasted text instead of rejecting it. Remedy: remove the attribute.
+    - FYI (pre-existing, out of scope): `showToast()` uses `innerHTML`, and the CSRF filter is disabled globally.
+- **Next Action / Pending:**
+  - Manual browser check (user):
+    - (1) no reason → only `/snooze` in Network;
+    - (2) with a reason → an "Internal" note appears in the thread;
+    - (3) an emoji-heavy reason over 4096 bytes → "terlalu panjang" toast and no `/snooze` call.
+  - Optional: fix the 2 NITs via `/code-janitor`.
+  - Remaining TASK-013 parts (SLA unit tests, `status`/`q` session tests) still open.
+
+<!-- checkpoint-tail: The code review of M3 TASK-012 (commit f0d6b94) found only 2 optional NITs (byte-vs-karakter wording, maxlength truncation) and no XSS or spec issues, with the verdict Merge; the pending work is a manual browser check of the Snooze dialog and the remaining TASK-013 tests. -->
+
+---
