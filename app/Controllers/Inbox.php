@@ -1236,6 +1236,7 @@ class Inbox extends BaseController
             'handoff_id'   => $handoffId,
         ]);
     }
+
     /**
      * GET /inbox/percakapan/(:num)/handoff
      *
