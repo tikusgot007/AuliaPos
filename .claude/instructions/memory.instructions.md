@@ -930,3 +930,41 @@
 <!-- checkpoint-tail: Refactor plan Phase 1 (CR-01) is DONE and pushed on WA-Gateway feature/stage-1-reliability (065f683..bf23d2f: 2ca3065 quarantine only real corruption, f87010e constructor failure = [CRITICAL] + rethrow instead of silent JSON fallback, bf23d2f tests 18-20); 9/9 regressions pass, mutation tests caught; next is Phase 2 (TASK-201..209) in a new /sdlc-write-code session; new TODO: pino async LOG_FOLDER loses the [CRITICAL] line on startup crash. -->
 
 ---
+
+
+## 📝 Session Checkpoint: 2026-09-23 (M1 Wave 1 refactor — Phase 2 done, plan Completed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) DONE → push pending, then PR decision
+- **Active Artifacts:**
+  - `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` — ✅ `Completed` (all TASK-101..105 and 201..209 ticked with commit SHAs)
+  - `docs/audit/code-review-m1-wave1-2026-09-23.md` — CR-01, CR-02, CR-03, CR-04, CR-13, CR-14, CR-16 now fixed
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — v1.2 `Completed`, untouched
+- **Achieved Milestones:**
+  - WA-Gateway worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`: 6 commits on top of `bf23d2f`, **NOT pushed** (`bf23d2f..fb585f1`):
+    - `8b00dfc` TASK-201 `tick()`: `overflowBuffer.drain()` first, own try/catch + `logger.error`, before `isRunning` (test durable-buffer #21: first tick hangs in stubbed `global.fetch`).
+    - `f895a54` TASK-202 `ownSentTtlMs: Math.max(1, …)` (own-sent-registry #6: `0`/`-5` → 1).
+    - `972c2a7` TASK-203 `_resolveLidForPhoneJid`: `if (!this.isConnected()) return null;` before query, no cache write; redundant `if` wrapper removed (whitespace-only reindent).
+    - `5629f0b` TASK-204 append-handling #11 (AC-003 body keys outgoing == incoming, `contact_name` null), durable-buffer #22 (AC-007), #23 (AC-008).
+    - `996202e` TASK-205/206 removed `simulate-enqueue-failure.js`, `simulate-e05-lid-timeout.js`, `simulate-e09-json-recovery.js`; mapping table in commit message; two gaps moved first (json-recovery #9 healthy round trip; durable-buffer #23 4 calls via `_persistIncoming`). `data/test-e09-buffer.sqlite` deleted.
+    - `fb585f1` TASK-207 removed WA-Gateway copy of `docs/decisions/2026-09-21-m1-ticket01-baseline.md` (AuliaPos copy untouched).
+  - TASK-208 VERIFY: 9/9 scripts exit 0; 7 mutation tests all caught, files restored with identical sha256; src diff vs `065f683` = 4 allowed files; `ci4Client.js` + `deliverOne` unchanged; no `package*.json` change; `data/` empty; git status clean.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** stubbing `ci4Client.postToCI4` after `incomingDelivery` was already required. **Reason:** `incomingDelivery.js` destructures `postToCI4` at load. **Note:** stub `global.fetch` (used by `postToCI4`), or stub `postToCI4` BEFORE the first `require('../src/delivery/incomingDelivery')`.
+  - **Attempted:** asserting "exactly 1 error log" on the overflow path. **Reason:** by design 2 errors are logged (`enqueueRetry.js` "setelah dicoba ulang" + `_persistIncoming` "ke buffer utama"). **Note:** filter by message.
+  - **Attempted:** `git push` and a bulk `node -e` plan-file rewrite from Bash. **Reason:** blocked by the auto-mode permission classifier ("Modify Shared Resources"). **Note:** use the Edit tool for doc edits; push needs explicit user permission or the user runs it.
+- **Updated Files:**
+  - WA-Gateway: `src/delivery/incomingDelivery.js`, `src/config/index.js`, `src/whatsapp/connectionManager.js`, `test/simulate-{durable-buffer,own-sent-registry,lid-timeout,append-handling,json-recovery}.js`; 3 old tests + `docs/decisions/…baseline.md` deleted.
+  - AuliaPos: `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` (ticked, `Completed`), this checkpoint.
+- **Decisions Made:**
+  - AC-003 "tanpa identitas staff": the deliverOne contract has no staff field (CI4 sets `sent_by_user_id` NULL), so the assertion pins same key set as incoming + no staff-like key + `contact_name` null (own-account pushName not forwarded).
+  - Floor-guard grep `xit(` also matches `process.exit(`; HEAD hits (7) are all `process.exit`, down from 13 because 3 files were deleted.
+- **Next Action / Pending:**
+  - **Push** `bf23d2f..fb585f1` to `origin/feature/stage-1-reliability` (user approved; blocked by permission classifier — user must allow or run `git -C C:\projects\WA-Gateway-m1 push origin feature/stage-1-reliability`).
+  - Then user decision: PR `feature/stage-1-reliability` → `master`. Deploy to live folder is NOT part of this plan.
+  - Not run: 6 pre-M1 scripts in `test/` (audio-video, identity-hint, lid-conversation, send-media, sticker, tmpdir-override) — outside the plan's 9-script list.
+  - Backlog unchanged: CR-05..CR-11, CR-15, pino async `LOG_FOLDER` TODO; owner confirmation of deviation (b).
+
+<!-- checkpoint-tail: Refactor plan is COMPLETED — Phase 2 (CR-02/03/04/13/14/16) landed as 6 local commits on WA-Gateway feature/stage-1-reliability (bf23d2f..fb585f1: drain before isRunning, OWN_SENT_TTL_MS min 1, no null LID cache while disconnected, AC-003/007/008 asserts, 3 old tests removed with mapping, stale decision-log copy removed); 9/9 pass and 7 mutations caught; push is approved but was blocked by the permission classifier, then PR decision. -->
+
+---
