@@ -1,7 +1,8 @@
 ---
 title: M3 Operational Inbox — Fase 2a (Handoff + Collision Detection)
-version: 1.0
+version: 1.1
 date_created: 2026-09-22
+last_updated: 2026-09-23
 owner: AuliaPos Inbox module
 tags: [inbox, chat, whatsapp, m3, handoff, collision-detection]
 ---
@@ -11,6 +12,9 @@ tags: [inbox, chat, whatsapp, m3, handoff, collision-detection]
 Spesifikasi ini mendefinisikan **M3 — Operational Inbox, Fase 2a**: kemampuan *Handoff* antar staff dan *Collision Detection* pada modul Inbox WhatsApp AuliaPos. Fase 2a adalah pemotongan sempit dari "Fase 2" yang disebut dokumen lama — hanya dua perilaku itu, di atas fondasi Fase 1 (Queue View, Conversation Detail, Snooze, Selesai) yang sudah berjalan.
 
 Kontrak teknis di spec ini **bukan karangan baru**. Seluruh keputusan intinya sudah ditetapkan sebagai **K-01 s.d. K-09** di `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md`, dan requirement produknya ada di `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 (GH-006, GH-007). Spec ini menerjemahkan keduanya menjadi kontrak yang bisa langsung dikodekan dan diuji, tanpa menambah perilaku yang belum disepakati.
+
+> [!IMPORTANT]
+> **v1.1 — finalisasi fisik (2026-09-23).** Implementasi Fase 2a sudah selesai di commit `51fb1fc` (suite hijau **298 test / 948 assertion**). Spec v1.0 memuat teks yang **basi** terhadap kode (batas 500, `selesai`=403, target admin boleh, tanpa gerbang inisiator). Sesuai **RISK-01/CON-003** pada `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md`, **Plan menang bila konflik**. v1.1 menyelaraskan Spec dengan enam patch normatif **P-01 s.d. P-06** plus keputusan klarifikasi terbaru (**CR-04 = A1**, **CR-03 = A**) dan penolakan **Q2** terhadap Plan. Perubahan v1.1 bersifat dokumentasi murni: tanpa migrasi, tanpa perubahan schema, tanpa panggilan Gateway.
 
 ## 1. Purpose & Scope
 
@@ -47,11 +51,11 @@ Semua ambiguitas **mayor** sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` da
 > [!WARNING]
 > **[ASSUMPTION-001] Kontrak baca riwayat Handoff.** PRD GH-006 mewajibkan riwayat penyerahan "tercatat serta bisa dibaca kembali oleh staff", sedangkan K-05 hanya mengunci *model pencatatan* (tabel `conversation_handoffs`) dan menyebut visibilitas inline "bila nanti diinginkan". Spec ini mengambil pilihan paling minimal dan paling mudah diuji: endpoint **baca khusus** `GET /inbox/percakapan/(:num)/handoff` yang mengembalikan daftar riwayat (terbaru dulu), **tanpa** mengubah kontrak `GET /inbox/api/conversations/(:num)/messages` dan **tanpa** menulis apa pun ke tabel `messages`. Lihat Section 4.4.
 
-> [!WARNING]
-> **[ASSUMPTION-002] Kode status untuk penolakan eligibilitas `selesai` = 409.** K-09 hanya menetapkan `403` (pelaku/target tidak berhak), `409` (ownership berubah antara read dan write), dan `400` (validasi). Penolakan karena percakapan sudah di tab `Selesai` (K-07) diklasifikasikan sebagai **409** — satu keluarga dengan penolakan berbasis *state* yang menuntut klien memuat ulang kondisi terkini, mengikuti preseden `hapusPercakapan()` yang memakai 409 untuk pelanggaran prasyarat status. Alternatif yang dipertimbangkan: 403; tidak dipilih karena 403 di modul ini secara semantik berarti "identitas pelaku/target tidak berhak", bukan "state percakapan tidak mengizinkan".
+> [!NOTE]
+> **[ASSUMPTION-002 — LOCKED by P-01] Kode status untuk penolakan eligibilitas `selesai` = 409.** K-09 hanya menetapkan `403` (pelaku/target tidak berhak), `409` (ownership berubah antara read dan write), dan `400` (validasi). Penolakan karena percakapan sudah di tab `Selesai` (K-07) diklasifikasikan sebagai **409** — satu keluarga dengan penolakan berbasis *state* yang menuntut klien memuat ulang kondisi terkini, mengikuti preseden `hapusPercakapan()`. Alternatif 403 ditolak: 403 di modul ini bermakna "identitas pelaku/target tidak berhak", bukan "state percakapan tidak mengizinkan". **Terkunci** oleh patch **P-01** dan test `H02`/`H02b`.
 
 > [!WARNING]
-> **[ASSUMPTION-003] Target Handoff boleh ber-role `admin`.** Diterima selama `users.is_active` benar, konsisten dengan `cekOwnership()` yang menempatkan admin di jalur override dan dengan fakta bahwa enum `users.role` hanya `admin`/`kasir`.
+> **[ASSUMPTION-003 — SUPERSEDED by P-03] Target Handoff wajib kasir aktif; target `admin` = 403.** Asumsi v1.0 ("target boleh admin") dibatalkan oleh patch **P-03** dan test `H05`. Kontrak final: target harus berasal dari `UserModel::daftarKasirAktif()` (`role = 'kasir'` + `is_active`); `admin`, unknown, inactive, atau ineligible semuanya **403**. Ini tetap konsisten dengan enum `users.role` yang hanya `admin`/`kasir`.
 
 > [!WARNING]
 > **[ASSUMPTION-004] Pesan error 409 wajib menyebut nama pemilik sah saat itu.** Mengikuti preseden pesan 409 di `ambilPercakapan()` ("Percakapan ini sudah diambil oleh {nama}."), termasuk fallback `User #{id}` bila nama tidak ditemukan.
@@ -64,6 +68,18 @@ Semua ambiguitas **mayor** sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` da
 
 > [!WARNING]
 > **[ASSUMPTION-007] `next_action` adalah teks bebas, bukan enum.** Tidak ada dokumen sumber yang dapat diverifikasi yang mendefinisikan daftar tindakan lanjutan; menetapkan enum sekarang berarti mengarang requirement. Enum dapat ditambahkan di inkremen berikutnya bila polanya sudah terlihat dari data nyata.
+
+> [!WARNING]
+> **[ASSUMPTION-008] Istilah "Belum Diambil" != "tanpa pemilik".** Dua konsep yang mudah tertukar: **`belum_diambil`** = status turunan (`perlu_dibalas` + `assigned_to` kosong, hanya mungkin di satu tab); **tanpa pemilik** = `assigned_to IS NULL`, yang bisa terjadi di tab apa pun (mis. `menunggu`/`ditunda` setelah `lepasPercakapan()`). CR-03 = A membuat gerbang inisiator bergantung pada status **`belum_diambil`**, bukan pada `assigned_to IS NULL`. Glosarium `CONTEXT.md` belum memuat kedua istilah ini; usulan pencatatan (lazy creation) ada di `clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` §3.
+
+> [!WARNING]
+> **[ASSUMPTION-009] Window mikro antara fail-fast 409 dan conditional write tetap mungkin.** CR-04 = A1 menambahkan pre-check `expected_owner !== assigned_to` sebelum transaksi, tetapi ownership masih bisa bergerak **lagi** antara pre-check dan `UPDATE`. Jaminan penuh tetap pada conditional write `<=>` + 409 kalah; pre-check hanya menutup celah audit-trail/otorisasi deterministik. Sudah dinilai `[Assumed / Out of Scope]` (tidak butuh seam atau kode baru).
+
+> [!WARNING]
+> **[ASSUMPTION-010] Bentuk 409 kini dua keluarga dengan satu bentuk body.** Keluarga **state** (`selesai`, P-01) dan keluarga **ownership** (kalah conditional write / fail-fast CR-04) berbagi key set yang sama: `status`, `message`, `current_owner_id` (nullable). Dikunci `H02b` (state) + `E18` (anti-leak tiga key).
+
+> [!WARNING]
+> **[ASSUMPTION-011] Pemisahan tes H/C/G/E/F memetakan 1:1 ke kontrak.** ID tes di §6 dan §12 merujuk `tests/session/InboxHandoffTest.php`: `H01-H08` (happy/rejection), `C01-C04` (collision), `G01-G05` (read-back), `E01-E18` (edge/micro-contract, termasuk `E09` non-string, `E10` Q5 absen, `E11`/`E12` batas karakter, `E17` urutan gerbang, `E18` anti-leak), `F01-F04` (fail-fast + narrowing CR-03). Bila nama file/ID berubah, dokumen ini yang harus disesuaikan.
 
 > [!NOTE]
 > **Konteks yang sudah disuperseded (jangan dipakai).** Catatan Handoff lama di repo-root `memory.instructions.md` menyatakan "Successful Handoff ... creates one Internal Note in the conversation thread". Keputusan **K-05** yang lebih baru dan sudah diremediasi ke PRD v1.1 membatalkan itu: tabel `messages` **tidak disentuh** oleh Handoff. Spec ini mengikuti K-05.
@@ -80,6 +96,31 @@ Semua ambiguitas **mayor** sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` da
 | K-07 | Eligibilitas runtuh menjadi satu kondisi: `queue_status !== 'selesai'`. | K-07 |
 | K-08 | Fase 2a **tanpa** notifikasi dan tanpa unread per-user. | K-08 |
 | K-09 | Kontrak HTTP: `400` validasi, `403` pelaku/target tidak berhak, `409` kalah conditional write; sukses mengikuti bentuk `tutupPercakapan()`. | K-09 |
+| P-01 | Penolakan eligibilitas `selesai` = **409** (bukan 403); mengoreksi teks v1.0. | `plan-feature-m3-operational-inbox-fase2a-v1.0.md` P-01 |
+| P-02 | Batas `summary`/`next_action`/`note` = **4096 KARAKTER** (bukan 500). | Plan Fase 2a P-02 |
+| P-03 | Target **kasir aktif saja**; target `admin`/unknown/inactive = **403**. | Plan Fase 2a P-03 |
+| P-04 | Endpoint baca khusus `GET /inbox/percakapan/(:num)/handoff` (filter `auth`, cap **50**, terbaru dulu); `GET messages` tidak diubah. | Plan Fase 2a P-04 |
+| P-05 | Inisiator = assignee saat ini; pengecualian tanpa-pemilik **hanya** untuk `queue_status === 'belum_diambil'`; non-assignee = **403**. | Plan Fase 2a P-05 |
+| P-06 | Penolakan non-assignee dikunci oleh **AC-H08** + satu test controller. | Plan Fase 2a P-06 |
+| CR-04 = A1 | **Fail-fast 409** bila `expected_owner !== assigned_to`, diletakkan **sebelum `$db->transBegin()`** dan **setelah kedua gerbang 403**; body byte-identical dengan 409 kalah (termasuk `current_owner_id`). | `clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` §2 |
+| CR-03 = A | Gerbang inisiator tanpa-pemilik dipersempit ke **`queue_status === 'belum_diambil'`** (bukan sekadar `assigned_to IS NULL`); pesan 403 bercabang tiga. | `clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` §2 |
+| Q2 (ditolak) | Inisiator `admin` **tetap 403** pada `belum_diambil`; Plan menang atas Q2 (penyempitan deliberat). | `clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` §2 |
+
+> [!IMPORTANT]
+> **Q2 — PENYEMPITAN DELIBERAT (LOCKED).** Q2 pada `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md:39` menyatakan *"an admin MAY initiate while being the assignee (or on `belum_diambil`)"*. Untuk Fase 2a kalimat itu **dipersempit secara sengaja**: seorang **admin yang bukan assignee TETAP 403** ketika percakapan berada di tab `belum_diambil`; hanya **kasir aktif** yang boleh menjadi inisiator pada keadaan itu. Ini keputusan produk yang sadar, bukan kelalaian: **Plan menang atas Q2** (RISK-01/CON-003) dan menutup "celah jalur paksa admin" yang dilarang PRD v1.1. Admin tidak kehilangan kemampuan apa pun karena `ambilPercakapan()` `:1387-1389` mengizinkan admin meng-*claim* percakapan lebih dulu (jalur override tanpa syarat), setelah itu cabang assignee mengizinkan Handoff — yang berbeda hanya `from_user_id` (admin vs `NULL`) dan satu request tambahan. Perubahan kode/test/UI akibat penyempitan ini: **nol** (sudah terkunci oleh test `E04(b)` dan mirror UI `index.php:861`).
+
+### 1.2.2 Patch Normatif P-01 s.d. P-06 (kontrak Handoff final)
+
+Enam patch ini **menggantikan** teks v1.0 yang bertentangan dan mengikat implementasi serta audit:
+
+| Patch | Kontrak final (mengikat) | Konsekuensi section |
+|---|---|---|
+| **P-01** | Penolakan eligibilitas `selesai` = **409** (keluarga state-reload), bukan 403. | REQ-H02, §4.3 langkah 2, §4.4, AC-H02 |
+| **P-02** | Batas `summary`/`next_action`/`note` = **4096 KARAKTER** (`mb_strlen`), bukan 500. | REQ-H04, §4.1, §4.3, §4.4 |
+| **P-03** | Target = **kasir aktif saja** (`daftarKasirAktif()`); target `admin`/unknown/inactive = **403**. | REQ-H03, §4.3 langkah 5, §4.4 |
+| **P-04** | Riwayat dibaca via endpoint khusus `GET /inbox/percakapan/(:num)/handoff`; filter `auth` saja (tanpa gerbang assignee), cap **50**, terbaru dulu; `GET messages` tidak diubah. | REQ-H08, §4.3b |
+| **P-05** | Inisiator = assignee saat ini; pada percakapan tanpa pemilik **hanya** kasir aktif saat `queue_status === 'belum_diambil'`; selain itu **403**. | REQ-H01, §4.3 langkah 4, §4.4, §12 |
+| **P-06** | Penolakan non-assignee dikunci oleh **AC-H08** + satu test controller. | §5 AC-H08, §6 |
 
 ## 2. Definitions
 
@@ -103,14 +144,14 @@ Requirement IDs: **REQ-Hxx** = Handoff, **REQ-Cxx** = Collision. Constraint IDs:
 
 ### 3.1 Handoff
 
-- **REQ-H01 (who may initiate):** Initiator adalah staff sesi aktif. Tanpa approval, tanpa jalur paksa admin.
-- **REQ-H02 (eligible conversation):** Handoff diizinkan bila Queue View Status apapun kecuali `selesai` (K-07).
-- **REQ-H03 (eligible target):** Target wajib staff aktif yang boleh memiliki percakapan; validasi memakai `UserModel::daftarKasirAktif()` seperti `ambilPercakapan()`.
+- **REQ-H01 (who may initiate, P-05/CR-03 = A):** Inisiator adalah staff sesi aktif **DAN** harus memenuhi salah satu: (a) `assigned_to` saat ini **adalah** inisiator, **atau** (b) percakapan tanpa pemilik dan `queue_status === 'belum_diambil'` serta inisiator adalah **kasir aktif**. Non-assignee pada tab selain `belum_diambil` = **403** (AC-H08). **Admin non-assignee tetap 403 pada `belum_diambil`** (Plan menang atas Q2; lihat §1.2.1 Q2). Tanpa approval, tanpa jalur paksa admin.
+- **REQ-H02 (eligible conversation, P-01):** Handoff diizinkan bila Queue View Status apapun kecuali `selesai` (K-07). Pelanggaran = **409** (keluarga state-reload, preseden `hapusPercakapan()`), **bukan** 403 seperti teks v1.0.
+- **REQ-H03 (eligible target, P-03):** Target wajib **kasir aktif** (`role = 'kasir'` + `is_active`) dari `UserModel::daftarKasirAktif()` seperti `ambilPercakapan()`; target `admin`/unknown/inactive/ineligible = **403**. Target boleh sedang offline.
 - **REQ-H04 (request payload):** `summary` wajib non-kosong, `next_action` wajib non-kosong teks bebas (ASSUMPTION-007), `note` opsional, `to_user_id` wajib, `expected_owner` wajib.
 - **REQ-H05 (self-Handoff rejected):** Handoff ke diri sendiri ditolak 400 (K-09).
 - **REQ-H06 (ownership change):** Saat sukses `assigned_to` menjadi `to_user_id`; kolom lain tidak berubah.
 - **REQ-H07 (history record):** Tiap sukses menyisipkan satu baris `conversation_handoffs` dengan `from_user_id` (nullable) dan `initiated_by_user_id` (NOT NULL) (K-06).
-- **REQ-H08 (read-back):** Riwayat terbaca per percakapan dari terbaru; tidak diedit/dihapus di Fase 2a.
+- **REQ-H08 (read-back, P-04):** Riwayat dibaca via endpoint khusus `GET /inbox/percakapan/(:num)/handoff` (filter `auth` saja, **tanpa** gerbang assignee), terbaru dulu, cap **50**; tidak diedit/dihapus di Fase 2a. `GET /inbox/api/conversations/(:num)/messages` **tidak diubah**; 404 hanya untuk id tak dikenal.
 - **REQ-H09 (atomicity, K-01):** Perubahan ownership dan insert riwayat dalam satu transaksi grup `inbox`; 0 affected rows berarti rollback + 409.
 - **REQ-H10 (other paths untouched):** `lepas`, `tutup`, `snooze`, `tandai-dibaca`, `hapus` tidak diubah (K-01 sempit).
 - **CON-H01:** Handoff tidak menulis tabel `messages` (K-05).
@@ -144,12 +185,15 @@ Migration (new file, following the `2026-09-07-000001_CreateInboxTables.php` pre
 | `from_user_id` | INT UNSIGNED | NULL | NULL | Owner before this Handoff; NULL when the conversation was unassigned (K-06). No FK to the POS `users` table — cross-database FKs are impossible with the split `inbox`/`kasirdb` groups |
 | `to_user_id` | INT UNSIGNED | NOT NULL | — | New owner (same no-cross-DB-FK rationale) |
 | `initiated_by_user_id` | INT UNSIGNED | NOT NULL | — | Session user who performed the Handoff; may differ from `from_user_id` (K-06) |
-| `summary` | VARCHAR(500) | NOT NULL | — | Required Handoff Summary (ASSUMPTION-003 length cap) |
-| `next_action` | VARCHAR(500) | NOT NULL | — | Required Next Action, free text (ASSUMPTION-007; same cap as summary for symmetry) |
-| `note` | TEXT | NULL | NULL | Optional Handoff Note |
+| `summary` | VARCHAR(4096) | NOT NULL | — | Required Handoff Summary. **P-02:** cap = **4096 characters** (was 500 in v1.0); enforced in the controller as 400 via `mb_strlen`. The migration docblock records `VARCHAR(4096)` with a `TEXT` fallback noted under RISK-03. |
+| `next_action` | VARCHAR(4096) | NOT NULL | — | Required Next Action, free text (ASSUMPTION-007; same **4096-character** cap as summary, P-02). |
+| `note` | TEXT | NULL | NULL | Optional Handoff Note. Optional and capped at **4096 characters** in the controller (P-02); `TEXT` on purpose, not `VARCHAR(4096)`. |
 | `created_at` | DATETIME | NOT NULL | — | Write time in `Asia/Jakarta` (CON-H06) |
 
 Indexes: `KEY idx_handoffs_conversation (conversation_id, id DESC)` — newest-first read-back without filesort. No changes to existing tables.
+
+> [!NOTE]
+> **Char vs byte boundary (CR-05).** The 4096 boundary is a **CHARACTER** boundary, not a byte boundary. The server validates with `mb_strlen()` so a legal multi-byte value (accents, emoji) of 4096 characters is accepted and 4097 is rejected (`E11`/`E12`); `VARCHAR(4096)` and the UI `maxlength="4096"` count characters too. Mixing `strlen` here would wrongly reject valid multi-byte text.
 
 ### 4.2 New model — `ConversationHandoffModel` (DB group `inbox`)
 
@@ -165,38 +209,62 @@ Request (form-encoded or JSON, same dual-read pattern as `catatanInternal()`):
 
 | Field | Required | Type | Rule |
 |---|---|---|---|
-| `to_user_id` | yes | int | Existing, active, Handoff-eligible staff (REQ-H03); must differ from session user (REQ-H05) |
-| `summary` | yes | string | Non-empty after trim, max 500 chars (ASSUMPTION-003) |
-| `next_action` | yes | string | Non-empty after trim, max 500 chars |
-| `note` | no | string | Free text, may be empty |
-| `expected_owner` | yes | int or null | `assigned_to` as seen by the client; null/empty means "saw unassigned" (REQ-C01) |
+| `to_user_id` | yes | int | Existing, active, Handoff-eligible staff (REQ-H03/P-03); must differ from session user (REQ-H05). Non-numeric, `0`, or negative = 400. |
+| `summary` | yes | string | **Must be a string** (an array or any non-string = 400). Non-empty after trim, max **4096 characters** (`mb_strlen`, P-02). |
+| `next_action` | yes | string | **Must be a string**. Non-empty after trim, max **4096 characters** (`mb_strlen`, P-02). |
+| `note` | no | string | Free text, may be empty; if present must be a string; max **4096 characters** (P-02). |
+| `expected_owner` | yes | int or null | `assigned_to` as seen by the client (REQ-C01). **Q5:** the field must be PRESENT — absent = 400 (malformed); `null` or empty string = a lawful "saw unassigned" claim forwarded to the NULL-safe `<=>` write, which then decides 200 vs 409. |
 
-Server flow (order is normative):
+Server flow (**Q3 — urutan normatif, LOCKED**):
 
-1. Resolve session user; 404 if conversation missing.
-2. Recompute eligibility via `ConversationModel::withComputedStatus()`; reject with 403 if Queue View Status is `selesai` (REQ-H02).
-3. Validate payload shape (400 on violation: missing/blank `summary`/`next_action`, over-length, self-Handoff, malformed `to_user_id`).
-4. Validate target eligibility via `UserModel::daftarKasirAktif()` (403 if unknown/inactive/ineligible — K-09).
-5. `transBegin()` on the `inbox` group, then conditional write (`SET assigned_to = :to WHERE id = :id AND assigned_to <=> :expected`), then history insert (REQ-H07), then `transCommit()` (REQ-H09). Zero affected rows means `transRollback()` plus 409 naming the current owner (REQ-C02). History-insert failure means `transRollback()` with ownership unchanged.
-6. Success response mirrors `tutupPercakapan()` (`status: success`, Indonesian message, plus the new owner id and the created history id).
+1. Resolve conversation; **404** if the id is unknown (before any identity query).
+2. Recompute `queue_status` via `ConversationModel::withComputedStatus()`; if it is `selesai`, respond **409** (P-01 state-reload family, `current_owner_id` nullable). The conversation is **not** rejected here for any other tab.
+3. Validate payload shape; **400** on violation (non-string `summary`/`next_action`/`note`, missing/blank `summary`/`next_action`, over 4096 characters, self-Handoff, malformed `to_user_id`, absent `expected_owner`).
+4. **403 initiator gate (P-05/CR-03 = A):** the initiator must be the current assignee; on an unowned conversation the initiator is admitted **only** when `queue_status === 'belum_diambil'` and the initiator is an active kasir. Non-assignee on any other tab = 403 (AC-H08). This gate runs **before** the target gate so state/identity answers stay deterministic.
+5. **403 target gate (P-03):** the target must be a member of `UserModel::daftarKasirAktif()`; `admin`, unknown, inactive, or ineligible = 403.
+6. **Fail-fast 409 (CR-04 = A1, LOCKED):** if the normalised `expected_owner` differs from the server-read `assigned_to`, respond **409** immediately — **before** `transBegin()` and **no write of any kind** occurs. Placed here (after both 403 gates) so a non-assignee still receives 403 and never leaks the owner's name. Body must be byte-identical to the loser 409 below.
+7. **Transaction (REQ-H09):** `transBegin()` on the `inbox` group → conditional write (`SET assigned_to = :to WHERE id = :id AND assigned_to <=> :expected`) → history insert (REQ-H07) → `transCommit()`. Zero affected rows = `transRollback()` + **409** naming the current owner (REQ-C02). History-insert failure = `transRollback()` with ownership unchanged.
+8. Success response mirrors `tutupPercakapan()` (`status: success`, Indonesian message, plus the new owner id and the created history id).
+
+> [!IMPORTANT]
+> **Q3 — urutan gerbang normatif (LOCKED), ringkas:** **404** → **409 selesai** → **400** validasi → **403 inisiator** → **403 target** → **fail-fast 409** → **transaksi conditional write**. Setiap pelanggaran ganda diselesaikan oleh urutan ini (mis. non-assignee dengan `expected_owner` basi tetap **403**, bukan 409 — dikunci `C01b`).
+
+### 4.3b New endpoint — read Handoff history (P-04)
+
+**`GET /inbox/percakapan/(:num)/handoff` → `Inbox::apiHandoffs/$1`**
+
+- Auth: the existing `auth` filter only. Any active staff may read (Q7/PRD GH-006 "readable again by staff"); there is **no** assignee/participant gate, and this gate is deliberately different from the write path in §4.3.
+- 404 only for an unknown conversation id.
+- Success `200`: `{ status: 'success', handoffs: [{ id, from_user_id, to_user_id, initiated_by_user_id, summary, next_action, note, created_at }], limit: 50 }`, newest-first, capped at **50** entries (older rows stay in the table; no purge in Fase 2a).
+- **`GET /inbox/api/conversations/(:num)/messages` is NOT changed** — the message thread is never mixed with Handoff history (K-05, ASSUMPTION-001).
 
 ### 4.4 Collision response contract (K-09)
 
-- `400` — payload/validation failures (blank `summary`/`next_action`, over 500 chars, self-Handoff, malformed ids).
-- `403` — initiator or target not eligible, or conversation in `selesai` Queue View Status.
+- `400` — payload/validation family: non-string or blank `summary`/`next_action`, over **4096 characters** (P-02), self-Handoff, malformed `to_user_id`, absent `expected_owner` (Q5).
+- `403` — identity family: initiator not the assignee (and not the lawful unowned-`belum_diambil` case), or target not a kasir aktif (P-03). Two 403 gates exist; see the Q3 order. The 403 message has **three branches** (see §4.4 note below).
 - `404` — conversation id unknown.
-- `409` — lost the conditional write. Body MUST include `current_owner_id` (nullable for safety) and, when resolvable, the winner's display name, so the loser can coordinate. `assigned_to` and history are untouched by the losing request.
+- **`409` — TWO families, one shared body shape (CR-06).** Both families MUST return the same key set:
+  - `status` = `'error'`,
+  - `message` (Indonesian) — the ownership family names the current owner (with `User #{id}` fallback), the `selesai` family states the conversation is finished,
+  - `current_owner_id` — **nullable**, present in **both** families (this closes CR-06; `null` when the conversation is unowned).
+  - **Family 1 (state, P-01):** the conversation is in `selesai`. **Family 2 (ownership, REQ-C02 + CR-04 fail-fast):** the conditional write lost, OR the fail-fast pre-check detected a stale `expected_owner`. Both ownership responses must be **byte-identical** so `C02`/`E06` pass without assertion edits.
+  - `assigned_to` and history are untouched by any losing request.
 - Success — HTTP 200 with the same envelope shape as `tutupPercakapan()` (`status: success`).
+
+> [!NOTE]
+> **403 message branches (CR-03 = A).** The initiator gate emits three distinct messages so an active kasir is never misled: **(i)** conversation has an owner but the initiator is not that owner → "Hanya staff yang sedang menangani percakapan ini yang bisa menyerahkannya."; **(ii)** conversation is unowned and in tab `belum_diambil`, but the initiator is not an active kasir → "Hanya kasir aktif yang bisa menyerahkan percakapan yang belum diambil."; **(iii)** conversation is unowned but in **any other** tab (e.g. `menunggu`/`ditunda` after `lepasPercakapan()`) → "Percakapan tanpa pemilik hanya bisa diserahkan dari tab Belum Diambil. Ambil dulu percakapan ini.". Branches (i) and (ii) are verbatim (locked by `E04(c)` and `E04(b)`); branch (iii) is new.
 
 ## 5. Acceptance Criteria
 
 - **AC-H01:** Staff A opens an eligible conversation (any Queue View Status except `selesai`), picks staff B, fills `summary` + `next_action`, submits: `assigned_to` becomes B, exactly one `conversation_handoffs` row exists with correct `from/to/initiated_by`, and the history panel shows the new entry newest-first.
-- **AC-H02:** Handoff on a `selesai` conversation is rejected (403); ownership and history unchanged.
+- **AC-H02 (P-01):** Handoff on a `selesai` conversation is rejected (**409**, not 403) with a body carrying `current_owner_id` (nullable); ownership and history unchanged. Locked by `H02`/`H02b`.
 - **AC-H03:** Handoff with blank `summary` or blank `next_action` is rejected (400); ownership and history unchanged.
 - **AC-H04:** Handoff to self is rejected (400); ownership and history unchanged.
 - **AC-H05:** Handoff to an unknown/inactive/ineligible user is rejected (403); ownership and history unchanged.
 - **AC-H06:** Handoff of an unassigned conversation succeeds and records `from_user_id = NULL`.
 - **AC-H07:** The `messages` table gains zero rows from any Handoff (success or rejection); no Gateway call is made; `last_message_*` unchanged.
+- **AC-H08 (P-06):** A non-assignee (including an admin who is not the assignee) initiating a Handoff on a conversation that is not a lawful unowned-`belum_diambil` case is rejected with **403**; ownership and history unchanged. Locked by `H08`/`E04`/`C01b` and the narrowing tests `F02`/`F03`.
+- **AC-H09 (CR-04 = A1):** When the client's `expected_owner` differs from the server-read `assigned_to`, the request is rejected with **409** before any transaction begins — no write occurs, and `updated_at` is untouched. Locked by `F01`; bodies must match the loser 409 byte-for-byte (`C02`/`E06`).
 - **AC-C01:** Two staff submit Handoff for the same conversation with the same `expected_owner`: exactly one succeeds (200), the other receives 409 naming the winner; only one history row exists; `assigned_to` equals the winner's target.
 - **AC-C02:** A Handoff with a stale `expected_owner` (ownership changed since the dialog was opened) is rejected (409) without touching ownership or history.
 - **AC-C03:** History insert failure rolls back the ownership change (`assigned_to` unchanged, no orphan row).
@@ -283,10 +351,12 @@ No new ADR is created in Fase 2a. Triple-gate check: the conditional-write primi
 **Edge cases:**
 
 - Unassigned conversation (`assigned_to IS NULL`, status `belum_diambil`): Handoff allowed; `expected_owner` null matches via `<=>`; history records `from_user_id = NULL` (AC-H06).
-- `selesai` conversation: rejected even if the dialog was somehow opened (server recomputes; 403).
+- `selesai` conversation: rejected even if the dialog was somehow opened (server recomputes; **409** per P-01).
 - Empty `note`: accepted (optional). Blank `summary`/`next_action` (whitespace only): 400.
 - `to_user_id` equals initiator: 400 even if the initiator is not the current owner.
-- Initiator is not the current owner (e.g. staff A hands off B's conversation to C): allowed — `from_user_id = B`, `initiated_by_user_id = A` (K-06). No ownership-gate on the initiator beyond authentication (REQ-H01).
+- Initiator is not the current owner: **rejected 403** (P-05/CR-03 = A) unless the conversation is unowned **and** in `belum_diambil` and the initiator is an active kasir. This supersedes the v1.0 wording that allowed any authenticated staff to hand off someone else's conversation; `from_user_id = initiator` in the unowned case, and `from_user_id = previous owner` otherwise (K-06).
+- Unowned conversation outside `belum_diambil` (e.g. `menunggu`/`ditunda` after `lepasPercakapan()`): rejected **403** with the branch-(iii) message, even for an active kasir — an active kasir cannot silently hand off a thread it never claimed. Positive control: after `ambilPercakapan()` the same kasir may Handoff (`F04`).
+- Client `expected_owner` stale relative to the server read: rejected **409** by the fail-fast pre-check, before any transaction (`F01`, CR-04 = A1).
 - Unknown conversation id: 404 before any validation.
 - Concurrent non-Handoff write (e.g. someone claims via `ambilPercakapan()` between dialog open and submit): same 409 path — the conditional write only cares that `assigned_to` moved, not which path moved it.
 - History panel pagination: capped at 50 newest; older entries remain in the table (no purge in Fase 2a).
@@ -312,8 +382,10 @@ No new ADR is created in Fase 2a. Triple-gate check: the conditional-write primi
 
 | PRD item (v1.1) | Spec coverage |
 |---|---|
-| GH-006 Handoff antar staff (summary + next action wajib, riwayat permanen) | REQ-H01–H09, Sections 4.1–4.3, AC-H01–H07 |
-| GH-007 Collision Detection (penolakan + info pemilik sah, tanpa presence) | REQ-C01–C04, Section 4.4, AC-C01–C03 |
+| GH-006 Handoff antar staff (summary + next action wajib, riwayat permanen) | REQ-H01–H09 (P-01..P-06), Sections 4.1–4.3/4.3b, AC-H01–H09 |
+| GH-007 Collision Detection (penolakan + info pemilik sah, tanpa presence) | REQ-C01–C04, Section 4.4, AC-C01–C03 (+ AC-H09 fail-fast) |
+| GH-006 AC-3 (initiator gate) | REQ-H01, §4.3 langkah 4, §4.4 branch note, AC-H08, CR-03 = A |
+| Fail-fast ownership pre-check (CR-04 = A1) | REQ-C02, §4.3 langkah 6, AC-H09 |
 | Deferred: presence (prasyarat bernama K-04) | REQ-C03, Out of Scope, Section 9 boundary |
 | Deferred: notifikasi + unread per-user (K-08) | CON-H03, Out of Scope |
 | Fase 2b: auto-assignment GH-008 (K-03) | Out of Scope |
