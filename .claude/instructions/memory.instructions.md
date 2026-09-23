@@ -459,4 +459,93 @@
 
 <!-- checkpoint-tail: M3 Fase 2a SPEC FINALISATION is DONE — `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` moved v1.0 → v1.1 documentation-only (no code) with all six deliverables (Q2 deliberate narrowing = admin stays 403 on belum_diambil; P-01..P-06 table; 4096-CHARACTER cap via mb_strlen + two 409 families sharing a body with nullable current_owner_id; Q3 gate order 404→409 selesai→400→403 inisiator→403 target→fail-fast 409→transaction; CR-04=A1 fail-fast before transBegin after both 403 gates and CR-03=A belum_diambil-only gate with three 403 branches; open ASSUMPTION-008..011 flagged), readiness 95/100, verified no stale text remains, and the next step is a NEW /sdlc-clarify-reqs session followed by /sdlc-plan-tasks and /sdlc-generate-docs (spec + checkpoint still uncommitted at HEAD 51fb1fc). -->
 
+---
+
+## 📝 Session Checkpoint: 2026-09-23 (M3 Fase 2a Spec Text Remediation v1.2)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`) — **remediation pass completed** for
+  `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` (v1.1 → **v1.2**), driven by the six LOCKED
+  resolutions in `docs/audit/clarification-report-m3-fase2a-assumptions-008-011-2026-09-23.md` (§2 + §4).
+  **Documentation-only:** no `app/**`, `tests/**`, `app/Views/**`, migration, Routes or WA-Gateway file was touched.
+  Only three text artifacts changed (Spec, `CONTEXT.md`, and the audit report's remediation banner).
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` — ✅ **v1.2** (was v1.1). Header bumped
+    `version: 1.2`, `last_updated: 2026-09-23`, plus a new v1.2 banner and a **6-row change-history table** referencing
+    the clarification report. Projected Readiness **98/100**.
+  - `CONTEXT.md` — ✅ glossary updated: `Belum Diambil` narrowed to "by any **active kasir**" (was "staff mana pun"),
+    `Handoff` exception clarified to "may be initiated by an **active kasir**"; both `_Avoid_` lines preserved.
+  - `docs/audit/clarification-report-m3-fase2a-assumptions-008-011-2026-09-23.md` — ✅ `REMEDIATION STATUS: RESOLVED`
+    block added after the front matter (the report H1 is `# 🔍 …` at line 21, so the banner could not sit above it
+    without breaking the YAML block; it was placed as the first body element after the front matter, ahead of the H1 —
+    note this is an exception to the usual "after the H1" rule forced by the front matter's position).
+- **Achieved Milestones:**
+  - All six locked corrections applied as surgical `replace_in_file` edits (Surgical Edit Mandate; no full rewrite):
+    (1) **ASSUMPTION-008** — deleted the stale "glossary does not yet contain these terms" sentence; stated the canonical
+    rule (Belum Diambil Handoff limited to an **active kasir**);
+    (2) **AC-H09** — removed the "Locked by `F01`" overclaim; the fail-fast is documented as a non-observable
+    authorisation/audit guard whose only observable contract is "**409, no write, before the transaction**";
+    (3) **ASSUMPTION-010 + §4.4** — documented the coverage asymmetry exactly: `E18` locks exactly-three-key for the
+    **ownership** family, `H02b` locks only the **presence** of `current_owner_id` for the **state** family; "one shared
+    body shape" stays a stated design; **no `H02c` added**;
+    (4) **ASSUMPTION-011** — dropped the non-auditable "1:1" phrasing; the real method names in
+    `tests/session/InboxHandoffTest.php` are the canonical ID source (`H01-H08`, `C01-C04` incl. `C01b`, `G01-G05`,
+    `E01-E18`, `F01-F04`); no inventory table;
+    (5) **REQ-H06** — restated honestly: `assigned_to` changes **and `updated_at` is refreshed** (proof
+    `app/Controllers/Inbox.php:1177-1182`); other columns (`snoozed_until`, `last_message_*`, `status`) unchanged
+    (snooze locked by `E07`);
+    (6) **§4.4 + REQ-H09 + §4.3 step 7** — documented **HTTP 500** on the history-insert-failure rollback path
+    (rollback, ownership intact, fixed message; proof `Inbox.php:1223-1232`, locked by `C03`).
+  - **Evidence re-verified from source (not from the report's claims):** `Inbox.php:1177-1182` executes
+    `UPDATE conversations SET assigned_to = ?, updated_at = ? WHERE id = ? AND assigned_to <=> ?`; `Inbox.php:1223-1232`
+    catches → `transRollback()` → `setStatusCode(500)` with "Gagal menyimpan riwayat Handoff, percakapan tidak berpindah.";
+    `InboxHandoffTest.php` method inventory confirmed live via search (C01b present, `E18` = exactly-3-key, `H02b` =
+    presence-only, `C03` = assertStatus(500)).
+  - **markdownlint differential (no new rule class):** this workspace has **no** `package.json` / markdownlint config, so
+    the bare-default ruleset was used as an objective baseline. Committed v1.1 (`git show HEAD:`) vs working-tree v1.2
+    both report the **identical rule set** `MD013, MD025, MD028, MD049, MD060` (`identical rule set: True`). `MD025`
+    fires **exactly once at line 10** (`# Introduction`) in **both** versions → pre-existing, not a regression. Instance
+    count rose 228 → 246 purely because the added text falls into pre-existing rule categories
+    (MD013 ×183, MD060 ×48, MD028 ×12, MD049 ×2, MD025 ×1 in v1.2). No new rule class introduced.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `npx --no-install markdownlint-cli2 <file>` (and later `markdownlint-cli --disable MD013 …` without a
+    `--` terminator, and a `for /f` token extraction of the output).
+    **Reason:** `markdownlint-cli2` is **not** in the repo and npx refused ("canceled due to missing packages and no YES
+    option"); the `--disable` list needs a `--` terminator before the file args or the CLI prints its usage; and the
+    `findstr → for /f` extraction echoed the literal word "error" per line instead of the rule id.
+    **Note:** use `npx -y markdownlint-cli2` / `npx -y markdownlint-cli` (one-off download works here), and extract rule
+    ids with **PowerShell** `[regex]::Matches($out,'MD\d{3}')` — not `findstr`/`for /f`. For a fast regression proof,
+    run a **differential** lint (committed ref vs working tree) and compare the **rule-id sets**, not the raw counts.
+  - **Attempted:** placing the remediation banner **above** the H1 of
+    `docs/audit/clarification-report-m3-fase2a-assumptions-008-011-2026-09-23.md`.
+    **Reason:** that file carries a YAML front matter block; the H1 is at line 21, so a banner above the H1 would have
+    broken the front-matter structure. The banner was instead placed immediately **after** the front matter, before the H1
+    (a deliberate exception to the usual "after the H1" rule from DE-06, forced by the front-matter position).
+  - Repo-wide dead-ends unchanged, referenced by label only: git index lock on parallel git calls, PowerShell `$base..HEAD`
+    range operator, `TestResponse::assertSee` second-argument selector, phpunit piped through PowerShell,
+    `php -r` inner-quote stripping in PS 5.1, `cmd /c "… > file 2>&1"` for CLI output capture.
+- **Updated Files:**
+  - `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` — v1.1 → v1.2 (6 corrections + version bump +
+    changelog table). `git diff --numstat`: 30 changed lines (26 insertions / 12 deletions incl. replacements).
+  - `CONTEXT.md` — `Belum Diambil` and `Handoff` entries (8 changed lines).
+  - `docs/audit/clarification-report-m3-fase2a-assumptions-008-011-2026-09-23.md` — `REMEDIATION STATUS: RESOLVED` block.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+  - `git status --porcelain`: `M CONTEXT.md`, ` M spec/…handoff-collision.md`, `?? .clinerules`,
+    `?? docs/audit/clarification-report-m3-fase2a-assumptions-008-011-2026-09-23.md` — **no** `app/`, `tests/`,
+    `Views/`, migration, Routes or WA-Gateway change.
+- **Decisions Made:**
+  - Applied the six locked decisions verbatim; did **not** reopen any locked input (Q1/Q3/Q5/Q6/Q7/Q9, K-01..K-09,
+    P-01..P-06). Added **no** `H02c` test and **no** inventory table, per the locked Option X resolutions.
+  - `composer test` deliberately **not** run (no code/test/UI/migration touched; suite stays `298 tests / 948 assertions`
+    @ `51fb1fc`); markdownlint was the only verification, done differentially.
+  - Banner placement in the audit report adapted to the front matter (reported, not hidden).
+  - No new ADR (Triple Gate fails: reversible text clarifications, unsurprising given the locked decisions, no new trade-off).
+- **Next Action / Pending:**
+  - **Spec v1.2 is READY (projected 98/100).** Recommended next step for a **NEW session:** `/sdlc-audit-consistency`
+    on PRD v1.1 ↔ Spec v1.2 ↔ Plan to lock traceability formally (attach all three).
+  - Optional: commit the three text artifacts when the user asks (chain git with `;` in one command, per DE-01).
+  - Then the usual downstream path remains: `/sdlc-generate-docs` (Diátaxis) for user-facing docs.
+
+<!-- checkpoint-tail: M3 Fase 2a SPEC TEXT REMEDIATION is DONE — `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` moved v1.1 → v1.2 documentation-only (no code) applying all six locked resolutions from docs/audit/clarification-report-m3-fase2a-assumptions-008-011-2026-09-23.md (ASSUMPTION-008 stale glossary sentence removed + canonical "active kasir" rule; AC-H09 "Locked by F01" replaced by the non-observable-guard wording with observable contract "409, no write, before the transaction"; ASSUMPTION-010/§4.4 coverage asymmetry recorded with NO H02c; ASSUMPTION-011 1:1 phrasing dropped, InboxHandoffTest.php method names cited as canonical; REQ-H06 now honest that updated_at is refreshed [Inbox.php:1177-1182]; §4.4/REQ-H09/step 7 document HTTP 500 rollback [Inbox.php:1223-1232, C03]), CONTEXT.md narrowed Belum Diambil to "active kasir" and clarified Handoff, a REMEDIATION STATUS: RESOLVED block was added to the audit report, markdownlint differential shows the identical rule set vs committed v1.1 with MD025 pre-existing at line 10 (projected readiness 98/100), and the recommended next step is a NEW /sdlc-audit-consistency session to lock PRD↔Spec↔Plan traceability. -->
+
 

@@ -1,0 +1,31 @@
+# Tool Call Format Rules
+
+DO NOT output DSML blocks like `<|DSML|tool_calls>` or `<|DSML|invoke>`.
+DO NOT use `<|DSML|parameter>` tags.
+
+You MUST strictly use XML-style tags to invoke tools, with this exact format:
+
+<read_file>
+<path>path/to/file</path>
+</read_file>
+
+<write_to_file>
+<path>path/to/file</path>
+<content>file content here</content>
+</write_to_file>
+
+<list_files>
+<path>path/to/directory</path>
+<recursive>true</recursive>
+</list_files>
+
+<search_files>
+<path>path/to/directory</path>
+<regex>search pattern</regex>
+<file_pattern>*.cpp</file_pattern>
+</search_files>
+
+<execute_command>
+<command>your command here</command>
+<requires_approval>true</requires_approval>
+</execute_command>
