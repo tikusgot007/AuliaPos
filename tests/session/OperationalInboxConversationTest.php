@@ -266,4 +266,113 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
         $this->assertTrue($data['messages'][1]['is_internal']);
         $this->assertArrayHasKey('queue_status', $data['conversation']);
     }
+
+    /**
+     * @return list<int>
+     */
+    private function idsDari(string $query): array
+    {
+        $res = $this->withSession($this->sesi())
+            ->get('inbox/api/conversations' . $query);
+
+        $res->assertOK();
+        $data = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('success', $data['status']);
+
+        return array_map(static fn (array $row): int => (int) $row['id'], $data['conversations']);
+    }
+
+    /**
+     * CL-003: status dan q berlaku bersamaan (AND).
+     */
+    public function testStatusDanQBerlakuBersamaan(): void
+    {
+        $budiSelesai = $this->seedConversation([
+            'status' => 'closed',
+            'contact_name' => 'Budi Selesai',
+        ]);
+        $budiOpen = $this->seedConversation([
+            'assigned_to' => 7,
+            'contact_name' => 'Budi Open',
+        ]);
+        $lainSelesai = $this->seedConversation([
+            'status' => 'closed',
+            'contact_name' => 'Andi Selesai',
+        ]);
+
+        $ids = $this->idsDari('?status=selesai&q=Budi');
+
+        $this->assertSame([$budiSelesai], $ids);
+        $this->assertNotContains($budiOpen, $ids);
+        $this->assertNotContains($lainSelesai, $ids);
+    }
+
+    /**
+     * CL-005: tidak ada hasil tetap 200 dengan array kosong, bukan 404.
+     */
+    public function testTidakAdaHasilTetap200DenganArrayKosong(): void
+    {
+        $this->seedConversation(['contact_name' => 'Budi']);
+
+        $this->assertSame([], $this->idsDari('?q=TidakAdaYangCocok'));
+        $this->assertSame([], $this->idsDari('?status=ditunda'));
+        $this->assertSame([], $this->idsDari('?status=selesai&q=Budi'));
+    }
+
+    /**
+     * CL-007: q yang hanya berisi spasi dianggap kosong, status tetap berlaku.
+     */
+    public function testQHanyaSpasiDianggapTidakAdaPencarian(): void
+    {
+        $selesai = $this->seedConversation([
+            'status' => 'closed',
+            'contact_name' => 'Alpha',
+        ]);
+        $open = $this->seedConversation(['contact_name' => 'Beta']);
+
+        $semua = $this->idsDari('?q=' . rawurlencode('   '));
+        $this->assertContains($selesai, $semua);
+        $this->assertContains($open, $semua);
+
+        $this->assertSame([$selesai], $this->idsDari('?status=selesai&q=' . rawurlencode('   ')));
+    }
+
+    /**
+     * CL-008: % dan _ dicari sebagai teks biasa, bukan wildcard.
+     */
+    public function testPersenDanUnderscoreBukanWildcard(): void
+    {
+        $diskon = $this->seedConversation(['contact_name' => 'Promo 50% Off']);
+        $underscore = $this->seedConversation(['contact_name' => 'toko_budi']);
+        $this->seedConversation(['contact_name' => 'Promo 500 Off']);
+        $this->seedConversation(['contact_name' => 'toko budi']);
+
+        // Kalau % jadi wildcard, "50%" akan ikut cocok ke "500".
+        $this->assertSame([$diskon], $this->idsDari('?q=' . rawurlencode('50%')));
+
+        // Kalau _ jadi wildcard (1 karakter apa saja), "toko budi" ikut cocok.
+        $this->assertSame([$underscore], $this->idsDari('?q=' . rawurlencode('toko_')));
+    }
+
+    /**
+     * CL-001: pencarian q menemukan conversation lama di luar 500 terbaru.
+     */
+    public function testQDapatMenemukanConversationLamaDiLuarLatest500(): void
+    {
+        for ($i = 0; $i < 500; $i++) {
+            $this->seedConversation([
+                'contact_name' => 'Customer Baru',
+                'last_message_at' => '2099-01-01 10:00:00',
+                'updated_at' => '2099-01-01 10:00:00',
+            ]);
+        }
+
+        $oldConversationId = $this->seedConversation([
+            'contact_name' => 'Pelanggan Jadul',
+            'last_message_at' => '2020-01-01 10:00:00',
+            'updated_at' => '2020-01-01 10:00:00',
+        ]);
+
+        $this->assertSame([$oldConversationId], $this->idsDari('?q=Jadul'));
+    }
 }

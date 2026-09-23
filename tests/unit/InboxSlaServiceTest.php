@@ -100,6 +100,21 @@ final class InboxSlaServiceTest extends TestCase
         );
     }
 
+    /**
+     * AC-005: 20 menit = kuning untuk semua queue_status yang dihitung
+     * (perlu_dibalas terbagi jadi belum_diambil/open, plus menunggu).
+     */
+    public function test20MenitKuningUntukPerluDibalasDanMenunggu(): void
+    {
+        foreach (['belum_diambil', 'open', 'menunggu'] as $queueStatus) {
+            $this->assertSame(
+                'kuning',
+                $this->service->hitung('2026-09-22 13:40:00', $queueStatus, $this->now),
+                $queueStatus
+            );
+        }
+    }
+
     public function testTimestampMasaDepanTidakMenjadiMerah(): void
     {
         $this->assertSame(
