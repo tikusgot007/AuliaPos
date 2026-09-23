@@ -1546,3 +1546,39 @@
 <!-- checkpoint-tail: Spec rev 1.2 done (Fase 1d: q searches contact_name/whatsapp_name/phone/manual_phone/chat_id per column, AC-013; NG-04/NG-05 fixed; projected 95/100); next: /sdlc-plan-tasks for Fase 1d, then code. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (Plan: Fase 1d Phase 4 + Fase 2a plan status sync)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`) — done. Next is Implementation (`/sdlc-write-code`) of Fase 1d.
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.2, status `In progress` (Phase 4 = Fase 1d, TASK-020..022 open).
+  - `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` — rev 1.1, status `Completed` (ST-01 closed).
+  - `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — rev 1.1, status `Completed` (ST-02 closed; TASK-203 stays VOID).
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — new REMEDIATION STATUS block, projected 95/100.
+  - `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.2 — unchanged, source of Phase 4.
+- **Achieved Milestones:**
+  - Phase 4 (Fase 1d) added: TASK-020 = Red tests AC-013 (a)–(g) in `tests/session/OperationalInboxConversationTest.php`, then widen the `q` filter in `Inbox::apiConversations()` (`Inbox.php:123-131`) from `contact_name`/`phone` to the five columns `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id` (per column `mb_stripos`, OR, NULL-safe, filter-after-fetch, no SQL WHERE). TASK-021 VERIFY = full suite + `git diff` shows no view/route/migration change (CON-003) + manual browser AC-013 (h). TASK-022 APPROVAL = status back to `Completed`, close TODO-SEARCH-01 in TASK-018.
+  - Verified before planning: the screen does no client-side name filtering; it only sends `q` (`index.php:933`), so the change is server-only. List display fallback confirmed: name `contact_name → whatsapp_name → phone → chat_id`, number `manual_phone → phone`.
+  - Fase 2a sync: 28 task rows ticked with evidence (code lines, commits `793dbe9`..`8f11e89` and `3136792`..`51fb1fc`, 2026-09-23 memory checkpoints). All Fase 2a commits are ancestors of `v2.3` (PR #41). Fixed the pre-existing MD012 at the end of the Fase 2a feature plan.
+  - Suite re-run 2026-09-24: `vendor/bin/phpunit --no-coverage` OK **317 tests / 1061 assertions**.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** running `python` for a scripted plan edit. **Reason:** Python is not installed (Windows Store alias only). **Note:** use `php` scripts (scratchpad) for mechanical multi-row edits; plan files are CRLF.
+  - **Attempted:** two `> [!NOTE]` callouts separated only by a blank line. **Reason:** markdownlint MD028. **Note:** put a paragraph between callouts.
+- **Updated Files:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.2: Phase 4, REQ-013/CON-003, ALT-006/007, FILE-002/008, TEST-006/008, RISK-004/005, related docs, rollback.
+  - `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` — rev 1.1 status sync.
+  - `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — rev 1.1 status sync.
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — remediation block.
+- **Decisions Made:**
+  - Fase 1d is one work task (XS/S, 2 files) + VERIFY + APPROVAL; user approved the breakdown ("lanjut").
+  - Keep filter-after-fetch in PHP (ALT-006 SQL WHERE rejected); always search all five columns (ALT-007 rejected, CL-015).
+  - Four approvals without a written record are marked "implied": Fase 1 TASK-006, Fase 2a TASK-008/TASK-011, refactor TASK-205.
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-write-code` Phase 4 (TASK-020..022) of the Fase 1 plan.
+  - `/sdlc-draft-prd`: PRD §9.2 status text is now behind (Fase 1d "Plan belum"; Fase 2a plan sync note).
+  - Later: `/sdlc-define-specs` for Fase 1e (GH-010, message-text search); "karakter" wording in code stays a code-review TODO.
+
+<!-- checkpoint-tail: Fase 1d is planned as Phase 4 of the M3 Fase 1 plan (TASK-020 five-column q predicate in Inbox::apiConversations() with Red AC-013 tests, TASK-021 VERIFY, TASK-022 APPROVAL; plan In progress), both Fase 2a plans are synced to Completed with evidence, suite 317/1061 green; next is /sdlc-write-code Phase 4 in a new session. -->
+
+---
