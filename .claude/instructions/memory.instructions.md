@@ -894,3 +894,39 @@
 <!-- checkpoint-tail: /sdlc-code-review of M1 Wave 1 (WA-Gateway e18f716..065f683) produced docs/audit/code-review-m1-wave1-2026-09-23.md and plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md — 0 P0 / 1 P1 / 14 P2, spec 19/19 REQ met; the P1 (CR-01, reproduced) is a locked-but-healthy SQLite DB at start being treated as corrupt and the constructor failure silently falling back to JSON; awaiting user choice: fix Phase 1 via /sdlc-write-code before the PR (recommended) or open the PR now. -->
 
 ---
+
+
+## 📝 Session Checkpoint: 2026-09-23 (M1 Wave 1 refactor — Phase 1 / CR-01 closed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — refactor plan Phase 1 DONE + approved; Phase 2 not started
+- **Active Artifacts:**
+  - `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` — `Planned`; TASK-101..105 done in code but checkboxes NOT yet ticked in the plan file
+  - `docs/audit/code-review-m1-wave1-2026-09-23.md` — CR-01 now fixed
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — v1.2 `Completed`, untouched (reference only)
+- **Achieved Milestones:**
+  - WA-Gateway worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`: 3 commits on top of `065f683`, **pushed** after user APPROVAL (`065f683..bf23d2f`):
+    - `2ca3065` TASK-101 `checkIntegrity()`: `{healthy:false}` only for `quick_check != 'ok'` or `err.code` in {`SQLITE_CORRUPT`,`SQLITE_NOTADB`}; other errors rethrown, no file moved.
+    - `f87010e` TASK-102 singleton split: `require('better-sqlite3')` fails → warn + JSON (unchanged); constructor fails → `logger.error('[CRITICAL] gagal membuka database SQLite incoming buffer -- Gateway berhenti, TIDAK pindah ke JSON', {severity,path,error,code})` + rethrow.
+    - `bf23d2f` TASK-103 scenarios 18/19/20 in `test/simulate-durable-buffer.js` (locked DB → SQLITE_BUSY, no quarantine, pending row survives; non-DB file still quarantined via SQLITE_NOTADB; child process on locked DB → exit 1, `[CRITICAL]`, no `.json`).
+  - TASK-104 VERIFY: 9/9 regression scripts exit 0 (temp `SQLITE_PATH`, `CI4_*`/`LOG_FOLDER` empty), `data/` unchanged, `git status` clean. Mutation `catch → healthy:false` fails scenario 18 (`EBUSY` vs `SQLITE_BUSY`), file restored (sha256 `c2242d93…` identical). Extra mutation (old singleton from `2ca3065`) fails scenario 20 (child exit 0).
+  - TASK-105 APPROVAL given by user.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** requiring `/c/projects/...` paths inside Node scripts run from MSYS bash. **Reason:** Node on Windows does not resolve MSYS POSIX paths. **Note:** use `C:/projects/...` inside JS; POSIX paths only for shell commands.
+  - **Attempted (design trap):** asserting only "constructor throws" for the locked-DB test. **Reason:** on Windows the OLD code also throws (EBUSY from `renameSync` of the locked file), so the mutation would pass. **Note:** assert `err.code === 'SQLITE_BUSY'`.
+  - **Attempted (design trap):** child test that only `require`s the singleton and checks "no .json". **Reason:** JSON buffer writes the file only on first enqueue, so old code also leaves no `.json`. **Note:** the child must `enqueue()` one event.
+- **Updated Files (WA-Gateway):**
+  - `src/store/incomingBuffer.js` — TASK-101 + TASK-102.
+  - `test/simulate-durable-buffer.js` — scenarios 18-20 (+88 lines; test-side `timeout:100` wrapper `FastDatabase`, source unchanged).
+- **Decisions Made:**
+  - Corrupt-code set kept literal (`SQLITE_CORRUPT`, `SQLITE_NOTADB`); extended codes like `SQLITE_CORRUPT_INDEX` → hard stop, not quarantine (safe direction, RISK-002).
+- **Next Action / Pending:**
+  - **Next:** refactor plan Phase 2 (TASK-201..209) via `/sdlc-write-code` in a new session.
+  - **TODO (new finding, out of scope):** with `LOG_FOLDER` set, pino async file destination (`sync:false`) loses the `[CRITICAL]` line when the process dies during module load (file not opened yet); stderr stack still visible to PM2. Scenario 20 pins `LOG_FOLDER=''`. Candidate for backlog.
+  - Tick TASK-101..105 in the refactor plan file (AuliaPos) — not done yet.
+  - Still open: owner confirmation of deviation (b); leftover `data/test-e09-buffer.sqlite` (TASK-206); AuliaPos branch `feature/m3-operational-inbox-fase1a-task001`: review files already committed (`81db651`, `eb59d0b`); only this checkpoint is uncommitted.
+  - Test runtime note: scenario 20 takes ~7.5 s (default 5 s better-sqlite3 busy timeout, CR-05 backlog).
+
+<!-- checkpoint-tail: Refactor plan Phase 1 (CR-01) is DONE and pushed on WA-Gateway feature/stage-1-reliability (065f683..bf23d2f: 2ca3065 quarantine only real corruption, f87010e constructor failure = [CRITICAL] + rethrow instead of silent JSON fallback, bf23d2f tests 18-20); 9/9 regressions pass, mutation tests caught; next is Phase 2 (TASK-201..209) in a new /sdlc-write-code session; new TODO: pino async LOG_FOLDER loses the [CRITICAL] line on startup crash. -->
+
+---
