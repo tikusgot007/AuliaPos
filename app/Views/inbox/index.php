@@ -97,7 +97,8 @@
         display: flex;
         flex-direction: column;
         min-width: 0;
-        position: relative; /* anchor untuk overlay drag-and-drop */
+        position: relative;
+        /* anchor untuk overlay drag-and-drop */
     }
 
     .inbox-drop-overlay {
@@ -110,7 +111,8 @@
         background: rgba(37, 211, 102, 0.15);
         border: 3px dashed #25d366;
         border-radius: 6px;
-        pointer-events: none; /* drop tetap ditangkap panel, bukan overlay */
+        pointer-events: none;
+        /* drop tetap ditangkap panel, bukan overlay */
     }
 
     .inbox-drop-overlay.active {
@@ -255,9 +257,18 @@
         background: #fff;
     }
 
-    #gatewayStatusBadge.bg-success { background-color: #198754 !important; }
-    #gatewayStatusBadge.bg-warning { background-color: #ffc107 !important; color: #212529 !important; }
-    #gatewayStatusBadge.bg-secondary { background-color: #6c757d !important; }
+    #gatewayStatusBadge.bg-success {
+        background-color: #198754 !important;
+    }
+
+    #gatewayStatusBadge.bg-warning {
+        background-color: #ffc107 !important;
+        color: #212529 !important;
+    }
+
+    #gatewayStatusBadge.bg-secondary {
+        background-color: #6c757d !important;
+    }
 
     /* ========================================================== */
     /* PANEL RIWAYAT HANDOFF (TB-03/TASK-010)                      */
@@ -302,39 +313,39 @@
             <!-- PANEL KIRI: DAFTAR CONVERSATION               -->
             <!-- ============================================ -->
             <div class="inbox-list-col">
-            <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom flex-wrap" style="background:#fff;">
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterBelum_diambil" onclick="setFilterConversation('belum_diambil')">Belum Diambil <span class="badge bg-light text-dark border tab-count" data-count-for="belum_diambil">0</span></button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterOpen" onclick="setFilterConversation('open')">Open <span class="badge bg-light text-dark border tab-count" data-count-for="open">0</span></button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterMenunggu" onclick="setFilterConversation('menunggu')">Menunggu <span class="badge bg-light text-dark border tab-count" data-count-for="menunggu">0</span></button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterDitunda" onclick="setFilterConversation('ditunda')">Ditunda <span class="badge bg-light text-dark border tab-count" data-count-for="ditunda">0</span></button>
-                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSelesai" onclick="setFilterConversation('selesai')">Selesai <span class="badge bg-light text-dark border tab-count" data-count-for="selesai">0</span></button>
-            </div>
-            <div class="inbox-list-panel" id="inboxListPanel">
-                <?php if (empty($conversations)): ?>
-                    <div class="p-3 text-muted small text-center">
-                        Belum ada percakapan masuk.
-                    </div>
-                <?php endif; ?>
-                <?php foreach ($conversations as $c): ?>
-                    <a href="#" class="inbox-list-item" data-conversation-id="<?= esc($c['id']) ?>" onclick="return pilihConversation(<?= (int) $c['id'] ?>)">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <span class="list-name"><?= esc($c['contact_name'] ?: $c['whatsapp_name'] ?: $c['phone'] ?: $c['chat_id']) ?></span>
-                            <span class="d-flex align-items-center gap-1">
-                                <span class="list-time"><?= $c['last_message_at'] ? date('d/m H:i', strtotime($c['last_message_at'])) : '' ?></span>
-                                <button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(<?= (int) $c['id'] ?>)"><i class="fas fa-pen"></i></button>
-                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" style="font-size:0.75rem;" title="Hapus percakapan" onclick="event.stopPropagation(); hapusPercakapanDariList(<?= (int) $c['id'] ?>)"><i class="fas fa-trash-alt"></i></button>
-                            </span>
+                <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom flex-wrap" style="background:#fff;">
+                    <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterBelum_diambil" onclick="setFilterConversation('belum_diambil')">Belum Diambil <span class="badge bg-light text-dark border tab-count" data-count-for="belum_diambil">0</span></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterOpen" onclick="setFilterConversation('open')">Open <span class="badge bg-light text-dark border tab-count" data-count-for="open">0</span></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterMenunggu" onclick="setFilterConversation('menunggu')">Menunggu <span class="badge bg-light text-dark border tab-count" data-count-for="menunggu">0</span></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterDitunda" onclick="setFilterConversation('ditunda')">Ditunda <span class="badge bg-light text-dark border tab-count" data-count-for="ditunda">0</span></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSelesai" onclick="setFilterConversation('selesai')">Selesai <span class="badge bg-light text-dark border tab-count" data-count-for="selesai">0</span></button>
+                </div>
+                <div class="inbox-list-panel" id="inboxListPanel">
+                    <?php if (empty($conversations)): ?>
+                        <div class="p-3 text-muted small text-center">
+                            Belum ada percakapan masuk.
                         </div>
-                        <div class="list-preview">
-                            <?= $c['last_message_direction'] === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '' ?>
-                            <?= esc($c['manual_phone'] ?: $c['phone'] ?: ($c['jid_type'] === 'lid' ? 'LID' : $c['jid_type'])) ?>
-                            <?php if ($c['status'] === 'closed'): ?>
-                                <span class="badge bg-secondary" style="font-size: 0.6rem;">closed</span>
-                            <?php endif; ?>
-                        </div>
-                    </a>
-                <?php endforeach; ?>
-            </div>
+                    <?php endif; ?>
+                    <?php foreach ($conversations as $c): ?>
+                        <a href="#" class="inbox-list-item" data-conversation-id="<?= esc($c['id']) ?>" onclick="return pilihConversation(<?= (int) $c['id'] ?>)">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <span class="list-name"><?= esc($c['contact_name'] ?: $c['whatsapp_name'] ?: $c['phone'] ?: $c['chat_id']) ?></span>
+                                <span class="d-flex align-items-center gap-1">
+                                    <span class="list-time"><?= $c['last_message_at'] ? date('d/m H:i', strtotime($c['last_message_at'])) : '' ?></span>
+                                    <button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(<?= (int) $c['id'] ?>)"><i class="fas fa-pen"></i></button>
+                                    <button type="button" class="btn btn-sm btn-link p-0 text-danger" style="font-size:0.75rem;" title="Hapus percakapan" onclick="event.stopPropagation(); hapusPercakapanDariList(<?= (int) $c['id'] ?>)"><i class="fas fa-trash-alt"></i></button>
+                                </span>
+                            </div>
+                            <div class="list-preview">
+                                <?= $c['last_message_direction'] === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '' ?>
+                                <?= esc($c['manual_phone'] ?: $c['phone'] ?: ($c['jid_type'] === 'lid' ? 'LID' : $c['jid_type'])) ?>
+                                <?php if ($c['status'] === 'closed'): ?>
+                                    <span class="badge bg-secondary" style="font-size: 0.6rem;">closed</span>
+                                <?php endif; ?>
+                            </div>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
             </div>
 
             <!-- ============================================ -->
@@ -630,7 +641,12 @@
         if (!iso) return '';
         const d = new Date(iso.replace(' ', 'T'));
         if (isNaN(d.getTime())) return iso;
-        return d.toLocaleString('id-ID', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleString('id-ID', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
 
     // Cari conversation berdasarkan id. Perbandingan via String() SENGAJA
@@ -641,7 +657,9 @@
     // aktif semuanya diam-diam kosong). Satu fungsi ini dipakai di semua
     // pemanggil supaya perbaikannya tidak perlu diulang di tiap tempat.
     function cariConversation(id) {
-        return daftarConversation.find(function(c) { return String(c.id) === String(id); });
+        return daftarConversation.find(function(c) {
+            return String(c.id) === String(id);
+        });
     }
 
     // ================================================================
@@ -699,10 +717,22 @@
     }
 
     const RESPONSE_STATE_LABEL = {
-        perlu_dibalas: { text: 'Perlu Dibalas', kelas: 'bg-danger' },
-        menunggu_customer: { text: 'Menunggu Customer', kelas: 'bg-info text-dark' },
-        follow_up: { text: 'Follow-up', kelas: 'bg-warning text-dark' },
-        selesai: { text: 'Selesai', kelas: 'bg-secondary' },
+        perlu_dibalas: {
+            text: 'Perlu Dibalas',
+            kelas: 'bg-danger'
+        },
+        menunggu_customer: {
+            text: 'Menunggu Customer',
+            kelas: 'bg-info text-dark'
+        },
+        follow_up: {
+            text: 'Follow-up',
+            kelas: 'bg-warning text-dark'
+        },
+        selesai: {
+            text: 'Selesai',
+            kelas: 'bg-secondary'
+        },
     };
 
     function renderDaftarConversation() {
@@ -733,10 +763,10 @@
             // String() SENGAJA -- assigned_to dari MySQLi/JSON kadang
             // string ("3"), currentUserId number -- lihat catatan
             // cariConversation() di atas untuk root cause bug yang sama.
-            const assignBadge = c.assigned_to
-                ? '<span class="badge ' + (String(c.assigned_to) === String(currentUserId) ? 'bg-info' : 'bg-light text-dark border') + '" style="font-size:0.6rem;">' +
-                  '<i class="fas fa-user"></i> Dipegang: ' + escapeHtmlInbox(c.assigned_to_name || ('User #' + c.assigned_to)) + '</span>'
-                : '<span class="badge bg-light text-muted border" style="font-size:0.6rem;">Belum diambil</span>';
+            const assignBadge = c.assigned_to ?
+                '<span class="badge ' + (String(c.assigned_to) === String(currentUserId) ? 'bg-info' : 'bg-light text-dark border') + '" style="font-size:0.6rem;">' +
+                '<i class="fas fa-user"></i> Dipegang: ' + escapeHtmlInbox(c.assigned_to_name || ('User #' + c.assigned_to)) + '</span>' :
+                '<span class="badge bg-light text-muted border" style="font-size:0.6rem;">Belum diambil</span>';
 
             const nomorAtauLid = c.manual_phone || c.phone || (c.jid_type === 'lid' ? 'LID' : c.jid_type);
 
@@ -756,7 +786,9 @@
 
     function muatUlangDaftarConversation() {
         fetch('<?= base_url('/inbox/api/conversations') ?>')
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     daftarConversation = json.conversations;
@@ -828,42 +860,45 @@
         // HANYA relevan kalau conversation ini @lid DAN belum punya
         // `phone` ter-verifikasi (kalau sudah ada, reconciliation
         // otomatis/sebelumnya sudah menanganinya).
-        const tombolKonfirmasiNomor = (conv && conv.jid_type === 'lid' && !conv.phone)
-            ? ' <button type="button" class="btn btn-sm btn-link p-0 text-warning" style="font-size:0.75rem;" title="Konfirmasi nomor WhatsApp customer ini" onclick="bukaModalKonfirmasiNomor()">' +
-              '<i class="fas fa-shield-alt"></i> Konfirmasi Nomor</button>'
-            : '';
+        const tombolKonfirmasiNomor = (conv && conv.jid_type === 'lid' && !conv.phone) ?
+            ' <button type="button" class="btn btn-sm btn-link p-0 text-warning" style="font-size:0.75rem;" title="Konfirmasi nomor WhatsApp customer ini" onclick="bukaModalKonfirmasiNomor()">' +
+            '<i class="fas fa-shield-alt"></i> Konfirmasi Nomor</button>' :
+            '';
 
         // Tahap 1 lifecycle status (Section 12): tombol "Tutup" HANYA
         // muncul kalau conversation sedang OPEN -- tidak ada tombol
         // "Open" manual (reopen cuma lewat pesan masuk baru, lihat
         // InboxGatewayApi::messages()).
-        const badgeStatus = conv
-            ? ' <span class="badge ' + (conv.status === 'closed' ? 'bg-secondary' : 'bg-success') + '">' + conv.status.toUpperCase() + '</span>'
-            : '';
-        const tombolTutup = (conv && conv.status === 'open')
-            ? '<button type="button" class="btn btn-sm btn-outline-danger me-1" title="Tutup percakapan" onclick="tutupPercakapan()">' +
-              '<i class="fas fa-times-circle"></i> Tutup</button>'
-            : '';
+        const badgeStatus = conv ?
+            ' <span class="badge ' + (conv.status === 'closed' ? 'bg-secondary' : 'bg-success') + '">' + conv.status.toUpperCase() + '</span>' :
+            '';
+        const tombolTutup = (conv && conv.status === 'open') ?
+            '<button type="button" class="btn btn-sm btn-outline-danger me-1" title="Tutup percakapan" onclick="tutupPercakapan()">' +
+            '<i class="fas fa-times-circle"></i> Tutup</button>' :
+            '';
 
         // Response state (Langkah 9): "Tandai Dibaca" (perlu_dibalas ->
         // menunggu_customer) dan "Follow-up" (snooze sementara) -- keduanya
         // dipanggil lewat endpoint Langkah 5 & 6.
-        const tombolTandaiDibaca = (conv && conv.response_state === 'perlu_dibalas')
-            ? '<button type="button" class="btn btn-sm btn-outline-success me-1" title="Tandai sudah dibaca" onclick="tandaiDibacaAktif()">' +
-              '<i class="fas fa-check"></i> Tandai Dibaca</button>'
-            : '';
+        const tombolTandaiDibaca = (conv && conv.response_state === 'perlu_dibalas') ?
+            '<button type="button" class="btn btn-sm btn-outline-success me-1" title="Tandai sudah dibaca" onclick="tandaiDibacaAktif()">' +
+            '<i class="fas fa-check"></i> Tandai Dibaca</button>' :
+            '';
         // M3 Fase 2a (TB-01/TASK-004): tombol Handoff hanya untuk
         // percakapan eligible + inisiator yang diizinkan server
         // (assignee saat ini, atau kasir aktif pada belum_diambil) --
         // Q1/P-05 dicerminkan di UI supaya tidak menawarkan aksi 403.
+        // TASK-202 (CR-03 = A, LOCKED): cermin gerbang server yang sudah
+        // dipersempit -- tanpa pemilik hanya boleh dari tab `belum_diambil`
+        // (queue_status), bukan sekadar assigned_to kosong.
         const dapatHandoff = conv && conv.queue_status !== 'selesai' && (
             (conv.assigned_to && String(conv.assigned_to) === String(currentUserId)) ||
-            (!conv.assigned_to && currentUserRole === 'kasir')
+            (!conv.assigned_to && conv.queue_status === 'belum_diambil' && currentUserRole === 'kasir')
         );
-        const tombolHandoff = dapatHandoff
-            ? '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Serahkan percakapan ke kasir lain" onclick="bukaModalHandoff()">' +
-              '<i class="fas fa-share-square"></i> Handoff</button>'
-            : '';
+        const tombolHandoff = dapatHandoff ?
+            '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Serahkan percakapan ke kasir lain" onclick="bukaModalHandoff()">' +
+            '<i class="fas fa-share-square"></i> Handoff</button>' :
+            '';
 
         const tombolFollowUp =
             '<div class="btn-group me-1">' +
@@ -899,8 +934,12 @@
     function tandaiDibacaAktif() {
         if (!conversationAktif) return;
 
-        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/tandai-dibaca', { method: 'POST' })
-            .then(function(res) { return res.json(); })
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/tandai-dibaca', {
+                method: 'POST'
+            })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     muatUlangDaftarConversation();
@@ -918,10 +957,16 @@
 
         fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/snooze', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ menit: menit })
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    menit: menit
+                })
             })
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     showToast(menit > 0 ? 'Percakapan di-follow-up.' : 'Follow-up dibatalkan.', 'success');
@@ -940,12 +985,18 @@
     function tutupPercakapan() {
         if (!conversationAktif) return;
 
-        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/tutup', { method: 'POST' })
-            .then(function(res) { return res.json(); })
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/tutup', {
+                method: 'POST'
+            })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     showToast('Percakapan ditutup.', 'success');
-                    const idx = daftarConversation.findIndex(function(c) { return String(c.id) === String(conversationAktif); });
+                    const idx = daftarConversation.findIndex(function(c) {
+                        return String(c.id) === String(conversationAktif);
+                    });
                     if (idx !== -1) daftarConversation[idx] = json.conversation;
                     renderDaftarConversation();
                     renderThreadHeader();
@@ -961,8 +1012,12 @@
     function ambilPercakapan() {
         if (!conversationAktif) return;
 
-        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/ambil', { method: 'POST' })
-            .then(function(res) { return res.json(); })
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/ambil', {
+                method: 'POST'
+            })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     showToast('Percakapan berhasil diambil.', 'success');
@@ -979,8 +1034,12 @@
     function lepasPercakapan() {
         if (!conversationAktif) return;
 
-        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/lepas', { method: 'POST' })
-            .then(function(res) { return res.json(); })
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/lepas', {
+                method: 'POST'
+            })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     showToast('Percakapan dilepas.', 'success');
@@ -1021,9 +1080,9 @@
         if (!conv) return;
 
         // null/undefined -> string kosong = "saya lihat belum diambil".
-        handoffExpectedOwner = (conv.assigned_to === null || conv.assigned_to === undefined)
-            ? ''
-            : String(conv.assigned_to);
+        handoffExpectedOwner = (conv.assigned_to === null || conv.assigned_to === undefined) ?
+            '' :
+            String(conv.assigned_to);
 
         document.getElementById('formHandoff').reset();
         document.getElementById('handoffAlert').classList.add('d-none');
@@ -1078,15 +1137,17 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyerahkan...';
 
-        const body = 'to_user_id=' + encodeURIComponent(target)
-            + '&summary=' + encodeURIComponent(summary)
-            + '&next_action=' + encodeURIComponent(nextAction)
-            + '&note=' + encodeURIComponent(note)
-            + '&expected_owner=' + encodeURIComponent(handoffExpectedOwner);
+        const body = 'to_user_id=' + encodeURIComponent(target) +
+            '&summary=' + encodeURIComponent(summary) +
+            '&next_action=' + encodeURIComponent(nextAction) +
+            '&note=' + encodeURIComponent(note) +
+            '&expected_owner=' + encodeURIComponent(handoffExpectedOwner);
 
         fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/handoff', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
                 body: body
             })
             .then(function(res) {
@@ -1159,9 +1220,9 @@
         }
 
         wadah.innerHTML = handoffs.map(function(h) {
-            const dari = (h.from_user_id === null || h.from_user_id === undefined || h.from_user_id === '')
-                ? 'Belum diambil'
-                : namaStaffHandoff(h.from_user_id);
+            const dari = (h.from_user_id === null || h.from_user_id === undefined || h.from_user_id === '') ?
+                'Belum diambil' :
+                namaStaffHandoff(h.from_user_id);
 
             return '<div class="inbox-handoff-item">' +
                 '<div><strong>' + escapeHtmlInbox(dari) + '</strong> &rarr; ' + escapeHtmlInbox(namaStaffHandoff(h.to_user_id)) +
@@ -1186,7 +1247,9 @@
         }
 
         fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/handoff')
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     renderRiwayatHandoff(json.handoffs);
@@ -1308,12 +1371,12 @@
         container.innerHTML = messages.map(function(m) {
             const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
             const arah = internal ? 'internal-note' : (m.direction === 'outgoing' ? 'outgoing' : 'incoming');
-            const senderLabel = (m.sender_name)
-                ? '<div class="bubble-sender">' + escapeHtmlInbox(m.sender_name) + '</div>'
-                : '';
-            const internalLabel = internal
-                ? '<div class="inbox-internal-label"><i class="fas fa-sticky-note"></i> Internal</div>'
-                : '';
+            const senderLabel = (m.sender_name) ?
+                '<div class="bubble-sender">' + escapeHtmlInbox(m.sender_name) + '</div>' :
+                '';
+            const internalLabel = internal ?
+                '<div class="inbox-internal-label"><i class="fas fa-sticky-note"></i> Internal</div>' :
+                '';
 
             return '<div class="inbox-bubble ' + arah + '">' +
                 internalLabel +
@@ -1332,7 +1395,9 @@
         if (!conversationAktif) return;
 
         fetch('<?= base_url('/inbox/api/conversations') ?>/' + conversationAktif + '/messages')
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     renderPesan(json.messages, scrollPaksa);
@@ -1368,10 +1433,14 @@
 
         fetch('<?= base_url('/inbox/mulai-percakapan') ?>', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
                 body: 'phone=' + encodeURIComponent(nomor) + '&text=' + encodeURIComponent(text)
             })
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     showToast('Chat berhasil dimulai!', 'success');
@@ -1383,7 +1452,9 @@
                     // Muat ulang daftar conversation, lalu langsung buka
                     // conversation yang baru dibuat/dipakai.
                     fetch('<?= base_url('/inbox/api/conversations') ?>')
-                        .then(function(r) { return r.json(); })
+                        .then(function(r) {
+                            return r.json();
+                        })
                         .then(function(listJson) {
                             if (listJson.status === 'success') {
                                 daftarConversation = listJson.conversations;
@@ -1524,14 +1595,20 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menghapus...';
 
-        fetch('<?= base_url('/inbox/percakapan/') ?>' + idDihapus + '/hapus', { method: 'POST' })
-            .then(function(res) { return res.json(); })
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + idDihapus + '/hapus', {
+                method: 'POST'
+            })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHapusPercakapan')).hide();
                     showToast('Percakapan berhasil dihapus.', 'success');
 
-                    daftarConversation = daftarConversation.filter(function(c) { return String(c.id) !== String(idDihapus); });
+                    daftarConversation = daftarConversation.filter(function(c) {
+                        return String(c.id) !== String(idDihapus);
+                    });
                     renderDaftarConversation();
 
                     // Panel kanan HANYA direset kalau yang dihapus memang
@@ -1597,17 +1674,23 @@
 
         fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/profil', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
                 body: 'customer_name=' + encodeURIComponent(nama) + '&phone=' + encodeURIComponent(telepon)
             })
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditProfil')).hide();
                     showToast('Profil pelanggan disimpan.', 'success');
 
                     // Perbarui entri lokal langsung, tidak perlu menunggu polling.
-                    const idx = daftarConversation.findIndex(function(c) { return String(c.id) === String(conversationAktif); });
+                    const idx = daftarConversation.findIndex(function(c) {
+                        return String(c.id) === String(conversationAktif);
+                    });
                     if (idx !== -1) {
                         daftarConversation[idx] = json.conversation;
                     }
@@ -1655,16 +1738,22 @@
 
         fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/konfirmasi-nomor', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
                 body: 'phone=' + encodeURIComponent(nomor)
             })
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKonfirmasiNomor')).hide();
                     showToast('Nomor WhatsApp dikonfirmasi. Pesan berikutnya dari nomor ini akan otomatis masuk ke sini.', 'success');
 
-                    const idx = daftarConversation.findIndex(function(c) { return String(c.id) === String(conversationAktif); });
+                    const idx = daftarConversation.findIndex(function(c) {
+                        return String(c.id) === String(conversationAktif);
+                    });
                     if (idx !== -1) {
                         daftarConversation[idx] = json.conversation;
                     }
@@ -1719,10 +1808,14 @@
 
         fetch('<?= base_url('/inbox/kirim') ?>', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
                 body: 'conversation_id=' + encodeURIComponent(conversationAktif) + '&text=' + encodeURIComponent(text)
             })
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     textarea.value = '';
@@ -1770,7 +1863,9 @@
                 method: 'POST',
                 body: formData
             })
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     textarea.value = '';
@@ -1806,11 +1901,31 @@
     // STATUS GATEWAY
     // ================================================================
     const STATUS_GATEWAY_LABEL = {
-        connected: { text: 'Terhubung', kelas: 'bg-success', icon: 'fa-check-circle' },
-        connecting: { text: 'Menghubungkan...', kelas: 'bg-warning', icon: 'fa-circle-notch fa-spin' },
-        reconnecting: { text: 'Menghubungkan...', kelas: 'bg-warning', icon: 'fa-circle-notch fa-spin' },
-        disconnected: { text: 'Terputus', kelas: 'bg-secondary', icon: 'fa-times-circle' },
-        logged_out: { text: 'Logout', kelas: 'bg-secondary', icon: 'fa-sign-out-alt' },
+        connected: {
+            text: 'Terhubung',
+            kelas: 'bg-success',
+            icon: 'fa-check-circle'
+        },
+        connecting: {
+            text: 'Menghubungkan...',
+            kelas: 'bg-warning',
+            icon: 'fa-circle-notch fa-spin'
+        },
+        reconnecting: {
+            text: 'Menghubungkan...',
+            kelas: 'bg-warning',
+            icon: 'fa-circle-notch fa-spin'
+        },
+        disconnected: {
+            text: 'Terputus',
+            kelas: 'bg-secondary',
+            icon: 'fa-times-circle'
+        },
+        logged_out: {
+            text: 'Logout',
+            kelas: 'bg-secondary',
+            icon: 'fa-sign-out-alt'
+        },
     };
 
     function renderStatusGateway(gateway) {
@@ -1858,7 +1973,9 @@
 
     function muatUlangStatusGateway() {
         fetch('<?= base_url('/inbox/api/gateway-status') ?>')
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     renderStatusGateway(json.gateway);
@@ -1881,6 +1998,8 @@
     renderDaftarConversation();
 
     setInterval(muatUlangDaftarConversation, 6000);
-    setInterval(function() { muatUlangPesan(false); }, 4000);
+    setInterval(function() {
+        muatUlangPesan(false);
+    }, 4000);
     setInterval(muatUlangStatusGateway, 15000);
 </script>

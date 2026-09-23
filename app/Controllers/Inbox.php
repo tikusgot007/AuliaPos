@@ -1109,19 +1109,31 @@ class Inbox extends BaseController
         $daftarKasir  = (new UserModel())->daftarKasirAktif();
         $idKasirAktif = array_map('intval', array_column($daftarKasir, 'id'));
 
-        // (4) Gerbang inisiator (P-05/Q1 ketat): assignee saat ini
-        // selalu boleh; percakapan belum_diambil hanya boleh untuk kasir
-        // aktif; non-assignee pada percakapan yang sudah diambil = 403
-        // (AC-H08) -- tanpa jalur paksa admin.
+        // (4) Gerbang inisiator (P-05/Q1). TASK-202 (REQ-007/CR-03 = A,
+        // LOCKED): pengecualian tanpa pemilik dipersempit ke tab
+        // `belum_diambil` (queue_status), BUKAN sekadar `assigned_to IS NULL`
+        // -- supaya percakapan tanpa pemilik di tab lain (mis. `menunggu`/
+        // `ditunda` akibat lepasPercakapan) tidak bisa diserahkan diam-diam.
+        // `$computed` sudah tersedia (DEP-01), tanpa query tambahan.
         $inisiatorDiizinkan = $assignedTo !== null
             ? ($assignedTo === $userId)
-            : in_array($userId, $idKasirAktif, true);
+            : (($computed['queue_status'] ?? null) === 'belum_diambil' && in_array($userId, $idKasirAktif, true));
         if (!$inisiatorDiizinkan) {
+            // Pesan 403 punya TIGA cabang (mengikuti state SERVER, bukan
+            // klaim klien). Cabang (i)/(ii) verbatim (locked E04(c)/E04(b));
+            // cabang (iii) baru agar kasir aktif di tab non-belum_diambil
+            // tidak disesatkan pesan (ii).
+            if ($assignedTo !== null) {
+                $pesan403 = 'Hanya staff yang sedang menangani percakapan ini yang bisa menyerahkannya.';
+            } elseif (($computed['queue_status'] ?? null) === 'belum_diambil') {
+                $pesan403 = 'Hanya kasir aktif yang bisa menyerahkan percakapan yang belum diambil.';
+            } else {
+                $pesan403 = 'Percakapan tanpa pemilik hanya bisa diserahkan dari tab Belum Diambil. Ambil dulu percakapan ini.';
+            }
+
             return $this->response->setStatusCode(403)->setJSON([
                 'status'  => 'error',
-                'message' => $assignedTo !== null
-                    ? 'Hanya staff yang sedang menangani percakapan ini yang bisa menyerahkannya.'
-                    : 'Hanya kasir aktif yang bisa menyerahkan percakapan yang belum diambil.',
+                'message' => $pesan403,
             ]);
         }
 
@@ -1141,7 +1153,17 @@ class Inbox extends BaseController
             }
         }
 
-        // (6) Transaksi grup inbox (REQ-H09): conditional write + insert
+        // (6) Fail-fast 409 (REQ-008/CR-04 = A1, LOCKED): bila klaim klien
+        // `expected_owner` TIDAK sama dengan `assigned_to` yang dibaca server
+        // saat ini, conditional write MUSTAHIL menang -- jadi jawab 409 di
+        // sini, SEBELUM transaksi, tanpa menulis apa pun. Diletakkan SETELAH
+        // kedua gerbang 403 (Q3) supaya non-assignee tetap 403 dan nama
+        // pemilik tidak bocor ke non-assignee.
+        if ($expectedOwner !== $assignedTo) {
+            return $this->balas409KepemilikanBasi($assignedTo);
+        }
+
+        // (7) Transaksi grup inbox (REQ-H09): conditional write + insert
         // riwayat atomik. ConversationHandoffModel juga memakai grup
         // 'inbox', jadi transBegin() mencakup kedua langkah.
         $db  = \Config\Database::connect('inbox');

@@ -1105,4 +1105,106 @@ final class InboxHandoffTest extends CIUnitTestCase
         $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
         $this->assertCount(0, $this->handoffRows($id));
     }
+
+    // ================================================================
+    // Phase 2 Refactor (TASK-201/TASK-202) -- clarified semantics
+    // ================================================================
+
+    public function testF01FailFast409TidakMenulisOwnershipDanUpdatedAt(): void
+    {
+        // TASK-201 (REQ-008/CR-04 = A1): expected_owner klien (8) !=
+        // assigned_to server (7) -> 409 dari FAIL-FAST sebelum transaksi.
+        // Bukti TEST-006: nol write -- ownership, updated_at, dan riwayat
+        // semuanya tidak berubah.
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $before = $this->conversation($id);
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 8));
+
+        $response->assertStatus(409);
+        $json = json_decode($response->getJSON(), true);
+        $this->assertSame(7, (int) $json['current_owner_id']);
+
+        $after = $this->conversation($id);
+        $this->assertSame(7, (int) $after['assigned_to']);
+        $this->assertSame($before['updated_at'], $after['updated_at']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    public function testF02TanpaPemilikDiTabDitundaDitolak403(): void
+    {
+        // TASK-202 (REQ-007/CR-03 = A): assigned_to NULL tapi TIDAK
+        // belum_diambil (snooze aktif -> tab `ditunda`). Non-assignee kasir
+        // aktif TIDAK boleh menyerahkan -> 403 cabang (iii), ownership tetap
+        // NULL, nol riwayat.
+        $snooze = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))
+            ->modify('+2 hours')
+            ->format('Y-m-d H:i:s');
+
+        $id = $this->seedConversation([
+            'assigned_to'   => null,
+            'snoozed_until' => $snooze,
+        ]);
+
+        $payload = $this->validPayload(8, 7);
+        $payload['expected_owner'] = '';
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload);
+
+        $response->assertStatus(403);
+        $response->assertJSONFragment(['message' => 'Percakapan tanpa pemilik hanya bisa diserahkan dari tab Belum Diambil. Ambil dulu percakapan ini.']);
+
+        $this->assertNull($this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    public function testF03TanpaPemilikDiTabMenungguDitolak403(): void
+    {
+        // TASK-202: assigned_to NULL + last_seen_by_assignee_at >=
+        // last_message_at -> response_state menunggu_customer -> tab
+        // `menunggu`. Non-assignee kasir -> 403, nol riwayat.
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        $id = $this->seedConversation([
+            'assigned_to'              => null,
+            'last_message_direction'   => 'incoming',
+            'last_message_at'          => $now,
+            'last_seen_by_assignee_at' => $now,
+        ]);
+
+        $payload = $this->validPayload(8, 7);
+        $payload['expected_owner'] = '';
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload);
+
+        $response->assertStatus(403);
+
+        $this->assertNull($this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    public function testF04KontrolPositifSetelahAmbilPercakapanTetapBisaHandoff(): void
+    {
+        // TASK-202 kontrol positif: penyempitan TIDAK membuat jalan buntu.
+        // Percakapan masih belum_diambil -> kasir 7 meng-klaim lewat
+        // ambilPercakapan(), lalu Handoff yang sama -> 200.
+        $id = $this->seedConversation(['assigned_to' => null]);
+
+        $this->withSession($this->sesi('kasir', 7))
+            ->post('inbox/percakapan/' . $id . '/ambil')
+            ->assertOK();
+
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 7));
+
+        $response->assertOK();
+        $this->assertSame(8, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(1, $this->handoffRows($id));
+    }
 }
