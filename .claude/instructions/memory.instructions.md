@@ -612,4 +612,63 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-23 (Unfinished-Planning Inventory + M2 Stash Discard)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Documentation (`/sdlc-generate-docs`) — the tutorial from the previous checkpoint is
+  already committed (`04c000f`). This session produced a **read-only inventory** plus **one deliberate git
+  state change** (stash discard). No planning artifact was created.
+- **Active Artifacts:**
+  - `docs/tutorials/panduan-inbox-whatsapp-untuk-kasir.md` — ✅ committed `04c000f` (MD013-only lint).
+  - `docs/audit/consistency-audit-m3-fase2a-handoff-collision-2026-09-23.md` — ✅ committed `ccc4bd2`.
+- **Achieved Milestones:**
+  - **Verified inventory of unfinished planning** (read-only): **(1)** M1 Wave 1 `TASK-017`/`TASK-018` are the
+    only genuinely open tasks (`plan-process-m1-wave1-incoming-reliability-v1.0.md`, status `In progress`;
+    TASK-001..016 already ✅); **(2)** three plans are executed but never closed (`plan-feature-...fase1`,
+    `plan-feature-...fase2a`, `plan-refactor-...fase2a`: status `Planned`, every task row blank/`[ ]`);
+    **(3)** `docs/Rencana Implementasi M3 Operational Inbox.md` is a stale duplicate plan (all DoD `- [ ]`);
+    **(4)** referenced but absent on this branch: `docs/adr/`, `docs/decisions/`, `docs/TODO-CHAT.md`,
+    `docs/GATEWAY-REQUIREMENTS.md`, `docs/CHAT.md` — all recoverable from `v2.2`;
+    **(5)** Fase 1b leftovers verified in code: `sla_color` computed but never rendered, no search UI despite
+    `?status=&q=` support, no `page` pagination, no snooze reason, no Internal Note composer UI.
+  - **User decision (LOCKED): discard `stash@{0}`.** The stash (commit `4a789bf6`, 2026-09-22 15:03,
+    "On v2.3") held only `prd-20260922-1200-m2-state-consistency-inbox.md` (+147) and a memory hunk (+30).
+    Its substance is already covered by committed artifacts — m2-gate clarification `K-01`/`F-02`, PRD v1.1
+    §2.3/§9.2, `docs/ARCHITECTURE.md` §12 (lines 298-299) — and its premise ("M2 must precede M3 Fase 2") is
+    now false because Fase 2a shipped on the narrow K-01 gate. The earlier "priority #1 = rescue the M2 PRD"
+    recommendation is therefore **VOID**; nothing of substance was lost. The hash stays recoverable via reflog
+    until a prune.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** treating a local uncommitted `git stash` entry (a 147-line M2 PRD draft) as critical
+    unfinished planning and recommending a rescue **before** checking whether its content already exists.
+    **Reason:** the substance was already recorded — in places more accurately — by committed artifacts
+    (`K-01`/`F-02`, PRD v1.1 §2.3/§9.2, `ARCHITECTURE.md` §12), while the draft's sequencing premise was
+    obsolete; reviving it would have misled the next session.
+    **Note:** generalizable rule — before "rescuing" a local-only artifact, grep the committed artifacts for
+    the same facts, then **classify** it (`docs/0. Aturan dokumentasi.md` §15) instead of reviving it.
+    Flagged for Knowledge Base promotion at the next compaction.
+- **Updated Files:**
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+  - No `app/`, `tests/`, `Views/`, `plan/`, `spec/`, PRD or config file was modified.
+- **Decisions Made:**
+  - Discard the stash **deliberately** rather than leave a superseded draft dangling; M2 as a *program* stays
+    deferred per `K-01` and `ARCHITECTURE.md` §12.
+  - The unfinished-planning inventory stays a chat deliverable — **no fourth overlapping planning document**
+    was written. Remediation routing: `/code-janitor` (restore the v2.2 docs), `/sdlc-write-code` (close M1
+    TASK-017/018), `/sdlc-plan-tasks` (sync the three trackers), `/sdlc-draft-prd` or `/sdlc-define-specs`
+    (Fase 1b leftovers; M2/Fase 2b scheduling).
+- **Next Action / Pending:**
+  - **NEW session (`/code-janitor`):** restore from `v2.2` (read-only via `git show v2.2:<path>`, DE-30):
+    `docs/adr/0001-reuse-response-state-for-queue-view-status.md`, the 5 `docs/decisions/*` files,
+    `docs/TODO-CHAT.md`, `docs/GATEWAY-REQUIREMENTS.md`, `docs/CHAT.md`.
+  - **M1 closure:** `TASK-017` may only run in the `>21:00 or <08:00` window with explicit approval (it stops
+    the production Gateway 3×) and must write its decision log into `docs/decisions/`.
+  - Deferred by design, unchanged: Fase 2b Auto-assignment (GH-008), Presence, notifications/unread, the M2
+    program, M4, M5, GW-09.
+
+<!-- checkpoint-tail: Read-only unfinished-planning inventory (M1 TASK-017/018 are the only truly open tasks; three plans executed but never closed; docs/adr|decisions|TODO-CHAT|GATEWAY-REQUIREMENTS|CHAT missing on this branch but present on v2.2; Fase 1b leftovers = SLA not rendered, no search UI, no pagination, no snooze reason, no Internal Note composer) plus a LOCKED user decision to DELIBERATELY DISCARD stash@{0} (4a789bf6, the 147-line M2 PRD draft) because its content is already covered by the m2-gate clarification K-01/F-02, PRD v1.1 2.3/9.2 and ARCHITECTURE 12 -- so the "rescue the M2 PRD" priority is VOID. -->
+
+---
+
+
 
