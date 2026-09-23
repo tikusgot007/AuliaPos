@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\ConversationModel;
+use App\Models\ConversationHandoffModel;
 use App\Models\MessageModel;
 use App\Models\GatewayStatusModel;
 use App\Models\UserModel;
@@ -937,6 +938,267 @@ class Inbox extends BaseController
             'message'         => $message,
         ]);
     }
+
+    /**
+     * POST /inbox/percakapan/(:num)/handoff
+     *
+     * M3 Phase 2a (TB-01) -- serah-terima (Handoff) percakapan antar
+     * kasir aktif. Method BARU: tujuh method lama (ambil, lepas, tutup,
+     * snooze, tandai-dibaca, hapus, catatan) TIDAK diubah -- hanya pola
+     * dipinjam (DEP-04 conditional write, DEP-05 envelope, DEP-06
+     * dual-read form/JSON).
+     *
+     * Urutan normatif (Plan TASK-003, Q3 locked):
+     *  (1) 404 conversation tak dikenal;
+     *  (2) withComputedStatus() -> 'selesai' = 409 (P-01, bukan 403);
+     *  (3) validasi payload 400: summary/next_action wajib non-blank &
+     *      maks 4096 (P-02), note opsional maks 4096, to_user_id valid,
+     *      self-Handoff = 400, expected_owner ABSEN = 400 / null atau
+     *      string-kosong = klaim sah 'saw unassigned' (Q5);
+     *  (4) gerbang inisiator P-05/Q1: inisiator = assignee saat ini,
+     *      ATAU pada percakapan 'belum_diambil' inisiator wajib kasir
+     *      aktif (Q6); selain itu 403 (AC-H08);
+     *  (5) target wajib anggota daftarKasirAktif (P-03);
+     *  (6) transaksi grup inbox: conditional write NULL-safe
+     *      `assigned_to <=> expected` + insert riwayat; 0 affected rows
+     *      = rollback + 409 bernama + current_owner_id; insert gagal =
+     *      rollback, ownership utuh (REQ-H09).
+     *
+     * Tanpa menulis `messages`, tanpa memanggil Gateway, tanpa
+     * presence/notifikasi/unread (CON-H01/CON-H03/REQ-H10).
+     */
+    public function handoffPercakapan($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        // (1) 404 -- id tak dikenal.
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        // (2) Eligibility dari sumber tunggal queue_status (DEP-01).
+        // 'selesai' = 409 keluarga state-reload (P-01 memperbaiki 403
+        // pada teks Spec v1.0 -- plan menang per RISK-01).
+        $computed = $conversationModel->withComputedStatus([$conversation])[0];
+        if (($computed['queue_status'] ?? null) === 'selesai') {
+            return $this->response->setStatusCode(409)->setJSON([
+                'status'  => 'error',
+                'message' => 'Percakapan sudah selesai dan tidak bisa diserahkan.',
+            ]);
+        }
+
+        // (3) Dual-read form-encoded ATAU JSON (DEP-06).
+        $body = $this->request->getPost();
+        if (!is_array($body) || $body === []) {
+            $json = $this->request->getJSON(true);
+            $body = is_array($json) ? $json : [];
+        }
+
+        $userId = (int) session()->get('id_user');
+
+        $summary    = trim((string) ($body['summary'] ?? ''));
+        $nextAction = trim((string) ($body['next_action'] ?? ''));
+        $noteRaw    = $body['note'] ?? null;
+        $note       = ($noteRaw === null || trim((string) $noteRaw) === '')
+            ? null
+            : (string) $noteRaw;
+
+        if ($summary === '') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Ringkasan Handoff (summary) wajib diisi.',
+            ]);
+        }
+        if ($nextAction === '') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Tindakan berikutnya (next_action) wajib diisi.',
+            ]);
+        }
+        if (strlen($summary) > 4096 || strlen($nextAction) > 4096
+            || ($note !== null && strlen($note) > 4096)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Ringkasan, tindakan berikutnya, dan catatan maksimal 4096 karakter.',
+            ]);
+        }
+
+        $rawTo    = $body['to_user_id'] ?? null;
+        $toUserId = is_int($rawTo)
+            ? $rawTo
+            : (is_string($rawTo) && ctype_digit($rawTo) ? (int) $rawTo : null);
+        if ($toUserId === null || $toUserId <= 0) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Target Handoff (to_user_id) tidak valid.',
+            ]);
+        }
+
+        // REQ-H05 -- Handoff ke diri sendiri selalu 400, tanpa
+        // pengecualian role (termasuk admin).
+        if ($toUserId === $userId) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Tidak bisa menyerahkan percakapan ke diri sendiri.',
+            ]);
+        }
+
+        // Q5 -- field expected_owner WAJIB ada; null / string-kosong =
+        // klaim sah 'belum diambil siapa pun' yang diteruskan ke
+        // conditional write `<=>`. Nilai lain harus integer valid.
+        if (!array_key_exists('expected_owner', $body)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Field expected_owner wajib dikirim.',
+            ]);
+        }
+        $expectedRaw = $body['expected_owner'];
+        if ($expectedRaw === null || $expectedRaw === '') {
+            $expectedOwner = null;
+        } elseif (is_int($expectedRaw)
+            || (is_string($expectedRaw) && ctype_digit($expectedRaw) && (int) $expectedRaw > 0)) {
+            $expectedOwner = (int) $expectedRaw;
+        } else {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Field expected_owner tidak valid.',
+            ]);
+        }
+
+        $assignedTo = $conversation['assigned_to'] !== null
+            ? (int) $conversation['assigned_to']
+            : null;
+
+        // (4)+(5) Daftar kasir aktif = satu sumber kebenaran (Q6):
+        // dipakai untuk gerbang inisiator 'belum_diambil', validasi
+        // target, dan penamaan pemenang pada 409.
+        $daftarKasir  = (new UserModel())->daftarKasirAktif();
+        $idKasirAktif = array_map('intval', array_column($daftarKasir, 'id'));
+
+        // (4) Gerbang inisiator (P-05/Q1 ketat): assignee saat ini
+        // selalu boleh; percakapan belum_diambil hanya boleh untuk kasir
+        // aktif; non-assignee pada percakapan yang sudah diambil = 403
+        // (AC-H08) -- tanpa jalur paksa admin.
+        $inisiatorDiizinkan = $assignedTo !== null
+            ? ($assignedTo === $userId)
+            : in_array($userId, $idKasirAktif, true);
+        if (!$inisiatorDiizinkan) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $assignedTo !== null
+                    ? 'Hanya staff yang sedang menangani percakapan ini yang bisa menyerahkannya.'
+                    : 'Hanya kasir aktif yang bisa menyerahkan percakapan yang belum diambil.',
+            ]);
+        }
+
+        // (5) Target wajib kasir aktif (P-03): admin, unknown, inactive
+        // semuanya 403.
+        if (!in_array($toUserId, $idKasirAktif, true)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => 'Target Handoff harus kasir aktif.',
+            ]);
+        }
+        $target = null;
+        foreach ($daftarKasir as $kandidat) {
+            if ((int) $kandidat['id'] === $toUserId) {
+                $target = $kandidat;
+                break;
+            }
+        }
+
+        // (6) Transaksi grup inbox (REQ-H09): conditional write + insert
+        // riwayat atomik. ConversationHandoffModel juga memakai grup
+        // 'inbox', jadi transBegin() mencakup kedua langkah.
+        $db  = \Config\Database::connect('inbox');
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        $db->transBegin();
+
+        try {
+            // Conditional write NULL-safe (REQ-C01): hanya menang bila
+            // pemilik SAAT INI == expected_owner yang dilihat klien.
+            $db->query(
+                'UPDATE `conversations`
+                    SET `assigned_to` = ?, `updated_at` = ?
+                  WHERE `id` = ? AND `assigned_to` <=> ?',
+                [$toUserId, $now, $conversationId, $expectedOwner]
+            );
+            $affected = $db->affectedRows();
+
+            if ($affected === 0) {
+                // Kalah race/state-reload (REQ-C02): tanpa perubahan,
+                // tanpa insert, 409 menyebut pemilik sah + id-nya.
+                $db->transRollback();
+
+                $conversationTerkini = $conversationModel->find($conversationId);
+                $currentOwnerId = $conversationTerkini['assigned_to'] !== null
+                    ? (int) $conversationTerkini['assigned_to']
+                    : null;
+                $pemilik = $currentOwnerId !== null ? (new UserModel())->find($currentOwnerId) : null;
+                $namaPemilik = $pemilik
+                    ? ($pemilik['nama'] ?: $pemilik['username'])
+                    : 'User #' . $currentOwnerId;
+
+                return $this->response->setStatusCode(409)->setJSON([
+                    'status'           => 'error',
+                    'message'          => $currentOwnerId !== null
+                        ? "Percakapan ini sudah ditangani oleh {$namaPemilik}."
+                        : 'Percakapan ini sudah berpindah, silakan muat ulang daftar.',
+                    'current_owner_id' => $currentOwnerId,
+                ]);
+            }
+
+            // Riwayat Handoff (REQ-H07): from = pemilik sebelum write
+            // (NULL bila sebelumnya belum diambil, K-06); initiated_by
+            // SELALU id sesi -- boleh beda dari from pada kasus unassigned.
+            $handoffId = (new ConversationHandoffModel())->insertHandoff([
+                'conversation_id'      => $conversationId,
+                'from_user_id'         => $assignedTo,
+                'to_user_id'           => $toUserId,
+                'initiated_by_user_id' => $userId,
+                'summary'              => $summary,
+                'next_action'          => $nextAction,
+                'note'                 => $note,
+                'created_at'           => $now,
+            ]);
+
+            $db->transCommit();
+        } catch (\Throwable $e) {
+            // Insert riwayat gagal -> rollback, ownership tetap utuh
+            // (REQ-H09 / AC-C03).
+            $db->transRollback();
+            log_message('error', "Inbox::handoffPercakapan gagal, transaksi di-rollback. conversation_id={$conversationId}, error={$e->getMessage()}");
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan riwayat Handoff, percakapan tidak berpindah.',
+            ]);
+        }
+
+        $targetNama = ($target['nama'] ?? null) ?: ('Kasir #' . $toUserId);
+        log_message('info', "Inbox::handoffPercakapan sukses. conversation_id={$conversationId}, from={$assignedTo}, to={$toUserId}, initiated_by={$userId}, handoff_id={$handoffId}");
+
+        // Sukses = envelope tutupPercakapan() (DEP-05/GUD-H01) + id
+        // pemilik baru & id riwayat (Spec Section 4.3).
+        $updated = $this->attachAssignedNames([$conversationModel->find($conversationId)])[0];
+        $updated = $conversationModel->withComputedStatus([$updated])[0];
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'       => 'success',
+            'message'      => "Percakapan berhasil diserahkan ke {$targetNama}.",
+            'conversation' => $updated,
+            'to_user_id'   => $toUserId,
+            'handoff_id'   => $handoffId,
+        ]);
+    }
+
 
 
     /**
