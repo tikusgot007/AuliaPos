@@ -554,3 +554,54 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-23 (M3 Fase 2a TB-03 + TB-04 — Fase 2a COMPLETE)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code (`/sdlc-write-code`) — **all four tracer bullets of `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` are delivered (TASK-001..TASK-014)**. This session executed TB-03 (TASK-009..011) and TB-04 (TASK-012..014). Execution stopped at the TASK-014 approval gate (AC-R01 final); no code work remains inside Fase 2a scope. The user then closed the phase with a memory checkpoint + an explicit push command (no PR opened).
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` — Status: ✅ Normative, fully delivered. The per-task `Completed`/`Date` columns are still blank and the file has one pre-existing markdownlint MD012 (line 161) — both deliberately untouched (Plan artifact / phase boundary).
+  - `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` — Status: 🔄 still v1.0 with the stale 500/403/admin/§12-staff-9 wording; the Plan wins on conflict (RISK-01).
+  - `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q9) — Status: ✅ honoured, except the conflict noted under Decisions.
+  - `docs/ARCHITECTURE.md` — Status: ✅ updated (Living Map): `conversation_handoffs` in the DB diagram, `ConversationHandoffModel`, both Handoff routes, a "Handoff and Collision Detection" subsection, current test count, and Section 12 now records the narrow M2 gate instead of the stale blanket statement.
+  - `docs/handoff-m3-fase2a-tb03-2026-09-23.md` — Status: ✅ TB-03 brief (delivered).
+- **Achieved Milestones:**
+  - **TB-03 / TASK-009** — `Inbox::apiHandoffs()` + `GET /inbox/percakapan/(:num)/handoff` (auth-only read gate per Q7, 404 unknown, `{status, handoffs, limit: 50}` newest-first, `GET messages` untouched).
+  - **TB-03 / TASK-010** — handoff history panel in `app/Views/inbox/index.php` (from/to/initiator names, summary, next action, note, time) that hides itself when empty and reloads on conversation switch, on handoff success, and on a 409 loss.
+  - **TB-03 tests** — `G01` (newest-first + full 8-field envelope + read by an uninvolved kasir + zero writes), `G02` (cap 50), `G03` (404), `G04` (auth filter really redirects to /login), `G05` (the inbox page renders the panel and the kasir name map as JSON).
+  - **TB-04 / TASK-012** — 8 edge-case tests `E01`–`E08`: empty note stored NULL + the `from = initiated_by` invariant, whitespace-only summary/next_action 400, self-handoff 400 even for a non-assignee (Q3/Q8 order), `belum_diambil` allows any active kasir while a non-assignee admin gets 403 (both on belum_diambil and on an owned conversation), unknown conversation 404, `ambilPercakapan()` between dialog open and submit → 409, handoff on `ditunda` keeps `snoozed_until` and stays in the Ditunda tab, handoff from `belum_diambil` moves to Open under the receiver.
+  - **TB-04 / TASK-013 boundary audit** (range `793dbe9~1..HEAD`): `app/Controllers/Inbox.php` **312 insertions / 0 deletions** → the 7 protected methods are byte-identical; **zero diff** on `ConversationModel.php` (incl. `withComputedStatus()`), `InboxSlaService.php` and `InboxGatewayApi.php`; only the new additive migration exists (its single `ALTER TABLE` adds the FK to the NEW table — no ALTER on `messages`/`conversations`); the forbidden-keyword scan (`presence|heartbeat|unread|notifikasi|callGateway`) only hits documentation/comment text. Inbox-module regression filter = 77 tests / 424 assertions OK.
+  - **TB-04 / TASK-014 DoD** — `vendor/bin/phpunit --no-coverage` → **OK (283 tests, 867 assertions)** (Fase 2a baseline was 239/553 → +44 tests). markdownlint on `docs/ARCHITECTURE.md`: 32 findings, all MD013 (repo-wide baseline) after also clearing a pre-existing MD012 (trailing blank lines at EOF).
+  - **Commits (Fase 2a, none pushed until this session's explicit push):** `600515c`, `4ae724e`, `b9f0e27` (TB-01) → `bedf810`, `62afbbb`, `3fda052` (TB-02) → `f26fce0`, `53b2970` (memory + TB-03 brief) → `c503193`, `13b0eb1`, `cb6d729` (TB-03) → `52d132e` (TB-04 tests) → `8f11e89` (ARCHITECTURE.md).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `git diff $base..HEAD` in PowerShell.
+  - **Reason:** PowerShell parses `$base..HEAD` as the **range operator**, so git received several malformed arguments and printed usage (the audit silently showed nothing). **Note:** build the range as a string first (`$range = $base + '..HEAD'`) or quote it.
+  - **Attempted:** `$response->assertSee('id="panel"', false)`.
+  - **Reason:** CI4's signature is `assertSee(?string $search, ?string $element)` — the second argument is a **CSS selector**, not an escape flag; `false` coerced to `''` and DOMParser blew up with "Attempt to read property length on bool". **Note:** use `(string) $response->getBody()` (TestResponse forwards unknown calls to the response) + `assertStringContainsString`, or `assertSee($search)` with one argument.
+  - **Attempted:** Anchoring an `editor` replacement on the SLA paragraph in `docs/ARCHITECTURE.md`.
+  - **Reason:** the file literally contains `Config\\Inbox` (double backslash), so a single-backslash old_text never matched. **Note:** anchor on a backslash-free line such as the following `## 9.` heading, or on `insert_line`.
+  - **Attempted:** Sending `expected_owner = <id>` for a conversation that is actually unassigned in a test payload.
+  - **Reason:** the server correctly answered **409** (the claim was stale), so the test failed for the wrong reason. **Note:** the lawful "not yet taken" claim is an empty value (`expected_owner = ''`, Q5) — the conditional write matches `NULL <=> NULL`.
+  - Still valid from earlier checkpoints (do not repeat): parallel git calls race on `.git/index.lock` (chain with `;` in ONE command string), phpunit piped through PowerShell is the slow part (`cmd /c '... > build\x.txt 2>&1'` instead), approximated `insert_line`, `json_decode($response->getBody())` for JSON (use `getJSON()`), direct migration instantiation, MariaDB FK errno 150 (child = BIGINT UNSIGNED), `SHOW INDEX` one row per indexed column, string ids (`numberNative=false`), `composer test` exits 1 on the pre-existing coverage warning.
+- **Updated Files (this session):**
+  - `app/Controllers/Inbox.php` — `+apiHandoffs()` (TB-03); cumulative Fase 2a = 312 insertions / 0 deletions.
+  - `app/Config/Routes.php` — the GET handoff route (with the POST sibling from TB-01: 6 insertions total in Fase 2a).
+  - `app/Views/inbox/index.php` — CSS + panel markup + history JS + hooks; cumulative Fase 2a = +325/-1.
+  - `tests/session/InboxHandoffTest.php` — G01..G05 + E01..E08; cumulative Fase 2a = +862, file total 26 tests / 192 assertions.
+  - `docs/ARCHITECTURE.md` — +18/-5 (Living Map, TB-04).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+- **Decisions Made:**
+  - **Plan vs Q2 (open item for the team):** REQ-H01 (Plan) limits the `belum_diambil` initiator exception to "kasir aktif", while the locked **Q2** says an admin MAY initiate there. Per RISK-01 ("Plan wins on conflict") the code keeps the Plan reading — a non-assignee admin gets **403** — and **E04 now locks that behaviour**. Changing it is a requirement change and needs `/sdlc-clarify-reqs` (implementation change is small: one gate line + the UI button condition).
+  - History-panel staff names are resolved **client-side** from the same `daftarKasir` map the Handoff dialog uses, with a `Kasir #id` fallback, because the P-04 read contract intentionally carries ids only. Real names for inactive/unknown accounts would require a contract change (clarify first).
+  - Panel reload triggers: conversation switch, handoff success, and a 409 loss (only then, via `handoffStatusHttp`); no polling of the history.
+  - The Plan's blank `Completed`/`Date` columns and its pre-existing MD012 were left untouched (Plan artifact / phase boundary); ARCHITECTURE.md's own pre-existing MD012 WAS fixed because that file is owned by TASK-014.
+  - No new ADR (Spec Section 10: reusing an existing primitive on one more path is reversible/unsurprising with no new trade-off; a later increment that generalises conditional writes SHOULD record one).
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-code-review` over the whole Fase 2a range (`b9f0e27..HEAD` for TB-02..TB-04, or `600515c~1..HEAD` for all of it) — the review prompt is drafted in the closing chat message of this session.
+  - Optional follow-ups: `/sdlc-clarify-reqs` for the Plan-vs-Q2 admin question; fill the Plan's `Completed`/`Date` columns and fix its MD012; `spec/spec-design-m3-operational-inbox-fase2a-*.md` still needs its physical finalisation (P-01..P-06) — spec-fase1 §1.1 and `blueprint-m3-operational-inbox.md` still carry the stale "Fase 2 waits for M2" blanket statement (owned by `/sdlc-define-specs` / the blueprint owner).
+  - This memory file still has **no Knowledge Base zone** — a Compaction Mode run should finally create it and promote the git-lock, PowerShell range-operator, `assertSee`-signature and phpunit-pipe dead-ends (they have now survived three checkpoints and are referenced by label only).
+
+<!-- checkpoint-tail: M3 Fase 2a is COMPLETE — TB-03 (GET handoff endpoint + history panel, G01..G05) and TB-04 (E01..E08 edge cases, boundary audit proving 0 deletions in Inbox.php and untouched ConversationModel/SLA/Gateway, docs/ARCHITECTURE.md Living Map update) are done and verified at 283 tests / 867 assertions, all commits local (8f11e89 head) until the explicit push; the open item is the Plan-vs-Q2 admin-inititator conflict locked by E04; next is /sdlc-code-review in a new session. -->
+
+---
+
+
