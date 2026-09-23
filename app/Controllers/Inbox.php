@@ -1169,18 +1169,8 @@ class Inbox extends BaseController
                 $currentOwnerId = $conversationTerkini['assigned_to'] !== null
                     ? (int) $conversationTerkini['assigned_to']
                     : null;
-                $pemilik = $currentOwnerId !== null ? (new UserModel())->find($currentOwnerId) : null;
-                $namaPemilik = $pemilik
-                    ? ($pemilik['nama'] ?: $pemilik['username'])
-                    : 'User #' . $currentOwnerId;
 
-                return $this->response->setStatusCode(409)->setJSON([
-                    'status'           => 'error',
-                    'message'          => $currentOwnerId !== null
-                        ? "Percakapan ini sudah ditangani oleh {$namaPemilik}."
-                        : 'Percakapan ini sudah berpindah, silakan muat ulang daftar.',
-                    'current_owner_id' => $currentOwnerId,
-                ]);
+                return $this->balas409KepemilikanBasi($currentOwnerId);
             }
 
             // Riwayat Handoff (REQ-H07): from = pemilik sebelum write
@@ -1234,6 +1224,32 @@ class Inbox extends BaseController
             'conversation' => $updated,
             'to_user_id'   => $toUserId,
             'handoff_id'   => $handoffId,
+        ]);
+    }
+
+    /**
+     * Bangun respons 409 "kepemilikan basi" (REQ-C02) dari id pemilik yang
+     * SUDAH dibaca pemanggil -- helper ini TIDAK melakukan query ulang
+     * kepemilikan (tanpa ConversationModel::find() di dalamnya). Nama
+     * pemilik diresolusi via UserModel dengan fallback 'User #{id}' supaya
+     * body 409 tetap byte-identical dengan jalur kalah conditional write.
+     *
+     * Dua pemanggil: jalur kalah conditional write (race, TASK-108) dan
+     * jalur fail-fast (Fase 2, TASK-201).
+     */
+    private function balas409KepemilikanBasi(?int $currentOwnerId)
+    {
+        $pemilik = $currentOwnerId !== null ? (new UserModel())->find($currentOwnerId) : null;
+        $namaPemilik = $pemilik
+            ? ($pemilik['nama'] ?: $pemilik['username'])
+            : 'User #' . $currentOwnerId;
+
+        return $this->response->setStatusCode(409)->setJSON([
+            'status'           => 'error',
+            'message'          => $currentOwnerId !== null
+                ? "Percakapan ini sudah ditangani oleh {$namaPemilik}."
+                : 'Percakapan ini sudah berpindah, silakan muat ulang daftar.',
+            'current_owner_id' => $currentOwnerId,
         ]);
     }
 
