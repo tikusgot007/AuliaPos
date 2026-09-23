@@ -1,8 +1,8 @@
 ---
 goal: M1 Gelombang 1 — Keandalan Pesan Masuk WA-Gateway (enqueue integrity, append handling, LID/JSON recovery)
-version: 1.1
+version: 1.2
 date_created: 2026-09-21
-last_updated: 2026-09-21
+last_updated: 2026-09-23
 owner: WA-Gateway reliability (M1)
 status: 'In progress'
 tags: [process, gateway, whatsapp, baileys, m1, reliability, incoming, buffer]
@@ -16,7 +16,15 @@ Plan ini mengeksekusi `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1
 
 Dieksekusi dalam 3 fase yang masing-masing dapat di-merge secara independen: Fase 1 (integritas enqueue dan durable buffer), Fase 2 (penanganan pesan `append`), Fase 3 (timeout query LID, isolasi error, pemulihan JSON, dan pengukuran nyata AC-001). AC-001 (uji `pm2 stop` nyata) sengaja ditunda sampai akhir Fase 3 karena baru representatif setelah E-01 (Fase 2) dan E-03/E-04 (Fase 1) tergabung — mengukurnya lebih awal berisiko melaporkan hasil yang belum benar dan mematikan Gateway aktif tanpa perlu.
 
-**Catatan v1.1:** enam keputusan klarifikasi berikut disisipkan sebagai catatan eksplisit pada task terkait (lihat TASK-001, TASK-006, TASK-009, TASK-011, TASK-013/TASK-014, dan TASK-017 di bawah). Tidak ada task baru, dependensi bottom-up, atau isi task lain yang berubah selain enam catatan ini.
+**Catatan v1.1:** enam keputusan klarifikasi berikut disisipkan sebagai catatan eksplisit pada task terkait (lihat TASK-001, TASK-006, TASK-009, TASK-011, TASK-013/TASK-014, dan TASK-017 di bawah; catatan pada TASK-017 dihapus kembali oleh v1.2). Tidak ada task baru, dependensi bottom-up, atau isi task lain yang berubah selain enam catatan ini.
+
+**Catatan v1.2 (2026-09-23):** tiga perubahan diterapkan berdasarkan `docs/proposal-amandemen-plan-m1-wave1-2026-09-23.md`, karena kode M1 (`065f683`) belum berjalan di folder live sehingga TASK-017 berisiko mengukur kode lama.
+
+- **RISK-003 ditulis ulang:** lingkungan ini bukan produksi, dampaknya hanya keterlambatan sementara, dan **tidak ada jendela waktu wajib**.
+- **TASK-017:** catatan klarifikasi v1.1 tentang jendela `>21:00 / <08:00` dihapus dan diganti prasyarat "MUST dijalankan hanya setelah TASK-019 selesai, kode yang diukur MUST `065f683`"; kolom `Dep`-nya bertambah `TASK-019`.
+- **TASK-019 (DEPLOY, baru):** `merge --ff-only feature/stage-1-reliability` ke folder live + `pm2 restart wa-gateway`, ditempatkan sebelum TASK-017 di tabel Fase 3 supaya urutan eksekusi tetap bottom-up.
+- **Tidak berubah:** definisi AC-001, task lain, Fase 1–3 (tidak dibuka kembali), RISK-004, dan RISK-005.
+- **Housekeeping:** setelah TASK-018 disetujui, front-matter `status` berubah `'In progress'` → `'Completed'` (instruksi lengkap ada di baris TASK-018).
 
 ## 1. Requirements & Constraints
 
@@ -36,14 +44,14 @@ Dieksekusi dalam 3 fase yang masing-masing dapat di-merge secara independen: Fas
 - **CON-002**: perubahan skema `incoming_queue` hanya additive, kompatibel dengan SQLite yang ada.
 - **CON-003**: folder `auth/` dan sesi WhatsApp MUST tidak disentuh.
 - **CON-004**: tidak ada dependensi npm baru.
-- **CON-005 (plan-level)**: tidak ada `git checkout` pada `C:\projects\WA-Gateway` (Gateway aktif). Semua kerja hanya di worktree `C:\projects\WA-Gateway-m1`.
+- **CON-005 (plan-level)**: tidak ada `git checkout` pada `C:\projects\WA-Gateway` (Gateway aktif). Semua kerja hanya di worktree `C:\projects\WA-Gateway-m1`, dengan **satu pengecualian terkontrol** yang disahkan amandemen v1.2: TASK-019 (`merge --ff-only` satu kali ke folder live, lalu `pm2 restart wa-gateway`). Pengecualian itu MUST NOT memakai `git checkout` dan MUST NOT menyentuh `auth/` (CON-003).
 - **GUD-001**: semua batas (TTL, ukuran, jeda, timeout) SHOULD diatur lewat variabel lingkungan (lihat spec Bagian 4.4).
 - **GUD-002**: setiap kegagalan penyimpanan SHOULD terlihat di log `error` atau lebih tinggi.
 
 ## 2. Implementation Steps
 
 > **EXECUTION DIRECTIVE FOR AI AGENTS:**
-> Eksekusi plan ini fase demi fase, di worktree `C:\projects\WA-Gateway-m1` saja. Jalankan task **VERIFY** di akhir tiap fase. Setelah fase diuji, **BERHENTI DAN TUNGGU** persetujuan eksplisit user sebelum lanjut ke fase berikutnya. Jangan pernah menjalankan `git checkout` di `C:\projects\WA-Gateway` (Gateway produksi) dan jangan menyentuh folder `auth/`.
+> Eksekusi plan ini fase demi fase, di worktree `C:\projects\WA-Gateway-m1` saja — satu-satunya pengecualian adalah TASK-019 (deploy fast-forward satu kali ke folder live, lalu `pm2 restart wa-gateway`; lihat CON-005). Jalankan task **VERIFY** di akhir tiap fase. Setelah fase diuji, **BERHENTI DAN TUNGGU** persetujuan eksplisit user sebelum lanjut ke fase berikutnya. Jangan pernah menjalankan `git checkout` di `C:\projects\WA-Gateway` (Gateway produksi) dan jangan menyentuh folder `auth/`.
 
 ### Implementation Phase 1 — Integritas Enqueue & Durable Buffer
 
@@ -81,8 +89,9 @@ Dieksekusi dalam 3 fase yang masing-masing dapat di-merge secara independen: Fas
 | TASK-014 | Di `src/whatsapp/connectionManager.js`, pastikan catch-all di sekitar pemrosesan tiap pesan (baris ~395, `_handleIncomingMessage` per pesan dalam batch `_onMessagesUpsert`) mencatat `logger.error` dengan `messageId`, `jid`, dan tipe konten (`message_type` atau `Object.keys(msg.message)[0]` bila tersedia) sebelum melanjutkan ke pesan berikutnya dalam batch yang sama — konfirmasi loop pemrosesan batch tidak berhenti pada satu exception. **Catatan klarifikasi (v1.1):** dikerjakan lebih dulu dari TASK-013 (isolasi error per pesan menjadi fondasi try-block sebelum timeout LID disisipkan ke dalamnya). | REQ-015 | AC-013 | - | 1 | ✅ WA-Gateway `e0d6c17` | 2026-09-21 |
 | TASK-015 | Di `src/store/incomingBuffer.js` (kelas `IncomingBufferJsonFile`, hanya path fallback JSON): sebelum menimpa berkas utama dengan data baru, salin isi berkas lama saat ini ke `<nama>.bak` terlebih dahulu (write lalu rename tetap dipertahankan seperti sekarang). Pada `_load()`: jika berkas utama gagal dibaca/parse, coba muat dari `.bak` dan catat `logger.warn`; jika `.bak` juga gagal, pindahkan berkas utama ke `<nama>.corrupt-<timestamp>`, mulai antrean dari kosong, dan catat error keras berisi ukuran berkas asli (`fs.statSync(...).size` sebelum dipindah). | REQ-016,017 | AC-012 | - | 1 | ✅ WA-Gateway `065f683` | 2026-09-21 |
 | TASK-016 | **VERIFY**: Tulis `test/simulate-lid-timeout.js` (AC-010: `onWhatsApp()` disimulasikan tidak pernah selesai → pesan tersimpan tanpa `identity_hint` dalam ~2 detik, peringatan tercatat; AC-018: query gagal untuk JID X → pesan kedua dari JID X dalam 60 detik tidak menunggu timeout lagi), `test/simulate-error-isolation.js` (AC-013: satu pesan melempar exception saat ekstraksi konten → pesan lain dalam batch tetap tersimpan, error tercatat lengkap), dan `test/simulate-json-recovery.js` (AC-012: berkas utama korup + `.bak` valid → pulih dari `.bak` dengan peringatan; berkas utama dan `.bak` sama-sama korup → berkas utama dipindah ke `.corrupt-<waktu>`, error keras, antrean kosong). Jalankan ketiga skrip — semua assert lolos. Jalankan ulang seluruh skrip `simulate-*.js` dari Fase 1 dan Fase 2 — pastikan tidak regresi. Bandingkan payload `POST /api/inbox/gateway/messages` sebelum/sesudah seluruh perubahan Gelombang 1 untuk pesan yang sama (AC-014, CON-001) — field harus identik. | - | - | - | - | ✅ VERIFY lulus (termasuk AC-014); tanpa commit kode | 2026-09-21 |
-| TASK-017 | **VERIFY/APPROVAL (mematikan Gateway aktif)**: Minta persetujuan eksplisit user sebelum menjalankan — task ini menghentikan Gateway produksi (`wa-gateway` di PM2) selama ~30 detik per percobaan. Setelah disetujui, jalankan protokol AC-001: `pm2 stop wa-gateway`, tunggu ~30 detik, kirim 10 pesan dari HP tes ke nomor Gateway selama Gateway berhenti, `pm2 start wa-gateway`, verifikasi 10 pesan muncul di `incoming_queue` dan di AuliaPos (0 hilang, 0 duplikat). Ulangi total 3 kali (bisa berurutan atau di sesi terpisah). Catat hasil tiap percobaan (jumlah diterima, hilang, duplikat) sebagai bukti di decision log baru (`docs/decisions/`, repo AuliaPos) sebelum lanjut ke TASK-018. **Catatan klarifikasi (v1.1):** MUST hanya dijalankan pada jendela waktu tetap **>21:00 atau <08:00** (bukan lagi mitigasi umum "di luar jam sibuk") — lihat RISK-003. | - | AC-001 | TASK-006,TASK-011,TASK-016 | - | | |
-| TASK-018 | **APPROVAL**: Tunggu konfirmasi eksplisit user bahwa AC-001 lulus 3x percobaan dan Gelombang 1 selesai, sebelum handoff ke `/sdlc-clarify-reqs` / penutupan M1 Gelombang 1. | - | - | - | - | | |
+| TASK-019 | **DEPLOY (prasyarat TASK-017)**: Arahkan folder live ke kode M1 secara fast-forward, lalu restart prosesnya. Jalankan di repo WA-Gateway (bukan AuliaPos). (a) `git -C C:\projects\WA-Gateway status --short` → MUST kosong sebelum mulai; (b) catat `e18f716` sebagai titik rollback; (c) `git -C C:\projects\WA-Gateway merge --ff-only feature/stage-1-reliability` → HEAD MUST `065f683`; (d) `cmd /c "pm2 restart wa-gateway"` lalu `cmd /c "pm2 describe wa-gateway"` → status `online` dan `script path` tetap menunjuk folder live. TASK-019 MUST NOT menyentuh `C:\projects\WA-Gateway\auth\` dan MUST NOT memakai `git checkout` (CON-005). Catat hasil deploy (HEAD sebelum/sesudah, waktu, status PM2) di decision log baru (`docs/decisions/`, repo AuliaPos). Rollback: `git -C C:\projects\WA-Gateway reset --hard e18f716` + `pm2 restart wa-gateway`. | - | - | - | - | | |
+| TASK-017 | **VERIFY/APPROVAL (mematikan Gateway aktif)**: **Prasyarat: MUST dijalankan hanya setelah TASK-019 selesai** — kode yang diukur MUST `065f683`; menjalankannya selagi folder live masih `e18f716` mengukur kode lama dan hasilnya tidak sah (panduan operasional: `docs/runbooks/runbook-m1-wave1-task017-ac001-2026-09-23.md`). Minta persetujuan eksplisit user sebelum menjalankan — task ini menghentikan proses Gateway live (`wa-gateway` di PM2, folder live `C:\projects\WA-Gateway`) selama ~30 detik per percobaan. Setelah disetujui, jalankan protokol AC-001: `pm2 stop wa-gateway`, tunggu ~30 detik, kirim 10 pesan dari HP tes ke nomor Gateway selama Gateway berhenti, `pm2 start wa-gateway`, verifikasi 10 pesan muncul di `incoming_queue` dan di AuliaPos (0 hilang, 0 duplikat). Ulangi total 3 kali (bisa berurutan atau di sesi terpisah). Catat hasil tiap percobaan (jumlah diterima, hilang, duplikat) sebagai bukti di decision log baru (`docs/decisions/`, repo AuliaPos) sebelum lanjut ke TASK-018. | - | AC-001 | TASK-006,TASK-011,TASK-016,TASK-019 | - | | |
+| TASK-018 | **APPROVAL**: Tunggu konfirmasi eksplisit user bahwa AC-001 lulus 3x percobaan dan Gelombang 1 selesai, sebelum handoff ke `/sdlc-clarify-reqs` / penutupan M1 Gelombang 1. **Housekeeping (v1.2):** setelah APPROVAL ini diberikan, ubah front-matter plan ini `status: 'In progress'` → `'Completed'` dan badge `Introduction` dari `status-In%20progress-yellow` → `status-Completed-brightgreen`. | - | - | - | - | | |
 
 ## 3. Alternatives
 
@@ -97,7 +106,7 @@ Dieksekusi dalam 3 fase yang masing-masing dapat di-merge secara independen: Fas
 - **DEP-002**: `docs/GATEWAY-REQUIREMENTS.md` (GW-08) — kriteria "pesan masuk tidak boleh hilang" yang divalidasi lewat AC-001.
 - **DEP-003**: Baileys 6.7.24 terpasang di worktree `C:\projects\WA-Gateway-m1` — perilaku `append` dan opsi `messageId` pada `sendMessage()` (EXT-001 di spec).
 - **DEP-004**: `better-sqlite3` — dipakai TASK-001, TASK-005; fallback JSON (TASK-015) hanya aktif bila `better-sqlite3` tidak tersedia (INF-001 di spec).
-- **DEP-005**: PM2 (`wa-gateway`) di Aan-PC — prasyarat TASK-017 (AC-001 nyata).
+- **DEP-005**: PM2 (`wa-gateway`) di Aan-PC dan folder live `C:\projects\WA-Gateway` — prasyarat TASK-019 (deploy fast-forward), yang pada gilirannya menjadi prasyarat TASK-017 (AC-001 nyata).
 
 ## 5. Files
 
@@ -130,7 +139,7 @@ Dieksekusi dalam 3 fase yang masing-masing dapat di-merge secara independen: Fas
 - **ASSUMPTION-003 (dari spec Bagian 1.2)**: Pengurasan penampung sementara memakai satu percobaan per event tanpa jeda di setiap siklus worker (beda dari retry berjeda di jalur penerimaan). Task terkait: TASK-004. Risiko rendah.
 - **RISK-001 (High Risk — bergantung D-03)**: TASK-009 rawan human error jika `register(id)` (TASK-008) dipanggil **setelah** `await sock.sendMessage(...)` alih-alih sebelum — ini akan mengulang bug balapan yang sama yang mendasari seluruh D-03. Mitigasi: TASK-011 wajib assert eksplisit skenario "event `append` tiba sebelum `sendMessage()` mengembalikan hasil" (AC-002), bukan hanya "ID tercatat setelah kirim sukses". Review manual kode TASK-009 sebelum merge Fase 2.
 - **RISK-002**: TASK-009 mengasumsikan endpoint `/send` dan `/send-media` melalui titik kirim yang bisa disisipi opsi `messageId` dengan mudah — struktur kode pasti (nama file, apakah dua endpoint berbagi satu fungsi kirim internal) belum dikonfirmasi dari spec/audit, hanya dari `spec` Bagian 7 (`connectionManager.js` disebut sebagai lokasi jalur event masuk dan daftar ID, tapi tidak eksplisit untuk titik kirim). Mitigasi: task eksekusi (`/sdlc-write-code`) MUST membaca struktur aktual kode kirim di awal TASK-009 sebelum mengedit, dan melaporkan jika titik kirim ternyata terpisah lebih dari dua tempat (di luar FILE-009 yang diasumsikan).
-- **RISK-003**: TASK-017 (AC-001 nyata) mematikan Gateway produksi selama total ~90 detik (3×30 detik) plus waktu pengiriman manual 10 pesan tiap percobaan — berdampak langsung ke staf yang memakai Inbox selama jendela itu. Mitigasi (v1.1, diperketat dari "di luar jam sibuk" menjadi jadwal tetap): TASK-017 MUST hanya dijalankan **>21:00 atau <08:00**, dan APPROVAL eksplisit (bukan hanya VERIFY) diwajibkan sebelum dijalankan.
+- **RISK-003 (rendah — lingkungan bukan produksi)**: TASK-017 menghentikan proses Gateway live ±90 detik total (3 × 30 detik) plus waktu pengiriman manual 10 pesan tiap percobaan. Lingkungan ini **bukan produksi**: modul Inbox belum dipakai staf dan tidak ada pelanggan yang bergantung pada nomor tersebut (dikonfirmasi user 2026-09-23). Dampak nyata hanya **keterlambatan sementara** bagi pesan yang tiba saat proses berhenti — bukan kehilangan, karena WhatsApp mengirim ulang dan justru itu yang diukur AC-001. **Tidak ada jendela waktu wajib.** APPROVAL eksplisit tetap diwajibkan karena task ini menghentikan proses yang sedang berjalan.
 - **RISK-004**: E-02 (pesan ephemeral/view-once) dan E-07 (upsert tanpa konten) di luar scope plan ini (spec Bagian 1.1) — jika ditemukan selama Fase 2/3 bahwa keduanya berkontribusi pada kehilangan pesan yang terukur di TASK-017, plan ini TIDAK diperluas untuk menanganinya; dicatat sebagai temuan baru untuk gelombang berikutnya, bukan diselesaikan diam-diam di sini.
 - **RISK-005**: GW-09 (idempotensi `/send`, duplikasi saat retry manual kasir) eksplisit di luar scope Gelombang 1 (Gelombang 2, Ticket 09-11) — TASK-009 hanya menyentuh pencatatan ID untuk keperluan filter `append` (D-03), BUKAN mekanisme idempotency key end-to-end. Jangan diperluas untuk menutup GW-09 dalam plan ini.
 
@@ -143,10 +152,14 @@ Dieksekusi dalam 3 fase yang masing-masing dapat di-merge secara independen: Fas
 - `docs/GATEWAY-REQUIREMENTS.md` (GW-08, GW-09)
 - `docs/TODO-CHAT.md` (risiko P0 #1 dan #2)
 - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (pola struktur plan yang diikuti)
+- `docs/runbooks/runbook-m1-wave1-task017-ac001-2026-09-23.md` (panduan operasional TASK-017 / AC-001)
+- `docs/proposal-amandemen-plan-m1-wave1-2026-09-23.md` (sumber amandemen v1.2: RISK-003, TASK-017, TASK-019)
 
 ## 9. Rollback / Recovery Plan
 
 - **Umum**: setiap task dikerjakan sebagai commit terpisah di branch `feature/stage-1-reliability` (worktree `C:\projects\WA-Gateway-m1`). Rollback per fase = `git revert` commit-commit task terkait fase itu (bukan `reset --hard`), agar histori tetap bisa diaudit. `auth/` dan sesi WhatsApp tidak pernah tersentuh sehingga tidak ada risiko kehilangan sesi Gateway pada rollback apa pun.
+
+- **Deploy (TASK-019)**: rollback deploy = `git -C C:\projects\WA-Gateway reset --hard e18f716` lalu `pm2 restart wa-gateway`, kemudian verifikasi `pm2 describe wa-gateway` (status `online`, `script path` tetap menunjuk folder live). `reset --hard` hanya dipakai di folder live — folder itu selalu dipastikan bersih (`status --short` kosong) sebelum deploy sehingga tidak ada perubahan lokal yang hilang. `auth/` tidak tersentuh karena berkas itu tidak pernah di-commit maupun di-`checkout` (CON-003).
 - **Fase 1**: tidak ada perubahan skema DB (hanya logika enqueue/retry/overflow dan `PRAGMA`). Rollback aman lewat `git revert`. Jika `PRAGMA synchronous=FULL` (TASK-005) terbukti memperlambat write secara signifikan di produksi, revert khusus TASK-005 sambil mempertahankan TASK-001 s/d TASK-004.
 - **Fase 2**: jika filter `append` baru (TASK-010) ternyata memasukkan pesan yang tidak diinginkan ke buffer (mis. filter `jid_type` D-04 kurang ketat), mitigasi cepat: kembalikan sementara ke filter lama (`type !== 'notify'` → skip) via revert TASK-010 saja, sambil mempertahankan TASK-008/TASK-009 (registry dan pre-register ID tidak berbahaya berdiri sendiri). Tidak ada perubahan skema.
 - **Fase 3**: TASK-015 (pemulihan JSON) hanya relevan jika Gateway berjalan tanpa `better-sqlite3` (fallback). Jika pemulihan `.bak` ternyata memuat data usang yang membingungkan, berkas `.corrupt-<waktu>` yang dipindah TASK-013/015 tidak pernah dihapus — bisa diperiksa manual dan datanya direkonsiliasi manual ke AuliaPos bila perlu. TASK-017 (AC-001 nyata) tidak mengubah kode — jika hasil pengukuran gagal (pesan hilang/duplikat), Gelombang 1 TIDAK ditutup; temuan dicatat sebagai decision log baru dan fase terkait (kemungkinan Fase 1 atau 2) dibuka kembali untuk perbaikan sebelum TASK-018 disetujui.
