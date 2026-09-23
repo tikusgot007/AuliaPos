@@ -39,7 +39,7 @@
 - **M3 Fase 2 gating history:** Fase 2 was gated on M2 by `blueprint-m3-operational-inbox.md` (lines 100, 117-120, 133), `spec-design-m3-operational-inbox-fase1.md` §1.1, and PRD line 41 (Non-Goal) — the Non-Goal made Fase 2 an Orphaned Item. Resolved by amending the PRD to **v1.1** (GH-006 Handoff, GH-007 Collision Detection, GH-008 Auto-assignment). Scope split: **Fase 2a = Handoff + Collision Detection**, **Fase 2b = Auto-assignment**.
 - **PRD bypass synergy (heavy lifting):** when the PRD is bypassed, the Spec guesses missing technical details and flags them with `[WARNING] [ASSUMPTION-00N]`; downstream agents must NOT block, only extract to "Risks & Assumptions"; the Clarification agent targets those assumptions first.
 - **Dokumen hilang permanen:** `Panduan_Layar_AuliaPos_M3.md` and `status-proyek-master.md` were **never committed in any branch or tag** although the blueprint/spec cite them as basis. Fase 2 behavior must come from recorded decisions, never from those files.
-- **Branch topology (as of 2026-09-22/23):** the project moved from the archived `claude/m1-wave1-plan-clarify-y1km3u` to **`v2.3`**; Fase 2a work happens on `feature/m3-operational-inbox-fase1a-task001`.
+- **Branch topology (as of 2026-09-24):** active branch is **`v2.3`** (local and `origin` in sync). Branches: `v2.1`, `v2.2`, `v2.3` (local + origin) and `v2.x` (origin only); `origin/HEAD` still points to `v2.1`. The M3 working branch `feature/m3-operational-inbox-fase1a-task001` was merged via PR #41 (`ce94660`) and **deleted locally and on GitHub on 2026-09-24** (0 unmerged commits) — start new work on a fresh branch off `v2.3`. The older `claude/m1-wave1-plan-clarify-y1km3u` is archived. WA-Gateway: `C:\projects\WA-Gateway` `master` = `origin/master` @ `21a4cb6`; the `WA-Gateway-m1` worktree no longer exists.
 
 ### Dead-Ends (Do NOT Repeat)
 
@@ -1215,7 +1215,7 @@
 - **Next Action / Pending:**
   - Production deploy of v2.3 when the user decides (git pull + `php spark migrate` right after).
   - Optional: `/code-janitor` for the open NIT/OPTIONAL findings STD-01..07 (see the previous checkpoint).
-  - Feature branch `feature/m3-operational-inbox-fase1a-task001` can be deleted once the user is happy with v2.3.
+  - ~~Feature branch `feature/m3-operational-inbox-fase1a-task001` can be deleted once the user is happy with v2.3.~~ Done 2026-09-24: deleted locally and on GitHub after confirming 0 unmerged commits vs `origin/v2.3`.
 
 <!-- checkpoint-tail: PR #41 (M3 Fase 1 + Fase 2a) is merged into v2.3 at ce94660; the local XAMPP checkout now runs v2.3 with 314 tests passing and both migrations already applied; production deploy and the optional STD-01..07 cleanup remain. -->
 
