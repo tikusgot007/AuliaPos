@@ -611,6 +611,37 @@
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- MODAL SNOOZE / FOLLOW-UP (M3 Fase 1b, TASK-012) -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalSnooze" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-clock"></i> Follow-up Nanti</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formSnooze" onsubmit="return kirimSnoozeDariModal(event)">
+                <div class="modal-body">
+                    <p class="mb-3">Tunda percakapan ini selama <strong id="snoozeLabelDurasi"></strong>.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Alasan (opsional)</label>
+                        <textarea class="form-control" id="snoozeAlasan" rows="3" maxlength="4096"
+                            placeholder="Contoh: customer minta dihubungi lagi setelah gajian."></textarea>
+                        <small class="text-muted">Disimpan sebagai Internal Note, tidak terkirim ke pelanggan.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-warning" id="btnKirimSnooze">
+                        <i class="fas fa-clock"></i> Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     // ================================================================
     // STATE
@@ -905,9 +936,9 @@
             '<button type="button" class="btn btn-sm btn-outline-warning dropdown-toggle" data-bs-toggle="dropdown" title="Follow-up nanti">' +
             '<i class="fas fa-clock"></i> Follow-up</button>' +
             '<ul class="dropdown-menu dropdown-menu-end">' +
-            '<li><a class="dropdown-item" href="#" onclick="return snoozePercakapanAktif(60)">1 jam</a></li>' +
-            '<li><a class="dropdown-item" href="#" onclick="return snoozePercakapanAktif(180)">3 jam</a></li>' +
-            '<li><a class="dropdown-item" href="#" onclick="return snoozePercakapanAktif(' + menitSampaiBesokPagi() + ')">Besok pagi</a></li>' +
+            '<li><a class="dropdown-item" href="#" onclick="return bukaModalSnooze(60, \'1 jam\')">1 jam</a></li>' +
+            '<li><a class="dropdown-item" href="#" onclick="return bukaModalSnooze(180, \'3 jam\')">3 jam</a></li>' +
+            '<li><a class="dropdown-item" href="#" onclick="return bukaModalSnooze(' + menitSampaiBesokPagi() + ', \'sampai besok pagi\')">Besok pagi</a></li>' +
             (conv && conv.snoozed_until ? '<li><hr class="dropdown-divider"></li><li><a class="dropdown-item text-danger" href="#" onclick="return snoozePercakapanAktif(0)">Batal</a></li>' : '') +
             '</ul></div>';
 
@@ -952,10 +983,48 @@
             });
     }
 
-    function snoozePercakapanAktif(menit) {
+    // Same limit as the Internal Note endpoint (CL-006). Measured in UTF-8
+    // bytes because catatanInternal() checks strlen(), not characters.
+    const SNOOZE_ALASAN_MAKS_BYTE = 4096;
+    let menitSnoozeDipilih = 0;
+
+    function bukaModalSnooze(menit, labelDurasi) {
         if (!conversationAktif) return false;
 
-        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/snooze', {
+        menitSnoozeDipilih = menit;
+        document.getElementById('snoozeLabelDurasi').textContent = labelDurasi;
+        document.getElementById('snoozeAlasan').value = '';
+        document.getElementById('btnKirimSnooze').disabled = false;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSnooze')).show();
+        return false;
+    }
+
+    function kirimSnoozeDariModal(e) {
+        e.preventDefault();
+
+        const alasan = document.getElementById('snoozeAlasan').value.trim();
+        // Reject BEFORE snoozing: an over-limit reason must not leave a
+        // snooze saved without its note (CL-006).
+        if (new TextEncoder().encode(alasan).length > SNOOZE_ALASAN_MAKS_BYTE) {
+            showToast('Alasan terlalu panjang (maksimal 4096 karakter).', 'warning');
+            return false;
+        }
+
+        document.getElementById('btnKirimSnooze').disabled = true;
+        snoozePercakapanAktif(menitSnoozeDipilih, alasan);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSnooze')).hide();
+        return false;
+    }
+
+    // Reason is stored as one Internal Note AFTER the snooze succeeds
+    // (REQ-011, no snooze_reason column). If only the note fails, the
+    // snooze still counts as done -- warn the staff, no retry, no rollback.
+    function snoozePercakapanAktif(menit, alasan) {
+        if (!conversationAktif) return false;
+
+        const conversationId = conversationAktif;
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationId + '/snooze', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -968,18 +1037,47 @@
                 return res.json();
             })
             .then(function(json) {
-                if (json.status === 'success') {
-                    showToast(menit > 0 ? 'Percakapan di-follow-up.' : 'Follow-up dibatalkan.', 'success');
-                    muatUlangDaftarConversation();
-                } else {
+                if (json.status !== 'success') {
                     showToast(json.message || 'Gagal follow-up.', 'danger');
+                    return;
                 }
+
+                muatUlangDaftarConversation();
+
+                if (!(menit > 0 && alasan)) {
+                    showToast(menit > 0 ? 'Percakapan di-follow-up.' : 'Follow-up dibatalkan.', 'success');
+                    return;
+                }
+
+                return simpanAlasanSnooze(conversationId, alasan);
             })
             .catch(function(err) {
                 showToast('Gagal menghubungi server: ' + err.message, 'danger');
             });
 
         return false;
+    }
+
+    function simpanAlasanSnooze(conversationId, alasan) {
+        return fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationId + '/catatan', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    teks: alasan
+                })
+            })
+            .then(function(res) {
+                return res.json();
+            })
+            .then(function(json) {
+                if (json.status !== 'success') {
+                    throw new Error(json.message || 'gagal');
+                }
+                showToast('Percakapan di-follow-up. Alasan disimpan sebagai Internal Note.', 'success');
+                if (conversationAktif === conversationId) muatUlangPesan(false);
+            })
+            .catch(function() {
+                showToast('Snooze berhasil, tapi alasan gagal disimpan.', 'warning');
+            });
     }
 
     function tutupPercakapan() {

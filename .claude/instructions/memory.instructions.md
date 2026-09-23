@@ -1018,3 +1018,29 @@
 <!-- checkpoint-tail: The M1 refactor is LIVE — the user fast-forwarded the live WA-Gateway folder to 21a4cb6 (= origin/master, PR #4 merge) and restarted PM2 at 18:47 WIB; it reconnected in ~3 s with no warnings/errors/[CRITICAL]; only simulation evidence exists for the 9 refactor commits, so the next step is a 1-message real check from the test phone. -->
 
 ---
+
+
+## 📝 Session Checkpoint: 2026-09-23 (M3 Fase 1 TASK-012 — Snooze reason as Internal Note)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (M3 Fase 1b) → next: Review
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — unchanged
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — status `In progress`; TASK-012 ✅ 2026-09-23; TASK-013 Partial (AC-007 only). TASK-001..011 have code in the repo but were NOT re-verified/marked in this session.
+- **Achieved Milestones:**
+  - Snooze dialog `#modalSnooze` in `app/Views/inbox/index.php`: duration presets in the Follow-up dropdown now open the dialog with an optional "Alasan" textarea; "Batal" (menit 0) still runs directly.
+  - Flow: POST `/snooze` (JSON `menit`) → only if reason filled, POST `/catatan` (form `teks`) → 1 Internal Note. Note failure = warning toast "Snooze berhasil, tapi alasan gagal disimpan." (no retry, no rollback).
+  - `tests/session/InboxSnoozeAlasanTest.php` (3 tests). Full suite 301/301 green.
+- **Decisions Made:**
+  - CL-006 (reason > 4096 → snooze must not be saved) enforced client-side BEFORE the snooze call, counting UTF-8 bytes (`TextEncoder`) to match `strlen()` in `catatanInternal()`. Backend `snoozePercakapan()` untouched (spec "Ask first" on its contract).
+- **Dead-Ends (Do NOT Repeat):**
+  - `composer test` exits code 1 even when all tests pass — cause is the PHPUnit warning "XDEBUG_MODE=coverage has to be set", not a failure. Judge by the "Tests: N" line.
+  - `catatanInternal()` reads `getPost('teks')` (form body), not JSON as spec 4.3 says; in FeatureTestTrait reset with `withBodyFormat('')` after a JSON call.
+- **Next Action / Pending:**
+  - `/sdlc-code-review` for TASK-012 (attach spec + plan).
+  - Manual browser check of the Snooze dialog not done yet.
+  - Remaining TASK-013 parts (SLA unit tests, `status`/`q` session tests) and plan marking of TASK-001..011 need their own verification task.
+
+<!-- checkpoint-tail: M3 Fase 1 TASK-012 is done on branch feature/m3-operational-inbox-fase1a-task001 — the Follow-up presets open #modalSnooze with an optional Alasan saved as one Internal Note after a successful snooze (partial-failure warning toast, >4096-byte reason blocked before snooze); 301/301 tests pass; next is /sdlc-code-review and a manual browser check. -->
+
+---
