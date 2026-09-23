@@ -726,3 +726,62 @@
 
 
 
+## 📝 Session Checkpoint: 2026-09-23 (M1 Wave 1 Plan Amendment — v1.1 → v1.2)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`) — **completed** for the four-item amendment on
+  `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md`, applied from
+  `docs/proposal-amandemen-plan-m1-wave1-2026-09-23.md`. Planner boundary honoured: **only the plan file** was
+  modified (no spec, no source code, no Gateway/PM2 command, and neither the proposal nor the runbook was touched).
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — ✅ amended in place, **v1.2** (`+22 / −9`, 165 lines,
+    9 diff hunks); front-matter status still `'In progress'` (flips to `'Completed'` only after TASK-018 approval).
+  - `spec/spec-process-m1-wave1-incoming-reliability.md` — unchanged (v1.1); the AC-001 definition was NOT altered.
+  - `docs/proposal-amandemen-plan-m1-wave1-2026-09-23.md` + `docs/runbooks/runbook-m1-wave1-task017-ac001-2026-09-23.md`
+    — unchanged, now referenced from plan `§8`.
+- **Achieved Milestones:**
+  - (1) **RISK-003 rewritten:** environment is **not production** (no Inbox staff, no waiting customer), impact =
+    temporary delay only (WhatsApp resends — that is exactly what AC-001 measures), **no mandatory window**;
+    explicit APPROVAL stays mandatory. All ">21:00 / <08:00" obligations verified gone by text search.
+  - (2) **TASK-017:** v1.1 window note deleted; new prerequisite "**MUST run only after TASK-019** — code under test
+    MUST `065f683`; running it while the live folder is still `e18f716` measures the old code"; runbook reference
+    added; `Dep` = `TASK-006,TASK-011,TASK-016,TASK-019`.
+  - (3) **TASK-019 (new, DEPLOY)** inserted *before* TASK-017 in the Phase 3 table to keep bottom-up order: clean
+    `status --short` → record `e18f716` as rollback point → `merge --ff-only feature/stage-1-reliability`
+    (HEAD MUST `065f683`) → `pm2 restart` + `pm2 describe` (online, same `script path`) → never touch `auth/`, never
+    `git checkout` → decision log into `docs/decisions/` (folder restored at HEAD `09da6bc`).
+  - (4) **Housekeeping:** front matter `version: 1.2` / `last_updated: 2026-09-23`, bullet-style **Catatan v1.2**
+    changelog; the `'In progress'` → `'Completed'` flip is recorded as an instruction inside the TASK-018 row.
+  - Consistency consequences (disclosed to the user, no new task): CON-005 and the §2 EXECUTION DIRECTIVE now carry
+    **one controlled exception** for TASK-019 (both previously banned any work on the live folder); DEP-005, `§8`,
+    `§9` (deploy rollback bullet) and the v1.1 cross-reference note (TASK-017 note removed) were aligned.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** document the deploy only as TASK-017 prose while CON-005 / the execution directive still said
+    "work in the worktree `C:\projects\WA-Gateway-m1` only".
+    **Reason:** the plan contradicts itself (the deploy mutates the live folder), so the executing agent hits a rule
+    conflict mid-task.
+    **Correct solution:** put the TASK-019 carve-out into CON-005 *and* the execution directive.
+  - **Attempted:** keep the v1.2 changelog as a single paragraph.
+    **Reason:** it became a ~1.060-char line (this plan already carries 81 baseline MD013 line-length hits).
+    **Correct solution:** bullet list — the changelog then adds zero long-line findings.
+- **Updated Files:**
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — the four amendments plus the consistency edits above.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+- **Decisions Made:**
+  - Amendment text kept in **Indonesian**, matching this plan/spec/runbook pair (AGENTS.md nominally asks for English
+    SDLC docs); flagged to the user as an explicit assumption — translating the plan is separate work.
+  - TASK-019's `Files` cell stays `-`: it changes no AuliaPos file (repo WA-Gateway only).
+  - No new ADR (Triple Gate fails: reversible text clarifications, no new trade-off).
+  - No `REMEDIATION STATUS` block on purpose: the source is a **non-normative proposal**, not a scored audit report,
+    and this session was scoped to exactly one plan file.
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-write-code` runs **TASK-019 (deploy)** → **TASK-017** (3 × AC-001 per the runbook) →
+    decision log into `docs/decisions/` → **TASK-018** approval → flip plan status to `'Completed'`.
+  - Critical path: TASK-018 cannot be approved before the live folder actually runs `065f683`.
+  - Optional: `/sdlc-clarify-reqs` over plan v1.2 if the user wants a formal checkpoint before executing.
+
+<!-- checkpoint-tail: M1 Wave 1 plan is amended to v1.2 by /sdlc-plan-tasks — RISK-003 now says the environment is not production with NO mandatory test window, TASK-017 lost its >21:00/<08:00 note and gained the hard prerequisite "only after TASK-019, code under test MUST 065f683", a new TASK-019 DEPLOY (fast-forward feature/stage-1-reliability into C:\projects\WA-Gateway + pm2 restart, rollback reset --hard e18f716) sits before TASK-017 in Phase 3, CON-005/execution-directive gained the single controlled live-folder exception, and the next session is /sdlc-write-code: TASK-019 -> TASK-017 (3 attempts, runbook) -> decision log -> TASK-018 approval, with the plan still 'In progress' until then. -->
+
+---
+
+
