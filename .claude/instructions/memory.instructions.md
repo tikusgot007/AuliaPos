@@ -1190,9 +1190,9 @@
   - `spec/spec-design-m3-operational-inbox-fase1.md` — SPEC-01 sentence in 4.4
   - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — TASK-014 ✅, status Completed
 - **Next Action / Pending:**
-  - Open a PR for `feature/m3-operational-inbox-fase1a-task001` (M3 Fase 1 + Fase 2a) into the correct base branch — confirm the base first (`v2.3` per KB branch topology; git status reports `v2.1` as main).
+  - PR opened: https://github.com/tikusgot007/AuliaPos/pull/41 (base `v2.3`, head `feature/m3-operational-inbox-fase1a-task001`, 63 files; full suite `phpunit --no-coverage` OK 314 tests / 1048 assertions on 2026-09-23). Before merge: run `php spark migrate` on the server (AddIsInternalToMessages, CreateConversationHandoffs; both `inbox` group, additive).
   - Optional later: `/code-janitor` for STD-01/03/05/06.
 
-<!-- checkpoint-tail: Code review of b8fd05a found no blocking issues; SPEC-01 kept 400 for empty ?page= (spec updated), manual browser check passed, TASK-014 approved and the M3 Fase 1 plan is Completed; next is a PR for the feature branch (confirm base branch first). -->
+<!-- checkpoint-tail: Code review of b8fd05a found no blocking issues; SPEC-01 kept 400 for empty ?page= (spec updated), manual browser check passed, TASK-014 approved and the M3 Fase 1 plan is Completed; PR #41 (base v2.3) is open; next is migrate on the server, then merge. -->
 
 ---
