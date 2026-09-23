@@ -968,3 +968,32 @@
 <!-- checkpoint-tail: Refactor plan is COMPLETED — Phase 2 (CR-02/03/04/13/14/16) landed as 6 local commits on WA-Gateway feature/stage-1-reliability (bf23d2f..fb585f1: drain before isRunning, OWN_SENT_TTL_MS min 1, no null LID cache while disconnected, AC-003/007/008 asserts, 3 old tests removed with mapping, stale decision-log copy removed); 9/9 pass and 7 mutations caught; pushed to origin (fb585f1); next is the PR decision. -->
 
 ---
+
+
+## 📝 Session Checkpoint: 2026-09-23 (M1 PR #4 merged + WA-Gateway branch cleanup)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** M1 Wave 1 + refactor MERGED to `master`; deploy of the refactor to the live folder pending (user decision)
+- **Active Artifacts:**
+  - `docs/TODO-CHAT.md` — updated for PR #4 merge + branch cleanup (supersedes the "PR belum dibuat" wording from `49bc882`)
+  - `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` — `Completed` (unchanged)
+- **Achieved Milestones:**
+  - Read-only cross-agent audit of the M1 tracker (report handed to the tracker session; it applied 7/7 fixes in `49bc882` + memory `cfd6002`).
+  - WA-Gateway **PR #4** `feature/stage-1-reliability` → `master` merged by the user on GitHub with **"Create a merge commit"**: `origin/master` = `21a4cb6` (parents `e18f716` + `fb585f1`; tree identical to `fb585f1`; `065f683` still in history). User chose merge commit over squash so SHAs cited in docs (AC-001 `065f683`, plan tables) stay valid and the live folder can still fast-forward.
+  - Branch cleanup (commands run by the user after my attempts were blocked): remote branches `feature/stage-1-reliability`, `claude/buka-todo-chat-omnc7k`, `claude/aulia-wa-status-master-xg4fcr` deleted (the last held `test/simulate-reliability-baseline.js` + `docs/reliability/ticket-01-baseline-test.md`; user chose to drop it); worktree `C:\projects\WA-Gateway-m1` removed; local branch deleted; `origin/master` is the ONLY remote branch.
+  - Live folder `C:\projects\WA-Gateway`: `master` @ `065f683`, clean, `behind 10` vs `origin/master` (9 refactor + 1 merge), PM2 online — untouched.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `git push origin --delete …` and even read-only `git status` in the m1 worktree right after it. **Reason:** auto-mode classifier blocked them ("Git Destructive"). **Note:** hand destructive git commands to the user as ready-to-run bash lines (forward slashes: `C:/projects/...`; backslashes are eaten by MSYS bash, as the user hit with `C:\projects\WA-Gateway-m1`).
+  - `gh` CLI is NOT installed on this machine; PRs are created/merged via the GitHub web UI (compare URL `…/compare/master...<branch>?expand=1`). PR existence can be checked read-only with `git ls-remote origin 'refs/pull/*/head'`.
+- **Updated Files:**
+  - `docs/TODO-CHAT.md` — lines 3, 44, 48, 85, 118, 119, 133 (Ticket 16 → `[x]`), 248 (PR done) + new line "Deploy 9 komit refactor" `[ ]`.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint.
+- **Decisions Made:**
+  - Merge strategy for M1: merge commit (not squash/rebase). `git log --first-parent master` gives the one-entry view.
+- **Next Action / Pending:**
+  - **User decision:** deploy the 9 refactor commits to the live folder (`git -C C:/projects/WA-Gateway merge --ff-only origin/master` → `21a4cb6`, then `pm2 restart wa-gateway`; rollback `065f683`). Not urgent; live `065f683` is proven by AC-001.
+  - Backlog unchanged: CR-05..CR-11, CR-15, pino async `LOG_FOLDER`, deviation (b) owner confirmation; E-02/E-07; M1 Tickets 05–16 (waves 2–3).
+
+<!-- checkpoint-tail: WA-Gateway PR #4 (M1 Wave 1 + 9 refactor commits, 30 total) is MERGED as merge commit 21a4cb6 and origin/master is the only remote branch (feature branch, two claude/* branches and the m1 worktree deleted); the live folder still runs 065f683 (behind 10) and deploying the refactor is the next user decision; gh is not installed and destructive git is blocked for the agent, so hand those commands to the user. -->
+
+---
