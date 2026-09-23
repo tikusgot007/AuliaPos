@@ -1220,3 +1220,28 @@
 <!-- checkpoint-tail: PR #41 (M3 Fase 1 + Fase 2a) is merged into v2.3 at ce94660; the local XAMPP checkout now runs v2.3 with 314 tests passing and both migrations already applied; production deploy and the optional STD-01..07 cleanup remain. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (M3 Fase 1 consistency audit)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Checkpoint: Consistency (post-merge audit of M3 Fase 1 on `v2.3`)
+- **Active Artifacts:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 — §9.2 status is stale (says Fase 1a/1b "Kode belum dimulai", Fase 2a "Spec belum dibuat")
+  - `spec/spec-design-m3-operational-inbox-fase1.md` v1.0 — needs fixes (CT-02, CT-03, no AC for REQ-012)
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — says `Completed` but is NOT complete (Readiness Score 66/100, Critical Flaw Veto)
+  - `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` (Planned, 0/14 ticked) and `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` (Planned, 1/15 ticked, only the VOID TASK-203) — both stale; the code is already merged
+- **Achieved Milestones:**
+  - Consistency audit of M3 Fase 1 done: 66/100, below the 80 gate.
+  - Confirmed in code: the API has Internal Note POST, `sla_color` and `?q=` search, but `app/Views/inbox/index.php` has (MC-01) no standalone Internal Note input (only via the Snooze reason), (MC-02) no `sla_color` rendering, and (MC-03) no search box. Root cause: the Fase 1 plan never had UI tasks for these; FILE-007 lists them, but no TASK owns them.
+  - Contradictions: CT-01 plan `Completed` while TASK-001..011 are unticked; CT-02 Spec §9 / Plan TASK-011 / RISK-002 still say `findAll(500)`, but the code uses `findAll()` with no limit (follows CL-001); CT-03 Spec §4.3 says a JSON body and `{message_id}`, but the code reads form `teks` and returns `{conversation_id, message}`.
+- **Updated Files:**
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — new audit report (Iteration 1)
+- **Decisions Made:**
+  - None by the user yet; the audit recommends fixing the Plan first.
+- **Next Action / Pending:**
+  - `/sdlc-plan-tasks` to revise the Fase 1 plan: add UI tasks for MC-01..03 + a VERIFY task, tick TASK-001..011 with evidence, set status back to In Progress, fix the `findAll(500)` text.
+  - Then `/sdlc-define-specs` (CT-02, CT-03, REQ-012 AC), `/sdlc-draft-prd` (§9.2), sync both Fase 2a plans with the code, and after that `/sdlc-write-code` for the 3 UI pieces.
+
+<!-- checkpoint-tail: Audit 2026-09-24 scored M3 Fase 1 at 66/100 because the Internal Note input, SLA colors and search exist in the API but not on the Inbox screen, and the plan is wrongly marked Completed; next step is /sdlc-plan-tasks to add the missing UI tasks. -->
+
+---
