@@ -649,4 +649,214 @@ final class InboxHandoffTest extends CIUnitTestCase
         $this->assertStringContainsString('id="daftarRiwayatHandoff"', $body);
         $this->assertStringContainsString('"11":"Kasir Sebelas"', $body);
     }
+
+    // ================================================================
+    // TB-04 (TASK-012) -- edge cases + boundaries
+    // ================================================================
+
+    public function testE01NoteKosongDiperbolehkanDanFromSelaluSamaDenganInisiator(): void
+    {
+        // `note` opsional (REQ-H04): string kosong disimpan sebagai NULL,
+        // bukan sebagai string kosong.
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $payload = $this->validPayload(8, 7);
+        $payload['note'] = '';
+
+        $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload)
+            ->assertOK();
+
+        $rows = $this->handoffRows($id);
+        $this->assertCount(1, $rows);
+        $this->assertNull($rows[0]['note']);
+
+        // Invariant K-06 pada kasus ber-owner: from = initiator = assignee
+        // sebelum write (per D-01 jalur ini hanya bisa ditempuh assignee).
+        $this->assertSame(7, (int) $rows[0]['from_user_id']);
+        $this->assertSame((int) $rows[0]['from_user_id'], (int) $rows[0]['initiated_by_user_id']);
+    }
+
+    public function testE02SummaryDanNextActionSpasiSajaDitolak400(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        foreach ([["\t \n", 'Tindakan valid.'], ['Ringkasan valid.', "\t \n"]] as [$summary, $nextAction]) {
+            $payload = $this->validPayload(8, 7);
+            $payload['summary'] = $summary;
+            $payload['next_action'] = $nextAction;
+
+            $this->withSession($this->sesi('kasir', 7))
+                ->post(self::HANDOFF_URL . $id . '/handoff', $payload)
+                ->assertStatus(400);
+        }
+
+        // Ditolak tanpa efek samping apa pun.
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    public function testE03HandoffKeDiriSendiriDitolak400WalauBukanPemilik(): void
+    {
+        // Q8 (locked): validasi self-Handoff (step 3) mendahului gerbang
+        // inisiator (step 4), jadi non-assignee yang mengirim ke dirinya
+        // sendiri menerima 400 -- bukan 403 (urutan Q3 deterministik).
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $response = $this->withSession($this->sesi('kasir', 8))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 7));
+
+        $response->assertStatus(400);
+        $response->assertJSONFragment(['message' => 'Tidak bisa menyerahkan percakapan ke diri sendiri.']);
+
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    public function testE04GerbangInisiatorBelumDiambilDanPosisiAdmin(): void
+    {
+        // (a) P-05: pada `belum_diambil` kasir aktif mana pun boleh
+        // menginisiasi (tidak ada assignee), dan from_user_id tetap NULL
+        // karena percakapan memang belum pernah dimiliki (K-06).
+        $idA = $this->seedConversation(['assigned_to' => null]);
+
+        // Klaim klien untuk percakapan yang belum diambil = expected_owner
+        // kosong (Q5), bukan id siapa pun.
+        $payloadA = $this->validPayload(11, 7);
+        $payloadA['expected_owner'] = '';
+
+        $this->withSession($this->sesi('kasir', 8))
+            ->post(self::HANDOFF_URL . $idA . '/handoff', $payloadA)
+            ->assertOK();
+
+        $rowsA = $this->handoffRows($idA);
+        $this->assertCount(1, $rowsA);
+        $this->assertNull($rowsA[0]['from_user_id']);
+        $this->assertSame(8, (int) $rowsA[0]['initiated_by_user_id']);
+        $this->assertSame(11, (int) $this->conversation($idA)['assigned_to']);
+
+        // (b) Admin non-assignee pada `belum_diambil` = 403. REQ-H01 (Plan)
+        // membatasi pengecualian ini pada "kasir aktif", jadi teks PLAN
+        // MENANG atas Q2 (yang menyebut admin boleh menginisiasi) sesuai
+        // RISK-01 "Plan menang bila konflik". Kalau tim ingin admin
+        // diizinkan di titik ini, itu PERUBAHAN requirement -> wajib lewat
+        // /sdlc-clarify-reqs, bukan diubah diam-diam di sini.
+        $idB = $this->seedConversation(['assigned_to' => null]);
+
+        $responseB = $this->withSession($this->sesi('admin', 9))
+            ->post(self::HANDOFF_URL . $idB . '/handoff', $this->validPayload(11, 7));
+
+        $responseB->assertStatus(403);
+        $responseB->assertJSONFragment(['message' => 'Hanya kasir aktif yang bisa menyerahkan percakapan yang belum diambil.']);
+        $this->assertNull($this->conversation($idB)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($idB));
+
+        // (c) Admin non-assignee pada percakapan yang sudah diambil: 403
+        // juga (AC-H08) -- tidak ada jalur paksa admin di Fase 2a.
+        $idC = $this->seedConversation(['assigned_to' => 7]);
+
+        $responseC = $this->withSession($this->sesi('admin', 9))
+            ->post(self::HANDOFF_URL . $idC . '/handoff', $this->validPayload(11, 7));
+
+        $responseC->assertStatus(403);
+        $responseC->assertJSONFragment(['message' => 'Hanya staff yang sedang menangani percakapan ini yang bisa menyerahkannya.']);
+        $this->assertSame(7, (int) $this->conversation($idC)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($idC));
+    }
+
+    public function testE05PercakapanTidakDikenalDitolak404(): void
+    {
+        // 404 terjadi SEBELUM validasi apa pun, jadi payload valid pun
+        // tidak menulis apa-apa.
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . '999999/handoff', $this->validPayload(8, 7));
+
+        $response->assertStatus(404);
+        $response->assertJSONFragment(['message' => 'Conversation tidak ditemukan.']);
+
+        $this->assertSame(0, db_connect('inbox')->table('conversation_handoffs')->countAllResults());
+    }
+
+    public function testE06AmbilPercakapanDiAntaraBukaDialogDanSubmitMenyebabkan409(): void
+    {
+        // Dialog dibuka saat percakapan MASIH belum diambil (klaim klien:
+        // expected_owner = belum diambil). Sebelum submit, staff yang sama
+        // mengambil percakapan lewat ambilPercakapan() -- jalur NON-Handoff
+        // yang menggeser ownership. Klaim 'belum diambil' jadi basi -> 409
+        // (REQ-C01: conditional write hanya peduli ownership bergerak,
+        // bukan siapa yang menggesernya).
+        $id = $this->seedConversation(['assigned_to' => null]);
+
+        $this->withSession($this->sesi('kasir', 7))
+            ->post('inbox/percakapan/' . $id . '/ambil')
+            ->assertOK();
+
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+
+        $payload = $this->validPayload(8, 7);
+        $payload['expected_owner'] = '';
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload);
+
+        $response->assertStatus(409);
+
+        $json = json_decode($response->getJSON(), true);
+        $this->assertSame(7, (int) $json['current_owner_id']);
+
+        // Tidak ada penimpaan ownership dan tidak ada riwayat yatim.
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    public function testE07HandoffPadaDitundaMempertahankanSnoozeDanTetapTabDitunda(): void
+    {
+        $snooze = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))
+            ->modify('+2 hours')
+            ->format('Y-m-d H:i:s');
+
+        $id = $this->seedConversation([
+            'assigned_to'   => 7,
+            'snoozed_until' => $snooze,
+        ]);
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 7));
+
+        $response->assertOK();
+
+        $json = json_decode($response->getJSON(), true);
+
+        // REQ-H06 + PRD GH-006: snooze TIDAK direset, percakapan tetap di
+        // tab Ditunda atas nama penerima baru (bukan pindah ke tab lain).
+        $this->assertSame($snooze, $this->conversation($id)['snoozed_until']);
+        $this->assertSame('ditunda', $json['conversation']['queue_status']);
+        $this->assertSame('Kasir Delapan', $json['conversation']['assigned_to_name']);
+        $this->assertSame(8, (int) $json['conversation']['assigned_to']);
+    }
+
+    public function testE08HandoffDariBelumDiambilPindahKeTabOpenAtasNamaPenerima(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => null]);
+
+        // Percakapan belum diambil -> klaim klien expected_owner kosong
+        // (Q5), bukan id siapa pun.
+        $payload = $this->validPayload(8, 7);
+        $payload['expected_owner'] = '';
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload);
+
+        $response->assertOK();
+
+        $json = json_decode($response->getJSON(), true);
+
+        // PRD GH-006: dari Belum Diambil -> Open atas nama penerima.
+        // (Handoff tidak menulis last_message_* / last_seen_by_assignee_at,
+        // jadi queue_status turunannya 'open' tanpa efek samping lain.)
+        $this->assertSame('open', $json['conversation']['queue_status']);
+        $this->assertSame('Kasir Delapan', $json['conversation']['assigned_to_name']);
+        $this->assertSame(8, (int) $json['conversation']['assigned_to']);
+        $this->assertSame(8, (int) $this->conversation($id)['assigned_to']);
+    }
 }
