@@ -3,6 +3,14 @@
 # 🔍 Consistency Audit Report [Review Iteration 2]
 
 > [!SUCCESS]
+> **REMEDIATION STATUS: PARTIALLY RESOLVED (PRD scope, REFINE step 2)**
+> This audit report has been remediated by Product Manager PRD on 2026-09-24 in `prd-20260922-0141-chat-whatsapp-inbox.md` v1.2 (status and wording only, no scope change).
+> - **Resolved:** ST-03 (§9.2 now shows Fase 1a/1b merged via PR #41, a new Fase 1c row, and Fase 2a Spec v1.2 + code + code review done, with its plan status sync noted as pending). GH-001..GH-004 ticked in §10 with an evidence note. Glossary: "catatan internal" → "Internal Note" and "indikator/warna prioritas" → "SLA Timer" across §1.2–§10.
+> - **NG-01 decided (PRD v1.3):** the owner chose a full search. Fase 1d (GH-009): search every name/number shown in the list, incl. the WhatsApp profile name. Fase 1e (GH-010): also search message text (customer, staff, Internal Note) with a matching snippet. The Spec still has to write the contract.
+> - **Still open:** NG-01 in the Spec (per GH-009/GH-010), NG-04, NG-05 (`/sdlc-define-specs`, REFINE step 3); ST-01/ST-02 (Fase 2a plans, separate session); PRD §3.3 "staff mana pun" (Fase 2a scope).
+> - **Projected Readiness Score:** 94/100 (Completeness 38/40, Clarity 28/30, Alignment 28/30).
+
+> [!SUCCESS]
 > **REMEDIATION STATUS: PARTIALLY RESOLVED (Plan scope, REFINE step 1)**
 > This audit report has been remediated by Planner Architect on 2026-09-24 in `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (editorial only, no new tasks, status stays `Completed`).
 > - **Resolved:** NG-02 (the Phase 3 NOTE now points to Spec AC-010..AC-012). NG-03 (TASK-015 `AC Ref` + AC-010, TASK-016 `AC Ref` + AC-011, TASK-018 VERIFY names Spec AC-010..AC-012).
