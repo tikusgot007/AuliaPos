@@ -9,7 +9,8 @@ use CodeIgniter\Test\FeatureTestTrait;
  *
  * Covers:
  * - status filter matches computed queue_status;
- * - q filter matches contact_name / phone after compute;
+ * - q filter matches contact_name / whatsapp_name / phone / manual_phone /
+ *   chat_id after compute (Fase 1d, AC-013);
  * - empty q behaves as no filter;
  * - message thread exposes is_internal as a boolean.
  *
@@ -492,5 +493,127 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
 
         $this->assertSame([$budi], $this->idsDari('?q=budi'));
         $this->assertSame([$budi], $this->idsDari('?q=SURABAYA'));
+    }
+
+    /**
+     * Fase 1d seeds use a fixed, digit-free chat_id, because chat_id is
+     * now searched too and the random default could match a number query.
+     */
+    private function seedIdentitas(string $chatId, array $override = []): int
+    {
+        return $this->seedConversation(array_merge(['chat_id' => $chatId], $override));
+    }
+
+    /**
+     * AC-013 (a): no contact_name, list shows whatsapp_name -> found.
+     */
+    public function testQCocokWhatsappNameSaatContactNameKosong(): void
+    {
+        $budi = $this->seedIdentitas('ac-a-budi@s.whatsapp.net', [
+            'contact_name' => null,
+            'whatsapp_name' => 'Budi Cetak',
+        ]);
+        $this->seedIdentitas('ac-a-lain@s.whatsapp.net', ['whatsapp_name' => 'Andi']);
+
+        $this->assertSame([$budi], $this->idsDari('?q=' . rawurlencode('budi cetak')));
+    }
+
+    /**
+     * AC-013 (b): each of the four name/number columns matches on its own.
+     */
+    public function testQCocokMasingMasingKolomNamaDanNomor(): void
+    {
+        $byContact = $this->seedIdentitas('ac-b-satu@s.whatsapp.net', ['contact_name' => 'Kontak Alfa']);
+        $byWhatsapp = $this->seedIdentitas('ac-b-dua@s.whatsapp.net', ['whatsapp_name' => 'Profil Bravo']);
+        $byPhone = $this->seedIdentitas('ac-b-tiga@s.whatsapp.net', ['phone' => '620001112223']);
+        $byManual = $this->seedIdentitas('ac-b-empat@s.whatsapp.net', ['manual_phone' => '0813-4445556']);
+
+        $this->assertSame([$byContact], $this->idsDari('?q=alfa'));
+        $this->assertSame([$byWhatsapp], $this->idsDari('?q=bravo'));
+        $this->assertSame([$byPhone], $this->idsDari('?q=1112223'));
+        $this->assertSame([$byManual], $this->idsDari('?q=4445556'));
+    }
+
+    /**
+     * AC-013 (c): no name and no phone, list shows chat_id -> found by it.
+     */
+    public function testQCocokChatIdSaatTanpaNamaDanNomor(): void
+    {
+        $lid = $this->seedIdentitas('88776655443322@lid', [
+            'jid_type' => 'lid',
+            'contact_name' => null,
+            'whatsapp_name' => null,
+            'phone' => null,
+        ]);
+        $this->seedIdentitas('ac-c-lain@s.whatsapp.net', ['contact_name' => 'Andi']);
+
+        $this->assertSame([$lid], $this->idsDari('?q=7766554'));
+    }
+
+    /**
+     * AC-013 (d): whole dataset, case-insensitive, AND with status.
+     */
+    public function testQWhatsappNameLamaDenganStatus(): void
+    {
+        for ($i = 0; $i < 55; $i++) {
+            $this->seedIdentitas('ac-d-baru-' . chr(97 + intdiv($i, 26)) . chr(97 + $i % 26) . '@s.whatsapp.net', [
+                'contact_name' => 'Customer Baru',
+                'last_message_at' => '2099-01-01 10:00:00',
+                'updated_at' => '2099-01-01 10:00:00',
+            ]);
+        }
+
+        $lama = $this->seedIdentitas('ac-d-lama@s.whatsapp.net', [
+            'status' => 'closed',
+            'contact_name' => null,
+            'whatsapp_name' => 'Budi Cetak',
+            'last_message_at' => '2020-01-01 10:00:00',
+            'updated_at' => '2020-01-01 10:00:00',
+        ]);
+
+        $this->assertSame([$lama], $this->idsDari('?status=selesai&q=' . rawurlencode('BUDI CETAK')));
+        $this->assertNotContains($lama, $this->idsDari('?status=open&q=' . rawurlencode('budi cetak')));
+    }
+
+    /**
+     * AC-013 (e): whatsapp_name is searched even when contact_name is shown.
+     */
+    public function testQCocokWhatsappNameWalauContactNameBerbeda(): void
+    {
+        $jamet = $this->seedIdentitas('ac-e-jamet@s.whatsapp.net', [
+            'contact_name' => 'Jamet',
+            'whatsapp_name' => 'Budi Cetak',
+        ]);
+
+        $this->assertSame([$jamet], $this->idsDari('?q=' . rawurlencode('budi cetak')));
+    }
+
+    /**
+     * AC-013 (f): q is matched per column, never against joined columns.
+     */
+    public function testQTidakCocokGabunganKolom(): void
+    {
+        $this->seedIdentitas('ac-f-budi@s.whatsapp.net', [
+            'contact_name' => 'Budi',
+            'phone' => '62812',
+        ]);
+
+        $this->assertSame([], $this->idsDari('?q=' . rawurlencode('budi 62812')));
+    }
+
+    /**
+     * AC-013 (g): NULL whatsapp_name/manual_phone raise no error.
+     */
+    public function testQKolomNullTidakError(): void
+    {
+        $andi = $this->seedIdentitas('ac-g-andi@s.whatsapp.net', [
+            'contact_name' => 'Andi',
+            'whatsapp_name' => null,
+            'phone' => null,
+            'manual_phone' => null,
+        ]);
+
+        $this->assertSame([$andi], $this->idsDari('?q=andi'));
+        $this->assertSame([], $this->idsDari('?q=zzz'));
     }
 }

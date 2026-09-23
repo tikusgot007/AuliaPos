@@ -31,6 +31,12 @@ class Inbox extends BaseController
     private const CONVERSATIONS_PER_PAGE = 50;
 
     /**
+     * Kolom yang dicocokkan parameter `q` (REQ-013, CL-015): semua nama/nomor
+     * yang bisa tampil di daftar. Dicek per kolom, tidak pernah digabung.
+     */
+    private const SEARCH_COLUMNS = ['contact_name', 'whatsapp_name', 'phone', 'manual_phone', 'chat_id'];
+
+    /**
      * GET /inbox
      *
      * UI Inbox utama (Phase 4): daftar conversation + riwayat pesan +
@@ -75,6 +81,10 @@ class Inbox extends BaseController
      * filter status/q tetap filter-after-fetch atas seluruh dataset,
      * baru hasilnya dipotong 50 per halaman (CL-010) -- paging tidak
      * membatasi dataset yang dicari.
+     *
+     * `q` cocok bila terkandung (tanpa beda huruf besar/kecil, tanpa
+     * normalisasi nomor) di minimal satu dari contact_name, whatsapp_name,
+     * phone, manual_phone, chat_id (Fase 1d, REQ-013).
      */
     public function apiConversations()
     {
@@ -121,12 +131,17 @@ class Inbox extends BaseController
         }
 
         if ($q !== '') {
-            $needle = $q;
             $conversations = array_values(array_filter(
                 $conversations,
-                static fn(array $conversation): bool =>
-                mb_stripos((string) ($conversation['contact_name'] ?? ''), $needle) !== false
-                    || mb_stripos((string) ($conversation['phone'] ?? ''), $needle) !== false
+                static function (array $conversation) use ($q): bool {
+                    foreach (self::SEARCH_COLUMNS as $column) {
+                        if (mb_stripos((string) ($conversation[$column] ?? ''), $q) !== false) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
             ));
         }
 
