@@ -3,13 +3,13 @@ goal: Fix the two REQUIRED findings from the code review of commit f3bd8fa (M3 F
 version: 1.0
 date_created: 2026-09-24
 owner: AuliaPos Inbox module
-status: "Planned"
+status: "Completed"
 tags: ["refactor", "clean-code", "test-quality", "inbox", "m3"]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 The `/sdlc-code-review` of commit `f3bd8fa` (plan `plan-feature-m3-operational-inbox-fase1-v1.0.md` Phase 3, TASK-015..018) found no spec mismatch and no security issue. It found two REQUIRED issues on the Standards axis:
 
@@ -38,11 +38,11 @@ This plan fixes only these two. Nothing changes in the backend, routes or migrat
 
 | Task ID  | Description (Include Exact File Paths & Micro-Testing) | Ref ID  | Completed | Date |
 | -------- | ------------------------------------------------------ | ------- | :-------: | :--: |
-| TASK-101 | In `app/Views/inbox/index.php`, `bukaModalCatatanInternal()`: if `catatanInternalSedangKirim` is `true`, only call `.show()` on the modal and return. Do not clear the textarea, reset the flag or re-enable the button. The reset logic for the normal case stays as it is. | REQ-001 | [ ] | |
-| TASK-102 | In `app/Views/inbox/index.php`, `simpanCatatanInternal()` success branch: hide the modal and clear the textarea only if the dialog still holds the text that was sent (`textarea.value.trim() === teks`). Otherwise leave the dialog and the text alone. Keep the success toast and `muatUlangPesan(true)`. | REQ-001 | [ ] | |
-| TASK-103 | In `tests/session/OperationalInboxScreenTest.php`, replace the weak assertions:<br>• Remove `"'/catatan'"`, `bg-success`, `bg-warning` and `bg-danger`.<br>• Assert `onclick="bukaModalCatatanInternal()"` (the button, not the function definition).<br>• Assert `id="btnSimpanCatatanInternal"`, `class="inbox-sla-dot` or `.inbox-sla-dot`, and `SLA_WARNA`.<br>• Keep `renderTitikSla(c.sla_color)`, the `#inputCariConversation` + `maxlength="255"` regex and `'&q='`.<br>• Micro-test: temporarily remove the "Catatan Internal" button string and confirm the test fails (Red), then restore it (Green). | PRN-001 | [ ] | |
-| TASK-104 | **VERIFY**:<br>(a) `vendor/bin/phpunit --no-coverage tests/session/OperationalInboxScreenTest.php` passes.<br>(b) The full `composer test` passes 100% (baseline 317/317).<br>(c) Manual browser check: open Catatan Internal, type text, press Simpan, immediately press Batal, then reopen. The Save button must still be disabled and the dialog must show no reset text. When the save finishes, exactly one note appears in the thread. Also repeat one normal note save to confirm AC-010 (a) still works. | - | [ ] | |
-| TASK-105 | **APPROVAL**: 🛑 Wait for explicit user confirmation that Phase 1 is done. | - | [ ] | |
+| TASK-101 | In `app/Views/inbox/index.php`, `bukaModalCatatanInternal()`: if `catatanInternalSedangKirim` is `true`, only call `.show()` on the modal and return. Do not clear the textarea, reset the flag or re-enable the button. The reset logic for the normal case stays as it is. | REQ-001 | [x] | 2026-09-24 |
+| TASK-102 | In `app/Views/inbox/index.php`, `simpanCatatanInternal()` success branch: hide the modal and clear the textarea only if the dialog still holds the text that was sent (`textarea.value.trim() === teks`). Otherwise leave the dialog and the text alone. Keep the success toast and `muatUlangPesan(true)`. | REQ-001 | [x] | 2026-09-24 |
+| TASK-103 | In `tests/session/OperationalInboxScreenTest.php`, replace the weak assertions:<br>• Remove `"'/catatan'"`, `bg-success`, `bg-warning` and `bg-danger`.<br>• Assert `onclick="bukaModalCatatanInternal()"` (the button, not the function definition).<br>• Assert `id="btnSimpanCatatanInternal"`, `class="inbox-sla-dot` or `.inbox-sla-dot`, and `SLA_WARNA`.<br>• Keep `renderTitikSla(c.sla_color)`, the `#inputCariConversation` + `maxlength="255"` regex and `'&q='`.<br>• Micro-test: temporarily remove the "Catatan Internal" button string and confirm the test fails (Red), then restore it (Green). | PRN-001 | [x] | 2026-09-24 |
+| TASK-104 | **VERIFY**:<br>(a) `vendor/bin/phpunit --no-coverage tests/session/OperationalInboxScreenTest.php` passes.<br>(b) The full `composer test` passes 100% (baseline 317/317).<br>(c) Manual browser check: open Catatan Internal, type text, press Simpan, immediately press Batal, then reopen. The Save button must still be disabled and the dialog must show no reset text. When the save finishes, exactly one note appears in the thread. Also repeat one normal note save to confirm AC-010 (a) still works. | - | [x] | 2026-09-24 |
+| TASK-105 | **APPROVAL**: 🛑 Wait for explicit user confirmation that Phase 1 is done. | - | [x] | 2026-09-24 |
 
 ## 3. Structural Remedies & Alternatives
 
