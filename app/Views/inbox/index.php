@@ -258,6 +258,29 @@
     #gatewayStatusBadge.bg-success { background-color: #198754 !important; }
     #gatewayStatusBadge.bg-warning { background-color: #ffc107 !important; color: #212529 !important; }
     #gatewayStatusBadge.bg-secondary { background-color: #6c757d !important; }
+
+    /* ========================================================== */
+    /* PANEL RIWAYAT HANDOFF (TB-03/TASK-010)                      */
+    /* ========================================================== */
+    .inbox-handoff-panel {
+        max-height: 168px;
+        overflow-y: auto;
+        padding: 8px 16px;
+        border-bottom: 1px solid #dee2e6;
+        background: #fffdf5;
+        font-size: 0.8rem;
+    }
+
+    .inbox-handoff-judul {
+        font-weight: 600;
+        color: #8a6d3b;
+        margin-bottom: 2px;
+    }
+
+    .inbox-handoff-item {
+        padding: 4px 0;
+        border-top: 1px solid #f1e9d6;
+    }
 </style>
 
 <div class="card">
@@ -324,6 +347,18 @@
 
                 <div class="inbox-thread-header d-flex justify-content-between align-items-center" id="threadHeader">
                     <span class="text-muted">Pilih percakapan di sebelah kiri untuk mulai.</span>
+                </div>
+
+                <!-- ============================================ -->
+                <!-- RIWAYAT HANDOFF (TB-03/TASK-010)              -->
+                <!-- Muncul hanya kalau percakapan aktif punya      -->
+                <!-- riwayat penyerahan; dimuat ulang saat pindah   -->
+                <!-- percakapan, setelah Handoff sukses, dan        -->
+                <!-- setelah permintaan Handoff kalah (409).        -->
+                <!-- ============================================ -->
+                <div class="inbox-handoff-panel" id="panelRiwayatHandoff" style="display:none;">
+                    <div class="inbox-handoff-judul"><i class="fas fa-share-square"></i> Riwayat Penyerahan</div>
+                    <div id="daftarRiwayatHandoff"></div>
                 </div>
 
                 <div class="inbox-thread-messages" id="threadMessages">
@@ -974,6 +1009,11 @@
     // sangat cepat sebelum disable sempat terpasang.
     let handoffSedangKirim = false;
 
+    // Kode HTTP balasan Handoff terakhir -- dipakai untuk membedakan
+    // jalur kalah conditional write (409) dari penolakan lain, supaya
+    // panel riwayat hanya dimuat ulang saat keadaan server memang berubah.
+    let handoffStatusHttp = 0;
+
     function bukaModalHandoff() {
         if (!conversationAktif) return;
 
@@ -1049,12 +1089,18 @@
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: body
             })
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                handoffStatusHttp = res.status;
+                return res.json();
+            })
             .then(function(json) {
                 if (json.status === 'success') {
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHandoff')).hide();
                     showToast(json.message || 'Percakapan berhasil diserahkan.', 'success');
                     muatUlangDaftarConversation();
+                    // Sukses = riwayat pasti bertambah satu entri (REQ-H07),
+                    // jadi panel riwayat ikut disegarkan.
+                    muatUlangRiwayatHandoff();
                 } else {
                     // 400 (validasi), 403 (inisiator/target), 409 (kalah
                     // conditional write / percakapan selesai) -- pesan
@@ -1063,6 +1109,13 @@
                     // dengan siapa.
                     tampilkanNoticeHandoff(json.message || 'Gagal menyerahkan percakapan.');
                     showToast(json.message || 'Gagal menyerahkan percakapan.', 'danger');
+
+                    // 409 = kalah conditional write: owner (dan mungkin
+                    // riwayat) sudah berubah di server -- segarkan panel
+                    // supaya tidak menampilkan keadaan basi.
+                    if (handoffStatusHttp === 409) {
+                        muatUlangRiwayatHandoff();
+                    }
                 }
             })
             .catch(function(err) {
@@ -1075,6 +1128,74 @@
             });
 
         return false;
+    }
+
+    // ================================================================
+    // RIWAYAT HANDOFF (TB-03/TASK-010) -- panel daftar penyerahan
+    // ================================================================
+    // Nama staff di-resolve dari daftarKasir yang MEMANG sudah ada di
+    // halaman ini (sumber Q6, sama dengan dropdown dialog Handoff) --
+    // kontrak GET (P-04) sengaja hanya mengirim id, jadi tidak ada field
+    // nama di response. Id di luar daftar (mis. akun non-aktif/dihapus)
+    // jatuh ke 'Kasir #id', sejalan dengan fallback "User #{id}" di server.
+    const namaKasirById = <?= json_encode((object) array_column($daftarKasir ?? [], 'nama', 'id'), JSON_UNESCAPED_UNICODE) ?>;
+
+    function namaStaffHandoff(id) {
+        if (id === null || id === undefined || id === '') return 'Belum diambil';
+
+        const nama = namaKasirById[String(id)];
+
+        return nama ? String(nama) : ('Kasir #' + id);
+    }
+
+    function renderRiwayatHandoff(handoffs) {
+        const panel = document.getElementById('panelRiwayatHandoff');
+        const wadah = document.getElementById('daftarRiwayatHandoff');
+
+        if (!handoffs || handoffs.length === 0) {
+            panel.style.display = 'none';
+            wadah.innerHTML = '';
+            return;
+        }
+
+        wadah.innerHTML = handoffs.map(function(h) {
+            const dari = (h.from_user_id === null || h.from_user_id === undefined || h.from_user_id === '')
+                ? 'Belum diambil'
+                : namaStaffHandoff(h.from_user_id);
+
+            return '<div class="inbox-handoff-item">' +
+                '<div><strong>' + escapeHtmlInbox(dari) + '</strong> &rarr; ' + escapeHtmlInbox(namaStaffHandoff(h.to_user_id)) +
+                ' <span class="text-muted">oleh ' + escapeHtmlInbox(namaStaffHandoff(h.initiated_by_user_id)) +
+                ', ' + escapeHtmlInbox(formatWaktuInbox(h.created_at)) + '</span></div>' +
+                '<div>' + escapeHtmlInbox(h.summary) + '</div>' +
+                '<div class="text-muted">Tindakan lanjutan: ' + escapeHtmlInbox(h.next_action) + '</div>' +
+                (h.note ? '<div class="text-muted fst-italic">Catatan: ' + escapeHtmlInbox(h.note) + '</div>' : '') +
+                '</div>';
+        }).join('');
+
+        panel.style.display = 'block';
+    }
+
+    // Dipanggil saat pindah percakapan, setelah Handoff sukses, dan
+    // setelah permintaan Handoff kalah 409 (owner/riwayat sudah berubah
+    // di server). Tanpa percakapan aktif panel disembunyikan.
+    function muatUlangRiwayatHandoff() {
+        if (!conversationAktif) {
+            renderRiwayatHandoff([]);
+            return;
+        }
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/handoff')
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    renderRiwayatHandoff(json.handoffs);
+                }
+            })
+            .catch(function() {
+                // Diamkan -- pemuatan berikutnya (pindah percakapan atau
+                // selesai Handoff) mencoba lagi.
+            });
     }
 
     // ================================================================
@@ -1092,6 +1213,7 @@
         document.getElementById('teksBalasan').focus();
 
         muatUlangPesan(true);
+        muatUlangRiwayatHandoff();
         return false;
     }
 
@@ -1425,6 +1547,9 @@
                         document.getElementById('btnKirimBalasan').disabled = true;
                         document.getElementById('btnLampirkanMedia').disabled = true;
                         batalkanMediaBalasan();
+                        // conversationAktif sudah null -> panel riwayat
+                        // percakapan yang dihapus ikut disembunyikan.
+                        muatUlangRiwayatHandoff();
                     }
 
                     conversationUntukHapus = null;
