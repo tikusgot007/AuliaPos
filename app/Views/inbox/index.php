@@ -79,6 +79,16 @@
         text-overflow: ellipsis;
     }
 
+    /* SLA Timer dot (TASK-016), color class comes from Bootstrap bg-* */
+    .inbox-sla-dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+
     .inbox-list-item .list-preview {
         font-size: 0.78rem;
         color: #6c757d;
@@ -313,6 +323,16 @@
             <!-- PANEL KIRI: DAFTAR CONVERSATION               -->
             <!-- ============================================ -->
             <div class="inbox-list-col">
+                <!-- Search (M3 Fase 1c, TASK-017): runs on Enter or the  -->
+                <!-- search icon, never per keystroke; sent to the server  -->
+                <!-- as `q` so it covers ALL conversations (CL-001).       -->
+                <form class="p-2 border-bottom" style="background:#fff;" onsubmit="return cariConversationDariInput(event)">
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control" id="inputCariConversation" maxlength="255" placeholder="Cari nama / nomor..." autocomplete="off">
+                        <button type="button" class="btn btn-outline-secondary" title="Hapus pencarian" onclick="hapusPencarianConversation()">&#x2715;</button>
+                        <button type="submit" class="btn btn-outline-primary" title="Cari"><i class="fas fa-search"></i></button>
+                    </div>
+                </form>
                 <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom flex-wrap" style="background:#fff;">
                     <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterBelum_diambil" onclick="setFilterConversation('belum_diambil')">Belum Diambil <span class="badge bg-light text-dark border tab-count" data-count-for="belum_diambil">0</span></button>
                     <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterOpen" onclick="setFilterConversation('open')">Open <span class="badge bg-light text-dark border tab-count" data-count-for="open">0</span></button>
@@ -642,6 +662,36 @@
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- MODAL CATATAN INTERNAL (M3 Fase 1c, TASK-015)  -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalCatatanInternal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-sticky-note"></i> Catatan Internal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formCatatanInternal" onsubmit="return simpanCatatanInternal(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Catatan</label>
+                        <textarea class="form-control" id="catatanInternalTeks" rows="4" maxlength="4096"
+                            placeholder="Contoh: cek stok dulu sebelum janji ke customer."></textarea>
+                        <small class="text-muted">Hanya terlihat oleh staff, tidak terkirim ke pelanggan.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary" id="btnSimpanCatatanInternal">
+                        <i class="fas fa-save"></i> Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     // ================================================================
     // STATE
@@ -691,6 +741,23 @@
         return daftarConversation.find(function(c) {
             return String(c.id) === String(id);
         });
+    }
+
+    // Data of the open conversation. A search can leave it out of
+    // daftarConversation (TASK-017 rule 7); the header and dialogs then
+    // keep using the last copy seen, so Conversation Detail still works.
+    let salinanConversationAktif = null;
+
+    function conversationAktifSaatIni() {
+        const conv = cariConversation(conversationAktif);
+        if (conv) {
+            salinanConversationAktif = conv;
+            return conv;
+        }
+        if (salinanConversationAktif && String(salinanConversationAktif.id) === String(conversationAktif)) {
+            return salinanConversationAktif;
+        }
+        return undefined;
     }
 
     // ================================================================
@@ -766,6 +833,33 @@
         },
     };
 
+    // SLA Timer (TASK-016): the color is computed ONLY on the server
+    // (InboxSlaService, REQ-010). null, missing or unknown values render
+    // nothing -- covers ditunda/selesai, a null last_message_at, and the
+    // first paint from index(), which sends no sla_color.
+    const SLA_WARNA = {
+        hijau: {
+            kelas: 'bg-success',
+            arti: '< 15 menit'
+        },
+        kuning: {
+            kelas: 'bg-warning',
+            arti: '15–60 menit'
+        },
+        merah: {
+            kelas: 'bg-danger',
+            arti: '> 60 menit'
+        },
+    };
+
+    function renderTitikSla(slaColor) {
+        if (!Object.prototype.hasOwnProperty.call(SLA_WARNA, slaColor)) return '';
+
+        const info = SLA_WARNA[slaColor];
+        return '<span class="inbox-sla-dot ' + info.kelas + '" title="' +
+            escapeHtmlInbox('SLA: ' + info.arti + ' sejak pesan terakhir') + '"></span>';
+    }
+
     function renderDaftarConversation() {
         renderFilterButtons();
         renderTabCounts();
@@ -777,9 +871,14 @@
         });
 
         if (!daftarTampil.length) {
-            panel.innerHTML = '<div class="p-3 text-muted small text-center">' +
-                (daftarConversation.length ? 'Tidak ada percakapan ' + (QUEUE_STATUS_LABEL[filterAktif] || filterAktif) + '.' : 'Belum ada percakapan masuk.') +
-                '</div>';
+            let pesanKosong = 'Belum ada percakapan masuk.';
+            if (daftarConversation.length) {
+                pesanKosong = 'Tidak ada percakapan ' + (QUEUE_STATUS_LABEL[filterAktif] || filterAktif) + '.';
+            } else if (kataKunciAktif) {
+                // CL-005: a search with no result, not an empty inbox.
+                pesanKosong = 'Tidak ditemukan percakapan untuk "' + kataKunciAktif + '".';
+            }
+            panel.innerHTML = '<div class="p-3 text-muted small text-center">' + escapeHtmlInbox(pesanKosong) + '</div>';
             return;
         }
 
@@ -803,7 +902,7 @@
 
             return '<a href="#" class="inbox-list-item' + activeClass + '" onclick="return pilihConversation(' + c.id + ')">' +
                 '<div class="d-flex justify-content-between align-items-start">' +
-                '<span class="list-name">' + escapeHtmlInbox(nama) + '</span>' +
+                '<span class="list-name">' + renderTitikSla(c.sla_color) + escapeHtmlInbox(nama) + '</span>' +
                 '<span class="d-flex align-items-center gap-1">' +
                 '<span class="list-time">' + escapeHtmlInbox(waktu) + '</span>' +
                 '<button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(' + c.id + ')"><i class="fas fa-pen"></i></button>' +
@@ -823,12 +922,18 @@
     // masuk di tengah putaran.
     const CONVERSATIONS_PER_PAGE = 50;
 
-    function ambilSemuaConversation() {
+    // Active search keyword (TASK-017), already trimmed; '' = no search.
+    // Every list load, including the 6-second polling, sends it as `q`,
+    // so the list does not jump back to all conversations.
+    let kataKunciAktif = '';
+
+    function ambilSemuaConversation(kataKunci) {
         const hasil = [];
         const sudahAda = new Set();
+        const paramQ = kataKunci ? '&q=' + encodeURIComponent(kataKunci) : '';
 
         function ambilHalaman(page) {
-            return fetch('<?= base_url('/inbox/api/conversations') ?>?page=' + page)
+            return fetch('<?= base_url('/inbox/api/conversations') ?>?page=' + page + paramQ)
                 .then(function(res) {
                     return res.json();
                 })
@@ -846,17 +951,54 @@
         return ambilHalaman(1);
     }
 
-    function muatUlangDaftarConversation() {
-        ambilSemuaConversation()
+    // saatGagal (optional) is only passed by a search; normal polling
+    // errors stay silent.
+    function muatUlangDaftarConversation(saatGagal) {
+        const kataKunci = kataKunciAktif;
+
+        ambilSemuaConversation(kataKunci)
             .then(function(semua) {
+                // The keyword changed while the pages were loading: this
+                // result belongs to the old keyword, drop it.
+                if (kataKunci !== kataKunciAktif) return;
+
                 daftarConversation = semua;
                 renderDaftarConversation();
                 renderThreadHeader();
             })
-            .catch(function() {
+            .catch(function(err) {
+                if (kataKunci !== kataKunciAktif) return;
+                if (typeof saatGagal === 'function') {
+                    saatGagal(err);
+                    return;
+                }
                 // Diamkan -- polling berikutnya akan coba lagi. Tidak
                 // perlu toast tiap gagal 1 siklus, cukup mengganggu.
             });
+    }
+
+    // Whitespace-only counts as empty, so no `q` is sent (CL-007). On a
+    // failed search (e.g. 400) the previous keyword and list stay, and
+    // the error is shown once (AC-012g).
+    function jalankanPencarianConversation(kataKunciBaru) {
+        const kataKunciSebelumnya = kataKunciAktif;
+        kataKunciAktif = kataKunciBaru.trim();
+
+        muatUlangDaftarConversation(function(err) {
+            kataKunciAktif = kataKunciSebelumnya;
+            showToast('Pencarian gagal: ' + err.message, 'danger');
+        });
+    }
+
+    function cariConversationDariInput(e) {
+        e.preventDefault();
+        jalankanPencarianConversation(document.getElementById('inputCariConversation').value);
+        return false;
+    }
+
+    function hapusPencarianConversation() {
+        document.getElementById('inputCariConversation').value = '';
+        jalankanPencarianConversation('');
     }
 
     // ================================================================
@@ -889,7 +1031,7 @@
         // dan menutup paksa dropdown sebelum sempat diklik.
         if (document.querySelector('#threadHeader .dropdown-menu.show')) return;
 
-        const conv = cariConversation(conversationAktif);
+        const conv = conversationAktifSaatIni();
         const identitas = formatIdentitasCustomer(conv);
 
         let infoAssign = '';
@@ -968,6 +1110,12 @@
             (conv && conv.snoozed_until ? '<li><hr class="dropdown-divider"></li><li><a class="dropdown-item text-danger" href="#" onclick="return snoozePercakapanAktif(0)">Batal</a></li>' : '') +
             '</ul></div>';
 
+        // TASK-015: always shown, on every status and for every staff --
+        // unlike Balas/Follow-up it is not gated on ownership (SEC-001).
+        const tombolCatatanInternal =
+            '<button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Tulis catatan internal (tidak terkirim ke pelanggan)" onclick="bukaModalCatatanInternal()">' +
+            '<i class="fas fa-sticky-note"></i> Catatan Internal</button>';
+
         // Edit & Hapus TIDAK lagi tampil di header -- dipindah ke masing-
         // masing row percakapan di daftar kiri (lihat editPercakapanDariList()/
         // hapusPercakapanDariList()).
@@ -977,7 +1125,7 @@
             tombolKonfirmasiNomor +
             infoAssign +
             '</span>' +
-            '<span>' + tombolTandaiDibaca + tombolHandoff + tombolFollowUp + tombolTutup + tombolAssign + '</span>';
+            '<span>' + tombolCatatanInternal + tombolTandaiDibaca + tombolHandoff + tombolFollowUp + tombolTutup + tombolAssign + '</span>';
     }
 
     // Menit dari sekarang sampai jam 08:00 hari berikutnya -- dipakai
@@ -1084,11 +1232,14 @@
         return false;
     }
 
-    function simpanAlasanSnooze(conversationId, alasan) {
+    // Single fetch to the Internal Note endpoint (spec 4.3, form field
+    // `teks`), shared by the snooze reason and the Catatan Internal
+    // dialog. Rejects on a server error or a network failure.
+    function kirimCatatanInternal(conversationId, teks) {
         return fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationId + '/catatan', {
                 method: 'POST',
                 body: new URLSearchParams({
-                    teks: alasan
+                    teks: teks
                 })
             })
             .then(function(res) {
@@ -1096,14 +1247,82 @@
             })
             .then(function(json) {
                 if (json.status !== 'success') {
-                    throw new Error(json.message || 'gagal');
+                    throw new Error(json.message || 'Gagal menyimpan catatan.');
                 }
+                return json;
+            });
+    }
+
+    function simpanAlasanSnooze(conversationId, alasan) {
+        return kirimCatatanInternal(conversationId, alasan)
+            .then(function() {
                 showToast('Percakapan di-follow-up. Alasan disimpan sebagai Internal Note.', 'success');
                 if (conversationAktif === conversationId) muatUlangPesan(false);
             })
             .catch(function() {
                 showToast('Snooze berhasil, tapi alasan gagal disimpan.', 'warning');
             });
+    }
+
+    // ================================================================
+    // CATATAN INTERNAL (M3 Fase 1c, TASK-015)
+    // ================================================================
+    // Open to every logged-in staff on every conversation status,
+    // including closed -- no assigned_to/ownership gate (SEC-001,
+    // REQ-008). Never goes through kirimBalasan()/Gateway (CON-002).
+    let catatanInternalSedangKirim = false;
+
+    function bukaModalCatatanInternal() {
+        if (!conversationAktif) return;
+
+        document.getElementById('catatanInternalTeks').value = '';
+        catatanInternalSedangKirim = false;
+        document.getElementById('btnSimpanCatatanInternal').disabled = false;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCatatanInternal')).show();
+    }
+
+    function simpanCatatanInternal(e) {
+        e.preventDefault();
+        if (!conversationAktif || catatanInternalSedangKirim) return false;
+
+        const textarea = document.getElementById('catatanInternalTeks');
+        const teks = textarea.value.trim();
+
+        // Both checks run before any request (AC-010c). The limit is in
+        // UTF-8 bytes because catatanInternal() checks strlen().
+        if (!teks) {
+            showToast('Catatan tidak boleh kosong.', 'warning');
+            return false;
+        }
+        if (new TextEncoder().encode(teks).length > SNOOZE_ALASAN_MAKS_BYTE) {
+            showToast('Catatan terlalu panjang (maksimal 4096 karakter).', 'warning');
+            return false;
+        }
+
+        const conversationId = conversationAktif;
+        const btn = document.getElementById('btnSimpanCatatanInternal');
+        catatanInternalSedangKirim = true;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+
+        kirimCatatanInternal(conversationId, teks)
+            .then(function() {
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCatatanInternal')).hide();
+                textarea.value = '';
+                showToast('Catatan internal disimpan.', 'success');
+                if (String(conversationAktif) === String(conversationId)) muatUlangPesan(true);
+            })
+            .catch(function(err) {
+                // Dialog stays open and the typed text is kept (AC-010d).
+                showToast('Gagal menyimpan catatan: ' + err.message, 'danger');
+            })
+            .finally(function() {
+                catatanInternalSedangKirim = false;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Simpan';
+            });
+
+        return false;
     }
 
     function tutupPercakapan() {
@@ -1200,7 +1419,7 @@
     function bukaModalHandoff() {
         if (!conversationAktif) return;
 
-        const conv = cariConversation(conversationAktif);
+        const conv = conversationAktifSaatIni();
         if (!conv) return;
 
         // null/undefined -> string kosong = "saya lihat belum diambil".
@@ -1575,7 +1794,7 @@
 
                     // Muat ulang daftar conversation, lalu langsung buka
                     // conversation yang baru dibuat/dipakai.
-                    ambilSemuaConversation()
+                    ambilSemuaConversation(kataKunciAktif)
                         .then(function(semua) {
                             daftarConversation = semua;
                             renderDaftarConversation();
@@ -1776,7 +1995,7 @@
         // menang, fallback ke whatsapp_name; nomor manual (manual_phone)
         // menang, fallback ke phone ter-verifikasi. Jangan biarkan kosong
         // kalau salah satu sumber itu sudah terisi.
-        const conv = cariConversation(conversationAktif);
+        const conv = conversationAktifSaatIni();
         document.getElementById('editProfilNama').value = (conv && (conv.contact_name || conv.whatsapp_name)) || '';
         document.getElementById('editProfilTelepon').value = (conv && (conv.manual_phone || conv.phone)) || '';
 
