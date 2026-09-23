@@ -27,6 +27,30 @@ class UserModel extends Model
     protected $useTimestamps = false;
 
     /**
+     * Daftar kasir aktif -- kandidat target Handoff (REQ-H03/P-03)
+     * sekaligus daftar dropdown dialog Handoff (REQ-H04).
+     *
+     * Kontrak Q6 (locked, clarification report M3 Fase 2a):
+     *  - WHERE role='kasir' AND is_active=1 (admin dan user non-aktif
+     *    TIDAK PERNAH muncul -- P-03),
+     *  - kolom 'id' + 'nama' saja (cukup untuk dropdown + naming 409),
+     *  - ORDER BY nama ASC (urutan stabil untuk UI).
+     *
+     * Dipakai juga sebagai single source of truth untuk:
+     *  - validasi target saat submit Handoff (403 bila tidak ada di
+     *    daftar ini),
+     *  - cek kelayakan inisiator pada percakapan 'belum_diambil' (Q1).
+     */
+    public function daftarKasirAktif(): array
+    {
+        return $this->select('id, nama')
+            ->where('role', 'kasir')
+            ->where('is_active', 1)
+            ->orderBy('nama', 'ASC')
+            ->findAll();
+    }
+
+    /**
      * Cari user berdasarkan username
      */
     public function getUserByUsername($username)
