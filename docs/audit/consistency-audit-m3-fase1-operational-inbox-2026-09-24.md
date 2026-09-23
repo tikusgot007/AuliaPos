@@ -2,6 +2,13 @@
 
 # 🔍 Consistency Audit Report [Review Iteration 2]
 
+> [!SUCCESS]
+> **REMEDIATION STATUS: PARTIALLY RESOLVED (Plan scope, REFINE step 1)**
+> This audit report has been remediated by Planner Architect on 2026-09-24 in `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (editorial only, no new tasks, status stays `Completed`).
+> - **Resolved:** NG-02 (the Phase 3 NOTE now points to Spec AC-010..AC-012). NG-03 (TASK-015 `AC Ref` + AC-010, TASK-016 `AC Ref` + AC-011, TASK-018 VERIFY names Spec AC-010..AC-012).
+> - **Still open:** ST-03 and the PRD minor gaps (`/sdlc-draft-prd`); NG-01, NG-04, NG-05 (`/sdlc-define-specs`); ST-01/ST-02 (Fase 2a plans, separate session).
+> - **Projected Readiness Score:** 91/100 (Completeness 37/40, Clarity 28/30, Alignment 26/30).
+
 **Date:** 2026-09-24 · **Scope:** M3 Fase 1 (Operational Inbox) re-audit after Fase 1c (`f3bd8fa`, fix `dd9e864`, code review verdict: Merge)
 
 **Readiness Score:** 89/100

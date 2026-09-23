@@ -1454,3 +1454,30 @@
 <!-- checkpoint-tail: M3 Fase 1 re-audit Iteration 2 = 89/100 (MC-01..03 closed), user chose REFINE; next is /sdlc-plan-tasks for NG-02/NG-03, then PRD (ST-03), then spec (TODO-SEARCH-01, NG-04/05), then final audit. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (REFINE step 1: plan NG-02/NG-03)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Plan remediation done (REFINE step 1 of 4) → next is REFINE step 2 (`/sdlc-draft-prd`).
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.1, still `Completed`; editorial fix only.
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — new `REMEDIATION STATUS: PARTIALLY RESOLVED (Plan scope, REFINE step 1)` block under the Iteration 2 H1; projected 91/100 (C 37, Cl 28, A 26).
+- **Achieved Milestones:**
+  - NG-02: Phase 3 NOTE now says "Screen ACs: Spec AC-010..AC-012".
+  - NG-03: TASK-015 AC Ref + AC-010; TASK-016 AC Ref + AC-011; TASK-018 "**VERIFY** (Spec AC-010..AC-012)".
+  - Verified: stale sentence count 0, TASK-015..019 rows keep the same column count, status unchanged.
+- **Dead-Ends (Do NOT Repeat):**
+  - None.
+- **Updated Files:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — NOTE + 3 task cells.
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — remediation block.
+- **Decisions Made:**
+  - None new (followed the recorded REFINE order).
+- **Next Action / Pending:**
+  - REFINE step 2: `/sdlc-draft-prd` for ST-03 (§9.2), tick GH-001..004, terms "Internal Note"/"SLA Timer".
+  - Then step 3 `/sdlc-define-specs` (NG-01 = TODO-SEARCH-01, NG-04, NG-05), step 4 final `/sdlc-audit-consistency`.
+  - Still pending: NIT STD-03, FYI STD-04; check WA Gateway `data/` before moving the gateway; ST-01/ST-02 separate session.
+
+<!-- checkpoint-tail: REFINE step 1 done (plan NG-02/NG-03 fixed, projected 91/100); next is /sdlc-draft-prd for ST-03 + GH-001..004 + glossary terms. -->
+
+---
