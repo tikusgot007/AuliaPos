@@ -605,3 +605,82 @@
 ---
 
 
+## 📝 Session Checkpoint: 2026-09-23 (M3 Fase 2a Code Review)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review`) — M3 Fase 2a (Handoff + Collision Detection) audited over
+  `600515c~1..HEAD` @ `3968aa0` (branch `feature/m3-operational-inbox-fase1a-task001`). Verdict: **0 Blocker, 0 Critical,
+  2 Major, 8 Minor**. **No source code was touched** — the session produced a review report plus a refactoring plan, then
+  stopped at the handoff gate.
+- **Active Artifacts:**
+  - `docs/audit/code-review-m3-fase2a-2026-09-23.md` — Status: ✅ new (Axis A/B review, findings CR-01..CR-10,
+    traceability matrix REQ/CON → code → test, mutation-sensitivity table, frontend review, final verdict). 271 lines.
+  - `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — Status: ✅ new (mandatory refactoring template; Phase 1 =
+    TASK-101..TASK-110 unconditional hardening/tests, Phase 2 = TASK-201..TASK-205 clarification-gated). 171 lines.
+  - `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` — ✅ delivered, unchanged (Completed/Date columns still blank).
+  - `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` — 🔄 still v1.0 with the stale wording (RISK-01).
+- **Achieved Milestones:**
+  - Baseline re-verified independently: `vendor/bin/phpunit --no-coverage` → **OK (283 tests, 867 assertions)**.
+  - Boundary claims re-verified by my own commands: `--numstat '600515c~1..HEAD'` = 7 files only, `Inbox.php`
+    **312 insertions / 0 deletions** (7 protected methods byte-identical), zero diff on `ConversationModel.php`,
+    `InboxSlaService.php`, `InboxGatewayApi.php`, the view diff is exactly 1 replaced toolbar line, and the migration only
+    creates `conversation_handoffs` (no ALTER on `messages`/`conversations`). Test inventory 7+7+4+26 = 44 new tests.
+  - Findings: **MAJOR CR-01** — `summary`/`next_action`/`note` are `(string)`-coerced, so an array payload stores the literal
+    `"Array"` (proven with `php -r`: warning + `trim('Array') !== ''`); **MAJOR CR-02** — the locked Q5 contract
+    "absent `expected_owner` = 400" has **no test**, so a refactor could silently turn it into 409/200 with the suite green.
+  - **MINOR CR-03** — initiator gate keys on `assigned_to IS NULL` (superset of `queue_status === 'belum_diambil'`; reachable
+    after snooze + `lepas`, no ownership overwritten, needs a product decision); **CR-04** — write uses the client
+    `expected_owner` while `from_user_id` comes from the pre-transaction read (hair-thin race → stale audit value);
+    **CR-05** — `strlen` (bytes) vs `mb_strlen` (chars) for the 4096 cap; **CR-06** — the `selesai` 409 lacks
+    `current_owner_id`; **CR-07** — micro-contract test gaps (malformed `to_user_id`, oversized `note`, JSON dual-read,
+    POST `auth` filter, gate order on double violations, 409 body key set, Asia/Jakarta); **CR-08** — `docs/ARCHITECTURE.md`
+    never names `UserModel::daftarKasirAktif()` even though TASK-014 asked for it; **CR-09** — missing blank line at
+    `Inbox.php:1215` + a 240-line method; **CR-10** — K-05's `to_user_id` index intentionally absent (YAGNI, no action).
+  - Mutation-sensitivity assessment (static, no code changed): `C01`/`C02`/`E06` lock the conditional write,
+    `C03` locks the rollback (real MariaDB trigger), `H07`/`G01` lock "Handoff never writes messages", `G02` locks
+    cap/newest-first, `E07` locks snooze preservation, `H05`/`H08`/`C01b`/`E04` lock the 403 gates.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `php -r 'var_dump((string) ["x"]);'` through PowerShell 5.1.
+    **Reason:** PS strips the inner double quotes when handing arguments to a native command → PHP parse error.
+    **Note:** use a double-quoted PS string with **no** inner double quotes (`array(1)`, `chr(195)`), or write a temp file.
+  - **Attempted:** `npx --no-install markdownlint-cli2 --version` (and the plain `markdownlint` variant) to lint new docs.
+    **Reason:** this repo has no `package.json` and no local install → npx refuses ("canceled due to missing packages");
+    the MD013 counts in earlier checkpoints came from the VS Code extension, not a CLI.
+    **Note:** lint manually with a small PowerShell rule script (MD009/MD010/MD012/MD013@400/MD022/MD032/MD058) — do not
+    install packages just to lint.
+  - **Attempted:** `Select-String -Pattern 'a|b'` with `\'`-escaped alternatives inside one quoted string.
+    **Reason:** PowerShell parameter-binding error (`A positional parameter cannot be found`). **Note:** use a
+    double-quoted pattern or one pattern per call.
+  - **Confirmed still true:** `AGENTS.md` points at `.agents/` for skills, standards and the memory file, but `.agents/`
+    **does not exist** in this repo — the real tree is `.claude/` (`skills/`, `standards/`, `instructions/`).
+  - Referenced by label only (already documented in earlier checkpoints, still repo-wide): parallel git calls race on
+    `.git/index.lock`; `$base..HEAD` is the PowerShell range operator; `TestResponse::assertSee`'s second argument is a CSS
+    selector; phpunit piped through PowerShell is the slow part.
+
+- **Updated Files:**
+  - `docs/audit/code-review-m3-fase2a-2026-09-23.md` — new review report artifact (untracked).
+  - `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — new refactoring plan artifact (untracked).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+  - `git status --porcelain` shows **only those two untracked files** — no `app/`, `tests/`, or config file was modified.
+- **Decisions Made:**
+  - Reviewer scope honoured strictly: report + plan only; every fix is assigned to `/sdlc-write-code`.
+  - Artifact languages: review report in Indonesian (matches its `docs/audit/` siblings), refactoring plan in English
+    (matches `/plan/` siblings and the AGENTS.md "English-only documentation" rule).
+  - CR-03 and CR-04 were deliberately **not** patched: they touch locked semantics (P-05/Q5), so they were gated behind
+    `/sdlc-clarify-reqs` inside the plan (Phase 2) instead of being changed silently.
+  - No new ADR (the findings are reversible hardening with no new trade-off).
+  - Lint was validated with a manual PowerShell rule script (no CLI available); both artifacts report 0 issues.
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-write-code` with `@plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` → execute Phase 1
+    (TASK-101..TASK-109), run the VERIFY gate, then stop at TASK-110 for explicit approval.
+  - **NEW session:** `/sdlc-clarify-reqs` for CR-03 (gate reading), CR-04 (fail-fast 409) and the still-open
+    Plan-vs-Q2 admin question; those answers unblock Phase 2 (TASK-201..TASK-205).
+  - Both artifacts are uncommitted on `feature/m3-operational-inbox-fase1a-task001`; commit them (and offer a push) only
+    when the user asks.
+  - This memory file **still has no Knowledge Base zone** — the dead-end list has now survived four checkpoints
+    (git-lock, PS range operator, `assertSee` signature, phpunit pipe, plus `php -r` quoting and the missing markdownlint
+    CLI); a Compaction Mode run is overdue and should finally create the Knowledge Base zone.
+
+<!-- checkpoint-tail: M3 Fase 2a code review is DONE — 0 Blocker/0 Critical, 2 Major (CR-01 non-string summary/next_action/note coerced to "Array" and stored; CR-02 the locked Q5 "absent expected_owner = 400" contract has no test) plus 8 Minor, baseline re-verified at 283 tests / 867 assertions with Inbox.php 312 insertions / 0 deletions; artifacts are docs/audit/code-review-m3-fase2a-2026-09-23.md and plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md (Phase 1 TASK-101..110 unconditional, Phase 2 TASK-201..205 gated by /sdlc-clarify-reqs for CR-03/CR-04); next is /sdlc-write-code Phase 1 in a new session. -->
+
+---
