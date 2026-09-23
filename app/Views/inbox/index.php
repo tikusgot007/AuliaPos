@@ -497,6 +497,61 @@
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- MODAL HANDOFF (M3 Fase 2a, TB-01/TASK-004)     -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalHandoff" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-share-square"></i> Serahkan Percakapan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formHandoff" onsubmit="return kirimHandoff(event)">
+                <div class="modal-body">
+                    <div class="alert alert-danger small d-none" id="handoffAlert"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Serahkan kepada (kasir aktif)</label>
+                        <select class="form-select" id="handoffTarget" required>
+                            <option value="">-- Pilih kasir --</option>
+                            <?php foreach (($daftarKasir ?? []) as $kasir): ?>
+                                <?php if ((int) $kasir['id'] !== (int) $currentUserId): ?>
+                                    <option value="<?= (int) $kasir['id'] ?>"><?= esc($kasir['nama'] ?: ('Kasir #' . $kasir['id'])) ?></option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted">
+                            Hanya kasir aktif. Kalau kasir ini dinonaktifkan setelah dialog dibuka,
+                            server akan menolak (403) dan percakapan tidak berpindah.
+                        </small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ringkasan Keadaan Percakapan (wajib)</label>
+                        <textarea class="form-control" id="handoffSummary" rows="3" maxlength="4096" required
+                            placeholder="Contoh: customer tanya harga grosir, sudah dikirim price list v3."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tindakan Lanjutan yang Diharapkan (wajib)</label>
+                        <textarea class="form-control" id="handoffNextAction" rows="2" maxlength="4096" required
+                            placeholder="Contoh: follow up besok pagi kalau belum ada balasan."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Catatan (opsional)</label>
+                        <textarea class="form-control" id="handoffNote" rows="2" maxlength="4096"
+                            placeholder="Catatan bebas antar staff, tidak terkirim ke pelanggan."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary" id="btnKirimHandoff">
+                        <i class="fas fa-share-square"></i> Serahkan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     // ================================================================
     // STATE
@@ -749,6 +804,19 @@
             ? '<button type="button" class="btn btn-sm btn-outline-success me-1" title="Tandai sudah dibaca" onclick="tandaiDibacaAktif()">' +
               '<i class="fas fa-check"></i> Tandai Dibaca</button>'
             : '';
+        // M3 Fase 2a (TB-01/TASK-004): tombol Handoff hanya untuk
+        // percakapan eligible + inisiator yang diizinkan server
+        // (assignee saat ini, atau kasir aktif pada belum_diambil) --
+        // Q1/P-05 dicerminkan di UI supaya tidak menawarkan aksi 403.
+        const dapatHandoff = conv && conv.queue_status !== 'selesai' && (
+            (conv.assigned_to && String(conv.assigned_to) === String(currentUserId)) ||
+            (!conv.assigned_to && currentUserRole === 'kasir')
+        );
+        const tombolHandoff = dapatHandoff
+            ? '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Serahkan percakapan ke kasir lain" onclick="bukaModalHandoff()">' +
+              '<i class="fas fa-share-square"></i> Handoff</button>'
+            : '';
+
         const tombolFollowUp =
             '<div class="btn-group me-1">' +
             '<button type="button" class="btn btn-sm btn-outline-warning dropdown-toggle" data-bs-toggle="dropdown" title="Follow-up nanti">' +
@@ -769,7 +837,7 @@
             tombolKonfirmasiNomor +
             infoAssign +
             '</span>' +
-            '<span>' + tombolTandaiDibaca + tombolFollowUp + tombolTutup + tombolAssign + '</span>';
+            '<span>' + tombolTandaiDibaca + tombolHandoff + tombolFollowUp + tombolTutup + tombolAssign + '</span>';
     }
 
     // Menit dari sekarang sampai jam 08:00 hari berikutnya -- dipakai
@@ -876,6 +944,93 @@
             .catch(function(err) {
                 showToast('Gagal menghubungi server: ' + err.message, 'danger');
             });
+    }
+
+    // ================================================================
+    // HANDOFF (M3 Fase 2a, TB-01/TASK-004)
+    // ================================================================
+    // expected_owner dibaca SAAT DIALOG DIBUKA (bukan saat submit) --
+    // itulah nilai assigned_to yang "dilihat" kasir; server memakainya
+    // sebagai syarat conditional write (`assigned_to <=> expected`),
+    // sehingga bentrok dua staff otomatis ditolak 409 (K-01/Q5).
+    let handoffExpectedOwner = '';
+
+    function bukaModalHandoff() {
+        if (!conversationAktif) return;
+
+        const conv = cariConversation(conversationAktif);
+        if (!conv) return;
+
+        // null/undefined -> string kosong = "saya lihat belum diambil".
+        handoffExpectedOwner = (conv.assigned_to === null || conv.assigned_to === undefined)
+            ? ''
+            : String(conv.assigned_to);
+
+        document.getElementById('formHandoff').reset();
+        document.getElementById('handoffAlert').classList.add('d-none');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHandoff')).show();
+    }
+
+    function tampilkanNoticeHandoff(pesan) {
+        const el = document.getElementById('handoffAlert');
+        el.textContent = pesan;
+        el.classList.remove('d-none');
+    }
+
+    function kirimHandoff(e) {
+        e.preventDefault();
+        if (!conversationAktif) return false;
+
+        const target = document.getElementById('handoffTarget').value;
+        const summary = document.getElementById('handoffSummary').value.trim();
+        const nextAction = document.getElementById('handoffNextAction').value.trim();
+        const note = document.getElementById('handoffNote').value.trim();
+        const btn = document.getElementById('btnKirimHandoff');
+
+        if (!target || !summary || !nextAction) {
+            showToast('Target, ringkasan, dan tindakan lanjutan wajib diisi.', 'warning');
+            return false;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyerahkan...';
+
+        const body = 'to_user_id=' + encodeURIComponent(target)
+            + '&summary=' + encodeURIComponent(summary)
+            + '&next_action=' + encodeURIComponent(nextAction)
+            + '&note=' + encodeURIComponent(note)
+            + '&expected_owner=' + encodeURIComponent(handoffExpectedOwner);
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/handoff', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHandoff')).hide();
+                    showToast(json.message || 'Percakapan berhasil diserahkan.', 'success');
+                    muatUlangDaftarConversation();
+                } else {
+                    // 400 (validasi), 403 (inisiator/target), 409 (kalah
+                    // conditional write / percakapan selesai) -- pesan
+                    // server dipakai apa adanya; 409 menyebut nama
+                    // pemilik sah supaya kasir tahu harus koordinasi
+                    // dengan siapa.
+                    tampilkanNoticeHandoff(json.message || 'Gagal menyerahkan percakapan.');
+                    showToast(json.message || 'Gagal menyerahkan percakapan.', 'danger');
+                }
+            })
+            .catch(function(err) {
+                tampilkanNoticeHandoff('Gagal menghubungi server: ' + err.message);
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-share-square"></i> Serahkan';
+            });
+
+        return false;
     }
 
     // ================================================================

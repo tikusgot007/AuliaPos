@@ -49,6 +49,10 @@ class Inbox extends BaseController
             'gatewayStatus'  => $gatewayStatus,
             'currentUserId'  => (int) session()->get('id_user'),
             'currentUserRole' => (string) session()->get('role'),
+            // M3 Fase 2a (TB-01/TASK-004): daftar target dialog Handoff.
+            // Sumber sama dengan validasi server (UserModel::daftarKasirAktif,
+            // Q6) -- server tetap 403 kalau dropdown basi (RISK-05).
+            'daftarKasir'    => (new UserModel())->daftarKasirAktif(),
         ];
 
         return view('layout/minimal', $data);
