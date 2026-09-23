@@ -1582,3 +1582,31 @@
 <!-- checkpoint-tail: Fase 1d is planned as Phase 4 of the M3 Fase 1 plan (TASK-020 five-column q predicate in Inbox::apiConversations() with Red AC-013 tests, TASK-021 VERIFY, TASK-022 APPROVAL; plan In progress), both Fase 2a plans are synced to Completed with evidence, suite 317/1061 green; next is /sdlc-write-code Phase 4 in a new session. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (Code: Fase 1d TASK-020 done, TASK-021 partial)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`, Phase 4 of the M3 Fase 1 plan). Stopped at TASK-021 VERIFY as the user asked.
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.2, `In progress`: TASK-020 ✅, TASK-021 partial ((a)+(b) done, (c) manual pending), TASK-022 open.
+  - `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.2 — unchanged.
+- **Achieved Milestones:**
+  - Commit `db7f301`: `Inbox::apiConversations()` matches `q` against `Inbox::SEARCH_COLUMNS` = `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id` (per column `mb_stripos`, OR, NULL-safe, still filter-after-fetch). Docblock updated.
+  - 7 AC-013 (a)–(g) tests in `tests/session/OperationalInboxConversationTest.php`. Red confirmed before the change: (a)–(e) failed; (f), (g) already passed.
+  - Suite: `vendor\bin\phpunit --no-coverage` exit 0, **324 tests / 1097 assertions** (`build\fase1d.txt`). Diff boundary OK (2 files only, CON-003).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** seeding search tests with the default random `chat_id` (`628` + 9 random digits). **Reason:** `chat_id` is now searched, so a number `q` can match it by chance (flaky test). **Note:** new Fase 1d tests use a fixed, digit-free `chat_id` via `seedIdentitas()`.
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — `SEARCH_COLUMNS` + five-column `q` filter.
+  - `tests/session/OperationalInboxConversationTest.php` — AC-013 tests + `seedIdentitas()` helper.
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — TASK-020/021 evidence.
+- **Decisions Made:**
+  - Code commit kept separate from the docs/memory commit so TASK-021 (b) boundary (`db7f301` = 2 files) stays checkable.
+- **Next Action / Pending:**
+  - **User:** TASK-021 (c) manual browser check AC-013 (h): "budi cetak" finds (1) a conversation with no contact name and WhatsApp name "Budi Cetak", (2) one saved as "Jamet" with WhatsApp name "Budi Cetak"; tab counts follow. Then TASK-022 (plan status `Completed`, close TODO-SEARCH-01 in TASK-018) → `/sdlc-code-review` of `db7f301`.
+  - TODO (small, separate): existing `testQFilterCocokContactNameDanPhone` searches `q=9999` with random `chat_id` → ~0.1% flaky since Fase 1d; give it fixed chat_ids.
+  - Carried over: code-review TODO "4096 karakter" wording (`Inbox.php` `catatanInternal()`, `index.php`); `/sdlc-draft-prd` PRD §9.2 status text behind; `/sdlc-define-specs` Fase 1e (GH-010); NIT STD-03, FYI STD-04; check WA Gateway `data/` before moving the gateway.
+
+<!-- checkpoint-tail: Fase 1d code is committed (db7f301, q searches five name/number columns per column, AC-013 tests, suite 324/1097 green); only the manual browser check TASK-021 (c) and approval TASK-022 remain, then /sdlc-code-review of db7f301. -->
+
+---
