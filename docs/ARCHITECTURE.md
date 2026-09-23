@@ -89,6 +89,10 @@ These Inbox models use the `inbox` database group where applicable. The separati
 
 Core POS models include users, products, categories, customers, transactions, payments, cash, and scheduling.
 
+In the Inbox module, `UserModel::daftarKasirAktif()` is the single source of the active-kasir list: the Handoff
+dialog target dropdown, the 409 current-owner naming and the `belum_diambil` initiator check all derive from it, so
+the UI and the server-side gate can never drift into two different lists.
+
 ### 4.3 Service Layer
 
 Reusable application/domain logic lives under `app/Services/`.
@@ -309,7 +313,7 @@ The following constraints are important for subsequent Handoff and Collision Det
 | Conversation persistence | `app/Models/ConversationModel.php` |
 | Handoff persistence | `app/Models/ConversationHandoffModel.php` |
 | Message persistence | `app/Models/MessageModel.php` |
-| User persistence | `app/Models/UserModel.php` |
+| User persistence | `app/Models/UserModel.php` (its `daftarKasirAktif()` is the single source of the active-kasir list for Handoff) |
 | Schedule persistence | `app/Models/JadwalModel.php` |
 | Inbox SLA | `app/Services/InboxSlaService.php` |
 | Inbox media | `app/Libraries/InboxMediaStorage.php` |
