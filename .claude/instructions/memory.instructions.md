@@ -1367,3 +1367,34 @@
 <!-- checkpoint-tail: Code review of f3bd8fa found spec fully met but 2 REQUIRED standards issues (note dialog in-flight guard reset, vacuous render-test asserts); plan-refactor-m3-fase1c-inbox-screen-v1.0.md written; next is /sdlc-write-code for it. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (refactor STD-01/STD-02 executed, M3 Fase 1c)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation done → next is Review of the fix commit.
+- **Active Artifacts:**
+  - `plan/plan-refactor-m3-fase1c-inbox-screen-v1.0.md` — ✅ Completed (TASK-101..105 ticked, 2026-09-24).
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.1, ✅ Completed (unchanged).
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.1 (unchanged).
+- **Achieved Milestones:**
+  - STD-01 fixed: `bukaModalCatatanInternal()` only calls `.show()` while `catatanInternalSedangKirim` is true; success branch of `simpanCatatanInternal()` hides/clears the dialog only if `textarea.value.trim() === teks`.
+  - STD-02 fixed: screen test now asserts `id="btnSimpanCatatanInternal"`, `onclick="bukaModalCatatanInternal()"`, `const SLA_WARNA = {`, `.inbox-sla-dot {`, `class="inbox-sla-dot ` (all verified absent in `f3bd8fa^`). Red/Green micro-test done (removed onclick → 1 failure → restored → green).
+  - Gate: screen test 3/13, full `vendor/bin/phpunit --no-coverage` 317/317 (1061 assertions), `node --check` on the view's JS OK, user's manual close-and-reopen browser check passed.
+  - Commits pushed to `origin/v2.3`: `dd9e864` (fix), `5cfd3ba` (plan closed).
+- **Dead-Ends (Do NOT Repeat):**
+  - None new. (Generic-string render asserts: see previous checkpoint.)
+- **Updated Files:**
+  - `app/Views/inbox/index.php` — in-flight guard on reopen + conditional close on success
+  - `tests/session/OperationalInboxScreenTest.php` — feature-specific asserts
+  - `plan/plan-refactor-m3-fase1c-inbox-screen-v1.0.md` — ticked, status Completed
+- **Decisions Made:**
+  - Deferred NIT/FYI items from plan §3 stay TODOs (not fixed): restore search input on failed search; rename `SNOOZE_ALASAN_MAKS_BYTE`; "karakter" vs byte wording; `maxlength="4096"` truncation; CSRF off app-wide; `showToast` innerHTML; wrap `setInterval` polling callback.
+  - Tip for JS syntax check of a PHP view: extract `<script>` blocks, strip `<?= ... ?>` with non-greedy perl, then `node --check`.
+- **Next Action / Pending:**
+  - `/sdlc-code-review` of `dd9e864` (attach spec + refactor plan).
+  - Then `/sdlc-audit-consistency` (MC-01..03), then `/sdlc-define-specs` for TODO-SEARCH-01.
+  - Side task (outside AuliaPos): user is moving WA Gateway (`C:\projects\wa-gateway`, clean and in sync with `origin/master` at `21a4cb6`) to another computer via `git clone` + `npm install` + manual copy of `.env`; do not copy `auth/` (scan new QR) and stop the gateway here first (same WA session on two gateways conflicts). Pending: check what `data/` (3.8 MB) holds — if it is an unsent-message queue it must be moved too. User will ask when at this computer.
+
+<!-- checkpoint-tail: Refactor plan for f3bd8fa done (dd9e864 fix + 5cfd3ba plan close, 317/317, manual pass, pushed to v2.3); next is /sdlc-code-review of dd9e864; side task: check wa-gateway data/ before moving the gateway. -->
+
+---
