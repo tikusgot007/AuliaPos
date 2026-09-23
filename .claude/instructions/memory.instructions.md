@@ -1128,3 +1128,36 @@
 <!-- checkpoint-tail: TASK-013 is partial: 6 new tests (commit 5c8ec9d, 307/307) cover SLA 20-min kuning and CL-001/003/005/007/008, while CL-002, CL-009 and CL-010..013 are BLOCKED because apiConversations() has no status/q validation or paging yet, and q is still case-sensitive (TODO). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-23 (M3 TASK-013 — BLOCKED API rules finished, b8fd05a)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — TASK-013 done; next is code review, then TASK-014 (APPROVAL)
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — TASK-013 row: BLOCKED removed, done 2026-09-23
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — unchanged
+- **Achieved Milestones:**
+  - `Inbox::apiConversations()` now follows spec 4.4: it validates before reading the DB (400 for `status` outside the 5 values = CL-002, `q` > 255 chars after trim via `mb_strlen` = CL-009, `page` not matching `^[1-9]\d{0,8}$` = CL-012). After the filter it pages 50 at a time (`array_slice`, CL-010/011, default page 1), and a page past the end returns 200 `[]` (CL-013). `q` is case-insensitive (`mb_stripos`). New private constants `QUEUE_STATUSES` and `CONVERSATIONS_PER_PAGE`, plus a `badRequest()` helper.
+  - Inbox screen: new JS helper `ambilSemuaConversation()` fetches `?page=1..N` until a page has < 50 rows, dedupes by id, and rejects the whole round if one page fails. Used by the 6 s polling (`muatUlangDaftarConversation`) and the "Chat Baru" reload. Tab counts, list and badge are unchanged (still counted from the full array). The SSR first paint (`index()`) reads the DB directly and is not paged.
+  - +7 tests in `tests/session/OperationalInboxConversationTest.php` (Red confirmed: 6 failed first; the paging-after-filter test was already green as a guard). `composer test` → **Tests: 314**, 0 failures (exit 1 comes only from the Xdebug coverage warning).
+  - JS verified without a browser: `node --check` on the extracted `<script>` (replace `<?= ... ?>` with the non-greedy perl `s/<\?=.*?\?>/0/g`, because a greedy sed breaks on `?` inside the tag) plus a fake-fetch simulation of the helper (120 rows → pages 1,2,3; duplicate dropped; failure → rejected).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `sed -E "s/<\?= [^?]*\?>/0/g"` to strip PHP echo tags before running `node --check` on the view script.
+  - **Reason:** some tags contain `??` (e.g. `$daftarKasir ?? []`), so `[^?]*` stops early and leaves `<?=` in the JS → false SyntaxError.
+  - **Note:** use `perl -pe 's/<\?=.*?\?>/0/g'`.
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — validation + paging + case-insensitive `q` in `apiConversations()`
+  - `app/Views/inbox/index.php` — `ambilSemuaConversation()` and its 2 callers
+  - `tests/session/OperationalInboxConversationTest.php` — +7 tests, helpers `assertBadRequest()` and `seedBerurutan()`
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — TASK-013 row
+- **Decisions Made:**
+  - The user approved "the screen fetches every page and merges them" (no "load more" UI). Accepted cost: one refresh = ceil(N/50) requests, and each request recomputes the whole list on the server (same kind of risk as RISK-002). If it gets heavy, the fix is a "load more" UI as a separate task.
+  - An empty `?page=` returns 400 (not a valid number). CL-012 does not name this case, so it is recorded in the plan.
+  - KB fact "`apiConversations()` has no filter params / `findAll(100)`" is STALE: it now has `status`/`q`/`page` and uses `findAll()` without a limit. Fix it at the next compaction.
+- **Next Action / Pending:**
+  - Manual browser check: open `/inbox`, wait about 10 s, and confirm the tab counts do not shrink (the JS paging has no automated test).
+  - `/sdlc-code-review` for commit `b8fd05a`, then TASK-014 (APPROVAL).
+
+<!-- checkpoint-tail: TASK-013 finished in b8fd05a: apiConversations() validates status/q/page (400), pages 50 per page after filter, returns [] past the end, and q is case-insensitive; the Inbox screen merges all pages via ambilSemuaConversation(); composer test 314/314; next is a manual browser check plus /sdlc-code-review, then TASK-014. -->
+
+---
