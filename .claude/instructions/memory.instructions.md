@@ -513,3 +513,44 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-23 (M3 Fase 2a TB-02 Code Execution)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code (`/sdlc-write-code`) — **TB-02 (TASK-006..TASK-008) COMPLETE and verified**; execution stopped at the TB-02 boundary awaiting explicit approval. **TB-03 was NOT started.**
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` — Status: ✅ Normative (v1.0, unchanged). TB-01 + TB-02 delivered; TB-03 (TASK-009..011) and TB-04 (TASK-012..014) pending.
+  - `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q9) — Status: ✅ Honoured. D-01 this session is a faithful application of Q1/Q3, not a re-interpretation.
+  - `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` — Status: 🔄 v1.0 unchanged (still carries the stale 500/403/admin-boleh/§12-staff-9 wording; the Plan wins per RISK-01).
+  - `docs/handoff-m3-fase2a-tb03-2026-09-23.md` — Status: ✅ new (non-normative TB-03 execution brief for the next session).
+- **Achieved Milestones:**
+  - **TASK-006** — proved the 409 path and the rollback. `tests/session/InboxHandoffTest.php` gained C01 (sequential race: one 200 + one 409 naming the lawful owner, exactly one history row), C01b (non-assignee with a stale `expected_owner` stays 403 → documents that the §12 Spec example is superseded), C02 (stale `expected_owner`, incl. the stale unassigned claim), C03 (forced history-insert failure through a temporary MariaDB trigger → rollback + 500), C04 (`User #{id}` fallback). File total: 13 tests / 90 assertions.
+  - **TASK-006 hardening residual** — `Inbox::handoffPercakapan()` now treats `insertHandoff()` id ≤ 0 as a failed insert (`throw` inside the `try`), because with `DBDebug=false` (production) CI4 returns `false` instead of throwing and would have committed a "success" with no history row, silently breaking REQ-H09/AC-C03.
+  - **TASK-007** — loser UX in `app/Views/inbox/index.php`: `#handoffAlert` now holds `#handoffAlertMessage` + a "Muat ulang" button (`muatUlangSetelahHandoffBasi()` → `muatUlangDaftarConversation()`, which refreshes the queue list AND the thread header, then closes the dialog), an in-flight guard `handoffSedangKirim`, and stale-state reset when the dialog opens.
+  - **TASK-008 VERIFY** — `vendor/bin/phpunit --no-coverage`: **OK (270 tests / 765 assertions)** (baseline 265/729); testdox matrix for `InboxHandoffTest` = 13 ✔; `git diff b9f0e27..HEAD --numstat` = 3 files only with `Inbox.php` **10 insertions / 0 deletions** (the 7 protected methods untouched), no ALTER on old tables, no Gateway call, no presence/unread/notification, no new method; committed `bedf810` (fix) → `62afbbb` (test) → `3fda052` (feat); **nothing pushed**.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Running three dependent git commands (`add`+`commit` pairs) as three parallel tool calls in one response.
+  - **Reason:** They race on `.git/index.lock` ("Unable to create ... index.lock: File exists") and the interleaving produced commit `85e909f` whose content (controller + view) did not match its "test" message. **Note:** chain git commands with `;` inside ONE command string (sequential), never as parallel calls; repair with `git reset --soft HEAD~1` + `git reset`, then re-commit sequentially.
+  - **Attempted:** Piping phpunit through PowerShell (`vendor\bin\phpunit ... | Select-Object -Last 6`) and reading the 30 s tool timeout as "the suite is slow, so run it detached".
+  - **Reason:** The console/pipe path is the slow part; phpunit itself runs the suite in ~5 s. **Note:** use `cmd /c 'vendor\bin\phpunit --no-coverage > build\<name>.txt 2>&1'` and read the file; use `[System.IO.File]::ReadAllText($p, [System.Text.Encoding]::UTF8)` when the output contains ✔ (console CP1252 mangles it).
+  - Still valid from the TB-01 checkpoint (do not repeat): approximated `insert_line`, `json_decode($response->getBody())` (use `getJSON()`), instantiating a migration directly, MariaDB FK errno 150 (child = BIGINT UNSIGNED), `SHOW INDEX` returns one row per indexed column, string ids (`numberNative=false`), `composer test` exits 1 on the pre-existing coverage warning.
+
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — +10 lines inside `handoffPercakapan()` (id ≤ 0 guard), 0 deletions.
+  - `tests/session/InboxHandoffTest.php` — +211/-5 (C01..C04, trigger helpers + `TRIGGER_INSERT_FAIL`, setUp trigger cleanup, collision-friendly user seeds).
+  - `app/Views/inbox/index.php` — +48/-4 (loser notice + reload action + in-flight guard).
+  - `docs/handoff-m3-fase2a-tb03-2026-09-23.md` — new (TB-03 execution brief).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+- **Decisions Made:**
+  - **D-01:** a request can only reach the conditional write while its initiator IS the current assignee, so the losing request in a collision is the CURRENT owner holding a stale dialog. The Spec v1.0 §12 example ("a non-owner also receives 409") is superseded by REQ-H01/P-05 and was NOT implemented; widening the gate needs a new `/sdlc-clarify-reqs` round. Locked by test C01b (non-assignee + stale = 403).
+  - **D-02:** the forced insert failure is produced by a temporary MariaDB trigger (`BEFORE INSERT ... SIGNAL SQLSTATE '45000'`), dropped in `finally` AND in `setUp()`; no DB-layer mocking (Spec Section 6 forbids new seams).
+  - **D-03:** the loser notice shows the server message verbatim plus a "Muat ulang" action that refreshes queue + header and closes the dialog; double submit is blocked client-side and any retry still lands on the 409 path (K-09).
+  - Test fixture change: users 11 and 12 are now active kasir (collision-demo numbers), so the admin-rejection case in H05 moved from user 11 to user 9 without weakening the assertion.
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-write-code` for **TB-03 (TASK-009..011)** — dedicated `GET /inbox/percakapan/(:num)/handoff` (`Inbox::apiHandoffs()`, Q7 auth-only read gate, 404 unknown, cap 50 newest-first) + the history panel in `app/Views/inbox/index.php` (refresh after success AND after 409). Brief: `docs/handoff-m3-fase2a-tb03-2026-09-23.md`.
+  - Then TB-04 (TASK-012..014): edge cases + boundary audit + `docs/ARCHITECTURE.md` Living Map update (add `conversation_handoffs`, `ConversationHandoffModel`, `UserModel::daftarKasirAktif()`, and both Handoff routes) + final approval.
+  - Open: the Plan tables' Completed/Date columns are still blank (TB-01 precedent); TB-01..TB-02 commits are local on `feature/m3-operational-inbox-fase1a-task001` (`bedf810`, `62afbbb`, `3fda052`) and **not pushed**; this memory file still has **no Knowledge Base zone** — a Compaction Mode run should create it and promote the git-lock + phpunit-pipe dead-ends.
+
+<!-- checkpoint-tail: M3 Fase 2a TB-02 done and verified — the collision 409 path, the stale owner and the forced-insert rollback are proven by 5 new tests (C01/C01b/C02/C03/C04), `handoffPercakapan()` treats a history insert that stores no row as a failure (DBDebug=false hardening), the Handoff dialog now shows the server message with a Muat ulang action and blocks double submits, full suite OK at 270 tests / 765 assertions, committed bedf810/62afbbb/3fda052 without pushing; next is TB-03 (GET handoff + history panel) in a new session, brief at docs/handoff-m3-fase2a-tb03-2026-09-23.md. -->
+
+---
+
