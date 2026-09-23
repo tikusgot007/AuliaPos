@@ -1072,3 +1072,28 @@
 <!-- checkpoint-tail: The code review of M3 TASK-012 (commit f0d6b94) found only 2 optional NITs (byte-vs-karakter wording, maxlength truncation) and no XSS or spec issues, with the verdict Merge; the pending work is a manual browser check of the Snooze dialog and the remaining TASK-013 tests. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-23 (Manual browser check of M3 TASK-012 — passed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review → done for TASK-012; next is the TASK-013 verification
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — unchanged (TASK-012 ✅, TASK-013 Partial)
+- **Achieved Milestones:**
+  - The user ran the manual browser check of the Snooze dialog on 2026-09-23, and all 3 steps passed:
+    - (1) No reason: Network shows only `snooze` with payload `{menit: 60}`, and no `catatan`.
+    - (2) Reason "tes alasan snooze": exactly 1 new "Internal" bubble appears (by Anshar, 23/09 21.09), and the conversation moves to the Ditunda tab.
+    - (3) Reason of 1100 emoji (4400 bytes, set via the Console): the warning toast "Alasan terlalu panjang" appears, the dialog stays open, and there is no `snooze` request.
+  - Test data was restored (snooze cancelled).
+- **Decisions Made:**
+  - TASK-012 is fully accepted: code review verdict Merge plus the manual check. The 2 optional NITs (wording, `maxlength`) were left as they are.
+- **Next Action / Pending:**
+  - Finish TASK-013. The files already exist:
+    - `tests/unit/InboxSlaServiceTest.php`
+    - `tests/session/OperationalInboxConversationTest.php`
+    - `app/Services/InboxSlaService.php`
+  - Verify that these tests cover AC-005/AC-006/AC-008 and the `status`/`q`/`page` contract of spec 4.4 (CL-002, CL-003, CL-005, CL-007..CL-013). Fill only the gaps, run `composer test`, then mark TASK-013 in the plan.
+
+<!-- checkpoint-tail: The TASK-012 snooze reason passed code review and a 3-step manual browser check (no reason → only /snooze; with a reason → 1 Internal note; a >4096-byte reason → blocked before /snooze), so the next task is finishing TASK-013 by checking the existing SLA and status/q tests against the spec. -->
+
+---
