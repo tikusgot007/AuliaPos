@@ -78,27 +78,56 @@ Kontrak HTTP ke AuliaPos tetap `POST /api/inbox/gateway/messages` (CON-001).
 
 ## 2. TASK-017 — Pengukuran AC-001 (3 percobaan)
 
-**Status: BELUM dijalankan.** Task ini menghentikan proses Gateway live,
-sehingga plan mewajibkan persetujuan eksplisit user sebelum percobaan pertama.
-Tabel bukti di bawah diisi saat eksekusi.
+Dijalankan 2026-09-23 mulai 16:45 WIB atas persetujuan eksplisit user
+(persetujuan dibuka per percobaan: percobaan 2 dan 3 dimulai setelah percobaan
+sebelumnya dilaporkan). Protokol: `pm2 stop` → 10 pesan dari HP tes ke
+`6281913500707` dikirim beruntun → `pm2 start` → tunggu `connected`.
 
-| Percobaan | Waktu | Diterima | Hilang | Duplikat | Catatan |
-| --- | --- | --- | --- | --- | --- |
-| 1 (`AC001-P1-01`…`-10`) | — | —/10 | — | — | menunggu persetujuan user |
-| 2 (`AC001-P2-01`…`-10`) | — | —/10 | — | — | — |
-| 3 (`AC001-P3-01`…`-10`) | — | —/10 | — | — | — |
+| Percobaan | Berhenti → `connected` | Diterima | Hilang | Duplikat |
+| --- | --- | --- | --- | --- |
+| 1 | 16:45:47 → 16:48:12 | 10/10 | 0 | 0 |
+| 2 | 16:53:10 → 16:55:37 | 10/10 | 0 | 0 |
+| 3 | 16:57:12 → 16:58:34 | 10/10 | 0 | 0 |
 
-Kriteria lulus (plan TASK-017, runbook §6): 3 percobaan, masing-masing 10/10
-diterima, 0 hilang, 0 duplikat → lanjut TASK-018.
+Penanda: percobaan 1 `AC001-P1-01`…`-10`; percobaan 2 `AC001-P2-01`
+lalu `AC001-P1-02`…`-10` (salah ganti awalan); percobaan 3 hanya `01`…`10`.
+
+**Hasil: 3/3 percobaan, 30/30 pesan, 0 hilang, 0 duplikat.**
+
+### 2.1 Bukti per percobaan
+
+| Percobaan | `incoming_queue` | AuliaPos `messages` | Batch offline | Error |
+| --- | --- | --- | --- | --- |
+| 1 | `id 116–125` (10) | `id 168–177` (10) | `handled 11` | 1 level-50 |
+| 2 | `id 126–135` (10) | `id 178–187` (10) | `handled 10` | 1 level-50 |
+| 3 | `id 136–145` (10) | `id 188–197` (10) | `handled 11` | 1 level-50 |
+
+- Angka per percobaan di atas adalah `count(*)` dan `count(distinct
+  wa_message_id)` — keduanya sama, yaitu 10.
+- Semua baris `incoming_queue`: `jid_type=lid`, `direction=incoming`,
+  `status=completed`; `dup_groups=0` di `incoming_queue` maupun AuliaPos.
+- Pengiriman ke AuliaPos: 30 log `[DELIVERY] pesan masuk berhasil diteruskan
+  ke CI4`, semuanya `duplicate: false`.
+- Satu-satunya error level-50 tiap percobaan adalah peringatan Baileys
+  `init queries` → `Timed out` ±60 detik setelah `connected`; pola sama sudah
+  ada pada boot 08:53 sebelum deploy, dan tidak terkait pemrosesan pesan.
+- Tidak ada log skip/`unknown`/overflow/error M1 pada ketiga percobaan.
+
+Total kumulatif setelah pengukuran: `incoming_queue` 127 baris (`max_id 145`),
+AuliaPos `messages` 35 baris (33 di antaranya percakapan `4220`), 0 duplikat.
 
 ## 3. Interpretasi
 
-- Deploy TASK-019 **lulus**: folder live kini menjalankan `065f683`, jadi
-  TASK-017 akan mengukur kode M1, bukan kode lama `e18f716`. Prasyarat keras
-  TASK-017 (v1.2) terpenuhi.
-- Belum ada inferensi apa pun tentang keandalan pesan masuk. Klaim
-  "0 hilang, 0 duplikat" baru sah setelah 3 percobaan AC-001 nyata di bagian 2
-  terisi.
+- **AC-001 lulus:** 3 percobaan, masing-masing 10/10 pesan muncul di
+  `incoming_queue` **dan** di AuliaPos, dengan 0 hilang dan 0 duplikat. Ini
+  kriteria kelulusan akhir Gelombang 1 (plan TASK-017, runbook §6).
+- Setiap pesan yang dikirim saat Gateway berhenti tersimpan **tepat sekali**:
+  30 baris dengan 30 `wa_message_id` unik, tanpa grup duplikat di kedua sisi.
+- Kode yang diukur adalah `065f683` (hasil TASK-019), jadi hasil ini sah
+  sebagai ukuran kode M1 — bukan kode lama `e18f716`.
+- Batas bukti: verifikasi "0 duplikat" memakai `wa_message_id`, bukan teks,
+  karena percobaan 2 memang memuat ulang teks penanda dari percobaan 1
+  (pesan baru dengan `wa_message_id` baru — bukan duplikat REQ-005).
 
 ## 4. Temuan operasional (di luar definisi AC)
 
@@ -115,6 +144,15 @@ diterima, 0 hilang, 0 duplikat → lanjut TASK-018.
   7.0.4, dipakai bersama Node v20.20.2.
 - **Berkas besar `node.exe` (±87 MB) masih ter-commit di repo WA-Gateway** (`e18f716`,
   "Create node.exe") dan kini ikut ke `master`. Bukan berasal dari Gelombang 1.
+- **Sebagian pesan offline tiba menyusul (bukan hilang).** Pola berulang di
+  ketiga percobaan: percobaan 1 → 5 pesan pada `connected` + 5 pada +2 m 02 s;
+  percobaan 2 → 9 + 1 pada +47 s; percobaan 3 → 6 + 4 pada +2 m 00 s. Semua
+  akhirnya tersimpan tepat sekali, jadi tidak ada pesan yang hilang; namun
+  pengukuran berikutnya harus menunggu ±2,5 menit setelah `connected` sebelum
+  menyimpulkan "hilang".
+- **Peringatan `init queries Timed out` milik Baileys muncul ±60 detik setelah
+  setiap `connected`** (16:49:12, 16:56:37, 16:59:34) sementara pesan tetap
+  tersimpan normal. Sudah ada sebelum deploy (08:53) — bukan regresi M1.
 
 ## 5. Referensi
 
