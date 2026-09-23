@@ -3,6 +3,13 @@
 # 🔍 Consistency Audit Report [Review Iteration 2]
 
 > [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED for Spec scope (REFINE step 3)**
+> This audit report has been remediated by Specification Architect on 2026-09-24 in `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.2.
+> - **Resolved:** NG-01 / TODO-SEARCH-01 (Fase 1d contract per PRD v1.3 GH-009: `q` matches `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id`, per column, no phone normalization. See CL-015, REQ-013, CON-003, §4.4, AC-013 a–h, §6, §12, §13, §15). NG-04 (literal `\n` in §1.2 replaced with real line breaks). NG-05 ("4096 byte" in CL-006, the §8 sample, and §12).
+> - **Not in this step:** GH-010 (Fase 1e, message-text search) is explicitly out of scope in Spec §1.1 until a later revision. Fase 1d still needs a plan task and code (`/sdlc-plan-tasks`). The "karakter" wording in code (`Inbox.php:951`, `index.php:1308`) remains a code-review TODO. ST-01/ST-02 (Fase 2a plans) remain a separate session.
+> - **Projected Readiness Score:** 95/100 (Completeness 38/40, Clarity 29/30, Alignment 28/30).
+
+> [!SUCCESS]
 > **REMEDIATION STATUS: PARTIALLY RESOLVED (PRD scope, REFINE step 2)**
 > This audit report has been remediated by Product Manager PRD on 2026-09-24 in `prd-20260922-0141-chat-whatsapp-inbox.md` v1.2 (status and wording only, no scope change).
 > - **Resolved:** ST-03 (§9.2 now shows Fase 1a/1b merged via PR #41, a new Fase 1c row, and Fase 2a Spec v1.2 + code + code review done, with its plan status sync noted as pending). GH-001..GH-004 ticked in §10 with an evidence note. Glossary: "catatan internal" → "Internal Note" and "indikator/warna prioritas" → "SLA Timer" across §1.2–§10.
