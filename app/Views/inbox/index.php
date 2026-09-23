@@ -509,7 +509,20 @@
             </div>
             <form id="formHandoff" onsubmit="return kirimHandoff(event)">
                 <div class="modal-body">
-                    <div class="alert alert-danger small d-none" id="handoffAlert"></div>
+                    <div class="alert alert-danger small d-none" id="handoffAlert">
+                        <div id="handoffAlertMessage"></div>
+                        <!-- TASK-007 (loser UX): pesan server dipakai apa
+                             adanya (409 sudah menyebut nama pemilik sah).
+                             Tombol ini menyegarkan daftar Queue + header
+                             supaya UI tidak menampilkan keadaan basi, lalu
+                             menutup dialog agar nilai expected_owner lama
+                             tidak terkirim ulang -- retry apa pun tetap
+                             jatuh 409 (K-09). -->
+                        <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="btnMuatUlangHandoff"
+                            onclick="muatUlangSetelahHandoffBasi()">
+                            <i class="fas fa-sync-alt"></i> Muat ulang
+                        </button>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Serahkan kepada (kasir aktif)</label>
                         <select class="form-select" id="handoffTarget" required>
@@ -955,6 +968,12 @@
     // sehingga bentrok dua staff otomatis ditolak 409 (K-01/Q5).
     let handoffExpectedOwner = '';
 
+    // Penjaga dobel-klik (TASK-007/D-03): selama satu request masih
+    // terbang, submit kedua diabaikan. Tombol submit juga di-disable saat
+    // request berjalan; flag ini menutup celah submit lewat Enter/klik
+    // sangat cepat sebelum disable sempat terpasang.
+    let handoffSedangKirim = false;
+
     function bukaModalHandoff() {
         if (!conversationAktif) return;
 
@@ -968,18 +987,41 @@
 
         document.getElementById('formHandoff').reset();
         document.getElementById('handoffAlert').classList.add('d-none');
+        // Sisa keadaan dari percobaan sebelumnya tidak boleh terbawa.
+        handoffSedangKirim = false;
+        document.getElementById('btnKirimHandoff').disabled = false;
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHandoff')).show();
     }
 
+    // Pesan server dipakai APA ADANYA -- pada 409 pesan itu sudah memuat
+    // nama pemilik sah (atau fallback "User #{id}"), sehingga kasir tahu
+    // harus berkoordinasi dengan siapa. Ditulis ke elemen pesan supaya
+    // tombol "Muat ulang" di kotak yang sama tidak ikut terhapus.
     function tampilkanNoticeHandoff(pesan) {
-        const el = document.getElementById('handoffAlert');
-        el.textContent = pesan;
-        el.classList.remove('d-none');
+        document.getElementById('handoffAlertMessage').textContent = pesan;
+        document.getElementById('handoffAlert').classList.remove('d-none');
+    }
+
+    // Aksi satu-klik untuk kasir yang kalah (TASK-007): segarkan daftar
+    // Queue + header dari server supaya UI tidak menampilkan keadaan basi,
+    // lalu tutup dialog agar nilai expected_owner lama tidak dikirim ulang.
+    // Percobaan ulang apa pun tetap ditolak 409 oleh server (K-09).
+    function muatUlangSetelahHandoffBasi() {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHandoff')).hide();
+        muatUlangDaftarConversation();
+        showToast('Daftar percakapan dimuat ulang.', 'info');
     }
 
     function kirimHandoff(e) {
         e.preventDefault();
         if (!conversationAktif) return false;
+
+        // Dobel-klik/Enter berulang aman: selama request pertama masih
+        // terbang, submit kedua diabaikan (lihat handoffSedangKirim).
+        // Kalau request pertama ternyata kalah 409, klik ulang setelahnya
+        // tetap ditolak 409 oleh server (K-09) -- tidak mungkin ada dua
+        // pemilik sekaligus.
+        if (handoffSedangKirim) return false;
 
         const target = document.getElementById('handoffTarget').value;
         const summary = document.getElementById('handoffSummary').value.trim();
@@ -992,6 +1034,7 @@
             return false;
         }
 
+        handoffSedangKirim = true;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyerahkan...';
 
@@ -1026,6 +1069,7 @@
                 tampilkanNoticeHandoff('Gagal menghubungi server: ' + err.message);
             })
             .finally(function() {
+                handoffSedangKirim = false;
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-share-square"></i> Serahkan';
             });
