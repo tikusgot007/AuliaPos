@@ -546,6 +546,70 @@
   - Optional: commit the three text artifacts when the user asks (chain git with `;` in one command, per DE-01).
   - Then the usual downstream path remains: `/sdlc-generate-docs` (Diátaxis) for user-facing docs.
 
-<!-- checkpoint-tail: M3 Fase 2a SPEC TEXT REMEDIATION is DONE — `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` moved v1.1 → v1.2 documentation-only (no code) applying all six locked resolutions from docs/audit/clarification-report-m3-fase2a-assumptions-008-011-2026-09-23.md (ASSUMPTION-008 stale glossary sentence removed + canonical "active kasir" rule; AC-H09 "Locked by F01" replaced by the non-observable-guard wording with observable contract "409, no write, before the transaction"; ASSUMPTION-010/§4.4 coverage asymmetry recorded with NO H02c; ASSUMPTION-011 1:1 phrasing dropped, InboxHandoffTest.php method names cited as canonical; REQ-H06 now honest that updated_at is refreshed [Inbox.php:1177-1182]; §4.4/REQ-H09/step 7 document HTTP 500 rollback [Inbox.php:1223-1232, C03]), CONTEXT.md narrowed Belum Diambil to "active kasir" and clarified Handoff, a REMEDIATION STATUS: RESOLVED block was added to the audit report, markdownlint differential shows the identical rule set vs committed v1.1 with MD025 pre-existing at line 10 (projected readiness 98/100), and the recommended next step is a NEW /sdlc-audit-consistency session to lock PRD↔Spec↔Plan traceability. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-23 (M3 Fase 2a Artifact Consistency Audit)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Audit / Consistency Checkpoint (`/sdlc-audit-consistency`) — **completed** over
+  PRD v1.1 ↔ Spec v1.2 ↔ Plan (feature + refactor) ↔ shipped code. **No source code was touched**; the session produced
+  a consistency audit report and then stopped at the user-decision gate.
+- **Active Artifacts:**
+  - `docs/audit/consistency-audit-m3-fase2a-handoff-collision-2026-09-23.md` — ✅ new (Readiness **87/100**; Good Enough,
+    no Critical Flaw Veto). Sections: executive summary, traceability findings (verified aligned + minor gaps),
+    standards compliance, action plan, verdict & handoff.
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — ✅ v1.1 unchanged (GH-006/GH-007 parent requirements intact).
+  - `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` — ✅ v1.2 unchanged by this session.
+  - `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` + `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — ✅ unchanged.
+- **Achieved Milestones:**
+  - **Readiness Score 87/100** (Completeness 36/40, Clarity 27/30, Alignment 24/30; no veto). The core traceability
+    (PRD → Spec → Plan → code + tests) is 100% intact: GH-006 → REQ-H01..H10 / AC-H01..H09; GH-007 → REQ-C01..C04 /
+    AC-C01..C03; snooze preservation locked by `E07`; P-01..P-06 + CR-03=A + CR-04=A1 + Q2 narrowing all reflected in
+    Spec §1.2.1/§1.2.2 and in code (`51fb1fc`).
+  - **No missing coverage, no orphaned items, no cross-document contradiction affecting code.** GH-008 auto-assignment,
+    Presence and notifications/unread are consistently Out of Scope at every level (not scope creep).
+  - **Verified against the codebase (not doc claims):** `Inbox::handoffPercakapan()`, `Inbox::apiHandoffs()`,
+    `balas409KepemilikanBasi(?int)`, `ConversationHandoffModel`, migration `2026-09-23-000001_CreateConversationHandoffs`,
+    both routes (`Routes.php`), and `UserModel::daftarKasirAktif()` all present; `docs/ARCHITECTURE.md` §4.2/§8/§12/§13
+    names them; working tree clean at HEAD `7312c14`.
+  - **Findings (all documentation/governance, zero code risk):**
+    - **Missing ADR (K-01).** `clarification-report-m3-fase2-m2-gate-2026-09-22.md` §4 says the *expected-owner
+      conditional write* meets the Triple Gate and warrants an ADR, but `spec/…fase2a…md` §10 says "No new ADR".
+      Recommendation: create `docs/adr/0002-expected-owner-conditional-write.md` and reconcile Spec §10.
+    - **Dangling reference (F-07).** `docs/adr/` does not exist on the active branch although Spec §14,
+      `docs/ARCHITECTURE.md`, `spec/…fase1.md`, `plan/…fase1…md` and PRD §8.3 reference `docs/adr/0001-…`. Restore
+      from branch `v2.2` (see DE-30).
+    - **Version drift.** `plan/plan-feature-…fase2a-v1.0.md` still cites Spec `v1.0` (now `v1.2`).
+    - **Internal plan inconsistency.** `plan-refactor-…v1.0.md` CON-002 summarises the gate order without the
+      *fail-fast 409* step added by TASK-201.
+  - **Verdict + user decision (recorded):** **PROCEED + save report**; ADR findings routed as governance backlog to
+    `/sdlc-define-specs` + `/code-janitor`. Next phase: `/sdlc-generate-docs`.
+- **Dead-Ends (Do NOT Repeat):**
+  - No new tooling dead-end this session. Repo-wide dead-ends referenced by label only: git index lock on parallel git
+    calls (DE-01), PowerShell `$base..HEAD` range operator (DE-02), `TestResponse::assertSee` second-argument selector
+    (DE-03), phpunit piped through PowerShell (DE-04), reading a 0-byte CLI redirect as "clean lint" (DE-34), and reading
+    `docs/adr/0001-…` on the active branch instead of `git show v2.2:<path>` (DE-30).
+- **Updated Files:**
+  - `docs/audit/consistency-audit-m3-fase2a-handoff-collision-2026-09-23.md` — new audit report artifact (this session's
+    deliverable).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+  - No `app/`, `tests/`, `Views/`, `plan/`, `spec/`, PRD, `CONTEXT.md` or config file was modified.
+- **Decisions Made:**
+  - Auditor boundary honoured strictly: comparative cross-document analysis + one audit report only; no code, no PRD/Spec/
+    Plan rewriting. Every fix stays with its authoring agent.
+  - ADR absence (F-07 + missing K-01 ADR) is recorded as **governance backlog**, not a blocker, because the code is
+    already consistent and green — hence no Critical Flaw Veto and a score above the 80 threshold.
+  - No new ADR authored by this session (Auditor ≠ Author).
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-define-specs` to reconcile Spec §10 with the K-01 ADR decision; and `/code-janitor` (or the
+    ADR authoring path) to restore `docs/adr/0001-reuse-response-state-for-queue-view-status.md` and add
+    `docs/adr/0002-expected-owner-conditional-write.md`.
+  - Then `/sdlc-generate-docs` (Diátaxis) for user-facing documentation.
+  - The audit report is untracked in the working tree — commit when the user asks (chain git with `;`, per DE-01).
+
+<!-- checkpoint-tail: M3 Fase 2a ARTIFACT CONSISTENCY AUDIT is DONE — PRD v1.1 ↔ Spec v1.2 ↔ Plan ↔ code audited at Readiness 87/100 (Good Enough, no Critical Flaw Veto); traceability is 100% intact with no missing coverage and no orphaned items, and the only findings are governance-level (docs/adr/ absent though referenced everywhere = F-07; the K-01 expected-owner conditional write meets the Triple Gate but has no ADR while Spec §10 says "No new ADR"; plan-feature still cites Spec v1.0; refactor-plan CON-002 omits the fail-fast 409 step); artifact docs/audit/consistency-audit-m3-fase2a-handoff-collision-2026-09-23.md saved, user chose PROCEED + save with the ADR findings routed as backlog to /sdlc-define-specs + /code-janitor, and the next phase is /sdlc-generate-docs. -->
+
+---
 
 
