@@ -785,3 +785,75 @@
 ---
 
 
+## 📝 Session Checkpoint: 2026-09-23 (M1 Wave 1 CLOSURE — live deploy + real AC-001)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code/Execution (`/sdlc-write-code`) — **completed**. M1 Wave 1 is CLOSED.
+  No spec, code, `auth/`, or Gateway/AuliaPos source was modified in this session; the only writes
+  were one new decision log (AuliaPos) plus the plan front matter + badge.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — ✅ v1.2, status **`Completed`**
+    (badge brightgreen); commit `4d43c8d` changed exactly 2 lines (front matter + badge).
+  - `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md` — ✅ new and complete (TASK-019 deploy
+    evidence, 3 AC-001 attempts, interpretation, operational findings); commits `bd2f7de` (deploy)
+    and `645d2a9` (AC-001 results); markdownlint 0 error.
+  - `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1) — unchanged; the AC-001 definition
+    was NOT altered.
+- **Achieved Milestones:**
+  - **TASK-019 DEPLOY:** `git -C C:\projects\WA-Gateway merge --ff-only feature/stage-1-reliability`
+    → fast-forward `e18f716` → **`065f683`** (21 files, +2825/-48); `status --short` empty before and
+    after; `pm2 restart wa-gateway` → `online`, `script path` =
+    `C:\projects\WA-Gateway\src\app\index.js` and `exec cwd` = `C:\projects\WA-Gateway` unchanged;
+    `logs/gateway.log` shows `connected` at 16:40:25 WIB. Rollback point remains `e18f716`
+    (`reset --hard` + `pm2 restart`).
+  - **TASK-017 AC-001 PASSED 3/3** with the runbook protocol (stop → 10 texts from the test phone to
+    `6281913500707` → start): windows 16:45:47→16:48:12, 16:53:10→16:55:37, 16:57:12→16:58:34.
+    **30/30 messages, 0 lost, 0 duplicate on BOTH sides** — `incoming_queue` id 116–145 (30 rows,
+    30 unique `wa_message_id`) and AuliaPos `messages` id 168–197 (30 rows, 30 unique),
+    `dup_groups=0`, plus 30/30 `[DELIVERY] pesan masuk berhasil diteruskan ke CI4` with
+    `duplicate: false`.
+  - Each attempt's offline batch was logged by Baileys (`handled 10` / `handled 11`).
+  - Read-only measurement instruments proven in place: `node -e` + `better-sqlite3` inside the live
+    folder (no file created in the live tree) and `mysql -u root aulia_inboxdb` (table `messages`).
+  - **TASK-018 APPROVED** by the user → plan closed.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** calling `cmd /c "pm2 …"` from this agent's bash/MSYS shell.
+    **Reason:** MSYS rewrites `/c` into `C:\`, so `cmd` opened interactively and PM2 never ran (only
+    the cmd banner appeared; no version, no error). **Note:** use `cmd //c "pm2 …"` or
+    `MSYS_NO_PATHCONV=1 cmd /c "pm2 …"`; the runbook's `cmd /c` form stays correct for PowerShell.
+  - **Attempted:** treating `pm2 logs --nostream` as today's evidence.
+    **Reason:** `~/.pm2/logs/wa-gateway-*.log` has not grown since **2026-09-21 20:46**, so 95 stale
+    `Session error: … Bad MAC` lines looked like fresh failures (count stayed 95 over 12 s).
+    **Note:** today's process output is in `C:\projects\WA-Gateway\logs\gateway.log` (JSON per line).
+  - **Attempted:** chaining `pm2 start` + `sleep 60` + all queries into one shell command.
+    **Reason:** the tool kills commands after 30 s, so the post-restart measurement was cut off.
+    **Note:** keep each command under 30 s and re-query in follow-up steps.
+  - **Attempted:** declaring "5 messages lost" about a minute after `connected` (attempt 1).
+    **Reason:** offline messages arrive in waves — attempt 1 5+5 (+2 m 02 s), attempt 2 9+1 (+47 s),
+    attempt 3 6+4 (+2 m 00 s); all were eventually stored exactly once. **Note:** wait at least
+    2.5 minutes after `connected` before calling anything lost.
+- **Updated Files:**
+  - `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md` — new (2 commits).
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — status + badge only (`4d43c8d`).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint (append-only).
+- **Decisions Made:**
+  - The live-folder deploy ran exactly once as the sanctioned CON-005 exception (merge --ff-only +
+    pm2 restart only; no `git checkout`, no `npm install`, no live code edit, `auth/` untouched).
+  - AC-001 was verified per `wa_message_id` uniqueness, never per message text, because attempt 2
+    re-sent attempt 1's marker texts (real new messages, not REQ-005 duplicates).
+  - E-02/E-07 remain OUT of scope (RISK-004); the delayed-arrival behaviour is recorded as an
+    operational observation for the next wave instead of being patched here.
+  - No new ADR (Triple Gate fails: reversible ops-only run plus documented observations).
+- **Next Action / Pending:**
+  - Wave 1 is closed. Next options: `/sdlc-clarify-reqs` or `/sdlc-code-review` over the M1
+    deliverables, or start Wave 2 scoping (GW-09 `/send` idempotency, Ticket 09–11) — user's choice.
+  - Carry-forward observations for the next wave: the wave-arrival tail of offline messages, Baileys
+    `init queries Timed out` ±60 s after `connected` (pre-existing since 08:53), the `node.exe`
+    (+87 MB) blob committed in WA-Gateway, and PM2 log files that no longer rotate/write.
+  - Branch `feature/m3-operational-inbox-fase1a-task001` is now +3 commits this session
+    (`bd2f7de`, `645d2a9`, `4d43c8d`) and is still unpushed.
+
+<!-- checkpoint-tail: M1 Wave 1 is CLOSED — /sdlc-write-code deployed feature/stage-1-reliability into the live folder by fast-forward (e18f716 -> 065f683) and restarted PM2 (online, same script path, auth/ untouched), then measured real AC-001 3/3 with 30/30 messages and 0 lost / 0 duplicate on both sides (incoming_queue 116-145, AuliaPos messages 168-197), wrote docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md (bd2f7de + 645d2a9) and flipped the plan to 'Completed' (4d43c8d); key lessons are the MSYS cmd //c trap, stale PM2 log files, and waiting >=2.5 min after 'connected' because offline messages arrive in waves; next is wave-2 scoping or /sdlc-code-review. -->
+
+---
+
