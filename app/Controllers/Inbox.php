@@ -1212,6 +1212,42 @@ class Inbox extends BaseController
             'handoff_id'   => $handoffId,
         ]);
     }
+    /**
+     * GET /inbox/percakapan/(:num)/handoff
+     *
+     * Riwayat penyerahan (Handoff) satu percakapan -- TERBARU DULU, cap
+     * 50 entri (REQ-H08/P-04). Endpoint KHUSUS: `GET /inbox/api/
+     * conversations/(:num)/messages` sengaja TIDAK diubah supaya thread
+     * pesan tidak pernah tercampur riwayat Handoff.
+     *
+     * Gerbang baca cukup filter `auth` (Q7/PRD GH-006: riwayat "bisa
+     * dibaca kembali oleh staff") -- BEDA dari jalur TULIS
+     * (handoffPercakapan) yang mensyaratkan assignee/`belum_diambil`.
+     * 404 hanya untuk id percakapan yang tidak dikenal.
+     */
+    public function apiHandoffs($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+
+        if (!$conversationModel->find($conversationId)) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $limit = 50;
+
+        return $this->response->setJSON([
+            'status'   => 'success',
+            'handoffs' => (new ConversationHandoffModel())->forConversation($conversationId, $limit),
+            'limit'    => $limit,
+        ]);
+    }
+
+
 
 
 

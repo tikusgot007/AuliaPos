@@ -53,6 +53,11 @@ $routes->post('/inbox/percakapan/(:num)/tandai-dibaca', 'Inbox::tandaiDibaca/$1'
 $routes->post('/inbox/percakapan/(:num)/snooze', 'Inbox::snoozePercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/catatan', 'Inbox::catatanInternal/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/handoff', 'Inbox::handoffPercakapan/$1', ['filter' => 'auth']);
+// Riwayat Handoff (baca, TB-03) -- pasangan GET dari route POST di atas.
+// Gerbang baca cukup `auth` (Q7); TIDAK ada gerbang assignee seperti di
+// jalur tulis, dan `GET /inbox/api/conversations/(:num)/messages` tetap
+// tidak tersentuh.
+$routes->get('/inbox/percakapan/(:num)/handoff', 'Inbox::apiHandoffs/$1', ['filter' => 'auth']);
 $routes->post('/inbox/mulai-percakapan', 'Inbox::mulaiPercakapan', ['filter' => 'auth']);
 $routes->get('/inbox/api/perlu-dibalas-count', 'Inbox::apiPerluDibalasCount', ['filter' => 'auth']);
 
