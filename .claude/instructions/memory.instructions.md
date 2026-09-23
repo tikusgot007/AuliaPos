@@ -1193,6 +1193,30 @@
   - PR opened: https://github.com/tikusgot007/AuliaPos/pull/41 (base `v2.3`, head `feature/m3-operational-inbox-fase1a-task001`, 63 files; full suite `phpunit --no-coverage` OK 314 tests / 1048 assertions on 2026-09-23). Before merge: run `php spark migrate` on the server (AddIsInternalToMessages, CreateConversationHandoffs; both `inbox` group, additive).
   - Optional later: `/code-janitor` for STD-01/03/05/06.
 
-<!-- checkpoint-tail: Code review of b8fd05a found no blocking issues; SPEC-01 kept 400 for empty ?page= (spec updated), manual browser check passed, TASK-014 approved and the M3 Fase 1 plan is Completed; PR #41 (base v2.3) is open; next is migrate on the server, then merge. -->
+<!-- checkpoint-tail: Code review of b8fd05a found no blocking issues; SPEC-01 kept 400 for empty ?page= (spec updated), manual browser check passed, TASK-014 approved and the M3 Fase 1 plan is Completed; PR #41 was merged into v2.3 (merge commit ce94660); the local checkout now runs v2.3 with 314 tests passing, and production deploy (git pull + php spark migrate) is still to do. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-23 (M3 PR #41 merged into v2.3)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** M3 Fase 1 + Fase 2a merged. No active plan.
+- **Achieved Milestones:**
+  - PR https://github.com/tikusgot007/AuliaPos/pull/41 merged by the user with "Create a merge commit" → `origin/v2.3` at `ce94660`.
+  - Local checkout `c:\xampp\htdocs\aulia` switched from `feature/m3-operational-inbox-fase1a-task001` to `v2.3` (fast-forward, identical content). `vendor/bin/phpunit --no-coverage` on v2.3: OK 314 tests / 1048 assertions.
+  - Local DB already had both migrations (`AddIsInternalToMessages` 2026-09-22, `CreateConversationHandoffs` 2026-09-23) → nothing to migrate locally.
+- **Decisions Made:**
+  - The "server" is the local XAMPP on the dev PC (same folder as the repo); there is no production deploy yet.
+  - This memory update was committed directly on `v2.3` with the user's approval (docs-only, no PR).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** advising "run `php spark migrate` on the server before merging".
+  - **Reason:** migration files arrive with the code; migrate can only run after the code is on the server.
+  - **Note:** correct order for a future production deploy = pull/deploy the code, then `php spark migrate` immediately.
+- **Next Action / Pending:**
+  - Production deploy of v2.3 when the user decides (git pull + `php spark migrate` right after).
+  - Optional: `/code-janitor` for the open NIT/OPTIONAL findings STD-01..07 (see the previous checkpoint).
+  - Feature branch `feature/m3-operational-inbox-fase1a-task001` can be deleted once the user is happy with v2.3.
+
+<!-- checkpoint-tail: PR #41 (M3 Fase 1 + Fase 2a) is merged into v2.3 at ce94660; the local XAMPP checkout now runs v2.3 with 314 tests passing and both migrations already applied; production deploy and the optional STD-01..07 cleanup remain. -->
 
 ---
