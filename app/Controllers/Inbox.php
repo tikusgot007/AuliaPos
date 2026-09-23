@@ -89,8 +89,7 @@ class Inbox extends BaseController
         if ($status !== '') {
             $conversations = array_values(array_filter(
                 $conversations,
-                static fn (array $conversation): bool =>
-                    ($conversation['queue_status'] ?? null) === $status
+                static fn(array $conversation): bool => ($conversation['queue_status'] ?? null) === $status
             ));
         }
 
@@ -98,8 +97,8 @@ class Inbox extends BaseController
             $needle = $q;
             $conversations = array_values(array_filter(
                 $conversations,
-                static fn (array $conversation): bool =>
-                    str_contains((string) ($conversation['contact_name'] ?? ''), $needle)
+                static fn(array $conversation): bool =>
+                str_contains((string) ($conversation['contact_name'] ?? ''), $needle)
                     || str_contains((string) ($conversation['phone'] ?? ''), $needle)
             ));
         }
@@ -164,7 +163,7 @@ class Inbox extends BaseController
             ->findAll();
 
         $conversations = $this->attachResponseState($conversations);
-        $count = count(array_filter($conversations, fn ($c) => $c['response_state'] === 'perlu_dibalas'));
+        $count = count(array_filter($conversations, fn($c) => $c['response_state'] === 'perlu_dibalas'));
 
         return $this->response->setJSON(['status' => 'success', 'count' => $count]);
     }
@@ -1006,12 +1005,28 @@ class Inbox extends BaseController
 
         $userId = (int) session()->get('id_user');
 
-        $summary    = trim((string) ($body['summary'] ?? ''));
-        $nextAction = trim((string) ($body['next_action'] ?? ''));
-        $noteRaw    = $body['note'] ?? null;
-        $note       = ($noteRaw === null || trim((string) $noteRaw) === '')
+        // REQ-001 (CR-01): reject non-string values BEFORE any coercion so
+        // an array can never be stored as the string "Array" in a required
+        // text column. An absent field (null) is rejected here as well.
+        $summaryRaw    = $body['summary'] ?? null;
+        $nextActionRaw = $body['next_action'] ?? null;
+        $noteRaw       = $body['note'] ?? null;
+
+        if (
+            !is_string($summaryRaw) || !is_string($nextActionRaw)
+            || ($noteRaw !== null && !is_string($noteRaw))
+        ) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Ringkasan, tindakan berikutnya, dan catatan harus berupa teks.',
+            ]);
+        }
+
+        $summary    = trim($summaryRaw);
+        $nextAction = trim($nextActionRaw);
+        $note       = ($noteRaw === null || trim($noteRaw) === '')
             ? null
-            : (string) $noteRaw;
+            : $noteRaw;
 
         if ($summary === '') {
             return $this->response->setStatusCode(400)->setJSON([
@@ -1025,8 +1040,10 @@ class Inbox extends BaseController
                 'message' => 'Tindakan berikutnya (next_action) wajib diisi.',
             ]);
         }
-        if (strlen($summary) > 4096 || strlen($nextAction) > 4096
-            || ($note !== null && strlen($note) > 4096)) {
+        if (
+            strlen($summary) > 4096 || strlen($nextAction) > 4096
+            || ($note !== null && strlen($note) > 4096)
+        ) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
                 'message' => 'Ringkasan, tindakan berikutnya, dan catatan maksimal 4096 karakter.',
@@ -1065,8 +1082,10 @@ class Inbox extends BaseController
         $expectedRaw = $body['expected_owner'];
         if ($expectedRaw === null || $expectedRaw === '') {
             $expectedOwner = null;
-        } elseif (is_int($expectedRaw)
-            || (is_string($expectedRaw) && ctype_digit($expectedRaw) && (int) $expectedRaw > 0)) {
+        } elseif (
+            is_int($expectedRaw)
+            || (is_string($expectedRaw) && ctype_digit($expectedRaw) && (int) $expectedRaw > 0)
+        ) {
             $expectedOwner = (int) $expectedRaw;
         } else {
             return $this->response->setStatusCode(400)->setJSON([
@@ -2010,8 +2029,10 @@ class Inbox extends BaseController
 
         if ($httpCode >= 200 && $httpCode < 300 && is_array($json) && ($json['success'] ?? false) === true) {
             $mediaRef = null;
-            if (!empty($json['media_ref']) && is_array($json['media_ref'])
-                && !empty($json['media_ref']['direct_path']) && !empty($json['media_ref']['media_key_base64'])) {
+            if (
+                !empty($json['media_ref']) && is_array($json['media_ref'])
+                && !empty($json['media_ref']['direct_path']) && !empty($json['media_ref']['media_key_base64'])
+            ) {
                 $mediaRef = [
                     'direct_path'      => $json['media_ref']['direct_path'],
                     'media_key_base64' => $json['media_ref']['media_key_base64'],

@@ -167,8 +167,8 @@ final class InboxHandoffTest extends CIUnitTestCase
     {
         db_connect('inbox')->query(
             "CREATE TRIGGER `{$triggerName}` BEFORE INSERT ON `conversation_handoffs`"
-            . " FOR EACH ROW SIGNAL SQLSTATE '45000'"
-            . " SET MESSAGE_TEXT = 'forced handoff history insert failure (test)'"
+                . " FOR EACH ROW SIGNAL SQLSTATE '45000'"
+                . " SET MESSAGE_TEXT = 'forced handoff history insert failure (test)'"
         );
     }
 
@@ -858,5 +858,30 @@ final class InboxHandoffTest extends CIUnitTestCase
         $this->assertSame('Kasir Delapan', $json['conversation']['assigned_to_name']);
         $this->assertSame(8, (int) $json['conversation']['assigned_to']);
         $this->assertSame(8, (int) $this->conversation($id)['assigned_to']);
+    }
+
+    // ================================================================
+    // Phase 1 Refactor (TASK-101..TASK-105) -- hardening + micro-contracts
+    // ================================================================
+
+    public function testE09SummaryBertipeArrayDitolak400OwnershipDanRiwayatUtuh(): void
+    {
+        // REQ-001 (CR-01): nilai non-string (array) ditolak 400 SEBELUM
+        // coercion apa pun, jadi array tidak pernah tersimpan sebagai
+        // string "Array" di kolom teks wajib.
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $payload = $this->validPayload(8, 7);
+        $payload['summary'] = ['bukan', 'teks'];
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload);
+
+        $response->assertStatus(400);
+        $response->assertJSONFragment(['message' => 'Ringkasan, tindakan berikutnya, dan catatan harus berupa teks.']);
+
+        // Ownership tetap 7 dan tidak ada baris riwayat yatim.
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
     }
 }
