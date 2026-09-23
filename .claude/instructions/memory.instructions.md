@@ -1097,3 +1097,34 @@
 <!-- checkpoint-tail: The TASK-012 snooze reason passed code review and a 3-step manual browser check (no reason → only /snooze; with a reason → 1 Internal note; a >4096-byte reason → blocked before /snooze), so the next task is finishing TASK-013 by checking the existing SLA and status/q tests against the spec. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-23 (M3 TASK-013 verify — partial, 3 API rules BLOCKED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (VERIFY) — TASK-013 Partial
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — TASK-013 row updated: Partial + BLOCKED + TODO (2026-09-23)
+- **Achieved Milestones:**
+  - Built a coverage table for SLA (AC-005/006/008, selesai, 15/60 boundaries) and spec 4.4 (CL-001..013). The user approved Option A: add tests only for the GAP rows that the current code passes.
+  - Added 6 tests (commit `5c8ec9d`):
+    - SLA: 20 minutes → kuning for belum_diambil/open/menunggu.
+    - API: CL-003 (status AND q), CL-005 (200 []), CL-007 (spaces-only q), CL-008 (% and _ as plain text), CL-001 (q finds an old conversation behind 500 newer ones).
+  - `composer test`: 307/307 (was 301). Exit code 1 comes only from the Xdebug coverage warning.
+- **Decisions Made:**
+  - No production code was changed. The rules that `apiConversations()` does not implement are BLOCKED, not faked with tests:
+    - CL-002: invalid `status` → 400 (today it returns 200 with an empty list).
+    - CL-009: `q` > 255 → 400 (no limit today).
+    - CL-010..013: `page` (50 per page, 400 for invalid page, `[]` past the end). `page` is ignored today and all rows are returned.
+  - Reason for not implementing paging now: the Inbox UI has no "load more", so paging would hide conversations after the first 50. It needs its own task that includes the UI.
+- **Updated Files:**
+  - `tests/unit/InboxSlaServiceTest.php` — +1 test
+  - `tests/session/OperationalInboxConversationTest.php` — +5 tests, +`idsDari()` helper
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — TASK-013 row
+- **Next Action / Pending:**
+  - Implement the BLOCKED API rules (CL-002, CL-009, CL-010..013) together with UI paging. This is new scope beyond TASK-013, so it needs the user's go-ahead.
+  - TODO: `q` search is case-sensitive (`str_contains` in `Inbox::apiConversations()`), while spec 4.4 expects case-insensitive matching.
+  - After that: finish TASK-013, then TASK-014 (APPROVAL).
+
+<!-- checkpoint-tail: TASK-013 is partial: 6 new tests (commit 5c8ec9d, 307/307) cover SLA 20-min kuning and CL-001/003/005/007/008, while CL-002, CL-009 and CL-010..013 are BLOCKED because apiConversations() has no status/q validation or paging yet, and q is still case-sensitive (TODO). -->
+
+---
