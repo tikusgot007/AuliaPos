@@ -63,8 +63,9 @@ final class OperationalInboxScreenTest extends CIUnitTestCase
 
         $this->assertStringContainsString('id="modalCatatanInternal"', $body);
         $this->assertStringContainsString('id="catatanInternalTeks"', $body);
-        $this->assertStringContainsString('bukaModalCatatanInternal()', $body);
-        $this->assertStringContainsString("'/catatan'", $body);
+        $this->assertStringContainsString('id="btnSimpanCatatanInternal"', $body);
+        // The header button, not the function definition.
+        $this->assertStringContainsString('onclick="bukaModalCatatanInternal()"', $body);
     }
 
     public function testHalamanInboxMembacaSlaColorDariServer(): void
@@ -73,9 +74,9 @@ final class OperationalInboxScreenTest extends CIUnitTestCase
         $body = $this->halamanInbox();
 
         $this->assertStringContainsString('renderTitikSla(c.sla_color)', $body);
-        $this->assertStringContainsString('bg-success', $body);
-        $this->assertStringContainsString('bg-warning', $body);
-        $this->assertStringContainsString('bg-danger', $body);
+        $this->assertStringContainsString('const SLA_WARNA = {', $body);
+        $this->assertStringContainsString('.inbox-sla-dot {', $body);
+        $this->assertStringContainsString('class="inbox-sla-dot ', $body);
     }
 
     public function testHalamanInboxMerenderKotakPencarianYangMengirimQ(): void

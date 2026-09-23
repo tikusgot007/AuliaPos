@@ -1275,10 +1275,20 @@
     function bukaModalCatatanInternal() {
         if (!conversationAktif) return;
 
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCatatanInternal'));
+
+        // Closed and reopened while a save is still running: only show
+        // the dialog. Resetting here would re-enable Simpan and allow a
+        // second note to be sent before the first one finishes.
+        if (catatanInternalSedangKirim) {
+            modal.show();
+            return;
+        }
+
         document.getElementById('catatanInternalTeks').value = '';
         catatanInternalSedangKirim = false;
         document.getElementById('btnSimpanCatatanInternal').disabled = false;
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCatatanInternal')).show();
+        modal.show();
     }
 
     function simpanCatatanInternal(e) {
@@ -1307,8 +1317,12 @@
 
         kirimCatatanInternal(conversationId, teks)
             .then(function() {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCatatanInternal')).hide();
-                textarea.value = '';
+                // If the dialog was reopened and the text changed while
+                // saving, leave it open so the new text is not lost.
+                if (textarea.value.trim() === teks) {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCatatanInternal')).hide();
+                    textarea.value = '';
+                }
                 showToast('Catatan internal disimpan.', 'success');
                 if (String(conversationAktif) === String(conversationId)) muatUlangPesan(true);
             })
