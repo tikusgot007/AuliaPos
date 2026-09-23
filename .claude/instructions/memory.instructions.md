@@ -684,3 +684,149 @@
 <!-- checkpoint-tail: M3 Fase 2a code review is DONE — 0 Blocker/0 Critical, 2 Major (CR-01 non-string summary/next_action/note coerced to "Array" and stored; CR-02 the locked Q5 "absent expected_owner = 400" contract has no test) plus 8 Minor, baseline re-verified at 283 tests / 867 assertions with Inbox.php 312 insertions / 0 deletions; artifacts are docs/audit/code-review-m3-fase2a-2026-09-23.md and plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md (Phase 1 TASK-101..110 unconditional, Phase 2 TASK-201..205 gated by /sdlc-clarify-reqs for CR-03/CR-04); next is /sdlc-write-code Phase 1 in a new session. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-23 (M3 Fase 2a Refactor-Plan Clarification)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`) — **completed** for
+  `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` (Review Iteration 1). No source code was touched, and the
+  plan itself was deliberately NOT edited (persona boundary: its five amendments belong to `/sdlc-plan-tasks`).
+- **Active Artifacts:**
+  - `docs/audit/clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` — ✅ new, 211 lines, Readiness **86/100**
+    (Completeness 34/40, Clarity 26/30, Alignment 26/30, no Critical Flaw Veto); User Decision Prompt = PROCEED.
+  - `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — 🔄 unchanged by this session; five amendments pending
+    (TASK-201 insertion point + regression set, TASK-108 helper signature, TASK-202 third message branch + 3 tests,
+    TASK-203 marked VOID, TASK-104 single test id).
+  - `CONTEXT.md` — ✅ updated this session: new `### Kepemilikan Percakapan` with the canonical terms **Belum Diambil**
+    and **Tanpa Pemilik**, plus the Handoff exception tightened to "percakapan yang tampil di tab Belum Diambil".
+  - `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` and
+    `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` — unchanged; Spec finalisation still owes the
+    Q2 narrowing sentence and the P-01..P-06 / 4096 / 409 boundary text.
+- **Achieved Milestones:**
+  - **CR-04 locked = A1:** fail-fast 409 inserted **immediately before `$db->transBegin()`** (`Inbox.php:1120`), i.e.
+    AFTER both 403 gates; body byte-identical to the loser 409; helper signature
+    `balas409KepemilikanBasi(?int $currentOwnerId)` (the race path keeps its own `find()`); full regression set
+    `C01, C01b, C02, C04, E04, E06, H01, H06, H08`.
+  - **CR-03 locked = A (TASK-202):** initiator gate keys off `queue_status === 'belum_diambil'` (reusing `$computed`
+    from `:992`) + UI mirror `index.php:859-862` + three tests, AND a **third 403 message branch** is required
+    (the existing wording of branches (i)/(ii) is locked by `E04(b)` `:750` and `E04(c)` `:762`).
+  - **Product question settled:** the Plan wins over Q2 — an admin who is not the assignee stays **403** on
+    `belum_diambil` (zero code/test/UI change; the admin loses nothing because `ambilPercakapan()` `:1387-1389`
+    allows an unconditional admin claim first). Q2 must be restated as a deliberate narrowing at Spec finalisation.
+  - Verified from code (not from the review's claims): unowned-and-not-`belum_diambil` states are reachable via
+    mark-read + `lepas` (tab `menunggu`) and snooze + `lepas` (tab `ditunda`); the ABA window (`lepas :1449` then
+    `ambil :1387-1391`); all four deterministic `expected` vs `read` combinations are behaviour-preserving under the
+    fail-fast; `withComputedStatus()` (`ConversationModel.php:133-170`) sets `belum_diambil` only for
+    `perlu_dibalas` + no owner.
+  - Three near-blockers in the plan text: **CL-01** wrong insertion point (would flip non-assignee 403 → 409 and leak
+    the owner name), **CL-02** incomplete regression list, **CL-03** TASK-108 signature/justification; plus **CL-04**
+    glossary ambiguity and **CL-05** test-id divergence.
+
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** capturing `npx --no-install markdownlint-cli <file>` output with a PowerShell redirect
+    (`npx ... > build\out.txt 2>&1`).
+  - **Reason:** PowerShell converts the CLI's stderr into a `NativeCommandError` and aborts the pipeline, so the
+    redirect file ends up empty and only one finding is ever shown.
+  - **Note:** use `cmd /c "npx --no-install markdownlint-cli <file> > build\out.txt 2>&1"` and then read the file.
+    This **supersedes the earlier "no markdownlint CLI available" note** — the CLI IS available
+    (`npx --no-install markdownlint-cli`, v0.49.1; the default MD013 limit is 80 characters).
+  - Repo-wide dead-ends unchanged, referenced by label only: git index lock on parallel git calls, PowerShell
+    `$base..HEAD` range operator, `TestResponse::assertSee` second-argument selector, phpunit piped through PowerShell.
+- **Updated Files:**
+  - `docs/audit/clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` — new (this session's deliverable).
+  - `CONTEXT.md` — added the `### Kepemilikan Percakapan` section (2 canonical terms) and tightened the Handoff
+    definition; no other term touched.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+  - No `app/`, `tests/`, `plan/`, `spec/` or config file was modified; `git status` should show only the untracked
+    `docs/audit/clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` plus the modified `CONTEXT.md`.
+- **Decisions Made:**
+  - Clarification Analyst boundary honoured: report + glossary only; every plan fix assigned to `/sdlc-plan-tasks`,
+    every code fix to `/sdlc-write-code`.
+  - Markdown lint of the new report: MD025 and MD004 driven to zero (front matter without a duplicate `title:`;
+    numbered sub-items instead of wrapped lines starting with `+`, which markdownlint otherwise reads as `+` bullets).
+    Residual **121 × MD013** (80-column default) matches the repo-wide pre-existing baseline — the sibling
+    clarification report carries 49 × MD013 + 10 × MD049 with a 469-character maximum vs 117 here.
+  - No new ADR (Triple Gate fails: reversible text clarifications with no new trade-off).
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-plan-tasks` to apply the five amendments to
+    `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md`, then append `REMEDIATION STATUS: RESOLVED` at the top of
+    the new clarification report (AGENTS.md Remediation Protocol).
+  - **NEW session:** `/sdlc-write-code` Phase 1 (TASK-101..TASK-110) — unaffected by this session, except that
+    TASK-108 now has a justified second caller.
+  - Spec finalisation still owes the Q2 narrowing sentence and the P-01..P-06 / 4096 / 409 boundary text.
+  - This memory file **still has no Knowledge Base zone** (now overdue across five checkpoints); a Compaction Mode run
+    should create it and promote the dead-end list.
+
+<!-- checkpoint-tail: M3 Fase 2a refactor-plan clarification is DONE — CR-04 locked to a fail-fast 409 placed after both 403 gates (helper `balas409KepemilikanBasi(?int)`), CR-03 locked to `queue_status === 'belum_diambil'` with a third 403 message branch and three new tests, and the Plan-vs-Q2 admin question settled in favour of the Plan (admin stays 403 on belum_diambil); artifact docs/audit/clarification-report-m3-fase2a-refactor-plan-2026-09-23.md (86/100), CONTEXT.md gained Belum Diambil vs Tanpa Pemilik, and the plan's five amendments are pending in a new /sdlc-plan-tasks session before /sdlc-write-code Phase 1. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-23 (M3 Fase 2a Refactor-Plan Amendment)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`) — **completed** for the five clarifications-locked amendments on
+  `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md`, plus the mandatory `REMEDIATION STATUS: RESOLVED` block.
+  Planner boundary honoured: no source code, test, Spec or PRD file was touched (only the plan + the audit report).
+- **Active Artifacts:**
+  - `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — ✅ amended in place (+112 / −29; 254 lines). Phase 1
+    (TASK-101..TASK-110) executable now; Phase 2 (TASK-201..TASK-205) no longer clarification-gated.
+  - `docs/audit/clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` — ✅ `REMEDIATION STATUS: RESOLVED` added as
+    the first body block after the H1 (lines 10-51); projected Readiness **94/100** (37 + 28 + 29, no Critical Flaw Veto).
+  - `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` — ⏳ still stale; owes the Q2 narrowing sentence
+    and the P-01..P-06 / 4096 / 409 boundary text. That obligation is now recorded inside the plan's `GOAL-002`.
+- **Achieved Milestones:**
+  - Five amendments applied surgically: (1) TASK-201 — insertion point "around lines 1088-1104" replaced by
+    "immediately before `$db->transBegin()`, AFTER both 403 gates", with the reason recorded (an earlier placement flips
+    non-assignees 403 → 409 and leaks the owner name = Q3 violation) and the regression set expanded to
+    `C01, C01b, C02, C04, E04, E06, H01, H06, H08` + `TEST-006` (mirrored in TASK-108/TEST-006/RISK-002);
+    (2) TASK-108 — helper signature `private function balas409KepemilikanBasi(?int $currentOwnerId)`, two documented
+    callers, no ownership re-read inside the helper; (3) TASK-202 — server gate on `$computed['queue_status']`
+    (reuse of `:992`, zero extra queries) + UI mirror `index.php:859-862` + THREE 403 message branches ((i)/(ii)
+    verbatim, locked by `E04(c)`:762 and `E04(b)`:750) + three tests; (4) TASK-203 marked VOID; (5) TASK-104 single id
+    `H02b` and TASK-102 canonical id `E10` (the review's suggested name is an illustrative label only).
+  - **Line-number correction verified against the tree:** `$db->transBegin()` is at `app/Controllers/Inbox.php:1126`;
+    line 1120 starts its six-line comment block (the clarification report cites `:1120`). Both the plan and the report
+    now state this explicitly so the implementor cannot mis-anchor the fail-fast 409.
+  - Long-detail overflow moved into two "detail blocks" (TASK-108 after the Phase 1 table; TASK-201/TASK-202 after the
+    Phase 2 table) so that no line exceeds 400 characters — max is 394, unchanged from the pre-amendment file.
+  - Verification: `markdownlint` (repo-cached CLI) on the plan → MD013 only, zero structural findings; on the amended
+    report → MD013 only; `git diff --numstat` on the plan = 112 insertions / 29 deletions.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** placing the remediation banner *above* the H1 of the audit report, mirroring
+    `clarification-report-m3-fase2-m2-gate-2026-09-22.md` (whose banner sits above its H1).
+  - **Reason:** on this report it introduced a NEW `MD041/first-line-heading` finding on a file that was otherwise
+    clean; the older file is simply lint-dirty, so it is not a safe precedent to copy.
+  - **Note:** put the banner immediately **after** the H1 (front matter → H1 → banner). Also,
+    `build/md-clarify-refactor.txt` being 0 bytes was an **empty redirect**, not a clean lint run — the real baseline
+    for these audit reports is MD013-only, so "0 bytes" must never be read as "0 findings".
+  - Repo-wide dead-ends unchanged, referenced by label only: git index lock on parallel git calls, PowerShell
+    `$base..HEAD` range operator, `TestResponse::assertSee` selector, phpunit piped through PowerShell, and the
+    `cmd /c "... > file 2>&1"` form required for markdownlint output capture.
+- **Updated Files:**
+  - `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — the five amendments plus the consistency updates they
+    imply (REQ-007/REQ-008 LOCKED labels, Phase 2 heading/GOAL-002 unblocking + the Q2 note, TEST-006/TEST-007,
+    RISK-002/003/004, FILE-001/002/004/005, and the closing Handoff paragraph).
+  - `docs/audit/clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` — remediation block (lines 10-51).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+- **Decisions Made:**
+  - Amendments applied strictly in place (Surgical Edit Mandate); no new task was added and no requirement text changed
+    beyond the five items. The consistency consequences listed above were reported to the user explicitly rather than
+    being slipped in silently.
+  - TASK-108 extraction range corrected to `:1148-1159` (owner-name resolution + payload), because `find()` at
+    `:1144-1147` stays with the caller. "The helper performs no query of its own" means no ownership re-read, NOT
+    "no `UserModel` lookup" — the name resolution stays inside the helper to keep the 409 body byte-identical.
+  - No new ADR (Triple Gate still fails: reversible text clarifications, no new trade-off).
+- **Next Action / Pending:**
+  - **NEW session:** `/sdlc-write-code` **Phase 1 (TASK-101..TASK-110)** with the plan, the code-review report and the
+    normative feature plan attached; VERIFY via TASK-109 (`vendor/bin/phpunit --no-coverage`, ≥ 283 tests /
+    867 assertions, zero skips), then STOP for explicit approval (TASK-110).
+  - **After that approval:** Phase 2 (TASK-201..TASK-205) — no longer gated; ship server + UI in the same commit for
+    TASK-202 because the UI mirror must not offer an action that is guaranteed 403.
+  - Spec finalisation still owes the Q2 narrowing sentence and the P-01..P-06 / 4096 / 409 text.
+  - This memory file **still has no Knowledge Base zone** (overdue across six checkpoints) — a Compaction Mode run
+    should create it and promote the accumulated dead-end list.
+
+<!-- checkpoint-tail: M3 Fase 2a refactor-plan AMENDMENT is DONE — all five clarification-locked amendments are in the plan (TASK-201 placed immediately before `$db->transBegin()`, now verified as `Inbox.php:1126` not `:1120`, with the 9-test regression set; TASK-108 signature `balas409KepemilikanBasi(?int $currentOwnerId)`; TASK-202 three 403 branches + three tests with the server gate on `$computed['queue_status']` and the UI mirror at `index.php:859-862`; TASK-203 VOID; TASK-104 single id `H02b`), the clarification report carries `REMEDIATION STATUS: RESOLVED` with a projected 94/100, markdownlint is MD013-only, and the next step is `/sdlc-write-code` Phase 1 (TASK-101..TASK-110) in a new session. -->
+
+---
+
