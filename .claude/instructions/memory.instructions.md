@@ -670,5 +670,59 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-23 (M1 Closure Prep — Runbook + Plan Amendment Proposal)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Documentation (`/sdlc-generate-docs`) — continued. This session added two
+  **non-normative** operational documents and corrected one recorded planning assumption. **No plan, spec,
+  source code, or Gateway file was modified**; the Gateway was inspected read-only.
+- **Active Artifacts:**
+  - `docs/runbooks/runbook-m1-wave1-task017-ac001-2026-09-23.md` — ✅ new (How-to runbook for TASK-017).
+  - `docs/proposal-amandemen-plan-m1-wave1-2026-09-23.md` — ✅ new (proposal for `/sdlc-plan-tasks`).
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — unchanged (status still `In progress`).
+- **Achieved Milestones:**
+  - **Verified (read-only) that TASK-017 would measure the WRONG code.** PM2 `wa-gateway` runs
+    `script path = C:\projects\WA-Gateway\src\app\index.js` with `exec cwd = C:\projects\WA-Gateway`
+    (= `master` @ `e18f716`, clean), while the M1 fix is `feature/stage-1-reliability` @ `065f683` and is
+    **not merged** (`master..065f683` = 21 commits; master is 8 behind base `091fe19`).
+  - **Verified the M1 worktree cannot host the test process:** `auth/` (the live WhatsApp session, 239 files)
+    and `.env` exist **only** in the live folder — `C:\projects\WA-Gateway-m1` has neither.
+  - **Verified the deploy is a clean fast-forward:** `git merge-base --is-ancestor master 065f683` → exit 0.
+  - **User correction accepted and recorded (2026-09-23):** there are **no Inbox production users** and no
+    customer waiting on that number, so the TASK-017 window constraint (`>21:00 or <08:00`) is **void** and
+    RISK-003 drops to a temporary-delay risk. The plan text was **not** edited here; the change is proposed
+    as an amendment (four items: RISK-003 rewrite, TASK-017 note removal + prerequisite, **new TASK-019
+    DEPLOY**, housekeeping to v1.2).
+  - Lint: both new docs are **MD013-only with zero structural findings** (MD032/MD029 found on the first pass
+    were fixed by adding a blockquote separator and converting leftover ordered items to bullets).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** running the M1 code for TASK-017 from the worktree `C:\projects\WA-Gateway-m1`.
+    **Reason:** it has no `auth/` (WhatsApp session) and no `.env`, so the process cannot connect to WhatsApp.
+    **Correct solution:** deploy the branch into the live folder (fast-forward) and restart PM2 from there.
+  - **Attempted:** invoking `pm2 ...` directly in PowerShell.
+    **Reason:** the `.ps1` shim is blocked by execution policy ("running scripts is disabled on this system").
+    **Note:** always call PM2 as `cmd /c "pm2 ..."`; use `--nostream` for `pm2 logs` so it cannot hang.
+- **Updated Files:**
+  - `docs/runbooks/runbook-m1-wave1-task017-ac001-2026-09-23.md` — new.
+  - `docs/proposal-amandemen-plan-m1-wave1-2026-09-23.md` — new.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended (append-only).
+- **Decisions Made:**
+  - Keep the runbook (How-to) and the amendment proposal in **separate files**: Diataxis quadrant separation,
+    and the proposal is explicitly non-normative until `/sdlc-plan-tasks` applies it.
+  - Treat the missing deploy step as a **plan gap**, not something to improvise silently during the test.
+  - Scope guard intact: AC-001 definition unchanged; E-02/E-07 stay out (RISK-004); `auth/` untouchable.
+- **Next Action / Pending:**
+  - **Priority #3 (`/code-janitor`):** restore from `v2.2` (read-only via `git show v2.2:<path>`, DE-30)
+    `docs/adr/0001-...`, the 5 `docs/decisions/*` files, `docs/TODO-CHAT.md`, `docs/GATEWAY-REQUIREMENTS.md`,
+    `docs/CHAT.md` — this also gives the TASK-017 decision log a home.
+  - **Then:** `/sdlc-plan-tasks` applies the 4 amendments → `/sdlc-write-code` runs TASK-019 (deploy) →
+    TASK-017 (3 attempts per the runbook) → decision log → TASK-018 approval.
+  - Both new docs and this checkpoint are **uncommitted** at the time of writing (commit in the same session).
+
+<!-- checkpoint-tail: M1 closure prep — verified read-only that PM2 runs the live folder on master e18f716 while the M1 fix (065f683) is unmerged and the worktree lacks auth/.env, so TASK-017 needs a missing DEPLOY step (fast-forward is confirmed safe); the user confirmed no Inbox production users so the >21:00/<08:00 window is VOID; delivered docs/runbooks/runbook-m1-wave1-task017-ac001-2026-09-23.md plus docs/proposal-amandemen-plan-m1-wave1-2026-09-23.md (4 amendments incl. new TASK-019), both MD013-only lint; next is priority #3 (restore docs/adr, docs/decisions, TODO-CHAT, GATEWAY-REQUIREMENTS, CHAT from v2.2). -->
+
+---
+
+
 
 
