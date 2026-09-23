@@ -829,4 +829,3 @@
 <!-- checkpoint-tail: M3 Fase 2a refactor-plan AMENDMENT is DONE — all five clarification-locked amendments are in the plan (TASK-201 placed immediately before `$db->transBegin()`, now verified as `Inbox.php:1126` not `:1120`, with the 9-test regression set; TASK-108 signature `balas409KepemilikanBasi(?int $currentOwnerId)`; TASK-202 three 403 branches + three tests with the server gate on `$computed['queue_status']` and the UI mirror at `index.php:859-862`; TASK-203 VOID; TASK-104 single id `H02b`), the clarification report carries `REMEDIATION STATUS: RESOLVED` with a projected 94/100, markdownlint is MD013-only, and the next step is `/sdlc-write-code` Phase 1 (TASK-101..TASK-110) in a new session. -->
 
 ---
-
