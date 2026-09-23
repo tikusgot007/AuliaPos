@@ -1,6 +1,6 @@
 ---
 title: M3 Operational Inbox — Fase 2a (Handoff + Collision Detection)
-version: 1.1
+version: 1.2
 date_created: 2026-09-22
 last_updated: 2026-09-23
 owner: AuliaPos Inbox module
@@ -15,6 +15,18 @@ Kontrak teknis di spec ini **bukan karangan baru**. Seluruh keputusan intinya su
 
 > [!IMPORTANT]
 > **v1.1 — finalisasi fisik (2026-09-23).** Implementasi Fase 2a sudah selesai di commit `51fb1fc` (suite hijau **298 test / 948 assertion**). Spec v1.0 memuat teks yang **basi** terhadap kode (batas 500, `selesai`=403, target admin boleh, tanpa gerbang inisiator). Sesuai **RISK-01/CON-003** pada `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md`, **Plan menang bila konflik**. v1.1 menyelaraskan Spec dengan enam patch normatif **P-01 s.d. P-06** plus keputusan klarifikasi terbaru (**CR-04 = A1**, **CR-03 = A**) dan penolakan **Q2** terhadap Plan. Perubahan v1.1 bersifat dokumentasi murni: tanpa migrasi, tanpa perubahan schema, tanpa panggilan Gateway.
+
+> [!NOTE]
+> **v1.2 — text remediation (2026-09-23).** Documentation-only revision of v1.1, with **no code, test, UI, or migration change** (suite stays at `298 tests / 948 assertions`, commit `51fb1fc`). It applies the six locked resolutions from `docs/audit/clarification-report-m3-fase2a-assumptions-008-011-2026-09-23.md` (Section 2 and Section 4).
+
+| # | Section | Change (v1.1 → v1.2) | Source |
+|---|---|---|---|
+| 1 | §1.2 ASSUMPTION-008 | Removed the stale "glossary does not yet contain these terms" sentence; stated the canonical rule that a Belum Diambil Handoff is limited to an **active kasir**. | Report §2 ASSUMPTION-008 |
+| 2 | §5 AC-H09 | Replaced the "Locked by `F01`" claim with the non-observable-guard wording; the only observable contract is "409, no write, before the transaction". | Report §2 ASSUMPTION-009 |
+| 3 | §1.2 ASSUMPTION-010 + §4.4 | Documented the exact test coverage: `E18` = exactly-three-key for the **ownership** family; `H02b` = presence-only of `current_owner_id` for the **state** family; no `H02c`. | Report §2 ASSUMPTION-010 |
+| 4 | §1.2 ASSUMPTION-011 | Dropped the non-auditable "1:1" phrasing; the actual method names in `InboxHandoffTest.php` are the canonical ID source. | Report §2 ASSUMPTION-011 |
+| 5 | §3.1 REQ-H06 | Restated honestly: `assigned_to` changes **and `updated_at` is refreshed**; other columns unchanged. | Report §2 FINDING NEW-1 |
+| 6 | §4.4 + REQ-H09 + §4.3 step 7 | Added HTTP **500** for the history-insert-failure rollback path (rollback, ownership intact, 500 with a fixed message). | Report §2 FINDING NEW-2 |
 
 ## 1. Purpose & Scope
 
@@ -70,16 +82,16 @@ Semua ambiguitas **mayor** sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` da
 > **[ASSUMPTION-007] `next_action` adalah teks bebas, bukan enum.** Tidak ada dokumen sumber yang dapat diverifikasi yang mendefinisikan daftar tindakan lanjutan; menetapkan enum sekarang berarti mengarang requirement. Enum dapat ditambahkan di inkremen berikutnya bila polanya sudah terlihat dari data nyata.
 
 > [!WARNING]
-> **[ASSUMPTION-008] Istilah "Belum Diambil" != "tanpa pemilik".** Dua konsep yang mudah tertukar: **`belum_diambil`** = status turunan (`perlu_dibalas` + `assigned_to` kosong, hanya mungkin di satu tab); **tanpa pemilik** = `assigned_to IS NULL`, yang bisa terjadi di tab apa pun (mis. `menunggu`/`ditunda` setelah `lepasPercakapan()`). CR-03 = A membuat gerbang inisiator bergantung pada status **`belum_diambil`**, bukan pada `assigned_to IS NULL`. Glosarium `CONTEXT.md` belum memuat kedua istilah ini; usulan pencatatan (lazy creation) ada di `clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` §3.
+> **[ASSUMPTION-008] "Belum Diambil" is not the same as "unowned".** Two easily confused concepts: **`belum_diambil`** is a derived status (`perlu_dibalas` with an empty `assigned_to`; only reachable on one tab), whereas **unowned** means `assigned_to IS NULL`, which can occur on any tab (e.g. `menunggu`/`ditunda` after `lepasPercakapan()`). CR-03 = A ties the initiator gate to the **`belum_diambil`** status, not to `assigned_to IS NULL`. **Canonical rule (locked; replaces the stale v1.1 sentence):** a Handoff on the Belum Diambil tab is limited to an **active kasir** — the terms `Belum Diambil` and `Tanpa Pemilik` are recorded in `CONTEXT.md`.
 
 > [!WARNING]
 > **[ASSUMPTION-009] Window mikro antara fail-fast 409 dan conditional write tetap mungkin.** CR-04 = A1 menambahkan pre-check `expected_owner !== assigned_to` sebelum transaksi, tetapi ownership masih bisa bergerak **lagi** antara pre-check dan `UPDATE`. Jaminan penuh tetap pada conditional write `<=>` + 409 kalah; pre-check hanya menutup celah audit-trail/otorisasi deterministik. Sudah dinilai `[Assumed / Out of Scope]` (tidak butuh seam atau kode baru).
 
 > [!WARNING]
-> **[ASSUMPTION-010] Bentuk 409 kini dua keluarga dengan satu bentuk body.** Keluarga **state** (`selesai`, P-01) dan keluarga **ownership** (kalah conditional write / fail-fast CR-04) berbagi key set yang sama: `status`, `message`, `current_owner_id` (nullable). Dikunci `H02b` (state) + `E18` (anti-leak tiga key).
+> **[ASSUMPTION-010] The 409 shape is two families sharing one body design.** The **state** family (`selesai`, P-01) and the **ownership** family (lost conditional write / fail-fast CR-04) share the same key set **by design**: `status`, `message`, `current_owner_id` (nullable). Verified coverage differs by family and MUST be documented exactly: `E18` (`assertCount(3, ...)`) locks the **exactly-three-key** guarantee for the **ownership** family only, whereas `H02b` locks only the **presence** of `current_owner_id` (equal to `7`) for the **state** family and does NOT lock the key count. "One shared body shape" therefore remains a stated design rule, not a fully test-locked invariant; this coverage asymmetry is recorded deliberately, and no mirror test (e.g. `H02c`) is added in Fase 2a.
 
 > [!WARNING]
-> **[ASSUMPTION-011] Pemisahan tes H/C/G/E/F memetakan 1:1 ke kontrak.** ID tes di §6 dan §12 merujuk `tests/session/InboxHandoffTest.php`: `H01-H08` (happy/rejection), `C01-C04` (collision), `G01-G05` (read-back), `E01-E18` (edge/micro-contract, termasuk `E09` non-string, `E10` Q5 absen, `E11`/`E12` batas karakter, `E17` urutan gerbang, `E18` anti-leak), `F01-F04` (fail-fast + narrowing CR-03). Bila nama file/ID berubah, dokumen ini yang harus disesuaikan.
+> **[ASSUMPTION-011] Test-ID labels are descriptive, not an audited 1:1 mapping.** The `H*`/`C*`/`G*`/`E*`/`F*` prefixes used in §6 and §12 are shorthand labels, not a verifiable one-to-one mapping to every test method. The **canonical ID source** is the actual method names in `tests/session/InboxHandoffTest.php` (`testH01...`, `testC01...`, and so on), spanning `H01-H08`, `C01-C04` (incl. `C01b`), `G01-G05`, `E01-E18`, and `F01-F04`. If a method is renamed, that test file is the source of truth and this document MUST be updated to match; no full inventory table is maintained here.
 
 > [!NOTE]
 > **Konteks yang sudah disuperseded (jangan dipakai).** Catatan Handoff lama di repo-root `memory.instructions.md` menyatakan "Successful Handoff ... creates one Internal Note in the conversation thread". Keputusan **K-05** yang lebih baru dan sudah diremediasi ke PRD v1.1 membatalkan itu: tabel `messages` **tidak disentuh** oleh Handoff. Spec ini mengikuti K-05.
@@ -149,10 +161,10 @@ Requirement IDs: **REQ-Hxx** = Handoff, **REQ-Cxx** = Collision. Constraint IDs:
 - **REQ-H03 (eligible target, P-03):** Target wajib **kasir aktif** (`role = 'kasir'` + `is_active`) dari `UserModel::daftarKasirAktif()` seperti `ambilPercakapan()`; target `admin`/unknown/inactive/ineligible = **403**. Target boleh sedang offline.
 - **REQ-H04 (request payload):** `summary` wajib non-kosong, `next_action` wajib non-kosong teks bebas (ASSUMPTION-007), `note` opsional, `to_user_id` wajib, `expected_owner` wajib.
 - **REQ-H05 (self-Handoff rejected):** Handoff ke diri sendiri ditolak 400 (K-09).
-- **REQ-H06 (ownership change):** Saat sukses `assigned_to` menjadi `to_user_id`; kolom lain tidak berubah.
+- **REQ-H06 (ownership change):** On success, `assigned_to` becomes `to_user_id` **and `updated_at` is refreshed** (proof: `app/Controllers/Inbox.php:1177-1182`); all other columns (`snoozed_until`, `last_message_*`, `status`) stay unchanged (snooze preservation is locked by `E07`).
 - **REQ-H07 (history record):** Tiap sukses menyisipkan satu baris `conversation_handoffs` dengan `from_user_id` (nullable) dan `initiated_by_user_id` (NOT NULL) (K-06).
 - **REQ-H08 (read-back, P-04):** Riwayat dibaca via endpoint khusus `GET /inbox/percakapan/(:num)/handoff` (filter `auth` saja, **tanpa** gerbang assignee), terbaru dulu, cap **50**; tidak diedit/dihapus di Fase 2a. `GET /inbox/api/conversations/(:num)/messages` **tidak diubah**; 404 hanya untuk id tak dikenal.
-- **REQ-H09 (atomicity, K-01):** Perubahan ownership dan insert riwayat dalam satu transaksi grup `inbox`; 0 affected rows berarti rollback + 409.
+- **REQ-H09 (atomicity, K-01):** The ownership change and the history insert run in one `inbox`-group transaction; 0 affected rows means rollback + **409**. If the history insert fails, the transaction is rolled back, ownership stays intact, and the response is **HTTP 500** with a fixed message (`app/Controllers/Inbox.php:1223-1232`; locked by `C03`).
 - **REQ-H10 (other paths untouched):** `lepas`, `tutup`, `snooze`, `tandai-dibaca`, `hapus` tidak diubah (K-01 sempit).
 - **CON-H01:** Handoff tidak menulis tabel `messages` (K-05).
 - **CON-H02:** Semua tulis Handoff ke grup DB `inbox` saja.
@@ -223,7 +235,7 @@ Server flow (**Q3 — urutan normatif, LOCKED**):
 4. **403 initiator gate (P-05/CR-03 = A):** the initiator must be the current assignee; on an unowned conversation the initiator is admitted **only** when `queue_status === 'belum_diambil'` and the initiator is an active kasir. Non-assignee on any other tab = 403 (AC-H08). This gate runs **before** the target gate so state/identity answers stay deterministic.
 5. **403 target gate (P-03):** the target must be a member of `UserModel::daftarKasirAktif()`; `admin`, unknown, inactive, or ineligible = 403.
 6. **Fail-fast 409 (CR-04 = A1, LOCKED):** if the normalised `expected_owner` differs from the server-read `assigned_to`, respond **409** immediately — **before** `transBegin()` and **no write of any kind** occurs. Placed here (after both 403 gates) so a non-assignee still receives 403 and never leaks the owner's name. Body must be byte-identical to the loser 409 below.
-7. **Transaction (REQ-H09):** `transBegin()` on the `inbox` group → conditional write (`SET assigned_to = :to WHERE id = :id AND assigned_to <=> :expected`) → history insert (REQ-H07) → `transCommit()`. Zero affected rows = `transRollback()` + **409** naming the current owner (REQ-C02). History-insert failure = `transRollback()` with ownership unchanged.
+7. **Transaction (REQ-H09):** `transBegin()` on the `inbox` group → conditional write (`SET assigned_to = :to WHERE id = :id AND assigned_to <=> :expected`) → history insert (REQ-H07) → `transCommit()`. Zero affected rows = `transRollback()` + **409** naming the current owner (REQ-C02). History-insert failure = `transRollback()` with ownership unchanged and an **HTTP 500** carrying a fixed message (`app/Controllers/Inbox.php:1223-1232`; locked by `C03`).
 8. Success response mirrors `tutupPercakapan()` (`status: success`, Indonesian message, plus the new owner id and the created history id).
 
 > [!IMPORTANT]
@@ -248,7 +260,9 @@ Server flow (**Q3 — urutan normatif, LOCKED**):
   - `message` (Indonesian) — the ownership family names the current owner (with `User #{id}` fallback), the `selesai` family states the conversation is finished,
   - `current_owner_id` — **nullable**, present in **both** families (this closes CR-06; `null` when the conversation is unowned).
   - **Family 1 (state, P-01):** the conversation is in `selesai`. **Family 2 (ownership, REQ-C02 + CR-04 fail-fast):** the conditional write lost, OR the fail-fast pre-check detected a stale `expected_owner`. Both ownership responses must be **byte-identical** so `C02`/`E06` pass without assertion edits.
+  - **Test-coverage asymmetry (honest record):** `E18` locks the **exactly-three-key** shape for the **ownership** family; `H02b` locks only the **presence** of `current_owner_id` for the **state** family and does NOT lock the key count. The shared body shape is a design rule here, not a fully test-locked invariant; no mirror test is added in Fase 2a.
   - `assigned_to` and history are untouched by any losing request.
+- `500` — rollback family: the history insert failed, so the transaction was rolled back, ownership is unchanged, and the body carries a fixed message ("Gagal menyimpan riwayat Handoff, percakapan tidak berpindah."; locked by `C03`). No partial write is possible.
 - Success — HTTP 200 with the same envelope shape as `tutupPercakapan()` (`status: success`).
 
 > [!NOTE]
@@ -264,7 +278,7 @@ Server flow (**Q3 — urutan normatif, LOCKED**):
 - **AC-H06:** Handoff of an unassigned conversation succeeds and records `from_user_id = NULL`.
 - **AC-H07:** The `messages` table gains zero rows from any Handoff (success or rejection); no Gateway call is made; `last_message_*` unchanged.
 - **AC-H08 (P-06):** A non-assignee (including an admin who is not the assignee) initiating a Handoff on a conversation that is not a lawful unowned-`belum_diambil` case is rejected with **403**; ownership and history unchanged. Locked by `H08`/`E04`/`C01b` and the narrowing tests `F02`/`F03`.
-- **AC-H09 (CR-04 = A1):** When the client's `expected_owner` differs from the server-read `assigned_to`, the request is rejected with **409** before any transaction begins — no write occurs, and `updated_at` is untouched. Locked by `F01`; bodies must match the loser 409 byte-for-byte (`C02`/`E06`).
+- **AC-H09 (CR-04 = A1):** When the client's `expected_owner` differs from the server-read `assigned_to`, the request is rejected with **409** before any transaction begins and with no write of any kind. The fail-fast guard is a deliberate authorisation/audit-trail guard that is **not observable** black-box: it is indistinguishable from losing the conditional write (same status, same message, same `current_owner_id`, and neither writes), so it is NOT claimed to be uniquely locked by `F01`. The only observable contract locked here is "**409, no write, before the transaction**" (`F01`); bodies must match the loser 409 byte-for-byte (`C02`/`E06`).
 - **AC-C01:** Two staff submit Handoff for the same conversation with the same `expected_owner`: exactly one succeeds (200), the other receives 409 naming the winner; only one history row exists; `assigned_to` equals the winner's target.
 - **AC-C02:** A Handoff with a stale `expected_owner` (ownership changed since the dialog was opened) is rejected (409) without touching ownership or history.
 - **AC-C03:** History insert failure rolls back the ownership change (`assigned_to` unchanged, no orphan row).

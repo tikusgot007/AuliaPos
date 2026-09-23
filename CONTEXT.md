@@ -7,7 +7,7 @@ Kamus istilah bisnis (Ubiquitous Language) yang dipakai bersama oleh tim produk,
 ### Handoff
 
 **Handoff**:
-Pemindahan tanggung jawab sebuah percakapan dari satu staff kepada staff lain, disertai ringkasan dan tindakan lanjutan yang tercatat sebagai riwayat. Berlaku untuk percakapan yang belum ditutup, dan hanya boleh dimulai oleh staff yang sedang memegang percakapan tersebut, kecuali percakapan yang tampil di tab Belum Diambil.
+Transfer of responsibility for a conversation from one staff member to another, accompanied by a summary and a next action recorded as history. Applies to conversations that have not been closed, and may only be initiated by the staff member currently holding the conversation, except for conversations shown on the Belum Diambil tab, which may be initiated by an **active kasir**.
 _Avoid_: Transfer, Reassign, Alih tangan, Serah terima
 
 **Handoff Summary**:
@@ -35,9 +35,9 @@ _Avoid_: Collision detection, Sedang online
 ### Kepemilikan Percakapan
 
 **Belum Diambil**:
-Keadaan percakapan yang menunggu balasan dan belum dipegang staff mana pun.
-Hanya percakapan inilah yang tampil di tab Belum Diambil dan boleh diserahkan
-oleh staff mana pun.
+A conversation state awaiting a reply and not yet held by any staff member.
+Only these conversations appear on the Belum Diambil tab and may be handed off
+by any **active kasir**.
 _Avoid_: Unassigned, Belum dipegang
 
 **Tanpa Pemilik**:
