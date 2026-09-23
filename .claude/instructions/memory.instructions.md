@@ -1339,3 +1339,31 @@
 <!-- checkpoint-tail: M3 Fase 1c screen (Internal Note button, SLA dot, search box) done and approved, commits f3bd8fa + 70726c1 on v2.3, 317/317 tests + 8/8 manual; next is /sdlc-code-review, then /sdlc-audit-consistency, then /sdlc-define-specs for TODO-SEARCH-01 (search whatsapp_name/manual_phone + message content). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (code review of f3bd8fa, M3 Fase 1c)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review done → refactoring plan written, waiting for user approval, then `/sdlc-write-code`.
+- **Active Artifacts:**
+  - `plan/plan-refactor-m3-fase1c-inbox-screen-v1.0.md` — NEW, Status: Planned (1 phase, TASK-101..105).
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.1, ✅ Completed (unchanged).
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.1 (unchanged).
+- **Achieved Milestones:**
+  - Two-axis `/sdlc-code-review` of `f3bd8fa`. Spec axis: AC-010 (a–e), AC-011 (a–c), AC-012 (a–g), §4.3, §4.4 all met; no scope creep. Security: no new XSS/secret issue.
+  - 2 REQUIRED (Standards axis), both verified in code:
+    - STD-01: reopening `#modalCatatanInternal` while a save is in flight resets `catatanInternalSedangKirim` → double note possible, and the first success hides the reopened dialog / clears new text (`index.php:1275-1281`, `1308-1322`).
+    - STD-02: vacuous asserts in `OperationalInboxScreenTest.php` — `'/catatan'` and `bg-success/warning/danger` already existed before `f3bd8fa`; `bukaModalCatatanInternal()` also matches the function definition.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** asserting generic strings (CSS classes, URL fragments) in page-render tests.
+  - **Reason:** they already exist elsewhere in the view, so the test passes without the feature. Assert only strings introduced by the feature (element ids, `onclick="..."`, new CSS class/const names).
+- **Updated Files:**
+  - `plan/plan-refactor-m3-fase1c-inbox-screen-v1.0.md` — new refactoring plan for STD-01/STD-02
+- **Decisions Made:**
+  - Minimal plan: only the 2 REQUIRED items. NIT/FYI deferred as TODOs (plan §3): restore search input value on failed search; rename `SNOOZE_ALASAN_MAKS_BYTE`; "karakter" vs byte wording; `maxlength="4096"` silently truncates long pastes; CSRF off app-wide (`Filters.php:67`); `showToast` uses innerHTML (`layout/main.php:1288`); wrap `setInterval` polling callback.
+- **Next Action / Pending:**
+  - User approves the plan → `/sdlc-write-code` for `plan-refactor-m3-fase1c-inbox-screen-v1.0.md` (TASK-101..105, incl. manual close-and-reopen browser check).
+  - Then `/sdlc-audit-consistency` (MC-01..03), then `/sdlc-define-specs` for TODO-SEARCH-01.
+
+<!-- checkpoint-tail: Code review of f3bd8fa found spec fully met but 2 REQUIRED standards issues (note dialog in-flight guard reset, vacuous render-test asserts); plan-refactor-m3-fase1c-inbox-screen-v1.0.md written; next is /sdlc-write-code for it. -->
+
+---
