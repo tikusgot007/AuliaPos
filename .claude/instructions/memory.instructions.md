@@ -997,3 +997,24 @@
 <!-- checkpoint-tail: WA-Gateway PR #4 (M1 Wave 1 + 9 refactor commits, 30 total) is MERGED as merge commit 21a4cb6 and origin/master is the only remote branch (feature branch, two claude/* branches and the m1 worktree deleted); the live folder still runs 065f683 (behind 10) and deploying the refactor is the next user decision; gh is not installed and destructive git is blocked for the agent, so hand those commands to the user. -->
 
 ---
+
+
+## 📝 Session Checkpoint: 2026-09-23 (M1 refactor DEPLOYED to live — 21a4cb6)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** M1 Wave 1 + refactor merged AND live; next = light real verification, then wave 2 scoping
+- **Achieved Milestones:**
+  - Live folder `C:\projects\WA-Gateway` fast-forwarded `065f683` → `21a4cb6` and `pm2 restart wa-gateway` — **run by the user** at 18:47 WIB (agent attempt blocked by the classifier as "Production Deploy"). Pre-checks by agent: tree clean, ff possible, no change in `package*.json`/`auth/`.
+  - Post-deploy verification (agent, read-only): HEAD `21a4cb6` = `origin/master`, tree clean; PM2 online, restarts 2, unstable 0, script path/cwd = live folder; new pid 9300 `connected` at 11:47:14Z (18:47:14 WIB, ~3 s after start); 16 new log lines, all level 30, 0 `[CRITICAL]`.
+  - `docs/TODO-CHAT.md` updated (lines 3, 44, 48, 51, 85, 133, deploy line now `[x]`, new `[ ]` real-verification line).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** agent-run `git merge --ff-only` + `pm2 restart` on the live folder. **Reason:** blocked ("Production Deploy"). **Note:** give the user the bash lines (`git -C C:/projects/WA-Gateway merge --ff-only origin/master`, `cmd //c "pm2 restart wa-gateway"`), then verify read-only.
+- **Next Action / Pending:**
+  - Real check of `21a4cb6`: send 1 WhatsApp message from the test phone → appears in AuliaPos Inbox (AC-001 was only measured on `065f683`).
+  - Rollback if needed: `git -C C:/projects/WA-Gateway reset --hard 065f683` + `cmd //c "pm2 restart wa-gateway"` (then `e18f716`).
+  - New startup behavior (CR-01): a locked SQLite DB at start now crashes with `[CRITICAL]` and PM2 retries (no silent JSON fallback).
+  - Backlog unchanged (CR-05..CR-11, CR-15, pino async `LOG_FOLDER`, deviation (b), E-02/E-07, M1 Tickets 05–16).
+
+<!-- checkpoint-tail: The M1 refactor is LIVE — the user fast-forwarded the live WA-Gateway folder to 21a4cb6 (= origin/master, PR #4 merge) and restarted PM2 at 18:47 WIB; it reconnected in ~3 s with no warnings/errors/[CRITICAL]; only simulation evidence exists for the 9 refactor commits, so the next step is a 1-message real check from the test phone. -->
+
+---
