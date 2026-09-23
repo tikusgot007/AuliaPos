@@ -1173,6 +1173,16 @@ class Inbox extends BaseController
                 'created_at'           => $now,
             ]);
 
+            // TB-02/TASK-006 hardening residual: dengan DBDebug=false
+            // (produksi) CI4 mengembalikan false alih-alih melempar
+            // exception, sehingga insert yang gagal akan lolos diam-diam
+            // sebagai "sukses" tanpa baris riwayat. id <= 0 berarti TIDAK
+            // ada baris tersimpan -- perlakukan sama seperti insert gagal
+            // supaya jaminan AC-C03/REQ-H09 tidak bergantung pada konfigurasi.
+            if ($handoffId <= 0) {
+                throw new \RuntimeException('insertHandoff tidak menyimpan baris riwayat.');
+            }
+
             $db->transCommit();
         } catch (\Throwable $e) {
             // Insert riwayat gagal -> rollback, ownership tetap utuh
