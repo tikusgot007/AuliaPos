@@ -935,13 +935,13 @@
 ## 📝 Session Checkpoint: 2026-09-23 (M1 Wave 1 refactor — Phase 2 done, plan Completed)
 
 - **Active Memory Path:** `.claude/instructions/memory.instructions.md`
-- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) DONE → push pending, then PR decision
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) DONE → **pushed** (origin = `fb585f1`), then PR decision
 - **Active Artifacts:**
   - `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` — ✅ `Completed` (all TASK-101..105 and 201..209 ticked with commit SHAs)
   - `docs/audit/code-review-m1-wave1-2026-09-23.md` — CR-01, CR-02, CR-03, CR-04, CR-13, CR-14, CR-16 now fixed
   - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — v1.2 `Completed`, untouched
 - **Achieved Milestones:**
-  - WA-Gateway worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`: 6 commits on top of `bf23d2f`, **NOT pushed** (`bf23d2f..fb585f1`):
+  - WA-Gateway worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`: 6 commits on top of `bf23d2f`, **pushed** (`bf23d2f..fb585f1`, origin = `fb585f1`):
     - `8b00dfc` TASK-201 `tick()`: `overflowBuffer.drain()` first, own try/catch + `logger.error`, before `isRunning` (test durable-buffer #21: first tick hangs in stubbed `global.fetch`).
     - `f895a54` TASK-202 `ownSentTtlMs: Math.max(1, …)` (own-sent-registry #6: `0`/`-5` → 1).
     - `972c2a7` TASK-203 `_resolveLidForPhoneJid`: `if (!this.isConnected()) return null;` before query, no cache write; redundant `if` wrapper removed (whitespace-only reindent).
