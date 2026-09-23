@@ -81,6 +81,7 @@ The Inbox persistence boundary is explicitly separated from the POS database:
 
 - `ConversationModel`
 - `MessageModel`
+- `ConversationHandoffModel`
 - `GatewayStatusModel`
 - `ConversationIdentityModel`
 
@@ -156,6 +157,7 @@ Inbox database
    │
    ├── conversations
    ├── messages
+   ├── conversation_handoffs
    ├── gateway_status
    └── conversation identity data
    │
@@ -194,6 +196,8 @@ Current Inbox routes include:
 | `POST /inbox/percakapan/(:num)/tandai-dibaca` | Mark conversation read |
 | `POST /inbox/percakapan/(:num)/snooze` | Snooze conversation |
 | `POST /inbox/percakapan/(:num)/catatan` | Add Internal Note |
+| `POST /inbox/percakapan/(:num)/handoff` | Handoff ownership to another active kasir (conditional write + history) |
+| `GET /inbox/percakapan/(:num)/handoff` | Handoff history for one conversation (newest-first, cap 50) |
 | `POST /inbox/percakapan/(:num)/hapus` | Soft-delete conversation |
 | `POST /inbox/percakapan/(:num)/profil` | Update customer profile |
 | `POST /inbox/percakapan/(:num)/konfirmasi-nomor` | Confirm WhatsApp number |
@@ -202,7 +206,7 @@ Current Inbox routes include:
 
 ## 8. Current Operational Inbox Architecture
 
-The current M3 Phase 1 implementation establishes these architectural seams:
+The current implementation establishes these architectural seams:
 
 ### Queue status
 
@@ -226,6 +230,15 @@ They:
 `InboxSlaService` is a DB/session-independent calculation service.
 
 Its thresholds are configured through `Config\\Inbox` and are not hardcoded inside the service.
+
+### Handoff and Collision Detection
+
+Handoff moves conversation ownership between staff and records every transfer in the `conversation_handoffs` table (Inbox database group).
+
+- The ownership write is an expected-owner conditional write (`SET assigned_to = :to WHERE id = :id AND assigned_to <=> :expected`): a request that loses the race changes nothing and answers `409` with the current owner's name.
+- The ownership write and the history insert share one `inbox`-group transaction, so a failed history insert rolls the ownership change back.
+- History is read back through the dedicated `GET /inbox/percakapan/(:num)/handoff` route (auth filter only, newest-first, capped at 50); the message thread endpoint is untouched and the `messages` table is never written by Handoff.
+- Staff-facing names in the handoff history are resolved in the Inbox UI from the same active-kasir list the Handoff dialog uses, because the read contract carries user ids only.
 
 ## 9. Authentication and Security Boundaries
 
@@ -270,16 +283,16 @@ The repository's test command is:
 composer test
 ```
 
-The current M3 Phase 1 checkpoint recorded in `memory.instructions.md` is 233 tests and 522 assertions with code coverage successfully generated.
+The M3 Phase 2a checkpoint recorded in `.claude/instructions/memory.instructions.md` reports 283 tests and 867 assertions on branch `feature/m3-operational-inbox-fase1a-task001` using `vendor/bin/phpunit --no-coverage` (plain `composer test` still exits non-zero because of the pre-existing "No code coverage driver available" warning).
 
 ## 12. Architectural Constraints Relevant to M3 Phase 2
 
 The following constraints are important for subsequent Handoff and Collision Detection work:
 
 - Ownership is represented on the conversation and is already used by existing Inbox actions.
-- Existing ownership checking is application-level read-then-write logic; it is **not an atomic concurrency primitive**.
+- Ownership checking on the remaining paths (`lepas`, `tutup`, `snooze`, `tandai-dibaca`, `hapus`) is still application-level read-then-write logic; only the Handoff path uses an expected-owner conditional write.
 - M2 State Consistency is deferred.
-- M3 Phase 2 must therefore not silently expand into a general state-consistency redesign.
+- M3 Phase 2a opened the M2 gate **narrowly** (Handoff only, per the M2-gate clarification) and must not silently expand into a general state-consistency redesign.
 - The separate Inbox database boundary must be preserved.
 - Gateway behavior is outside the Handoff and Collision Detection scope unless an approved specification explicitly requires it.
 - New architectural modules, directories, or API contracts introduced by implementation must be reflected in this document.
@@ -294,6 +307,7 @@ The following constraints are important for subsequent Handoff and Collision Det
 | Inbox controller | `app/Controllers/Inbox.php` |
 | Gateway controller | `app/Controllers/InboxGatewayApi.php` |
 | Conversation persistence | `app/Models/ConversationModel.php` |
+| Handoff persistence | `app/Models/ConversationHandoffModel.php` |
 | Message persistence | `app/Models/MessageModel.php` |
 | User persistence | `app/Models/UserModel.php` |
 | Schedule persistence | `app/Models/JadwalModel.php` |
@@ -317,4 +331,3 @@ This document should be updated whenever implementation introduces:
 - a significant ownership/state-management seam.
 
 Routine changes inside an already documented module do not require restructuring this document unless they materially change the architecture.
-
