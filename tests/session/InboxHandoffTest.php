@@ -884,4 +884,35 @@ final class InboxHandoffTest extends CIUnitTestCase
         $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
         $this->assertCount(0, $this->handoffRows($id));
     }
+
+    public function testE10ExpectedOwnerAbsenDitolak400DenganKontrolNegatif(): void
+    {
+        // REQ-002 (CR-02): kontrak Q5 -- field expected_owner WAJIB ada.
+        // Bila blok array_key_exists() disederhanakan jadi `?? null`, test
+        // ini gagal (perilaku berubah jadi 200/409), jadi regresi ini
+        // tertangkap (mutation-sensitive).
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $payload = $this->validPayload(8, 7);
+        unset($payload['expected_owner']);
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload);
+
+        $response->assertStatus(400);
+        $response->assertJSONFragment(['message' => 'Field expected_owner wajib dikirim.']);
+
+        // Ownership dan riwayat tidak tersentuh.
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+
+        // Kontrol negatif: payload LENGKAP (dengan field) tetap sukses 200,
+        // membuktikan 400 di atas benar-benar disebabkan field yang absen.
+        $response2 = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 7));
+
+        $response2->assertOK();
+        $this->assertSame(8, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(1, $this->handoffRows($id));
+    }
 }
