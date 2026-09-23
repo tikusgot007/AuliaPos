@@ -1,5 +1,101 @@
 <!-- markdownlint-disable -->
 
+# 🔍 Consistency Audit Report [Review Iteration 2]
+
+**Date:** 2026-09-24 · **Scope:** M3 Fase 1 (Operational Inbox) re-audit after Fase 1c (`f3bd8fa`, fix `dd9e864`, code review verdict: Merge)
+
+**Readiness Score:** 89/100
+**Status:** Good Enough
+
+**Score Breakdown:**
+
+- **Completeness (max 40):** 37 - Every Fase 1 PRD feature now has a Spec REQ + AC, a Plan task, and working code (MC-01..03 closed). -2: PRD asks for search "berdasarkan nama/nomor pelanggan", but Spec 4.4 searches only `contact_name`/`phone`, while the list shows `whatsapp_name`/`manual_phone` (NG-01, already tracked as TODO-SEARCH-01). -1: PRD §10 GH-001..GH-004 checkboxes are still `[ ]`.
+- **Clarity (max 30):** 26 - The Phase 3 NOTE in the Plan still says the Spec has no screen AC for REQ-012 (NG-02). TASK-015/016 do not cite AC-010/AC-011 (NG-03). Spec §1.2 has literal `\n` text (NG-04). "4096 karakter" vs a byte limit (NG-05).
+- **Alignment (max 30):** 26 - Spec, Plan and code agree on every Fase 1 contract (CT-01..03 closed). -3: status text outside Fase 1 is still stale (ST-01, ST-02, ST-03). -1: the PRD still uses "Catatan Internal"/"indikator prioritas" instead of the Spec glossary terms.
+- **Critical Flaw Veto:** No - GH-002 is now usable from the screen (standalone Internal Note button + dialog). No blocking defect remains in the Fase 1 scope.
+
+---
+
+## 1. 📊 Executive Summary
+
+- **SDLC Phase:** Plan (post-implementation; Plan Phase 3 `Completed`, refactor plan `plan-refactor-m3-fase1c-inbox-screen-v1.0.md` `Completed`)
+- **Documents Analyzed:**
+  - [x] PRD: `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 (unchanged since Iteration 1)
+  - [x] Spec: `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.1
+  - [x] Plan: `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.1 (+ `plan-refactor-m3-fase1c-inbox-screen-v1.0.md`; both Fase 2a plans, status only)
+- **Also checked:** `app/Views/inbox/index.php`, `app/Controllers/Inbox.php` (`catatanInternal()`), `tests/session/OperationalInboxScreenTest.php`, `.claude/instructions/memory.instructions.md` (review record of `dd9e864`)
+- **Standards Compliance:** PASS (minor terminology finding, §3)
+
+### Status of Iteration 1 findings
+
+| ID | Iteration 1 | Now | Evidence |
+|---|---|---|---|
+| MC-01 (GH-002 note input) | ❌ Open | ✅ **Closed** | "Catatan Internal" button in `renderThreadHeader()` with no ownership/status gate (`index.php:1113-1117`); `#modalCatatanInternal` (`index.php:668`); `simpanCatatanInternal()` blocks blank and > 4096-byte text before any request, keeps the dialog + text on error (`index.php:1294-1339`); one shared fetch `kirimCatatanInternal()` (`index.php:1238`). In-flight guard fixed in `dd9e864` (`index.php:1283-1286`, `1322`). Spec AC-010, Plan TASK-015. |
+| MC-02 (GH-004 SLA color) | ❌ Open | ✅ **Closed** | `renderTitikSla(c.sla_color)` in the list (`index.php:905`), server value only, null/unknown renders nothing (`index.php:840-861`). Spec AC-011, Plan TASK-016. |
+| MC-03 (Layar 7 search) | ❌ Open | ✅ **Closed** | `#inputCariConversation` `maxlength="255"` (`index.php:331`); `kataKunciAktif` sent as `&q=` on every page request incl. polling (`index.php:928-951`); stale result dropped (`index.php:963`); CL-005 empty text (`index.php:877-880`); failed search restores the old keyword + one toast (`index.php:983-991`). Spec AC-009/AC-012, Plan TASK-017. |
+| CT-01 (Plan status vs reality) | ❌ Open | ✅ **Closed** | TASK-001..019 all ticked with evidence; `status: 'Completed'` now matches the code. |
+| CT-02 (`findAll(500)`) | ❌ Open | ✅ **Closed** | Spec §9 and Plan TASK-011/ASSUMPTION-001/RISK-002 describe no row limit + 50 per page. |
+| CT-03 (Internal Note contract) | ❌ Open | ✅ **Closed** | Spec §4.3 = code: form field `teks` (`Inbox.php:939`), 400 for empty and `strlen > 4096` (`Inbox.php:941-953`), response `{ status, conversation_id, message }` (`Inbox.php:976-980`). |
+| Spec: REQ-012 AC + screen ACs | ❌ Open | ✅ **Closed** | AC-009..AC-012; §13 maps every REQ to an AC. |
+| Plan TASK-017 "REQ-012 has no spec AC yet" | ❌ Open | ✅ **Closed in the row** / ⚠️ leftover in NOTE | TASK-017 `AC Ref` = `AC-009, AC-012` and the row no longer has that sentence. The same claim is still in the Phase 3 NOTE above the table (Plan line 77), see NG-02. |
+| ST-01, ST-02 (Fase 2a plans) | ❌ Open | ❌ **Still open** | Both still `status: Planned` (`last_updated` 2026-09-22 / 2026-09-23). Outside Fase 1. |
+| ST-03 (PRD §9.2) | ❌ Open | ❌ **Still open** | PRD §9.2 still says Fase 1a/1b "Kode belum dimulai" and Fase 2a "Spec belum dibuat". |
+
+**Verification basis for MC-01..03:** render test `tests/session/OperationalInboxScreenTest.php` (3 tests, 13 assertions, each fails when its feature is removed, per refactor TASK-103); full suite 317/317; manual browser check 8/8 (Plan TASK-018 b) plus the close-and-reopen check (refactor TASK-104 c); `/sdlc-code-review` of `dd9e864`: 0 CRITICAL/REQUIRED, 0 spec issues, verdict Merge.
+
+## 2. 🔍 Traceability Findings
+
+### 🚨 Critical Blockers (Must Fix)
+
+- **Missing Coverage (Upstream -> Downstream):** None in the Fase 1 scope.
+- **Orphaned Items (Scope Creep):** None. Every Phase 3 task traces to a PRD story (GH-002, GH-004, Layar 7) and a Spec AC. The refactor plan only fixes review findings on the same screen.
+- **Contradictions (Cross-Document Conflicts):** None blocking. See NG-01 for a PRD vs Spec gap in the search fields.
+
+### ⚠️ Minor Gaps (Assumed / Backlog - The 20% we skip)
+
+- **NG-01 — Search fields (PRD §4/§5.2 vs Spec 4.4):** The PRD asks for search "berdasarkan nama/nomor pelanggan". Spec 4.4 matches only `contact_name`/`phone`, but the list shows `whatsapp_name` and `manual_phone` when those are empty (`index.php:887`, `index.php:901`). A conversation known only by its WhatsApp profile name is shown but cannot be found by that name. The code follows the Spec, so this is not a code bug.
+  - **Handling:** `[Backlog]` - already tracked as TODO-SEARCH-01 (Plan TASK-018). Decide in `/sdlc-define-specs`: widen `q` to `whatsapp_name`/`manual_phone`, or state in Spec 4.4 that only the saved contact name/number is searchable.
+- **NG-02 — Plan Phase 3 NOTE is stale:** Plan line 77: "The spec has no screen-level AC for REQ-012 yet… until the spec adds them." Spec rev 1.1 added AC-009..AC-012.
+  - **Handling:** `[Backlog]` - editorial. Replace with "Screen ACs: Spec AC-010..AC-012."
+- **NG-03 — Plan AC Ref cells are incomplete:** TASK-015 cites `AC-003, AC-004` but not `AC-010`; TASK-016 cites `AC-005, AC-006, AC-008` but not `AC-011`. TASK-018 does not name AC-010..AC-012.
+  - **Handling:** `[Backlog]` - editorial; the task text already matches those ACs.
+- **NG-04 — Spec §1.2 formatting:** line 40 has literal `\n\n` text instead of line breaks, so the NOTE and the next paragraph render as one line.
+  - **Handling:** `[Backlog]` - editorial.
+- **NG-05 — "4096 karakter" vs bytes:** Spec §8 sample code, the endpoint message (`Inbox.php:951`) and the screen toast (`index.php:1308`) say "karakter", while Spec §4.3 defines the limit in bytes. CL-006 also says "4096 karakter".
+  - **Handling:** `[Backlog]` - wording only; the rule (bytes, `strlen`) is clear in §4.3. Already a code-review TODO.
+- **PRD §10 GH-001..GH-004 checkboxes still `[ ]`:** these can now be ticked; Iteration 1 said to tick them after MC-01..03 close.
+  - **Handling:** `[Backlog]` - `/sdlc-draft-prd`, together with ST-03.
+- **PRD §3.3 "staff mana pun" for Handoff (Fase 2a):** unchanged from Iteration 1.
+  - **Handling:** `[Backlog]` - Fase 2a scope.
+
+## 3. 🛡️ Standards Compliance (Documentation Audit)
+
+- **ADR Format Compliance:** PASS
+  - ADR-0001 still holds: the screen reads `queue_status` and `sla_color` from the server and computes neither in JS (`index.php:869-871`, `index.php:840-861`). Fase 1c added no decision that meets the Triple Gate, so no new ADR is needed.
+- **Context/Glossary Alignment:** PASS (minor)
+  - Unchanged from Iteration 1: the PRD uses "Catatan Internal" and "indikator prioritas", which the Spec §2 glossary lists under _Avoid_. The screen label "Catatan Internal" is Indonesian UI copy, not a document term, so it is not flagged.
+- **Codebase Reality Check:** PASS for Fase 1
+  - Spec rev 1.1, Plan rev 1.1 and the code agree on every Fase 1 contract checked (Internal Note endpoint, SLA dot, search `q` + `page`). Remaining drift is only in status text outside Fase 1 (ST-01..ST-03).
+
+## 4. 📝 Action Plan (Corrective Actions)
+
+- **Updates Required:**
+  - [ ] **PRD:** (ST-03) update §9.2 to the real status of M3 Fase 1a/1b/1c and Fase 2a; tick the GH-001..GH-004 checkboxes; align "Catatan Internal"/"prioritas" with "Internal Note"/"SLA Timer". → `/sdlc-draft-prd`
+  - [ ] **Spec:** (NG-01) decide TODO-SEARCH-01 in §4.4; (NG-04) fix the literal `\n` in §1.2; (NG-05) optional wording "4096 byte". → `/sdlc-define-specs`
+  - [ ] **Plan:** (NG-02) fix the Phase 3 NOTE; (NG-03) add AC-010/AC-011 to TASK-015/016. Separately, (ST-01/ST-02) sync both Fase 2a plans with the merged code. → `/sdlc-plan-tasks`
+  - [x] **Standards (ADR/Context):** None required.
+
+---
+> **User Decision Prompt:**
+> The document has achieved a Readiness Score of 89/100. It is ready for the next phase. Do you want to **PROCEED** to the next phase, or do you want to **REFINE** and clarify further?
+>
+> **User decision (2026-09-24): REFINE.** Order: (1) `/sdlc-plan-tasks` for NG-02/NG-03, (2) `/sdlc-draft-prd` for ST-03 + GH-001..004 checkboxes + glossary terms, (3) `/sdlc-define-specs` for NG-01 (TODO-SEARCH-01), NG-04, NG-05. ST-01/ST-02 (Fase 2a plans) stay a separate `/sdlc-plan-tasks` session.
+
+---
+---
+
+# 📜 History — Review Iteration 1 (kept for traceability)
+
 > [!SUCCESS]
 > **REMEDIATION STATUS: RESOLVED for Plan + Spec scope (PRD and Fase 2a plans still open)**
 > This audit report has been remediated by Specification Architect on 2026-09-24 in `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.1.

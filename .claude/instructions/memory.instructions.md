@@ -1427,3 +1427,30 @@
 <!-- checkpoint-tail: Review of dd9e864 passed (STD-01/02 closed, verdict Merge, NIT STD-03 + FYI STD-04 as TODOs); next is /sdlc-audit-consistency for M3 Fase 1 to close MC-01..03. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (consistency re-audit M3 Fase 1, Iteration 2)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Consistency Check done (89/100, Good Enough) → user chose **REFINE** (docs cleanup before moving on).
+- **Active Artifacts:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — v1.1, unchanged; §9.2 stale (ST-03), GH-001..004 checkboxes still `[ ]`.
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.1, matches code (CT-02/CT-03 closed).
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.1, Completed; TASK-017 row fixed (AC-009/AC-012).
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — updated in place: Iteration 2 on top (89/100: C 37, Cl 26, A 26, no veto), Iteration 1 kept below as history, REFINE decision + order recorded.
+- **Achieved Milestones:**
+  - MC-01..03, CT-01..03 and the Spec AC gap verified closed against code (`index.php`, `Inbox.php:939-980`), review of `dd9e864` (Merge), 317/317, manual 8/8.
+  - Artifact "Peta Kemajuan AuliaPos Inbox" (https://claude.ai/artifact/BYaaWGszt8jtX7eotmFLC6) updated to Version 2: Fase 1b done, new Fase 1c block, REFINE next steps.
+- **Dead-Ends (Do NOT Repeat):**
+  - None.
+- **Updated Files:**
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — Iteration 2 + REFINE decision.
+- **Decisions Made:**
+  - REFINE order: (1) `/sdlc-plan-tasks` NG-02 (stale Phase 3 NOTE, plan line 77) + NG-03 (add AC-010 to TASK-015, AC-011 to TASK-016, AC-010..012 in TASK-018); (2) `/sdlc-draft-prd` ST-03 §9.2 + tick GH-001..004 + terms "Internal Note"/"SLA Timer"; (3) `/sdlc-define-specs` NG-01 = TODO-SEARCH-01 (search `whatsapp_name`/`manual_phone`?), NG-04 (literal `\n` in §1.2 line 40), NG-05 ("4096 karakter" vs bytes); (4) final `/sdlc-audit-consistency`.
+  - ST-01/ST-02 (both Fase 2a plans still `Planned`) = separate `/sdlc-plan-tasks` session, outside Fase 1.
+- **Next Action / Pending:**
+  - REFINE step 1: `/sdlc-plan-tasks` for NG-02/NG-03 (editorial only, keep status Completed).
+  - Still pending from earlier: NIT STD-03, FYI STD-04; check WA Gateway `data/` before moving the gateway.
+
+<!-- checkpoint-tail: M3 Fase 1 re-audit Iteration 2 = 89/100 (MC-01..03 closed), user chose REFINE; next is /sdlc-plan-tasks for NG-02/NG-03, then PRD (ST-03), then spec (TODO-SEARCH-01, NG-04/05), then final audit. -->
+
+---
