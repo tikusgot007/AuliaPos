@@ -980,4 +980,129 @@ final class InboxHandoffTest extends CIUnitTestCase
         $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
         $this->assertCount(0, $this->handoffRows($id));
     }
+
+    public function testE13ToUserIdNonNumerikAtauNolDitolak400(): void
+    {
+        // TASK-105(a)/REQ-005: to_user_id non-numerik / '0' / negatif /
+        // desimal / kosong -> 400 dari gate validasi payload (BUKAN 403
+        // target). H05 hanya menguji id 9999 (numerik).
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        foreach (['abc', '0', '-1', '12.5', ''] as $invalid) {
+            $payload = $this->validPayload(8, 7);
+            $payload['to_user_id'] = $invalid;
+
+            $this->withSession($this->sesi('kasir', 7))
+                ->post(self::HANDOFF_URL . $id . '/handoff', $payload)
+                ->assertStatus(400);
+        }
+
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    public function testE14Note4097KarakterDitolak400(): void
+    {
+        // TASK-105(b)/REQ-005: batas atas `note` juga terkunci (H03 hanya
+        // menguji `summary` yang melewati batas).
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $payload = $this->validPayload(8, 7);
+        $payload['note'] = str_repeat('a', 4097);
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload);
+
+        $response->assertStatus(400);
+        $response->assertJSONFragment(['message' => 'Ringkasan, tindakan berikutnya, dan catatan maksimal 4096 karakter.']);
+
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    public function testE15BodyJsonDualReadSukses200(): void
+    {
+        // TASK-105(c)/DEP-06: jalur dual-read JSON body (bukan form) juga
+        // menerima Handoff sah. Mengunci perilaku APA ADANYA (RISK-005):
+        // kalau CI4 sudah mengisi getPost() dari JSON, test ini tetap
+        // hijau tanpa seam/mengubah kode.
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->withBodyFormat('json')
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 7));
+
+        $response->assertOK();
+        $response->assertJSONFragment(['status' => 'success']);
+
+        $this->assertSame(8, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(1, $this->handoffRows($id));
+    }
+
+    public function testE16PostWajibLoginLewatFilterAuth(): void
+    {
+        // TASK-105(d)/CON-H06: cermin G04 untuk route POST -- membuktikan
+        // filter `auth` benar-benar terpasang di route POST (bukan cuma
+        // GET). G04 hanya menguji GET.
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $response = $this->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 7));
+
+        $response->assertRedirectTo('/login');
+        $response->assertStatus(302);
+    }
+
+    public function testE17UrutanGerbangPadaPelanggaranGanda(): void
+    {
+        // TASK-105(e)/Q3: urutan gerbang normatif terkunci saat DUA
+        // pelanggaran terjadi bersamaan.
+
+        // (i) id tak dikenal + payload tidak valid -> 404 (404 mendahului
+        // validasi 400).
+        $payloadBuruk = $this->validPayload(0, 7); // to_user_id invalid (0)
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . '999999/handoff', $payloadBuruk);
+        $response->assertStatus(404);
+
+        // (ii) non-assignee + target invalid -> 403 INISIATOR (gerbang
+        // inisiator mendahului gerbang target). Pesan membedakan cabang.
+        $id = $this->seedConversation(['assigned_to' => 7]);
+        $payloadTargetBuruk = $this->validPayload(9999, 7); // target bukan kasir aktif
+
+        $response = $this->withSession($this->sesi('kasir', 8)) // non-assignee
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payloadTargetBuruk);
+
+        $response->assertStatus(403);
+        $response->assertJSONFragment(['message' => 'Hanya staff yang sedang menangani percakapan ini yang bisa menyerahkannya.']);
+
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    public function testE18Body409TepatTigaKeyAntiLeak(): void
+    {
+        // TASK-105(f)/REQ-C02: properti anti-leak -- body 409 kalah HANYA
+        // berisi 3 key (status, message, current_owner_id); penambahan
+        // payload apa pun akan langsung menggagalkan test ini.
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        // expected_owner basi (8) vs server-read 7 -> conditional write
+        // kalah -> 409 menyebut pemilik sah (7).
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 8));
+
+        $response->assertStatus(409);
+
+        $json = json_decode($response->getJSON(), true);
+        $this->assertIsArray($json);
+        $this->assertCount(3, $json);
+        $this->assertEqualsCanonicalizing(
+            ['status', 'message', 'current_owner_id'],
+            array_keys($json)
+        );
+        $this->assertSame(7, (int) $json['current_owner_id']);
+
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
 }
