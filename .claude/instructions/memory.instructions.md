@@ -1274,3 +1274,33 @@
 <!-- checkpoint-tail: Fase 1 plan rev 1.1 adds screen tasks TASK-015..019 (Internal Note input, SLA dot, search box) and ticks TASK-001..011 with evidence; projected score 78/100, next step is /sdlc-define-specs to fix the spec (CT-02, CT-03, REQ-012 AC). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (M3 Fase 1 spec rev 1.1, audit remediation)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (post-audit remediation) done. Next: Code (plan Phase 3 / Fase 1c).
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.1, Status: ✅ remediated. Projected Readiness Score 86/100 (whole audit).
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.1, Status: 🔄 In progress (TASK-015..019 open).
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 — §9.2 still stale (ST-03).
+  - Both Fase 2a plans — still stale (ST-01/ST-02).
+- **Achieved Milestones:**
+  - CT-02: spec §9 no longer says `findAll(500)`; contract = no row limit, 50 per page via `page`.
+  - CT-03: spec §4.3 + §8 match `Inbox::catatanInternal()`: form field `teks` (`getPost`), response `{ status, conversation_id, message }`, 400 for empty text or > 4096 bytes (`strlen`, bytes not characters).
+  - New AC-009 (REQ-012 API: status + q + page, old conversation found, empty = 200 `conversations: []`, 400 cases), AC-010 (GH-002 Internal Note button), AC-011 (GH-004 SLA dot), AC-012 (Layar 7 search box) — matching plan TASK-015/016/017.
+  - §4.4: duplicate `q` bullet removed; response shape `{ status, conversations: [...] }` stated explicitly.
+  - Backlog done: §1.1/§2 Fase 2 wording now points to PRD K-01; §6 drops the non-existent `is_internal` query test and adds the page-render test + manual browser checklist; AC-007/AC-008 order fixed; §13 maps every REQ to AC-001..AC-012.
+  - Audit report got a "RESOLVED for Plan + Spec scope" block (86/100).
+- **Decisions Made:**
+  - Screen ACs (AC-010..012) pass only when the page-render test passes AND the manual browser checklist is recorded (no JS test runner).
+- **Updated Files:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.1
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — remediation status block
+- **Next Action / Pending:**
+  - `/sdlc-write-code` in a new session for plan Phase 3 (TASK-015..019), attach plan + spec.
+  - Small plan fix: TASK-017 still says "REQ-012 has no spec AC yet" → can point to AC-009/AC-012.
+  - Later: `/sdlc-draft-prd` (§9.2), sync the two Fase 2a plans, then `/sdlc-audit-consistency` to re-check MC-01..03.
+
+<!-- checkpoint-tail: Spec M3 Fase 1 rev 1.1 fixed CT-02/CT-03 and added AC-009..AC-012 (API search + screen ACs), projected 86/100; next step is /sdlc-write-code for plan Phase 3 TASK-015..019 (Internal Note button, SLA dot, search box). -->
+
+---

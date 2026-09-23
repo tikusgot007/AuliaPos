@@ -1,7 +1,8 @@
 ---
 title: M3 Operational Inbox — Fase 1 (Queue View, Conversation Detail, Snooze, Selesai/Arsip, Internal Note, SLA, Filter)
-version: 1.0
+version: 1.1
 date_created: 2026-09-20
+last_updated: 2026-09-24
 owner: AuliaPos Inbox module
 tags: [inbox, chat, whatsapp, m3, operational-inbox]
 ---
@@ -11,6 +12,9 @@ tags: [inbox, chat, whatsapp, m3, operational-inbox]
 Spesifikasi ini mendefinisikan **M3 — Operational Inbox, Fase 1** (Fase 1a + Fase 1b) dari roadmap besar WhatsApp Inbox: mengubah Inbox dari sekadar viewer chat menjadi *operational customer workspace*. Fase 1 menyambungkan UI baru (Queue View, Conversation Detail, Internal Note, SLA indicator, Filter) ke backend `app/Controllers/Inbox.php` yang sebagian besar **sudah production-ready**, menutup gap yang tersisa (computed status terpadu, Internal Note, filter endpoint).
 
 Dasar spec ini: `blueprint-m3-operational-inbox.md`, `Panduan_Layar_AuliaPos_M3.md`, dan `docs/audit/clarification-report-m3-fase1-operational-inbox-2026-09-20.md` (Readiness Score 92/100, sudah di-merge ke `v2.2`).
+
+> [!NOTE]
+> **Revisi 1.1 (2026-09-24), per `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md`:** (1) CT-02 — §9 tidak lagi menyebut `findAll(500)`; kontraknya: tanpa batas baris, 50 per halaman lewat `page` (CL-001/CL-010). (2) CT-03 — §4.3 dan §8 disamakan dengan endpoint nyata `Inbox::catatanInternal()`: form field `teks`, response `{ status, conversation_id, message }`, 400 bila teks > 4096 byte. (3) AC baru: AC-009 (REQ-012 API), AC-010..AC-012 (level layar untuk GH-002, GH-004, Layar 7), selaras dengan plan rev 1.1 TASK-015/016/017. (4) Duplikat bullet `q` di §4.4 dihapus. Backlog kecil ikut dirapikan: §1.1/§2 (Fase 2 vs K-01), §6 (test `is_internal`), urutan AC dan §13.
 
 ## 1. Purpose & Scope
 
@@ -24,7 +28,7 @@ Asumsi: seluruh kerja ini dibangun di atas branch turunan `v2.2` (bukan `v2.1`/`
 
 ## 1.1 Out of Scope
 
-- **Fase 2** (Handoff, Collision detection, Auto-assignment) — terkunci menunggu **M2 (State Consistency)** selesai, karena `cekOwnership()` saat ini read-then-write di level aplikasi, bukan atomic (lihat `docs/adr/0001-...md` bagian Consequences dan `status-proyek-master.md` M2).
+- **Fase 2** (Handoff, Collision detection, Auto-assignment) — tidak dicakup spec ini. Fase 2a (Handoff + Collision) diatur oleh spec/plan Fase 2a tersendiri, di bawah *constraint* sempit **K-01** PRD v1.1 §2.3 (atomicitas kepemilikan dibuka hanya pada jalur Handoff; M2 State Consistency tetap deferred sebagai program). Auto-assignment tetap menunggu M2. Spec ini tidak mengubah `cekOwnership()`.
 - **Fase 3** (AI features: intent filter, AI summary, suggested reply) — menunggu M5.
 - **Customer Context penuh** (riwayat order/payment dari modul Transaksi) — ditunda ke **M4**. Fase 1 Customer Context dibatasi ke data Inbox sendiri (nama, nomor, riwayat percakapan, internal note).
 - **@mention dengan notifikasi nyata** (tabel `message_mentions`, mekanisme notifikasi) — ditunda ke Fase 2.
@@ -78,7 +82,7 @@ Istilah berikut mengikuti dokumen sumber (`Panduan_Layar_AuliaPos_M3.md`, `docs/
 | **Queue View Status** | Status computed BARU (Fase 1a) untuk 5 tab: Belum Diambil / Open / Menunggu / Ditunda / Selesai — **turunan** dari Response State + `assigned_to` (lihat ADR-0001). | "display status", "queue status" sebagai kolom DB |
 | **Internal Note** | Catatan staff yang TIDAK terkirim ke WhatsApp, disimpan sebagai baris `messages` dengan `is_internal = TRUE`. | "catatan internal", "note" saja (ambigu dengan pesan biasa) |
 | **SLA Timer** | Indikator warna (hijau/kuning/merah) berdasarkan usia `last_message_at`, dihitung real-time di UI, tidak disimpan di DB. | "prioritas" (istilah ini sudah dipakai domain lain, lihat `docs/USER-SHIFT.md`) |
-| **Handoff** | Perpindahan `assigned_to` dari satu staff ke staff lain dengan ringkasan/next action tersimpan. **Fase 2, di luar scope spec ini.** | — |
+| **Handoff** | Perpindahan `assigned_to` dari satu staff ke staff lain dengan ringkasan/next action tersimpan. **Fase 2a, di luar scope spec ini** (diatur spec Fase 2a, constraint K-01 PRD §2.3). | — |
 
 ## 3. Requirements, Constraints & Guidelines
 
@@ -128,11 +132,15 @@ Kontrak internal: method ini **memanggil** `attachResponseState()` (atau logika 
 
 ```
 POST /inbox/percakapan/(:num)/catatan
-Body (JSON): { "teks": string }
-Response 200: { "status": "success", "message_id": int }
-Response 404: conversation tidak ditemukan
-Response 400: teks kosong
+Body (form data, application/x-www-form-urlencoded): teks=<string>
+Response 200: { "status": "success", "conversation_id": int, "message": { ...baris messages yang baru disimpan, termasuk "is_internal": true dan nama pengirim } }
+Response 404: { "status": "error", "message": "Conversation tidak ditemukan." }
+Response 400: { "status": "error", "message": ... } bila teks kosong setelah trim, ATAU teks > 4096 byte
 ```
+
+- `teks` dibaca sebagai **form field** (`getPost('teks')`), bukan JSON body. Nilainya di-trim dulu.
+- Batas panjang: **4096 byte** (`strlen()`, bukan `mb_strlen()`). Teks dengan huruf/emoji multi-byte bisa ditolak walau jumlah karakternya < 4096. Layar wajib memakai ukuran byte UTF-8 yang sama untuk validasi sisi klien (pola `SNOOZE_ALASAN_MAKS_BYTE`). Batas ini juga berlaku untuk Alasan Snooze (CL-006), karena alasan disimpan lewat endpoint yang sama.
+- Urutan cek: conversation ditemukan (404) → teks kosong (400) → teks > 4096 byte (400) → insert.
 
 Tidak melalui `cekOwnership()` (lihat SEC-001). Insert ke `messages` dengan `is_internal = TRUE`, `direction` diasumsikan `outgoing` (arah tidak relevan tapi field NOT NULL di skema existing — pakai `outgoing` sebagai nilai netral, TIDAK memicu pengiriman apa pun ke Gateway).
 
@@ -141,8 +149,10 @@ Tidak melalui `cekOwnership()` (lihat SEC-001). Insert ke `messages` dengan `is_
 Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
 - `page` (opsional): nomor halaman, mulai dari `1`. Jika tidak diisi, gunakan `page=1`. Nilai `page` yang bukan bilangan bulat positif (termasuk `0` atau negatif) wajib menghasilkan HTTP 400. `page` yang dikirim tapi kosong (`?page=`) juga dianggap tidak valid (HTTP 400); hanya `page` yang tidak dikirim sama sekali yang memakai `page=1`. Jika `page` valid tetapi melewati halaman terakhir, response tetap HTTP 200 dengan array kosong `[]`.
 - `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View. **Nilai selain enum tersebut wajib ditolak dengan HTTP 400.**
+- `q` (opsional): keyword, cocok bila **terkandung** di `contact_name` atau `phone` (setara `LIKE '%q%'`; mentah, tanpa normalisasi format nomor telepon; tidak membedakan huruf besar/kecil). Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian. Karakter `%` dan `_` harus diperlakukan sebagai teks biasa, bukan wildcard. Panjang `q` maksimal 255 karakter; nilai yang lebih panjang wajib menghasilkan HTTP 400.
 - Bila filter `status`/`q` valid tetapi tidak ada conversation yang cocok, response tetap **HTTP 200** dengan array hasil kosong `[]`.
-- `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default). Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian. Karakter `%` dan `_` harus diperlakukan sebagai teks biasa, bukan wildcard.- `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default). Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian. Karakter `%` dan `_` harus diperlakukan sebagai teks biasa, bukan wildcard. Panjang `q` maksimal 255 karakter; nilai yang lebih panjang wajib menghasilkan HTTP 400.
+
+**Bentuk response 200:** `{ "status": "success", "conversations": [ ... ] }`. Setiap "array kosong `[]`" di bagian ini dan di CL-005/CL-013 berarti `conversations: []`. Response 400 berbentuk `{ "status": "error", "message": ... }`.
 
 **Kontrak hasil:**
 1. `q` harus dapat menemukan conversation yang cocok di seluruh dataset yang relevan, termasuk conversation lama; tidak boleh ada batas implisit "hanya N conversation terbaru" sebagai bagian dari kontrak bisnis M3.
@@ -160,15 +170,50 @@ Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b)
 - **AC-004**: Given staff BUKAN assignee menulis Internal Note pada conversation yang di-assign staff lain, When request dikirim, Then request BERHASIL (200), tidak ditolak `cekOwnership()`.
 - **AC-005**: Given `last_message_at` = 20 menit lalu dan conversation berstatus `perlu_dibalas`/`menunggu_customer`, When SLA dihitung, Then warna = kuning.
 - **AC-006**: Given conversation berstatus `ditunda` (snoozed), When SLA dihitung, Then warna = `null` (tidak diwarnai merah/kuning) — sesuai ASSUMPTION-002.
-- **AC-008**: Given conversation `last_message_at = NULL`, When SLA dihitung, Then `sla_color = null`.
 - **AC-007**: Given staff mengisi field Alasan di Snooze Dialog (Fase 1b), When snooze disimpan, Then muncul 1 baris Internal Note baru berisi alasan tersebut, dan TIDAK ada kolom `snooze_reason` yang terisi (kolom itu tidak ada).
+- **AC-008**: Given conversation `last_message_at = NULL`, When SLA dihitung, Then `sla_color = null`.
+
+### AC Filter & Pencarian — API (REQ-012)
+
+- **AC-009**: `GET /inbox/api/conversations` dengan `status`, `q`, dan `page`:
+  - (a) Given ada 60+ conversation dan satu conversation `selesai` bernama "Budi" dengan `last_message_at` paling lama (di luar 50 terbaru), When `?status=selesai&q=budi`, Then HTTP 200 dan `conversations` berisi conversation "Budi" itu (CL-001, CL-003, tidak membedakan huruf besar/kecil).
+  - (b) Given `status=open&q=Budi`, Then hasil hanya conversation yang `queue_status = open` **dan** namanya/nomornya mengandung "Budi" (AND, CL-003).
+  - (c) Given tidak ada conversation yang cocok dengan `q`/`status`, Then HTTP 200 dengan `conversations: []` (CL-005). Given `page` valid tetapi melewati halaman terakhir, Then HTTP 200 dengan `conversations: []` (CL-013).
+  - (d) Given hasil filter berjumlah 60, When `page=1` lalu `page=2`, Then masing-masing berisi 50 dan 10 conversation, tanpa duplikat. Tanpa `page`, hasilnya sama dengan `page=1` (CL-010, CL-011).
+  - (e) Given `q` hanya berisi spasi, Then diperlakukan tanpa pencarian (CL-007). Given `q = "50%"`, Then hanya nama/nomor yang mengandung teks "50%" apa adanya yang cocok (CL-008).
+  - (f) Given `status` di luar 5 nilai enum, ATAU `q` > 255 karakter setelah trim, ATAU `page` bukan bilangan bulat ≥ 1 (termasuk `?page=`), Then HTTP 400 (CL-002, CL-009, CL-012).
+
+### AC level layar (Inbox, `app/Views/inbox/`)
+
+> Test otomatis tidak bisa menjalankan JS di proyek ini. AC-010..AC-012 diverifikasi lewat test render halaman (elemen ada di HTML) + cek manual di browser (lihat §6).
+
+- **AC-010 (GH-002, Internal Note mandiri)**:
+  - (a) Given kasir membuka Conversation Detail milik staff lain (kasir itu bukan assignee), When menekan tombol "Catatan Internal", mengisi "cek stok" lalu Simpan, Then thread menampilkan "cek stok" dengan label "Internal", conversation tetap di tab yang sama, dan tidak ada pesan WhatsApp yang terkirim (SEC-001, CON-002, AC-003).
+  - (b) Given conversation berstatus `selesai`, Then tombol "Catatan Internal" tetap aktif dan note berhasil disimpan (REQ-008).
+  - (c) Given teks kosong/hanya spasi, ATAU lebih dari 4096 byte UTF-8, When Simpan ditekan, Then muncul peringatan dan **tidak ada request** yang dikirim.
+  - (d) Given server menolak atau jaringan gagal, Then muncul pesan error, dialog tetap terbuka, dan teks yang sudah diketik tidak hilang.
+  - (e) Tombol ini tidak bergantung pada `assigned_to`/ownership, dan note tidak dikirim lewat jalur Balas/Gateway.
+- **AC-011 (GH-004, warna SLA Timer di daftar)**:
+  - (a) Given daftar conversation sudah di-refresh dari `GET /inbox/api/conversations`, When `sla_color` bernilai `hijau`/`kuning`/`merah`, Then di samping nama tampil titik warna hijau/kuning/merah dengan tooltip arti ("< 15 menit", "15–60 menit", "> 60 menit").
+  - (b) Given `sla_color` `null`/tidak ada/nilai lain (mis. tab Ditunda/Selesai, `last_message_at` null, atau tampilan pertama dari SSR `index()`), Then tidak ada titik warna dan tidak ada error.
+  - (c) Warna hanya diambil dari nilai server; layar tidak menghitung SLA sendiri (REQ-010). Badge Response State, pemilik, dan closed yang sudah ada tetap tampil.
+  - *Batasan yang diterima:* di tampilan pertama, titik warna baru muncul setelah refresh otomatis pertama (maks. ±6 detik), karena `index()` tidak mengirim `sla_color`.
+- **AC-012 (Layar 7, pencarian nama/nomor)**:
+  - (a) Given conversation lama `selesai` "Budi" di luar 50 baris pertama, When kasir mengetik "budi" di kotak pencarian lalu Enter, Then "Budi" muncul di tab Selesai dan angka tab Selesai = 1. Pencarian dikirim ke server sebagai `q`, bukan disaring di JS (CL-001, CL-003).
+  - (b) Angka di tiap tab mengikuti hasil pencarian.
+  - (c) Refresh otomatis tetap memakai kata kunci yang aktif; daftar tidak kembali ke semua conversation.
+  - (d) Given tidak ada hasil, Then tampil "Tidak ditemukan percakapan untuk \"<kata kunci>\"." (CL-005). Given kata kunci hanya spasi, Then dianggap kosong dan tidak ada `q` yang dikirim (CL-007).
+  - (e) Tombol ✕ menghapus kata kunci dan memuat ulang semua conversation.
+  - (f) Given conversation yang sedang dibuka tidak ada di hasil pencarian, Then panel Conversation Detail dan tombol-tombolnya tetap berfungsi.
+  - (g) Given request pencarian gagal (mis. 400), Then muncul satu pesan error dan daftar sebelumnya tetap tampil.
 
 ## 6. Test Automation Strategy & Testing Seams
 
 - **Testing Seams**: Prioritaskan seam tertinggi yang sudah ada — controller HTTP boundary (`tests/session/` untuk endpoint baru & yang diperluas) dan Model boundary murni (`tests/database/` untuk `ConversationModel::withComputedStatus()`). Hindari testing lewat browser/JS untuk logic computed status.
 - **Test Levels**:
-  - `tests/database/` — `ConversationModel::withComputedStatus()` per kombinasi `response_state` × `assigned_to` (5 tab), dan filter `is_internal = FALSE` pada query `last_message_at`/`last_message_direction`.
-  - `tests/session/` — endpoint POST Internal Note (akses tanpa `cekOwnership()`, AC-004), endpoint `GET /inbox/api/conversations` dengan parameter `status`/`q` baru.
+  - `tests/database/` — `ConversationModel::withComputedStatus()` per kombinasi `response_state` × `assigned_to` (5 tab). *(rev 1.1: tidak ada test "filter `is_internal = FALSE` pada query `last_message_at`" — query seperti itu tidak ada, lihat REQ-009. Perlindungannya adalah test endpoint di bawah yang memastikan `last_message_at`/`last_message_direction` tidak berubah.)*
+  - `tests/session/` — endpoint POST Internal Note (akses tanpa `cekOwnership()`, AC-004; `conversations.last_message_at`/`last_message_direction` tidak berubah setelah note, REQ-009; 400 untuk teks kosong dan > 4096 byte), endpoint `GET /inbox/api/conversations` dengan parameter `status`/`q`/`page` (AC-009).
+  - `tests/session/` (level layar) — GET `/inbox` sebagai kasir, lalu assert HTML berisi elemen dialog Internal Note, kotak pencarian, dan JS yang membaca `sla_color` serta mengirim `q` (AC-010..AC-012). Perilaku JS (klik, toast, polling) dicek manual di browser dengan checklist per poin AC, karena proyek ini tidak punya test runner JS.
   - `tests/unit/` — kalkulasi warna SLA (`hijau|kuning|merah|null`) sebagai pure function jika logic ini diekstrak ke Service (disarankan, konsisten pola `KalkulasiStatusPembayaran` proyek ini), bukan ditaruh di controller.
 - **Test Data Management**: mengikuti pola existing (`tests/_support/` untuk migration/seed test-only), gunakan `DatabaseTestTrait` seperti test Inbox lain yang sudah ada.
 - **Coverage Requirements**: setiap REQ-00x baru (007-012) wajib punya minimal 1 test yang gagal sebelum implementasi (Red) dan lolos sesudahnya (Green), sesuai `tdd-implement` skill proyek ini.
@@ -207,10 +252,17 @@ public function catatanInternal($conversationId = null)
 
     // SENGAJA tidak lewat cekOwnership() -- lihat SEC-001 spec M3 Fase 1:
     // Internal Note boleh ditulis staff manapun, beda dari balas/hapus/snooze.
-    $teks = trim((string) ($this->request->getJSON(true)['teks'] ?? ''));
+    // Form field, bukan JSON body (spec 4.3).
+    $teks = trim((string) ($this->request->getPost('teks') ?? ''));
     if ($teks === '') {
         return $this->response->setStatusCode(400)->setJSON([
             'status' => 'error', 'message' => 'Teks catatan tidak boleh kosong.',
+        ]);
+    }
+
+    if (strlen($teks) > 4096) { // byte, sama dengan validasi layar
+        return $this->response->setStatusCode(400)->setJSON([
+            'status' => 'error', 'message' => 'Teks catatan terlalu panjang (maksimal 4096 karakter).',
         ]);
     }
 
@@ -220,7 +272,7 @@ public function catatanInternal($conversationId = null)
 
 ## 9. Implementation Boundaries
 
-- **Always do:** Reuse `attachResponseState()` (REQ-002); di endpoint Internal Note, JANGAN panggil `ConversationModel::update()` untuk `last_message_at`/`last_message_direction` (REQ-009); jalankan `composer test` sebelum menganggap task selesai; migration additive-only; `apiConversations()` pakai `findAll(500)` + filter-after-fetch (ASSUMPTION-001 — CONFIRMED, lihat 4.4).
+- **Always do:** Reuse `attachResponseState()` (REQ-002); di endpoint Internal Note, JANGAN panggil `ConversationModel::update()` untuk `last_message_at`/`last_message_direction` (REQ-009); jalankan `composer test` sebelum menganggap task selesai; migration additive-only; `apiConversations()` mencari di **seluruh** conversation tanpa batas baris, lalu mengirim hasil **50 per halaman** lewat `page` (ASSUMPTION-001 — CONFIRMED, CL-001, CL-010/011, lihat 4.4). Jangan memasang batas seperti `findAll(500)` atau "N terbaru".
 - **Ask first:** Perubahan pada `Inbox::snoozePercakapan()` yang mengubah kontrak existing (dipakai Fase 1a, jangan pecah backward compatibility saat menambah Fase 1b); field filter tambahan di luar `status`/`q` pada `apiConversations()` yang tidak tercakup spec ini.
 - **Never do:** Menambah kolom `display_status` atau `snooze_reason` baru (sudah diputuskan ditolak di clarification report); membuat Internal Note memicu panggilan ke Gateway; membiarkan Internal Note ikut mengubah `last_message_direction`/`last_message_at`.
 
@@ -275,7 +327,14 @@ Edge case eksplisit yang harus ditangani implementasi (dari sesi clarification):
 ## 13. Validation Criteria
 
 - `composer test` lolos 100% (macro-level gate per `AGENTS.md` Testing Policy) sebelum Fase 1a/1b dianggap selesai.
-- Setiap REQ-00x di Bagian 3 punya minimal 1 acceptance criteria terkait di Bagian 5 — sudah dipenuhi (AC-001 s/d AC-007 mencakup REQ-002/003/004/007/008/009/010/011).
+- Setiap REQ-00x di Bagian 3 punya minimal 1 acceptance criteria terkait di Bagian 5 — sudah dipenuhi (AC-001 s/d AC-012):
+  - REQ-001..004 → AC-001, AC-002
+  - REQ-007..009, SEC-001, CON-002 → AC-003, AC-004, AC-010
+  - REQ-010 → AC-005, AC-006, AC-008, AC-011
+  - REQ-011 → AC-007
+  - REQ-012 → AC-009, AC-012
+  - REQ-005, REQ-006 (wiring ke endpoint existing, Fase 1a) diverifikasi lewat regresi UI, tanpa AC terpisah.
+- AC level layar (AC-010..AC-012) dianggap lolos hanya setelah test render halaman lolos **dan** checklist manual di browser tercatat per poin.
 - Tidak ada regresi pada `attachResponseState()` existing (badge sidebar Tahap A, `apiPerluDibalasCount()`) — jalankan test existing untuk Tahap A sebelum & sesudah perubahan.
 
 ## 14. Related Specifications / Further Reading
@@ -294,9 +353,9 @@ The product-level requirements are documented in `prd-20260922-0141-chat-whatsap
 | Queue View | REQ-001 to REQ-004; AC-001 to AC-002 |
 | Conversation Detail | REQ-005 |
 | Snooze | REQ-006 and REQ-011 |
-| Internal Note | REQ-007 to REQ-009; AC-003 to AC-004; AC-007 |
-| SLA indicator | REQ-010; AC-005 to AC-006 |
-| Filter & Search | REQ-012 and Section 4.4 |
+| Internal Note (GH-002) | REQ-007 to REQ-009; AC-003, AC-004, AC-007; screen AC-010 |
+| SLA indicator (GH-004) | REQ-010; AC-005, AC-006, AC-008; screen AC-011 |
+| Filter & Search (Layar 7) | REQ-012 and Section 4.4; AC-009; screen AC-012 |
 | Gateway changes | Explicitly out of scope; covered separately by the M1 Gateway specification |
 | M3 Phase 2 / AI / full Customer Context | Explicitly out of scope per Section 1.1 |
 

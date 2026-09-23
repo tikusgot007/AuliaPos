@@ -1,6 +1,13 @@
 <!-- markdownlint-disable -->
 
 > [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED for Plan + Spec scope (PRD and Fase 2a plans still open)**
+> This audit report has been remediated by Specification Architect on 2026-09-24 in `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.1.
+> - **Resolved in the Spec:** CT-02 (§9 no longer says `findAll(500)`; no row limit, 50 per page via `page`). CT-03 (§4.3 and §8 match `Inbox::catatanInternal()`: form field `teks`, response `{ status, conversation_id, message }`, 400 for text > 4096 bytes via `strlen`). New AC-009 (REQ-012 API: status + q + page, old conversation found, empty result 200 `conversations: []`) and screen ACs AC-010 (GH-002), AC-011 (GH-004), AC-012 (Layar 7), matching plan TASK-015/016/017. Duplicate `q` bullet in §4.4 removed. Minor gaps: §1.1/§2 Fase 2 wording now points to K-01; §6 no longer asks for an `is_internal` query test; AC-007/AC-008 order fixed; §13 lists AC-001..AC-012 with REQ mapping.
+> - **Still open:** ST-03 and the PRD minor gaps (`/sdlc-draft-prd`). ST-01/ST-02 (Fase 2a plans). MC-01..03 in the running app until TASK-015..017 are coded. Plan TASK-017 still says "REQ-012 has no spec AC yet"; it can now point to AC-009/AC-012.
+> - **Projected Readiness Score:** 86/100 (Completeness 36/40, Clarity 27/30, Alignment 23/30).
+
+> [!SUCCESS]
 > **REMEDIATION STATUS: PARTIALLY RESOLVED (Plan scope only)**
 > This audit report has been remediated by Planner Architect on 2026-09-24 in `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.1.
 > - **Resolved in the Plan:** MC-01..03 (new Phase 3: TASK-015 Internal Note input, TASK-016 SLA Timer dot, TASK-017 search box, TASK-018 VERIFY, TASK-019 APPROVAL). CT-01 (TASK-001..011 ticked with code evidence, `status` back to `In progress`). CT-02 on the Plan side (TASK-011, TASK-013, ASSUMPTION-001, RISK-002, TEST-003 no longer say `findAll(500)`).
