@@ -4,13 +4,13 @@ version: 1.2
 date_created: 2026-09-21
 last_updated: 2026-09-23
 owner: WA-Gateway reliability (M1)
-status: 'In progress'
+status: 'Completed'
 tags: [process, gateway, whatsapp, baileys, m1, reliability, incoming, buffer]
 ---
 
 # Introduction
 
-![Status: In progress](https://img.shields.io/badge/status-In%20progress-yellow)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 Plan ini mengeksekusi `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1, Readiness Score 85/100 setelah klarifikasi, proyeksi 94/100 setelah remediasi) untuk menutup dua risiko P0 di `docs/TODO-CHAT.md`: pesan masuk yang hilang senyap (GW-08) dan antrean JSON yang korup. Semua kode ada di repo **WA-Gateway**, worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`. Plan ini sendiri disimpan di `/plan/` repo AuliaPos, mengikuti pola `plan-feature-m3-operational-inbox-fase1-v1.0.md`. **Sesi ini tidak mengubah kode apa pun** — eksekusi kode dilakukan oleh `/sdlc-write-code` di sesi terpisah pada worktree Gateway.
 
