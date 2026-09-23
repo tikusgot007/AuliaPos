@@ -1304,3 +1304,38 @@
 <!-- checkpoint-tail: Spec M3 Fase 1 rev 1.1 fixed CT-02/CT-03 and added AC-009..AC-012 (API search + screen ACs), projected 86/100; next step is /sdlc-write-code for plan Phase 3 TASK-015..019 (Internal Note button, SLA dot, search box). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (M3 Fase 1c code, plan Phase 3 done)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code done for plan Phase 3 (Fase 1c), approved by the user (TASK-019). Next: Review.
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.1, Status: ✅ Completed (TASK-001..019 ticked).
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.1, unchanged this session.
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 — §9.2 still stale (ST-03).
+  - Both Fase 2a plans — still stale (ST-01/ST-02).
+- **Achieved Milestones:**
+  - TASK-015: "Catatan Internal" button in `renderThreadHeader()` (no ownership/status gate) + `#modalCatatanInternal`; note fetch extracted to `kirimCatatanInternal()`, shared with `simpanAlasanSnooze()`.
+  - TASK-016: SLA dot `renderTitikSla(c.sla_color)`, server value only; null/unknown = no dot.
+  - TASK-017: `#inputCariConversation` (maxlength 255) + ✕; `kataKunciAktif` sent as `&q=` on every page request incl. polling; stale-keyword results dropped; failed search = one toast + previous keyword kept; `conversationAktifSaatIni()` keeps the open conversation usable while search hides it.
+  - TASK-018: `tests/session/OperationalInboxScreenTest.php` (3 tests); full suite 317/317; manual browser check 8/8 by the user.
+  - Commits on `v2.3` (pushed): `f3bd8fa` (feature), `70726c1` (plan closure).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** treating the manual-test "search fail" as a screen bug.
+  - **Reason:** the server `q` matches only `contact_name`/`phone` (spec 4.4); the dummy conversation's name came from `whatsapp_name`. After saving the contact it was found. Not a code bug → TODO-SEARCH-01.
+- **Updated Files:**
+  - `app/Views/inbox/index.php` — Internal Note button/modal, SLA dot, search box
+  - `tests/session/OperationalInboxScreenTest.php` — new page-render test
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — TASK-015..019 ticked, TASK-017 AC Ref = AC-009, AC-012, status Completed
+- **Decisions Made:**
+  - Search stays within spec 4.4 for Fase 1c; wider search is TODO-SEARCH-01 via `/sdlc-define-specs` (name/number first, message-content search second — content search needs spec decisions: include Internal Notes?, index/FULLTEXT + migration?, show matching snippet?).
+  - `composer test` exits 1 only because of the Xdebug coverage-mode runner warning (`phpunit.dist.xml` has `<coverage>` + `failOnWarning`); `vendor/bin/phpunit --no-coverage` is the clean gate (exit 0).
+- **Next Action / Pending:**
+  - `/sdlc-code-review` of `f3bd8fa` (attach spec + plan).
+  - `/sdlc-audit-consistency` to re-check MC-01..03.
+  - `/sdlc-define-specs` for TODO-SEARCH-01.
+  - Backlog: plan Phase 3 NOTE still says "spec has no screen-level AC for REQ-012 yet" (outdated); `/sdlc-draft-prd` §9.2; sync the two Fase 2a plans.
+
+<!-- checkpoint-tail: M3 Fase 1c screen (Internal Note button, SLA dot, search box) done and approved, commits f3bd8fa + 70726c1 on v2.3, 317/317 tests + 8/8 manual; next is /sdlc-code-review, then /sdlc-audit-consistency, then /sdlc-define-specs for TODO-SEARCH-01 (search whatsapp_name/manual_phone + message content). -->
+
+---
