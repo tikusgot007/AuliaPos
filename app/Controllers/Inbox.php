@@ -24,6 +24,12 @@ use Config\Inbox as InboxConfig;
  */
 class Inbox extends BaseController
 {
+    /** Nilai sah parameter `status` di GET /inbox/api/conversations (CL-002). */
+    private const QUEUE_STATUSES = ['belum_diambil', 'open', 'menunggu', 'ditunda', 'selesai'];
+
+    /** Ukuran halaman GET /inbox/api/conversations (CL-010). */
+    private const CONVERSATIONS_PER_PAGE = 50;
+
     /**
      * GET /inbox
      *
@@ -64,9 +70,33 @@ class Inbox extends BaseController
      * Daftar conversation dalam JSON, dipakai polling berkala oleh
      * halaman index() untuk memperbarui daftar (mis. ada conversation
      * baru masuk, atau last_message_at berubah).
+     *
+     * Spec M3 4.4: parameter divalidasi dulu (400) sebelum query;
+     * filter status/q tetap filter-after-fetch atas seluruh dataset,
+     * baru hasilnya dipotong 50 per halaman (CL-010) -- paging tidak
+     * membatasi dataset yang dicari.
      */
     public function apiConversations()
     {
+        $status = trim((string) ($this->request->getGet('status') ?? ''));
+        $q = trim((string) ($this->request->getGet('q') ?? ''));
+        $pageParam = $this->request->getGet('page');
+
+        if ($status !== '' && !in_array($status, self::QUEUE_STATUSES, true)) {
+            return $this->badRequest('Parameter status tidak valid.');
+        }
+
+        if (mb_strlen($q) > 255) {
+            return $this->badRequest('Kata pencarian maksimal 255 karakter.');
+        }
+
+        // Hanya digit dan tanpa nol di depan: menolak 0, negatif, desimal,
+        // teks, dan string kosong (CL-012). Absen = halaman 1 (CL-011).
+        if ($pageParam !== null && !(is_string($pageParam) && preg_match('/^[1-9]\d{0,8}$/', $pageParam))) {
+            return $this->badRequest('Parameter page harus bilangan bulat mulai dari 1.');
+        }
+        $page = $pageParam === null ? 1 : (int) $pageParam;
+
         $conversationModel = new ConversationModel();
         $conversations = $conversationModel
             ->orderBy('last_message_at', 'DESC')
@@ -83,9 +113,6 @@ class Inbox extends BaseController
         }
         unset($conversation);
 
-        $status = trim((string) ($this->request->getGet('status') ?? ''));
-        $q = trim((string) ($this->request->getGet('q') ?? ''));
-
         if ($status !== '') {
             $conversations = array_values(array_filter(
                 $conversations,
@@ -98,14 +125,25 @@ class Inbox extends BaseController
             $conversations = array_values(array_filter(
                 $conversations,
                 static fn(array $conversation): bool =>
-                str_contains((string) ($conversation['contact_name'] ?? ''), $needle)
-                    || str_contains((string) ($conversation['phone'] ?? ''), $needle)
+                mb_stripos((string) ($conversation['contact_name'] ?? ''), $needle) !== false
+                    || mb_stripos((string) ($conversation['phone'] ?? ''), $needle) !== false
             ));
         }
+
+        // Halaman di luar data terakhir = [] (CL-013), bukan 404/400.
+        $conversations = array_slice($conversations, ($page - 1) * self::CONVERSATIONS_PER_PAGE, self::CONVERSATIONS_PER_PAGE);
 
         return $this->response->setJSON([
             'status'        => 'success',
             'conversations' => $conversations,
+        ]);
+    }
+
+    private function badRequest(string $message)
+    {
+        return $this->response->setStatusCode(400)->setJSON([
+            'status'  => 'error',
+            'message' => $message,
         ]);
     }
 

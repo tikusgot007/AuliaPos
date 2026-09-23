@@ -375,4 +375,122 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
 
         $this->assertSame([$oldConversationId], $this->idsDari('?q=Jadul'));
     }
+
+    private function assertBadRequest(string $query): void
+    {
+        $res = $this->withSession($this->sesi())
+            ->get('inbox/api/conversations' . $query);
+
+        $res->assertStatus(400);
+        $data = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('error', $data['status']);
+    }
+
+    /**
+     * Seed $jumlah conversation dengan last_message_at berbeda (terbaru
+     * dulu) supaya urutan halaman deterministik.
+     *
+     * @return list<int> id urut last_message_at DESC
+     */
+    private function seedBerurutan(int $jumlah): array
+    {
+        $ids = [];
+        for ($i = 0; $i < $jumlah; $i++) {
+            $waktu = date('Y-m-d H:i:s', strtotime('2026-09-22 14:00:00') - ($i * 60));
+            $ids[] = $this->seedConversation([
+                'last_message_at' => $waktu,
+                'updated_at' => $waktu,
+            ]);
+        }
+
+        return $ids;
+    }
+
+    /**
+     * CL-002: status di luar 5 status Queue View ditolak 400.
+     */
+    public function testStatusTidakValidDitolak400(): void
+    {
+        $this->seedConversation();
+
+        $this->assertBadRequest('?status=semua');
+        $this->assertBadRequest('?status=perlu_dibalas');
+        $this->assertBadRequest('?status=SELESAI');
+    }
+
+    /**
+     * CL-009: q lebih dari 255 karakter setelah trim ditolak 400;
+     * tepat 255 karakter masih boleh.
+     */
+    public function testQLebihDari255KarakterDitolak400(): void
+    {
+        $this->seedConversation(['contact_name' => 'Budi']);
+
+        $this->assertBadRequest('?q=' . str_repeat('a', 256));
+        $this->assertSame([], $this->idsDari('?q=' . str_repeat('a', 255)));
+        $this->assertSame([], $this->idsDari('?q=' . rawurlencode('  ' . str_repeat('a', 255) . '  ')));
+    }
+
+    /**
+     * CL-010/011: 50 conversation per halaman, page mulai 1, default 1.
+     */
+    public function testPaginationLimaPuluhPerHalaman(): void
+    {
+        $semua = $this->seedBerurutan(60);
+
+        $this->assertSame(array_slice($semua, 0, 50), $this->idsDari(''));
+        $this->assertSame(array_slice($semua, 0, 50), $this->idsDari('?page=1'));
+        $this->assertSame(array_slice($semua, 50, 10), $this->idsDari('?page=2'));
+    }
+
+    /**
+     * CL-010: pagination berlaku setelah filter, bukan memotong dataset
+     * yang dicari.
+     */
+    public function testPaginationBerlakuSetelahFilter(): void
+    {
+        $this->seedBerurutan(55);
+        $lama = $this->seedConversation([
+            'status' => 'closed',
+            'last_message_at' => '2020-01-01 10:00:00',
+            'updated_at' => '2020-01-01 10:00:00',
+        ]);
+
+        $this->assertSame([$lama], $this->idsDari('?status=selesai&page=1'));
+    }
+
+    /**
+     * CL-012: page 0, negatif, atau bukan bilangan bulat ditolak 400.
+     */
+    public function testPageTidakValidDitolak400(): void
+    {
+        $this->seedConversation();
+
+        foreach (['0', '-1', 'abc', '1.5', '', '01x', ' 1'] as $page) {
+            $this->assertBadRequest('?page=' . rawurlencode($page));
+        }
+    }
+
+    /**
+     * CL-013: page valid di luar data terakhir tetap 200 dengan [].
+     */
+    public function testPageMelewatiDataTerakhirMengembalikanArrayKosong(): void
+    {
+        $this->seedBerurutan(3);
+
+        $this->assertSame([], $this->idsDari('?page=2'));
+        $this->assertSame([], $this->idsDari('?page=999'));
+    }
+
+    /**
+     * Spec 4.4: pencarian q tidak membedakan huruf besar/kecil.
+     */
+    public function testQTidakMembedakanHurufBesarKecil(): void
+    {
+        $budi = $this->seedConversation(['contact_name' => 'Budi Surabaya']);
+        $this->seedConversation(['contact_name' => 'Andi']);
+
+        $this->assertSame([$budi], $this->idsDari('?q=budi'));
+        $this->assertSame([$budi], $this->idsDari('?q=SURABAYA'));
+    }
 }

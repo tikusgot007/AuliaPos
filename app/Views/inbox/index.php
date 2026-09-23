@@ -815,17 +815,43 @@
         }).join('');
     }
 
+    // API mengirim 50 conversation per halaman (spec M3 4.4 CL-010),
+    // sedangkan tab/angka/badge dihitung dari daftar LENGKAP -- jadi
+    // ambil page 1, 2, ... sampai halaman berisi < 50, lalu gabungkan.
+    // Satu halaman gagal = seluruh putaran ditolak (daftar lama dipakai).
+    // Dedupe per id: conversation bisa bergeser halaman kalau ada pesan
+    // masuk di tengah putaran.
+    const CONVERSATIONS_PER_PAGE = 50;
+
+    function ambilSemuaConversation() {
+        const hasil = [];
+        const sudahAda = new Set();
+
+        function ambilHalaman(page) {
+            return fetch('<?= base_url('/inbox/api/conversations') ?>?page=' + page)
+                .then(function(res) {
+                    return res.json();
+                })
+                .then(function(json) {
+                    if (json.status !== 'success') throw new Error(json.message || 'Gagal memuat conversation.');
+                    json.conversations.forEach(function(c) {
+                        if (sudahAda.has(String(c.id))) return;
+                        sudahAda.add(String(c.id));
+                        hasil.push(c);
+                    });
+                    return json.conversations.length < CONVERSATIONS_PER_PAGE ? hasil : ambilHalaman(page + 1);
+                });
+        }
+
+        return ambilHalaman(1);
+    }
+
     function muatUlangDaftarConversation() {
-        fetch('<?= base_url('/inbox/api/conversations') ?>')
-            .then(function(res) {
-                return res.json();
-            })
-            .then(function(json) {
-                if (json.status === 'success') {
-                    daftarConversation = json.conversations;
-                    renderDaftarConversation();
-                    renderThreadHeader();
-                }
+        ambilSemuaConversation()
+            .then(function(semua) {
+                daftarConversation = semua;
+                renderDaftarConversation();
+                renderThreadHeader();
             })
             .catch(function() {
                 // Diamkan -- polling berikutnya akan coba lagi. Tidak
@@ -1549,16 +1575,14 @@
 
                     // Muat ulang daftar conversation, lalu langsung buka
                     // conversation yang baru dibuat/dipakai.
-                    fetch('<?= base_url('/inbox/api/conversations') ?>')
-                        .then(function(r) {
-                            return r.json();
+                    ambilSemuaConversation()
+                        .then(function(semua) {
+                            daftarConversation = semua;
+                            renderDaftarConversation();
+                            pilihConversation(json.conversation_id);
                         })
-                        .then(function(listJson) {
-                            if (listJson.status === 'success') {
-                                daftarConversation = listJson.conversations;
-                                renderDaftarConversation();
-                                pilihConversation(json.conversation_id);
-                            }
+                        .catch(function() {
+                            // Diamkan -- polling berikutnya memuat ulang daftar.
                         });
                 } else {
                     showToast(json.message || 'Gagal memulai chat.', 'danger');
