@@ -857,3 +857,40 @@
 
 ---
 
+
+## 📝 Session Checkpoint: 2026-09-23 (M1 Wave 1 code review)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review`) → awaiting user decision before `/sdlc-write-code` or PR
+- **Active Artifacts:**
+  - `spec/spec-process-m1-wave1-incoming-reliability.md` — v1.1, unchanged
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — v1.2 `Completed`, unchanged (review findings recorded, plan not edited)
+  - `docs/audit/code-review-m1-wave1-2026-09-23.md` — ✅ new, two-axis review of WA-Gateway `e18f716..065f683`
+  - `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` — ⏳ `Planned` (Phase 1 = P1, Phase 2 = 6 required P2)
+- **Achieved Milestones:**
+  - Reviewed all 21 files / 21 commits of M1 Wave 1 in worktree `C:\projects\WA-Gateway-m1` @ `065f683` (clean before and after). Live folder, `auth/`, PM2 untouched; no production code edited.
+  - Verdict: **0 P0, 1 P1, 14 P2**. Spec axis: 19/19 REQ + CON-001..004 + GUD-001/002 met; AC-014 has no committed script (CR-15).
+  - **CR-01 (P1), reproduced on Windows in scratchpad:** healthy SQLite DB locked by another connection at start → read-only `quick_check` blocks ~7.4 s → `SQLITE_BUSY` treated as "corrupt" → `renameSync` EBUSY → constructor throws → singleton catch (`incomingBuffer.js:584-593`) silently falls back to JSON with a misleading `warn` "better-sqlite3 tidak tersedia" → split-brain / silent message loss path.
+  - 12/12 test scripts pass (temp `SQLITE_PATH`); floor-guard clean (no skip/eslint-disable/removed asserts); no token ever logged; `SUPERVISOR_TOKEN` does not exist in WA-Gateway source; CON-004 confirmed.
+  - Declared deviations: (a)(c)(d)(e) documentation suffices; (b) needs owner confirmation (no `critical` log level); (f) fine but its file is orphan; **(g) inaccurate** — `OWN_SENT_TTL_MS<=0` accepted and silently disables the own-sent filter (CR-04).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** trusting sub-agent `file:line` citations verbatim. **Reason:** one agent quoted diff-hunk line numbers (e.g. `ownSentRegistry.js:212` for a 70-line file). **Note:** always re-grep line numbers from the real file at the reviewed SHA before writing a report.
+  - **Attempted:** reproducing a DB lock while the first better-sqlite3 connection was still open. **Reason:** `BEGIN EXCLUSIVE` itself failed with SQLITE_BUSY. **Note:** close the writer connection first, then take the exclusive lock.
+- **Updated Files:**
+  - `docs/audit/code-review-m1-wave1-2026-09-23.md` — new review report (CR-01..CR-18, traceability matrix, 7-deviation table, evidence limits).
+  - `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` — new refactor plan (TASK-101..105, TASK-201..209).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint.
+- **Decisions Made:**
+  - Refactor plan fix for CR-01: quarantine only on `quick_check != ok` or `SQLITE_CORRUPT`/`SQLITE_NOTADB`; constructor failure → `[CRITICAL]` log + rethrow (PM2 restarts) instead of JSON fallback (ALT-001 rejected: JSON rows are never read back).
+  - Old overlapping tests (`simulate-enqueue-failure.js`, `simulate-e05-lid-timeout.js`, `simulate-e09-json-recovery.js`) to be deleted after a scenario-coverage mapping; they write to non-temp DBs and would inject fake pending rows if run in the live folder.
+  - WA-Gateway copy of `docs/decisions/2026-09-21-m1-ticket01-baseline.md` (81 lines, stale vs 275-line AuliaPos copy) to be removed; AuliaPos is the single source.
+  - Backlog only (not in plan, RISK-004): CR-05 (sync 5 s busy-timeout stall), CR-06 (static regex guard fragile; runtime assert already exists in append-handling #1-5), CR-07, CR-08 (`_lidFailureCache` unbounded), CR-09, CR-10 (SRP split), CR-11, CR-15.
+- **Next Action / Pending:**
+  - **User decision pending:** Option A (recommended) = run Phase 1 of the refactor plan via `/sdlc-write-code` before creating PR `feature/stage-1-reliability` → `master`; Option B = create PR now, fix in follow-up.
+  - Owner confirmation still needed for deviation (b) (`logger.error` + `[CRITICAL]` instead of a `critical` level).
+  - Leftover `data/test-e09-buffer.sqlite` (gitignored) remains in the M1 worktree; removal is TASK-206.
+  - AuliaPos branch `feature/m3-operational-inbox-fase1a-task001`: the two new review files are uncommitted.
+
+<!-- checkpoint-tail: /sdlc-code-review of M1 Wave 1 (WA-Gateway e18f716..065f683) produced docs/audit/code-review-m1-wave1-2026-09-23.md and plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md — 0 P0 / 1 P1 / 14 P2, spec 19/19 REQ met; the P1 (CR-01, reproduced) is a locked-but-healthy SQLite DB at start being treated as corrupt and the constructor failure silently falling back to JSON; awaiting user choice: fix Phase 1 via /sdlc-write-code before the PR (recommended) or open the PR now. -->
+
+---
