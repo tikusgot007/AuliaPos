@@ -1512,3 +1512,37 @@
 <!-- checkpoint-tail: PRD v1.3 done (status synced, GH-001..004 ticked, terms aligned, new GH-009 name/number search + GH-010 message-text search with snippet); next: /sdlc-define-specs for GH-009 + NG-04/05, and /sdlc-plan-tasks for ST-01/ST-02. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (REFINE step 3: Spec rev 1.2, Fase 1d search contract)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Spec remediation done (REFINE step 3 of 4). Next: `/sdlc-plan-tasks` for Fase 1d.
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.2 (not committed yet).
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — new `RESOLVED for Spec scope (REFINE step 3)` block; projected 95/100 (C 38, Cl 29, A 28).
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — v1.3, unchanged this session.
+- **Achieved Milestones:**
+  - NG-01 / TODO-SEARCH-01 closed at Spec level: Fase 1d contract for GH-009 (CL-015, REQ-013, CON-003, §4.4, AC-013 a–h, §6, §9, §12, §13, §15).
+  - NG-04: literal `\n` in §1.2 replaced with real line breaks.
+  - NG-05: "4096 byte" in CL-006, §8 sample, §12.
+- **Dead-Ends (Do NOT Repeat):**
+  - None.
+- **Updated Files:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.2.
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — remediation block.
+- **Decisions Made:**
+  - `q` matches 5 columns, ALWAYS all five regardless of which one is displayed: `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id` (`chat_id` included because the list shows it as the name fallback, `index.php:887`).
+  - Matching is per column (no concatenated "name + number" match), case-insensitive, raw (no phone normalization), NULL columns = no match, no error.
+  - Fase 1d = no migration, no new param, no screen change: only the `q` predicate in `Inbox::apiConversations()` (currently `mb_stripos` filter-after-fetch on `contact_name`/`phone`, `Inbox.php:124-130`) + tests in the existing `apiConversations` session test.
+  - Accepted edges: old `whatsapp_name` not searchable after the customer renames; broad `q` like "lid" matches many `chat_id`s.
+  - GH-010 (Fase 1e) explicitly out of scope in Spec §1.1 until a later revision.
+- **Next Action / Pending:**
+  - Commit Spec rev 1.2 + audit block (user has not asked yet).
+  - `/sdlc-plan-tasks`: add Fase 1d task(s) for REQ-013/AC-013 to `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (also update TASK-018's TODO-SEARCH-01 note).
+  - Code-review TODO: "4096 karakter" wording still in `Inbox.php:951` and `index.php:1308`.
+  - Separate: `/sdlc-plan-tasks` ST-01/ST-02 (Fase 2a plans); later `/sdlc-clarify-reqs` GH-010 (Fase 1e); final `/sdlc-audit-consistency`.
+  - Still pending: NIT STD-03, FYI STD-04; check WA Gateway `data/` before moving the gateway.
+
+<!-- checkpoint-tail: Spec rev 1.2 done (Fase 1d: q searches contact_name/whatsapp_name/phone/manual_phone/chat_id per column, AC-013; NG-04/NG-05 fixed; projected 95/100); next: /sdlc-plan-tasks for Fase 1d, then code. -->
+
+---
