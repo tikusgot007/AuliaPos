@@ -1040,9 +1040,11 @@ class Inbox extends BaseController
                 'message' => 'Tindakan berikutnya (next_action) wajib diisi.',
             ]);
         }
+        // REQ-003 (CR-05): the 4096 cap is measured in CHARACTERS
+        // (mb_strlen), matching VARCHAR(4096) and the UI maxlength.
         if (
-            strlen($summary) > 4096 || strlen($nextAction) > 4096
-            || ($note !== null && strlen($note) > 4096)
+            mb_strlen($summary) > 4096 || mb_strlen($nextAction) > 4096
+            || ($note !== null && mb_strlen($note) > 4096)
         ) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',

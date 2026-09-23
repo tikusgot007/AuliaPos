@@ -915,4 +915,47 @@ final class InboxHandoffTest extends CIUnitTestCase
         $this->assertSame(8, (int) $this->conversation($id)['assigned_to']);
         $this->assertCount(1, $this->handoffRows($id));
     }
+
+    public function testE11Summary4096KarakterMultiByteDiterimaDanTersimpanUtuh(): void
+    {
+        // REQ-003 (CR-05): cap diukur dalam KARAKTER (mb_strlen), bukan
+        // byte. 'é' = 2 byte tapi 1 karakter, jadi 4096 karakter ini
+        // legal (dulu ditolak 400 oleh strlen).
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $summary = str_repeat('é', 4096);
+        $this->assertSame(4096, mb_strlen($summary));
+
+        $payload = $this->validPayload(8, 7);
+        $payload['summary'] = $summary;
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload);
+
+        $response->assertOK();
+
+        $rows = $this->handoffRows($id);
+        $this->assertCount(1, $rows);
+        // Teks tersimpan utuh (bukan terpotong).
+        $this->assertSame($summary, $rows[0]['summary']);
+        $this->assertSame(4096, mb_strlen($rows[0]['summary']));
+    }
+
+    public function testE12Summary4097KarakterMultiByteDitolak400(): void
+    {
+        // REQ-003 (CR-05): 4097 KARAKTER (di atas cap) tetap ditolak.
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $payload = $this->validPayload(8, 7);
+        $payload['summary'] = str_repeat('é', 4097);
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $payload);
+
+        $response->assertStatus(400);
+        $response->assertJSONFragment(['message' => 'Ringkasan, tindakan berikutnya, dan catatan maksimal 4096 karakter.']);
+
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
 }
