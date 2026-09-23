@@ -1161,3 +1161,38 @@
 <!-- checkpoint-tail: TASK-013 finished in b8fd05a: apiConversations() validates status/q/page (400), pages 50 per page after filter, returns [] past the end, and q is case-insensitive; the Inbox screen merges all pages via ambilSemuaConversation(); composer test 314/314; next is a manual browser check plus /sdlc-code-review, then TASK-014. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-23 (Code review of M3 TASK-013, commit b8fd05a — Fase 1 plan Completed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review → done. M3 Fase 1 plan is **Completed** (TASK-014 APPROVAL given by the user).
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — 4.4 `page` bullet: an empty `?page=` is invalid (400); only an absent `page` means page 1.
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — status `Completed`, TASK-014 ✅ 2026-09-23.
+- **Achieved Milestones:**
+  - `/sdlc-code-review` of `b8fd05a`: no CRITICAL/REQUIRED findings → clear to merge, no refactoring plan written. Test file `OperationalInboxConversationTest.php` 18/18 OK.
+  - Verified: paging is applied after the filter (CL-001 kept), status comes only from `withComputedStatus()` (REQ-002 kept), CL-002/009..013 implemented.
+  - Manual browser check of `/inbox` tab counts after paging: passed (user, 2026-09-23).
+- **Decisions Made:**
+  - SPEC-01 = Option A: keep 400 for an empty `?page=`; spec text fixed, no code change.
+- **Open review findings (all OPTIONAL/NIT, not scheduled — candidates for `/code-janitor`):**
+  - STD-01: `setInterval(muatUlangDaftarConversation, 6000)` has no in-flight guard; with ceil(N/50) sequential page requests, rounds can overlap and an older round can overwrite newer data (`app/Views/inbox/index.php:2122`).
+  - STD-02: a conversation that jumps from a later page to page 1 mid-round is missed for that round (dedupe only handles duplicates); self-heals after 6 s.
+  - STD-03: `ambilHalaman()` has no max-page cap (infinite loop if the server ever ignores `page`).
+  - STD-04: `ORDER BY last_message_at DESC` has no tie-breaker; add `->orderBy('id','DESC')` for stable paging.
+  - STD-05: page regex uses `$`, so `"1\n"` is accepted; use `\z` (proven with `preg_match`).
+  - STD-06 (pre-existing): `?status[]=x` / `?q[]=x` → `(string)` array cast warning (likely 500, not verified in CI4); `q[]` searches the word "Array". Guard with `is_string()`.
+  - STD-07 test gaps: JS helper untested; CL-009 not tested with multibyte chars (`strlen` would pass); no `?q=..&page=2` test; no test that empty `?status=` means no filter.
+  - SPEC-02: page > 9 digits → 400 instead of CL-013 `[]` (NIT, accepted).
+  - Doc drift: spec §9 / REQ-012 / TASK-011 still say `findAll(500)`; code uses unbounded `findAll()` (correct per CL-001). Spec 4.4 also has the `q` bullet duplicated on one line.
+- **KB correction:** the KB fact "`apiConversations()` has no filter params and hardcodes `findAll(100)`" is STALE — it now accepts `status`/`q`/`page` (50 per page, 400 validation) and uses `findAll()` without a limit. Fix at the next compaction.
+- **Updated Files:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — SPEC-01 sentence in 4.4
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — TASK-014 ✅, status Completed
+- **Next Action / Pending:**
+  - Open a PR for `feature/m3-operational-inbox-fase1a-task001` (M3 Fase 1 + Fase 2a) into the correct base branch — confirm the base first (`v2.3` per KB branch topology; git status reports `v2.1` as main).
+  - Optional later: `/code-janitor` for STD-01/03/05/06.
+
+<!-- checkpoint-tail: Code review of b8fd05a found no blocking issues; SPEC-01 kept 400 for empty ?page= (spec updated), manual browser check passed, TASK-014 approved and the M3 Fase 1 plan is Completed; next is a PR for the feature branch (confirm base branch first). -->
+
+---
