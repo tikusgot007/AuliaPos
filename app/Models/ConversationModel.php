@@ -118,6 +118,57 @@ class ConversationModel extends Model
         'status'   => 'in_list[open,closed]',
     ];
 
+
+    /**
+     * Compute the operational queue status from the existing response-state
+     * contract and assignment state.
+     *
+     * This is the single source of truth for Queue View status. It performs
+     * no database queries and preserves the input rows while adding
+     * `response_state` and `queue_status`.
+     *
+     * @param array<int, array<string, mixed>> $conversations
+     * @return array<int, array<string, mixed>>
+     */
+    public function withComputedStatus(array $conversations): array
+    {
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        foreach ($conversations as &$conversation) {
+            if (($conversation['status'] ?? null) === 'closed') {
+                $responseState = 'selesai';
+            } elseif (!empty($conversation['snoozed_until']) && $conversation['snoozed_until'] > $now) {
+                $responseState = 'follow_up';
+            } elseif (($conversation['last_message_direction'] ?? null) === 'incoming'
+                && (empty($conversation['last_seen_by_assignee_at'])
+                    || $conversation['last_seen_by_assignee_at'] < ($conversation['last_message_at'] ?? null))) {
+                $responseState = 'perlu_dibalas';
+            } elseif (in_array($conversation['last_message_direction'] ?? null, ['incoming', 'outgoing'], true)) {
+                $responseState = 'menunggu_customer';
+            } else {
+                // Safe fallback for newly-created/incomplete rows.
+                $responseState = 'perlu_dibalas';
+            }
+
+            $conversation['response_state'] = $responseState;
+
+            if ($responseState === 'perlu_dibalas') {
+                $conversation['queue_status'] = empty($conversation['assigned_to'])
+                    ? 'belum_diambil'
+                    : 'open';
+            } elseif ($responseState === 'menunggu_customer') {
+                $conversation['queue_status'] = 'menunggu';
+            } elseif ($responseState === 'follow_up') {
+                $conversation['queue_status'] = 'ditunda';
+            } else {
+                $conversation['queue_status'] = 'selesai';
+            }
+        }
+        unset($conversation);
+
+        return $conversations;
+    }
+
     /**
      * Cari conversation berdasarkan chat_id (JID asli WhatsApp, apa
      * adanya) -- lewat tabel alias `conversation_identities`, BUKAN

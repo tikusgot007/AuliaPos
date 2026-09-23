@@ -26,6 +26,8 @@ use App\Libraries\InboxMediaStorage;
 $pass = 0;
 $fail = 0;
 
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+
 function check(string $name, $expected, $actual, &$pass, &$fail): void
 {
     if ($expected === $actual) {
@@ -104,3 +106,4 @@ check(
 
 echo "\n== $pass PASS, $fail FAIL ==\n";
 exit($fail > 0 ? 1 : 0);
+}

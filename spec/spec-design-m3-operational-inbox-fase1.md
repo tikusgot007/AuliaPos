@@ -33,10 +33,10 @@ Asumsi: seluruh kerja ini dibangun di atas branch turunan `v2.2` (bukan `v2.1`/`
 
 ## 1.2 Open Questions & Assumptions
 
-Semua ambiguitas mayor sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-2026-09-20.md`). Ketiga asumsi teknis minor yang sebelumnya ditandai `[!WARNING]` sudah digali eksplisit ke user dan **dikonfirmasi final** lewat sesi klarifikasi kedua (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md`, Readiness Score 87/100):
+> [!NOTE]\n> **Klarifikasi berjalan — keputusan dicatat langsung di Blueprint M3.** Setiap keputusan baru pada sesi clarification wajib ditulis di dokumen ini agar tidak dibahas ulang.\n\nSemua ambiguitas mayor sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-2026-09-20.md`). Ketiga asumsi teknis minor yang sebelumnya ditandai `[!WARNING]` sudah digali eksplisit ke user dan **dikonfirmasi final** lewat sesi klarifikasi kedua (lihat `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md`, Readiness Score 87/100):
 
 > [!IMPORTANT]
-> **ASSUMPTION-001 — CONFIRMED:** Filter & Pencarian (Layar 7, Fase 1b) ditambahkan sebagai parameter query string baru di `GET /inbox/api/conversations` (`Inbox::apiConversations()`) — bukan endpoint baru. Query final: `?status=<tab>&q=<keyword nama/nomor>`. Mekanisme: **filter-after-fetch** di PHP (bukan `WHERE` SQL per tab yang menerjemahkan ulang kondisi `attachResponseState()`, untuk menghindari duplikasi logic sesuai REQ-002). Limit `findAll()` pada `apiConversations()` dinaikkan dari `100` menjadi **`500`** (konsisten dengan limit yang sudah dipakai `apiPerluDibalasCount()`/`apiMessages()` di controller yang sama) supaya filter tab dengan `last_message_at` lama (mis. "Selesai") tidak kehilangan data. Parameter `q` memakai `LIKE '%q%'` mentah terhadap `contact_name`/`phone`, tanpa normalisasi format nomor telepon. Detail lengkap: lihat Bagian 4.4.
+> **ASSUMPTION-001 — CONFIRMED:** Filter & Pencarian (Layar 7, Fase 1b) ditambahkan sebagai parameter query string baru di `GET /inbox/api/conversations` (`Inbox::apiConversations()`) — bukan endpoint baru. Query final: `?status=<tab>&q=<keyword nama/nomor>`. **Kontrak pencarian tidak boleh dibatasi hanya pada conversation terbaru atau limit tetap tertentu**: ketika `q` diberikan, hasil harus dapat menemukan conversation yang sesuai di seluruh dataset conversation yang relevan, termasuk conversation lama. Mekanisme teknis boleh menggunakan query DB/pagination/index atau cara lain yang tetap memenuhi kontrak ini; Blueprint tidak mengunci implementasi internal. Parameter `q` memakai pencarian terhadap `contact_name` atau `phone`, tanpa normalisasi format nomor telepon. Detail lengkap: lihat Bagian 4.4.
 
 > [!IMPORTANT]
 > **ASSUMPTION-002 — CONFIRMED:** SLA warna (Bagian 5) dihitung **hanya untuk conversation yang statusnya bukan `selesai` dan bukan `follow_up` (snoozed)** — snoozed conversation sengaja tidak diberi warna SLA merah/kuning karena secara desain memang "ditunda dengan sengaja", bukan terlambat. Dikonfirmasi eksplisit bahwa Response State `menunggu_customer` **tetap ikut** dihitung warna SLA (sesuai AC-005 apa adanya) — SLA di sini mengukur usia percakapan sejak `last_message_at`, bukan spesifik kecepatan respons staff, sehingga warna pada tab "Menunggu" berfungsi sebagai reminder follow-up manual ke customer yang lama tidak merespons.
@@ -45,6 +45,28 @@ Semua ambiguitas mayor sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` (lihat
 > **ASSUMPTION-003 — CONFIRMED:** Kolom `is_internal` pada `messages` diberi `default => false` dan **tidak nullable**. Justifikasi dikoreksi dari draf awal: klaim "konsisten dengan pola boolean lain di skema Inbox" tidak akurat — verifikasi ke `2026-09-07-000001_CreateInboxTables.php` dan `2026-09-19-000001_AddResponseStateFoundation.php` menunjukkan **tidak ada satu pun kolom `BOOLEAN`** di skema Inbox sampai saat ini. Preseden yang benar adalah pola `tinyint(1) NOT NULL DEFAULT ...` (`is_locked`, `aktif`) di modul POS (`2026-09-08-000001_CreateAuliaPosCore.php`). Kesimpulan (`NOT NULL DEFAULT FALSE`) tetap valid atas dasar ini. Baris lama (sebelum migration) otomatis terisi `false` lewat default kolom saat `ADD COLUMN`, tidak perlu backfill manual.
 
 Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi kedua (di luar 3 ASSUMPTION di atas), dua hal berikut juga sudah diresolusi dan tercermin di Bagian 3/4.3/12: (a) endpoint Internal Note diizinkan ditulis pada conversation berstatus `closed` tanpa pembatasan tambahan; (b) REQ-009 direvisi karena `conversations.last_message_at`/`last_message_direction` adalah kolom denormalized yang di-`update()` manual di titik insert pesan (bukan hasil query agregasi) — lihat REQ-009 dan Bagian 12.
+
+> [!NOTE]
+> **Aturan klarifikasi:** hanya keputusan yang memengaruhi perilaku bisnis atau kontrak publik yang perlu dikunci lewat sesi klarifikasi. Detail implementasi dan edge case teknis yang tidak membutuhkan keputusan bisnis diselesaikan saat implementasi melalui guard/handling yang wajar dan test.
+
+### 1.2.1 Decision Log — hasil klarifikasi sesi berjalan
+
+| ID | Keputusan | Dampak pada Blueprint |
+|---|---|---|
+| CL-001 | **Search `q` harus mencari seluruh conversation yang relevan, bukan hanya 500 terbaru.** Cara teknisnya boleh berubah/dioptimalkan setelah sistem berjalan. | ASSUMPTION-001 dan Bagian 4.4 direvisi; tidak ada kontrak bisnis `limit=500` untuk search. |
+| CL-002 | **`status` yang tidak termasuk 5 status Queue View harus ditolak dengan HTTP `400 Bad Request`.** Tidak boleh diam-diam diabaikan sebagai tanpa filter. | Bagian 4.4 menetapkan `status` sebagai enum; implementasi wajib memvalidasi nilai dan mengembalikan `400` untuk nilai lain. |
+| CL-003 | **Jika `status` dan `q` dipakai bersama, keduanya harus berlaku sekaligus (AND).** Contoh `status=open&q=Budi` hanya menampilkan conversation yang statusnya `open` dan cocok dengan pencarian `Budi`. | Bagian 4.4 menetapkan kombinasi filter sebagai satu request; implementasi tidak boleh memperlakukan `q` sebagai pencarian terpisah. |
+| CL-004 | **Semua staff yang login boleh melihat semua conversation.** Ownership tidak membatasi visibility; ownership hanya membatasi aksi yang memang mensyaratkannya (mis. balas/snooze/hapus sesuai aturan existing). | Kontrak visibility Queue View dan daftar conversation ditetapkan sebagai shared inbox untuk semua staff login. |
+| CL-005 | **Jika pencarian/filter tidak menemukan hasil, endpoint tetap mengembalikan HTTP 200 dengan hasil kosong `[]`.** Ini bukan kondisi `404`. | Perilaku empty result ditetapkan sebagai hasil normal dari filter/pencarian. |
+| CL-006 | **Alasan Snooze maksimal 4096 karakter**, sama dengan batas panjang Internal Note. Jika melebihi batas, request ditolak `400` dan perubahan Snooze tidak dilakukan. | Batas validasi alasan ditetapkan di kontrak Snooze Fase 1b. |
+| CL-007 | **Nilai `q` yang setelah di-trim hanya berisi spasi dianggap kosong.** Sistem tidak menjalankan pencarian untuk nilai tersebut; hasil mengikuti filter `status` bila ada. | Input pencarian harus di-trim sebelum dipakai sebagai keyword. |
+| CL-008 | **Karakter `%` dan `_` pada `q` diperlakukan sebagai teks biasa, bukan wildcard SQL.** | Pencarian harus meng-escape wildcard tersebut sebelum menjalankan `LIKE`, sehingga keyword dicari apa adanya. |
+| CL-009 | **Panjang `q` maksimal 255 karakter.** Jika setelah trim panjangnya lebih dari 255 karakter, request ditolak dengan HTTP `400` dan tidak menjalankan pencarian. | Batas input pencarian ditetapkan eksplisit di kontrak API. |
+| CL-010 | **Hasil `GET /inbox/api/conversations` ditampilkan bertahap, 50 conversation per halaman.** Search `q` tetap berlaku ke seluruh dataset yang relevan; pagination hanya mengatur hasil yang dikirim per halaman. | Kontrak response perlu mendukung pagination; implementasi tidak boleh memotong search hanya ke 50/500 data terbaru. |
+| CL-011 | **Pagination menggunakan parameter `page`, dimulai dari `page=1`.** | Endpoint `GET /inbox/api/conversations` harus mendukung pagination berbasis halaman; implementasi tidak memakai `offset` sebagai kontrak publik. |
+| CL-012 | **Nilai `page` harus bilangan bulat positif mulai dari `1`.** `page=0`, nilai negatif, atau nilai yang bukan angka valid ditolak dengan HTTP `400`. | Validasi parameter pagination wajib dilakukan di API sebelum query diproses. |
+| CL-013 | **Jika `page` valid tetapi tidak ada data pada halaman tersebut, endpoint tetap mengembalikan HTTP `200` dengan hasil kosong `[]`.** | Halaman di luar jumlah data dianggap empty result normal, bukan `404` atau `400`. |
+| CL-014 | **Jika `last_message_at` kosong/null, `sla_color` harus `null`** dan conversation tidak diberi warna SLA. | SLA hanya dihitung bila timestamp pesan terakhir tersedia. |
 
 ## 2. Definitions
 
@@ -117,14 +139,16 @@ Tidak melalui `cekOwnership()` (lihat SEC-001). Insert ke `messages` dengan `is_
 ### 4.4 Endpoint diperluas — `GET /inbox/api/conversations` (Fase 1b)
 
 Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
-- `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View.
-- `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default).
+- `page` (opsional): nomor halaman, mulai dari `1`. Jika tidak diisi, gunakan `page=1`. Nilai `page` yang bukan bilangan bulat positif (termasuk `0` atau negatif) wajib menghasilkan HTTP 400. `page` yang dikirim tapi kosong (`?page=`) juga dianggap tidak valid (HTTP 400); hanya `page` yang tidak dikirim sama sekali yang memakai `page=1`. Jika `page` valid tetapi melewati halaman terakhir, response tetap HTTP 200 dengan array kosong `[]`.
+- `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View. **Nilai selain enum tersebut wajib ditolak dengan HTTP 400.**
+- Bila filter `status`/`q` valid tetapi tidak ada conversation yang cocok, response tetap **HTTP 200** dengan array hasil kosong `[]`.
+- `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default). Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian. Karakter `%` dan `_` harus diperlakukan sebagai teks biasa, bukan wildcard.- `q` (opsional): keyword, filter `contact_name LIKE '%q%'` atau `phone LIKE '%q%'` (mentah, tanpa normalisasi format nomor telepon; MySQL `LIKE` pada kolom non-binary sudah case-insensitive secara default). Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian. Karakter `%` dan `_` harus diperlakukan sebagai teks biasa, bukan wildcard. Panjang `q` maksimal 255 karakter; nilai yang lebih panjang wajib menghasilkan HTTP 400.
 
-**Mekanisme (filter-after-fetch):**
-1. Query dasar tetap satu `SELECT` (`orderBy('last_message_at', 'DESC')`), **limit dinaikkan dari `findAll(100)` menjadi `findAll(500)`** — konsisten dengan limit yang sudah dipakai `apiPerluDibalasCount()`/`apiMessages()` pada controller yang sama.
-2. `attachResponseState()` dan `withComputedStatus()` (4.2) dijalankan seperti biasa atas seluruh 500 baris.
-3. Filter `status`/`q` diterapkan **setelah** langkah 2, di PHP — bukan sebagai `WHERE` SQL baru yang menerjemahkan ulang kondisi `attachResponseState()` (menghindari duplikasi logic, sesuai REQ-002).
-4. Alasan menaikkan limit ke 500 (bukan tetap 100): filter-after-fetch berisiko kehilangan data untuk tab dengan `last_message_at` yang cenderung lama (mis. "Selesai") kalau 100 baris teratas didominasi conversation aktif; limit 500 mengurangi risiko ini tanpa menambah query SQL baru.
+**Kontrak hasil:**
+1. `q` harus dapat menemukan conversation yang cocok di seluruh dataset yang relevan, termasuk conversation lama; tidak boleh ada batas implisit "hanya N conversation terbaru" sebagai bagian dari kontrak bisnis M3.
+2. Hasil dikirim **50 conversation per halaman**. Pagination mengatur hasil yang dikirim, bukan membatasi dataset yang dicari.
+3. `status` tetap memfilter menggunakan `queue_status` hasil `withComputedStatus()`, bukan menduplikasi logika status di tempat lain.
+4. Cara teknis mencapai kontrak tersebut (query SQL, pagination, index, filter-after-fetch, atau kombinasi) boleh dipilih saat implementasi dan **tidak dikunci oleh Blueprint** selama hasil pencarian lengkap dan tidak menduplikasi sumber computed status.
 
 Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b) `sla_color` (`hijau|kuning|merah|null`, `null` untuk `selesai`/`ditunda`; **`menunggu_customer` tetap dihitung** — lihat ASSUMPTION-002 — CONFIRMED).
 
@@ -136,6 +160,7 @@ Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b)
 - **AC-004**: Given staff BUKAN assignee menulis Internal Note pada conversation yang di-assign staff lain, When request dikirim, Then request BERHASIL (200), tidak ditolak `cekOwnership()`.
 - **AC-005**: Given `last_message_at` = 20 menit lalu dan conversation berstatus `perlu_dibalas`/`menunggu_customer`, When SLA dihitung, Then warna = kuning.
 - **AC-006**: Given conversation berstatus `ditunda` (snoozed), When SLA dihitung, Then warna = `null` (tidak diwarnai merah/kuning) — sesuai ASSUMPTION-002.
+- **AC-008**: Given conversation `last_message_at = NULL`, When SLA dihitung, Then `sla_color = null`.
 - **AC-007**: Given staff mengisi field Alasan di Snooze Dialog (Fase 1b), When snooze disimpan, Then muncul 1 baris Internal Note baru berisi alasan tersebut, dan TIDAK ada kolom `snooze_reason` yang terisi (kolom itu tidak ada).
 
 ## 6. Test Automation Strategy & Testing Seams
@@ -242,6 +267,7 @@ public function catatanInternal($conversationId = null)
 
 Edge case eksplisit yang harus ditangani implementasi (dari sesi clarification):
 - Snooze tanpa alasan (Fase 1a) — field Alasan tidak ada, jangan kirim `null`/string kosong ke endpoint yang belum ada di Fase 1a.
+- Alasan Snooze (Fase 1b) — maksimal **4096 karakter**; lebih dari itu ditolak dengan HTTP 400 dan Snooze tidak boleh tersimpan sebagian.
 - Staff bukan admin, bukan assignee, menulis Internal Note ke conversation yang di-assign orang lain → tetap 200 (SEC-001), beda hasil dari `cekOwnership()` yang akan menolak aksi balas/hapus/snooze di conversation yang sama.
 - Conversation baru tanpa `last_message_direction` sama sekali (fallback `attachResponseState()` baris ~483-487) → `withComputedStatus()` harus mewarisi fallback yang sama (`perlu_dibalas` → `belum_diambil`/`open` tergantung `assigned_to`), bukan crash/nilai kosong.
 - Internal Note ditulis pada conversation berstatus `closed` (Response State `selesai`) → request tetap 200, tidak ditolak karena status. Endpoint ini tidak mengecek status conversation sama sekali di luar cek "conversation ditemukan" (404).
@@ -258,3 +284,21 @@ Edge case eksplisit yang harus ditangani implementasi (dari sesi clarification):
 - `docs/adr/0001-reuse-response-state-for-queue-view-status.md`
 - `docs/CHAT.md`, `docs/TODO-CHAT.md`
 - `blueprint-m3-operational-inbox.md`, `Panduan_Layar_AuliaPos_M3.md`, `status-proyek-master.md` (dokumen sumber, di luar repo)
+
+## 15. PRD Traceability
+
+The product-level requirements are documented in `prd-20260922-0141-chat-whatsapp-inbox.md`. This technical specification is the implementation contract for the M3 Operational Inbox portion of that PRD.
+
+| PRD area | Technical specification coverage |
+| --- | --- |
+| Queue View | REQ-001 to REQ-004; AC-001 to AC-002 |
+| Conversation Detail | REQ-005 |
+| Snooze | REQ-006 and REQ-011 |
+| Internal Note | REQ-007 to REQ-009; AC-003 to AC-004; AC-007 |
+| SLA indicator | REQ-010; AC-005 to AC-006 |
+| Filter & Search | REQ-012 and Section 4.4 |
+| Gateway changes | Explicitly out of scope; covered separately by the M1 Gateway specification |
+| M3 Phase 2 / AI / full Customer Context | Explicitly out of scope per Section 1.1 |
+
+The M1 reliability requirements in the PRD remain governed by the separate `spec/spec-process-m1-wave1-incoming-reliability.md`; they are not duplicated here.
+

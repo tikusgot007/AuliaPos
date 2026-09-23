@@ -21,6 +21,8 @@
 $pass = 0;
 $fail = 0;
 
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+
 function check(string $name, $expected, $actual, &$pass, &$fail): void
 {
     if ($expected === $actual) {
@@ -104,3 +106,4 @@ check('Skenario 3: http status 502 diteruskan apa adanya', 502, $hasil3['http_st
 
 echo "\n== $pass PASS, $fail FAIL ==\n";
 exit($fail > 0 ? 1 : 0);
+}
