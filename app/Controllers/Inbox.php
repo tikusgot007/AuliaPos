@@ -988,11 +988,18 @@ class Inbox extends BaseController
         // (2) Eligibility dari sumber tunggal queue_status (DEP-01).
         // 'selesai' = 409 keluarga state-reload (P-01 memperbaiki 403
         // pada teks Spec v1.0 -- plan menang per RISK-01).
+        $assignedTo = $conversation['assigned_to'] !== null
+            ? (int) $conversation['assigned_to']
+            : null;
+
         $computed = $conversationModel->withComputedStatus([$conversation])[0];
         if (($computed['queue_status'] ?? null) === 'selesai') {
+            // REQ-004 (CR-06): the two 409 families now share one shape;
+            // current_owner_id is nullable (null when the thread is unowned).
             return $this->response->setStatusCode(409)->setJSON([
-                'status'  => 'error',
-                'message' => 'Percakapan sudah selesai dan tidak bisa diserahkan.',
+                'status'           => 'error',
+                'message'          => 'Percakapan sudah selesai dan tidak bisa diserahkan.',
+                'current_owner_id' => $assignedTo,
             ]);
         }
 
@@ -1095,10 +1102,6 @@ class Inbox extends BaseController
                 'message' => 'Field expected_owner tidak valid.',
             ]);
         }
-
-        $assignedTo = $conversation['assigned_to'] !== null
-            ? (int) $conversation['assigned_to']
-            : null;
 
         // (4)+(5) Daftar kasir aktif = satu sumber kebenaran (Q6):
         // dipakai untuk gerbang inisiator 'belum_diambil', validasi

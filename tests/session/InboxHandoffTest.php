@@ -235,6 +235,28 @@ final class InboxHandoffTest extends CIUnitTestCase
         $this->assertCount(0, $this->handoffRows($id));
     }
 
+    public function testH02bBody409SelesaiMenyertakanCurrentOwnerId(): void
+    {
+        // REQ-004 (CR-06): keluarga 409 'selesai' kini sebentuk dengan
+        // 409 kalah conditional write -- menyertakan current_owner_id.
+        $id = $this->seedConversation(['status' => 'closed', 'assigned_to' => 7]);
+
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 7));
+
+        $response->assertStatus(409);
+
+        $json = json_decode($response->getJSON(), true);
+        $this->assertIsArray($json);
+        $this->assertSame('error', $json['status']);
+        $this->assertArrayHasKey('current_owner_id', $json);
+        $this->assertSame(7, (int) $json['current_owner_id']);
+
+        // Ownership dan riwayat tetap tidak tersentuh.
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertCount(0, $this->handoffRows($id));
+    }
+
     public function testH03SummaryAtauNextActionKosongDitolak400(): void
     {
         $id = $this->seedConversation(['assigned_to' => 7]);
