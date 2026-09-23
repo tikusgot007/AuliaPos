@@ -1,16 +1,24 @@
 ---
 goal: M3 Fase 2a (Handoff + Collision Detection) — Code Review Remediation
-version: 1.0
+version: 1.1
 date_created: 2026-09-23
-last_updated: 2026-09-23
+last_updated: 2026-09-24
 owner: AuliaPos Inbox module
-status: "Planned"
+status: "Completed"
 tags: ["refactor", "clean-code", "architecture", "security"]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
+
+> [!NOTE]
+> **Revision 1.1 (2026-09-24), per `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` (ST-02):**
+> status sync only, no task or scope change. Status `Planned` → `Completed`. TASK-101..110 and TASK-201..205 are ticked
+> with evidence from the code (line numbers as of `v2.3` on 2026-09-24), the commits `3136792`..`51fb1fc` and the
+> memory checkpoint "2026-09-23 Write-Code: Phase 1 + Phase 2". TASK-203 stays VOID. All commits are in `v2.3` via
+> PR #41. Full suite re-run on 2026-09-24: `vendor/bin/phpunit --no-coverage` OK, 317 tests / 1061 assertions.
+> The line numbers inside the task descriptions are from before the change and are kept as written.
 
 This plan remediates the findings of `docs/audit/code-review-m3-fase2a-2026-09-23.md` over the M3 Fase 2a
 Handoff + Collision Detection implementation (`600515c~1..HEAD` on `feature/m3-operational-inbox-fase1a-task001`).
@@ -81,16 +89,16 @@ RISK-01), `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q
 
 | Task ID | Description (Include Exact File Paths & Micro-Testing) | Ref ID | Completed | Date |
 | --- | --- | --- | --- | --- |
-| TASK-101 | `app/Controllers/Inbox.php` (1009-1014): ganti coercion `(string)` pada `summary`/`next_action`/`note` dengan guard `is_string()` → 400 sebelum `trim()`; cek hilir tidak berubah. Test `E09` di `tests/session/InboxHandoffTest.php`: `summary` bertipe array → 400, ownership tetap 7, riwayat nol. | REQ-001, SEC-001 | [ ] | |
-| TASK-102 | `tests/session/InboxHandoffTest.php`: test id `E10` (canonical; `E09` = TASK-101) — `unset($payload['expected_owner'])` → 400 with message `'Field expected_owner wajib dikirim.'`, ownership/history untouched; plus a negative control (same payload WITH the field → 200). The review's testE09ExpectedOwnerAbsenDitolak400 is a label only, not the id (CL-05). | REQ-002 | [ ] | |
-| TASK-103 | `app/Controllers/Inbox.php` (lines 1028-1034): swap the three `strlen()` calls for `mb_strlen()` (verified available: `function_exists('mb_strlen') === true`). Tests: `E11` — 4096 multi-byte characters (`str_repeat('é', 4096)`) → 200 and the row stores the full text; `E12` — 4097 → 400. | REQ-003 | [ ] | |
-| TASK-104 | `app/Controllers/Inbox.php` (lines 993-998): add `'current_owner_id' => $assignedTo` to the `selesai` 409 body (nullable). Test: one single id `H02b` (do NOT extend `H02` — keep one contract per test) asserting `current_owner_id` equals the current owner and that ownership/history are unchanged. | REQ-004 | [ ] | |
-| TASK-105 | `tests/session/InboxHandoffTest.php`: enam test mikro-kontrak — (a) `to_user_id` non-numerik/`'0'` → 400; (b) `note` 4097 → 400; (c) JSON body → 200 (DEP-06); (d) POST tanpa session → redirect `/login` (cermin `G04`); (e) unknown id + payload invalid → 404, lalu non-assignee + target invalid → 403 inisiator; (f) body 409 tepat 3 key. | REQ-005 | [ ] | |
-| TASK-106 | `docs/ARCHITECTURE.md` (§4.2 model list and §13 file table): name `UserModel::daftarKasirAktif()` as the single source of the active-kasir list used by the Handoff dialog, the 409 naming and the `belum_diambil` initiator check. Documentation only, no code. | REQ-006 | [ ] | |
-| TASK-107 | `app/Controllers/Inbox.php` (line 1215): insert one blank line between the closing brace of `handoffPercakapan()` and the docblock of `apiHandoffs()`, matching the file convention. | PRN-001 | [ ] | |
-| TASK-108 | `app/Controllers/Inbox.php`: ekstrak blok jalan kalah 409 (`:1148-1159`: resolusi nama pemilik + payload) ke private helper ber-signature TERKUNCI — lihat **TASK-108 detail block** di bawah tabel Phase 1. Perilaku harus sama: `C01`, `C01b`, `C02`, `C04`, `E04`, `E06`, `H01`, `H06`, `H08` tetap hijau. Jangan ekstrak hal lain. | PRN-002, CON-002 | [ ] | |
-| TASK-109 | **VERIFY**: `cmd /c 'vendor\bin\phpunit --no-coverage > build\phase1.txt 2>&1'` → exit 0, test >= 283 + baru, assertion >= 867 + baru, nol skip; audit batas ulang (`--numstat`: `Inbox.php` 0 deletions di luar baris yang diubah; nol diff model/SLA/Gateway; tanpa ALTER tabel lama). | CON-004, CON-001 | [ ] | |
-| TASK-110 | **APPROVAL**: 🛑 Report the VERIFY evidence and wait for explicit user confirmation before Phase 2. | - | [ ] | |
+| TASK-101 | `app/Controllers/Inbox.php` (1009-1014): ganti coercion `(string)` pada `summary`/`next_action`/`note` dengan guard `is_string()` → 400 sebelum `trim()`; cek hilir tidak berubah. Test `E09` di `tests/session/InboxHandoffTest.php`: `summary` bertipe array → 400, ownership tetap 7, riwayat nol. | REQ-001, SEC-001 | ✅ `is_string()` guard before `trim()`; test E09. Commit `3136792`. Verified 2026-09-24. | 2026-09-23 |
+| TASK-102 | `tests/session/InboxHandoffTest.php`: test id `E10` (canonical; `E09` = TASK-101) — `unset($payload['expected_owner'])` → 400 with message `'Field expected_owner wajib dikirim.'`, ownership/history untouched; plus a negative control (same payload WITH the field → 200). The review's testE09ExpectedOwnerAbsenDitolak400 is a label only, not the id (CL-05). | REQ-002 | ✅ Test E10 (absent `expected_owner` → 400 `'Field expected_owner wajib dikirim.'` + negative control 200); message at `Inbox.php:1126`. Commit `dc14a83`. | 2026-09-23 |
+| TASK-103 | `app/Controllers/Inbox.php` (lines 1028-1034): swap the three `strlen()` calls for `mb_strlen()` (verified available: `function_exists('mb_strlen') === true`). Tests: `E11` — 4096 multi-byte characters (`str_repeat('é', 4096)`) → 200 and the row stores the full text; `E12` — 4097 → 400. | REQ-003 | ✅ `mb_strlen()` on `summary`/`next_action`/`note` (`Inbox.php:1091-1092`); tests E11/E12. Commit `77d822e`. | 2026-09-23 |
+| TASK-104 | `app/Controllers/Inbox.php` (lines 993-998): add `'current_owner_id' => $assignedTo` to the `selesai` 409 body (nullable). Test: one single id `H02b` (do NOT extend `H02` — keep one contract per test) asserting `current_owner_id` equals the current owner and that ownership/history are unchanged. | REQ-004 | ✅ `current_owner_id` in the `selesai` 409 body (`Inbox.php:1040`); test H02b. Commit `2b4b3f6`. | 2026-09-23 |
+| TASK-105 | `tests/session/InboxHandoffTest.php`: enam test mikro-kontrak — (a) `to_user_id` non-numerik/`'0'` → 400; (b) `note` 4097 → 400; (c) JSON body → 200 (DEP-06); (d) POST tanpa session → redirect `/login` (cermin `G04`); (e) unknown id + payload invalid → 404, lalu non-assignee + target invalid → 403 inisiator; (f) body 409 tepat 3 key. | REQ-005 | ✅ Tests E13–E18 (a)–(f); E15 JSON body passed as-is, so RISK-005 did not trigger. Commit `d456da6`. | 2026-09-23 |
+| TASK-106 | `docs/ARCHITECTURE.md` (§4.2 model list and §13 file table): name `UserModel::daftarKasirAktif()` as the single source of the active-kasir list used by the Handoff dialog, the 409 naming and the `belum_diambil` initiator check. Documentation only, no code. | REQ-006 | ✅ `docs/ARCHITECTURE.md` names `UserModel::daftarKasirAktif()` as the single active-kasir source (§4.2 and the file table). Commit `bb2e0b5`. | 2026-09-23 |
+| TASK-107 | `app/Controllers/Inbox.php` (line 1215): insert one blank line between the closing brace of `handoffPercakapan()` and the docblock of `apiHandoffs()`, matching the file convention. | PRN-001 | ✅ Blank line between `handoffPercakapan()` and the `apiHandoffs()` docblock. Commit `f2aab5e`. | 2026-09-23 |
+| TASK-108 | `app/Controllers/Inbox.php`: ekstrak blok jalan kalah 409 (`:1148-1159`: resolusi nama pemilik + payload) ke private helper ber-signature TERKUNCI — lihat **TASK-108 detail block** di bawah tabel Phase 1. Perilaku harus sama: `C01`, `C01b`, `C02`, `C04`, `E04`, `E06`, `H01`, `H06`, `H08` tetap hijau. Jangan ekstrak hal lain. | PRN-002, CON-002 | ✅ `private function balas409KepemilikanBasi(?int $currentOwnerId)` (`Inbox.php:1300`), no ownership re-read inside. Commit `ba31d9e`. | 2026-09-23 |
+| TASK-109 | **VERIFY**: `cmd /c 'vendor\bin\phpunit --no-coverage > build\phase1.txt 2>&1'` → exit 0, test >= 283 + baru, assertion >= 867 + baru, nol skip; audit batas ulang (`--numstat`: `Inbox.php` 0 deletions di luar baris yang diubah; nol diff model/SLA/Gateway; tanpa ALTER tabel lama). | CON-004, CON-001 | ✅ `vendor/bin/phpunit --no-coverage` OK 294 tests / 930 assertions (baseline 283/867), zero skips; the 7 protected methods have no diff; no ALTER on old tables (memory checkpoint 2026-09-23 Write-Code). | 2026-09-23 |
+| TASK-110 | **APPROVAL**: 🛑 Report the VERIFY evidence and wait for explicit user confirmation before Phase 2. | - | ✅ Approved by the user ("saya setujui") before Phase 2 started (memory checkpoint 2026-09-23 Write-Code). | 2026-09-23 |
 
 **TASK-108 detail — locked helper signature (CL-03).**
 Files: `app/Controllers/Inbox.php` (extraction) and `tests/session/InboxHandoffTest.php` (regression).
@@ -117,11 +125,11 @@ Two callers are the reason this extraction still belongs in Phase 1.
 
 | Task ID | Description (Include Exact File Paths & Micro-Testing) | Ref ID | Completed | Date |
 | --- | --- | --- | --- | --- |
-| TASK-201 | Clarification locked (CR-04 = A1): `app/Controllers/Inbox.php` — fail-fast `409` on `expected_owner` != server-read `assigned_to`, placed immediately before `$db->transBegin()` and AFTER both 403 gates. Full detail below (**TASK-201 / TASK-202 detail block**). Reuse `balas409KepemilikanBasi($assignedTo)` (TASK-108). | REQ-008, CON-003 | [ ] | |
-| TASK-202 | Option A for CR-03 (**LOCKED**; TASK-203 is VOID): narrow the initiator gate to `queue_status === 'belum_diambil'` instead of `assigned_to IS NULL`, server (`Inbox.php:1092-1094`) plus UI mirror (`index.php:859-862`). Exact expressions, 403 branches and the three tests: see the **TASK-201 / TASK-202 detail block**. Ship server + UI in one commit (RISK-004). | REQ-007 | [ ] | |
+| TASK-201 | Clarification locked (CR-04 = A1): `app/Controllers/Inbox.php` — fail-fast `409` on `expected_owner` != server-read `assigned_to`, placed immediately before `$db->transBegin()` and AFTER both 403 gates. Full detail below (**TASK-201 / TASK-202 detail block**). Reuse `balas409KepemilikanBasi($assignedTo)` (TASK-108). | REQ-008, CON-003 | ✅ Fail-fast 409 after both 403 gates and right before `$db->transBegin()` (`Inbox.php:1210`), via `balas409KepemilikanBasi($assignedTo)`; test F01 (no write). Commit `51fb1fc`. Verified 2026-09-24. | 2026-09-23 |
+| TASK-202 | Option A for CR-03 (**LOCKED**; TASK-203 is VOID): narrow the initiator gate to `queue_status === 'belum_diambil'` instead of `assigned_to IS NULL`, server (`Inbox.php:1092-1094`) plus UI mirror (`index.php:859-862`). Exact expressions, 403 branches and the three tests: see the **TASK-201 / TASK-202 detail block**. Ship server + UI in one commit (RISK-004). | REQ-007 | ✅ Gate on `$computed['queue_status'] === 'belum_diambil'` (`Inbox.php:1158`), three 403 messages (`Inbox.php:1165-1169`), UI mirror (`app/Views/inbox/index.php:1095`), server + UI in one commit; tests F02, F03, F04. Commit `51fb1fc`. Verified 2026-09-24. | 2026-09-23 |
 | TASK-203 | **VOID / SUPERSEDED** (2026-09-23): Option B was REJECTED; the gate is narrowed by TASK-202 per CR-03 = Option A — **DO NOT EXECUTE**. No Spec text change and no behaviour-documentation test is needed for CR-03, because A1 restores fidelity to REQ-H01. The row is kept for traceability only. | REQ-007, CON-003 | VOID (superseded) | 2026-09-23 |
-| TASK-204 | **VERIFY**: full suite green (`vendor/bin/phpunit --no-coverage`), gate-order assertions (`H02`, `E03`, `E05`, `H08`) unchanged, `Inbox.php` still 0 deletions on the 7 protected methods. | CON-004, CON-002 | [ ] | |
-| TASK-205 | **APPROVAL**: 🛑 Wait for explicit user confirmation, then hand off to Spec finalisation / `/sdlc-generate-docs`. | - | [ ] | |
+| TASK-204 | **VERIFY**: full suite green (`vendor/bin/phpunit --no-coverage`), gate-order assertions (`H02`, `E03`, `E05`, `H08`) unchanged, `Inbox.php` still 0 deletions on the 7 protected methods. | CON-004, CON-002 | ✅ `vendor/bin/phpunit --no-coverage` OK 298 tests / 948 assertions, zero skips; H02, E03, E05, H08 unchanged; the 7 protected methods have no diff (memory checkpoint 2026-09-23 Write-Code). Re-run 2026-09-24 on `v2.3`: OK 317 tests / 1061 assertions. | 2026-09-23 |
+| TASK-205 | **APPROVAL**: 🛑 Wait for explicit user confirmation, then hand off to Spec finalisation / `/sdlc-generate-docs`. | - | ✅ Implied: the next step it names, Spec finalisation, was done (commit `7aa8c2b`, Spec v1.1), and the code is in `v2.3` via PR #41. No separate written record of this approval was found. | 2026-09-23 |
 
 **TASK-201 / TASK-202 detail — locked by the CR-04 = A1 and CR-03 = A clarifications (2026-09-23).**
 Touched files: `app/Controllers/Inbox.php` (fail-fast insertion point + initiator gate 1092-1094 + the 403 message),

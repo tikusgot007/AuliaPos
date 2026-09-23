@@ -1,21 +1,24 @@
 ---
 goal: M3 Operational Inbox — Fase 1 (Queue View, Conversation Detail, Snooze, Internal Note, SLA, Filter)
-version: 1.1
+version: 1.2
 date_created: 2026-09-21
 last_updated: 2026-09-24
 owner: AuliaPos Inbox module
-status: 'Completed'
+status: 'In progress'
 tags: [feature, inbox, chat, whatsapp, m3, operational-inbox]
 ---
 
 # Introduction
 
-![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
+![Status: In progress](https://img.shields.io/badge/status-In%20progress-yellow)
 
 > [!NOTE]
 > **Revision 1.1 (2026-09-24), per `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md`:** Status changed back from `Completed` to `In progress`. The backend for Internal Note, `sla_color` and search is merged, but no task covered the screen part of these features (MC-01..03). Phase 3 (TASK-015..019) adds that screen work. TASK-001..011 are now ticked with evidence from the code (CT-01). The text `findAll(500)` is replaced with the real behavior: no row limit, 50 per page (CL-001/CL-010, CT-02).
 
 Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readiness Score 96/100, remediasi via `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md`) untuk mengubah Inbox AuliaPos dari viewer chat menjadi *operational customer workspace*: Queue View 5 tab, Conversation Detail dasar, Snooze, Internal Note, SLA Timer, dan Filter & Pencarian. Dieksekusi dalam 2 fase mergeable-independen: Fase 1a (tanpa migration, murni memanfaatkan endpoint existing) dan Fase 1b (migration additive `is_internal` + endpoint baru). Rev 1.1 adds Phase 3 (Fase 1c), which covers only the screen part of Internal Note, SLA Timer and search on top of the Fase 1b backend.
+
+> [!NOTE]
+> **Revision 1.2 (2026-09-24), per Spec rev 1.2 (REQ-013, CON-003, CL-015, AC-013) and PRD v1.3 (GH-009):** adds Phase 4 (Fase 1d, TASK-020..022): the search `q` matches all five name/number columns that the list can show. This closes TODO-SEARCH-01 (TASK-018) and audit finding NG-01 at plan level. Status changes from `Completed` to `In progress` until TASK-022 is approved. Phases 1–3 are unchanged. Fase 1e (GH-010, message-text search) is not in this plan; the Spec does not cover it yet.
 
 ## 1. Requirements & Constraints
 
@@ -34,6 +37,8 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **REQ-012**: `GET /inbox/api/conversations` diperluas dengan parameter `status`/`q` (filter-after-fetch, lihat Interfaces).
 - **CON-002**: Internal Note tidak pernah muncul di payload ke Gateway WhatsApp.
 - **GUD-001**: Semua migration Fase 1b additive-only.
+- **REQ-013 (Fase 1d, rev 1.2)**: `q` on `GET /inbox/api/conversations` matches when it is contained in **at least one** of `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id` — always all five, whichever one the list shows (CL-015). Each column is checked on its own, never a join of columns. All other `q` rules stay (trim, case-insensitive, `%`/`_` as plain text, max 255, AND with `status`, whole dataset, 50 per page).
+- **CON-003 (Fase 1d, rev 1.2)**: no migration, no new parameter, no screen change. The Fase 1c search box already sends `q` (AC-012), so the wider match shows on screen without a view change.
 - **SEC-002 (derived, ADR-0001 Consequences)**: `withComputedStatus()` dan agregasi `last_message_at`/`last_message_direction` HARUS meng-exclude baris `is_internal=TRUE` dari asumsi input mereka agar tidak mencemari badge Tahap A maupun tab Queue View — dijamin secara struktural oleh REQ-009 (Internal Note tidak pernah menulis kolom itu), bukan oleh filter query tambahan.
 
 ## 2. Implementation Steps
@@ -84,6 +89,19 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 | TASK-018 | **VERIFY** (Spec AC-010..AC-012): (a) Add `tests/session/OperationalInboxScreenTest.php`, following the page-render pattern of G05 in `tests/session/InboxHandoffTest.php`. GET `/inbox` as a kasir and assert the page contains `id="modalCatatanInternal"`, `id="inputCariConversation"` and the JS reads of `sla_color` and `q=`. Buttons built by JS cannot be asserted in PHP, so (b) covers them. (b) Manual browser check, recording the result per line: TASK-015 checks (non-assignee note, `selesai` note, blank note blocked, "Internal" label, conversation stays in its tab); TASK-016 checks (yellow/red/green dot, no dot on Ditunda/Selesai); TASK-017 checks (old conversation found, tab counts follow the search, ✕ restores all, open conversation still works during search, polling keeps the keyword). (c) Run the full `composer test` and require 100% pass, including the Phase 1/2 and Tahap A regressions. | - | - | - | - | ✅ (a) `tests/session/OperationalInboxScreenTest.php`, 3 tests (Red before, Green after). (c) 317/317 tests, 1061 assertions (`vendor/bin/phpunit --no-coverage` exit 0; `composer test` shows only the existing Xdebug coverage-mode runner warning). Extra: a scratch Node harness (not in the repo) ran 17 JS logic checks, all passed. (b) Manual browser check by the user on commit `f3bd8fa`, 8/8 pass: (1) non-assignee note with "Internal" label, same tab; (2) note on `selesai`; (3) blank note blocked; (4) SLA dots, none on Ditunda/Selesai; (5) search finds the conversation and tab counts follow — pass per spec 4.4 (see TODO-SEARCH-01); (6) polling keeps the keyword; (7) ✕ restores all; (8) open conversation keeps working while hidden by search. **TODO-SEARCH-01 (out of scope, needs `/sdlc-define-specs`):** `q` matches only `contact_name`/`phone` (spec 4.4), but the list shows `whatsapp_name` and `manual_phone` when those are empty. A conversation named only by its WhatsApp profile is not found until the staff saves the contact. Recommended: extend the search to `whatsapp_name` and `manual_phone`. | 2026-09-24 |
 | TASK-019 | **APPROVAL**: Wait for explicit user confirmation that Phase 3 is done. Then set the frontmatter `status` back to `Completed` and hand off to `/sdlc-audit-consistency` to re-check MC-01..03. | - | - | - | - | ✅ Approved by the user 2026-09-24 after the 8/8 manual browser check (TASK-018 b). Frontmatter `status` set back to `Completed`. Open follow-up outside this plan: TODO-SEARCH-01 (`/sdlc-define-specs`). Next: `/sdlc-code-review` of `f3bd8fa`, then `/sdlc-audit-consistency` for MC-01..03. | 2026-09-24 |
 
+### Implementation Phase 4 — Fase 1d: Full name/number search (rev 1.2)
+
+- GOAL-004: A kasir can find a conversation by **any** name or number that the list shows, including the WhatsApp profile name (`whatsapp_name`) and the saved number (`manual_phone`). This closes TODO-SEARCH-01 (TASK-018) and PRD GH-009. **Server-only change** in one predicate of `Inbox::apiConversations()`: no migration, route, parameter or view change (CON-003).
+
+> [!NOTE]
+> **Why server-only is enough:** the list shows name = `contact_name` → `whatsapp_name` → `phone` → `chat_id` and number = `manual_phone` → `phone` (`app/Views/inbox/index.php`, `renderDaftarConversation()`). The screen does no name filtering of its own. It only sends `q` to the server (`ambilSemuaConversation()`, `index.php:933`). So once the server matches all five columns, the search box finds them with no view change.
+
+| Task     | Description | Ref ID | AC Ref | Dep | Files | Completed | Date |
+| -------- | ----------- | ------ | ------ | --- | ----- | --------- | ---- |
+| TASK-020 | **A kasir finds a conversation by any name or number shown in the list** (PRD GH-009, TODO-SEARCH-01). **Red first:** add tests for Spec AC-013 (a)–(g) to `tests/session/OperationalInboxConversationTest.php`, next to the AC-009 tests (same seam, Spec §6). Run them and confirm (a), (b) for `whatsapp_name`/`manual_phone`, (c) and (e) fail before the change. **Green:** in `Inbox::apiConversations()` (`app/Controllers/Inbox.php:123-131`), change the `q` filter from two columns (`contact_name`, `phone`) to the five columns of REQ-013: `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id`. Keep the existing pattern: filter-after-fetch in PHP with `mb_stripos((string) ($conversation[$column] ?? ''), $needle) !== false` per column, joined with OR. Do not add a SQL `WHERE`, and keep the trim/255/`page` validation above it unchanged. Update the method docblock so it names the five columns. **Rules:** (1) Match per column, never a join of columns: `contact_name = "Budi"` + `phone = "62812"` with `q = "budi 62812"` must NOT match (AC-013 f). (2) A `NULL`/empty column counts as no match and raises no error (AC-013 g). (3) No phone number normalization: `0812…` and `62812…` are different (Spec §1.1, §12). (4) Do not add any column outside these five, such as message text; that is Fase 1e (Spec §9). **Checks (AC-013):** (a) `contact_name = NULL`, `whatsapp_name = "Budi Cetak"`, `?q=budi cetak` → found. (b) Four conversations that each match through only one of `contact_name`, `whatsapp_name`, `phone`, `manual_phone` → each found. (c) No name and no `phone`, `q` = part of `chat_id` → found. (d) Old `selesai` conversation with WhatsApp name "Budi Cetak" outside the latest 50: `?status=selesai&q=BUDI CETAK` → found; `?status=open&q=budi cetak` → not included. (e) `contact_name = "Jamet"`, `whatsapp_name = "Budi Cetak"`, `?q=budi cetak` → found. (f) join of columns → not found. (g) NULL columns → no error. | REQ-013, CON-003 (PRD GH-009) | AC-013 | TASK-011, TASK-013, TASK-017 | 2 | | |
+| TASK-021 | **VERIFY** (Spec AC-013): (a) Run the full suite with `cmd /c 'vendor\bin\phpunit --no-coverage > build\fase1d.txt 2>&1'` (exit 0, at least 317 tests + the new ones, zero skips). The AC-009 tests and `tests/session/OperationalInboxScreenTest.php` must stay green without edits. (b) Boundary check: `git diff --stat` for the TASK-020 commit touches only `app/Controllers/Inbox.php` and `tests/session/OperationalInboxConversationTest.php`; no change to `app/Views/`, `app/Config/Routes.php` or `app/Database/Migrations/` (CON-003). (c) Manual browser check of AC-013 (h), recording the result per line: a conversation with no saved contact name that shows "Budi Cetak" (its WhatsApp profile name) in the list is found by typing "budi cetak" in the search box and pressing Enter; it appears under its tab and the tab count follows. The same search on a conversation saved as "Jamet" with WhatsApp name "Budi Cetak" also finds it. | - | - | - | - | | |
+| TASK-022 | **APPROVAL**: Wait for explicit user confirmation that Phase 4 is done. Then set the frontmatter `status` back to `Completed`, mark TODO-SEARCH-01 closed in TASK-018, and hand off to `/sdlc-code-review` of the TASK-020 commit. | - | - | - | - | | |
+
 ## 3. Alternatives
 
 - **ALT-001**: Membuat endpoint filter terpisah (`GET /inbox/api/conversations/filter`) alih-alih memperluas `apiConversations()` — ditolak karena menduplikasi query dasar dan melanggar REQ-002 (single source computed status).
@@ -91,6 +109,8 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **ALT-003**: Menambah kolom `snooze_reason` terpisah di `conversations` — ditolak eksplisit (spec Bagian 9 "Never do"), Internal Note dipilih sebagai storage tunggal alasan snooze.
 - **ALT-004 (rev 1.1)**: Search only on the client, filtering the list that `ambilSemuaConversation()` already loaded, without sending `q`. Rejected because it would copy the server's search rules (trim, 255 limit, `%`/`_` as plain text, case-insensitive) into JS, giving two sources that can drift. REQ-012 and the audit action plan ask for a search box that sends `q`.
 - **ALT-005 (rev 1.1)**: Add `sla_color` to `Inbox::index()` so the SLA dot shows on first paint. Deferred because it is a backend change outside the audit scope, and the gap is at most one 6-second refresh (TASK-016 "Accepted limitation").
+- **ALT-006 (rev 1.2)**: Move the `q` match into a SQL `WHERE ... LIKE` over the five columns. Rejected for Fase 1d: `status` is filtered after compute (ASSUMPTION-001, ADR-0001), so `q` in SQL would split one filter pass into two paths. Spec §4.4 item 4 leaves the technique open, and the smallest change is to keep the existing PHP filter. Speed work belongs with Fase 1e (message-text search), where the Spec will design it.
+- **ALT-007 (rev 1.2)**: Search only the column the list is showing (e.g. skip `whatsapp_name` when `contact_name` is set). Rejected by CL-015: all five columns are always searched, so a WhatsApp name stays findable after staff save a different contact name (AC-013 e).
 
 ## 4. Dependencies
 
@@ -102,13 +122,13 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 ## 5. Files
 
 - **FILE-001**: `app/Models/ConversationModel.php` — tambah `withComputedStatus()` (TASK-001).
-- **FILE-002**: `app/Controllers/Inbox.php` — perluas `apiConversations()`, tambah `catatanInternal()` (TASK-002, TASK-008, TASK-011).
+- **FILE-002**: `app/Controllers/Inbox.php` — perluas `apiConversations()`, tambah `catatanInternal()` (TASK-002, TASK-008, TASK-011); five-column `q` predicate (TASK-020, rev 1.2).
 - **FILE-003**: `app/Config/Routes.php` — route baru `POST /inbox/percakapan/(:num)/catatan` (TASK-008).
 - **FILE-004**: `app/Database/Migrations/<timestamp>_AddIsInternalToMessages.php` — migration baru (TASK-007).
 - **FILE-005**: `app/Services/InboxSlaService.php` — Service baru (TASK-010).
 - **FILE-006**: `app/Config/Inbox.php` — tambah properti threshold SLA (TASK-010).
 - **FILE-007**: `app/Views/inbox/*` (view existing, cek dulu sebelum menambah file baru) — render 5 tab, field Alasan Snooze (TASK-002, TASK-004, TASK-012); Internal Note button + `#modalCatatanInternal` (TASK-015), SLA Timer dot (TASK-016), search box `#inputCariConversation` (TASK-017).
-- **FILE-008**: `tests/database/`, `tests/session/`, `tests/unit/` — test baru per TASK-005, TASK-009, TASK-013; `tests/session/OperationalInboxScreenTest.php` (TASK-018).
+- **FILE-008**: `tests/database/`, `tests/session/`, `tests/unit/` — test baru per TASK-005, TASK-009, TASK-013; `tests/session/OperationalInboxScreenTest.php` (TASK-018); AC-013 tests in `tests/session/OperationalInboxConversationTest.php` (TASK-020).
 
 ## 6. Testing
 
@@ -117,8 +137,9 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **TEST-003**: `tests/session/` — `GET /inbox/api/conversations` dengan parameter `status`/`q` baru, termasuk kasus conversation lama tetap ditemukan (tidak ada batas "N terbaru", CL-001) dan pagination 50 per halaman.
 - **TEST-004**: `tests/unit/` — `InboxSlaService` sebagai pure function (semua kombinasi threshold × `queue_status`).
 - **TEST-005**: Regresi — jalankan test existing Tahap A (`apiPerluDibalasCount()`, badge sidebar) sebelum & sesudah Phase 1 dan Phase 2, pastikan tidak ada perubahan hasil.
-- **TEST-006 (Macro Gate)**: `composer test` 100% lolos sebelum tiap APPROVAL checkpoint (TASK-006, TASK-014, TASK-019), sesuai `AGENTS.md` Testing Policy.
+- **TEST-006 (Macro Gate)**: `composer test` 100% lolos sebelum tiap APPROVAL checkpoint (TASK-006, TASK-014, TASK-019, TASK-022), sesuai `AGENTS.md` Testing Policy. The exit-0 signal is `vendor/bin/phpunit --no-coverage`, because `composer test` exits 1 only on the existing coverage-driver warning.
 - **TEST-007 (rev 1.1)**: `tests/session/OperationalInboxScreenTest.php`: the Inbox page renders the Internal Note modal, the search input and the JS that reads `sla_color`/`q`. Plus a manual browser checklist for the behavior built by JS (TASK-018). There is no JS test runner in this project, so browser behavior is checked by hand.
+- **TEST-008 (rev 1.2)**: `tests/session/OperationalInboxConversationTest.php` — `q` against the five identity columns, Spec AC-013 (a)–(g), written Red before TASK-020's code change. AC-013 (h) is a manual browser check (TASK-021 c). The macro gate (TEST-006) also applies to TASK-022.
 
 ## 7. Risks & Assumptions
 
@@ -127,6 +148,8 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **ASSUMPTION-003 (dari spec, CONFIRMED)**: `is_internal` `NOT NULL DEFAULT FALSE`, pola rujukan `tinyint(1)` modul POS. Task terkait: TASK-007. Risiko rendah.
 - **RISK-001**: TASK-008 rawan human error "copy-paste" dari `kirim()`/`InboxGatewayApi::messages()` yang ikut memanggil `update()` pada `conversations` — ini adalah pelanggaran diam-diam (silent) yang TIDAK terdeteksi hanya dengan assert `is_internal=TRUE` tersimpan (lihat spec Bagian 12). Mitigasi: TASK-009 wajib assert eksplisit `last_message_direction` tidak berubah, bukan hanya assert insert sukses. Ditandai *High Risk* — review manual saat code review sebelum merge.
 - **RISK-002**: `apiConversations()` dan `index()` memuat **seluruh** conversation (`findAll()` tanpa limit, CL-001) lalu menghitung status/SLA di PHP sebelum memotong 50 per halaman; layar Inbox mengambil halaman 1..N tiap refresh (TASK-013). Pada dataset besar ini bisa memperlambat endpoint — dicatat sebagai risiko yang diterima (CL-001 mengizinkan optimasi teknis nanti), perlu dipantau pasca-deploy. (rev 1.1, CT-02: teks lama `findAll(500)` dihapus.)
+- **RISK-004 (rev 1.2)**: Matching `chat_id` means a very common keyword such as "lid" or "whatsapp" can match many conversations. Accepted by Spec §12 (the "contained" rule), no special filtering. Related: after a customer changes their WhatsApp profile name, the old name is no longer found, because Gateway overwrites `whatsapp_name` (Spec §12, accepted). Task: TASK-020. Low risk.
+- **RISK-005 (rev 1.2)**: Five `mb_stripos()` calls per row instead of two add a little PHP work on each search request, on top of RISK-002. Accepted: it is small next to loading all rows, and speed design is planned for Fase 1e. Task: TASK-020. Low risk.
 - **RISK-003**: Fase 2 (Handoff, atomic `cekOwnership()`) terkunci menunggu M2 — plan ini tidak menyentuh area itu sama sekali (Out of Scope, spec Bagian 1.1), tidak ada task yang boleh diperluas ke sana.
 
 ## 8. Related Specifications / Further Reading
@@ -136,7 +159,8 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - `docs/audit/clarification-report-m3-fase1-operational-inbox-plan-2026-09-21.md` (Readiness Score 97/100 — 7 resolusi sudah dituliskan ulang ke TASK-002, TASK-008, TASK-011, TASK-012 di plan ini)
 - `docs/adr/0001-reuse-response-state-for-queue-view-status.md`
 - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` (66/100 — source of rev 1.1: MC-01..03, CT-01, CT-02)
-- `prd-20260922-0141-chat-whatsapp-inbox.md` (GH-002, GH-004, Layar 7)
+- `prd-20260922-0141-chat-whatsapp-inbox.md` (GH-002, GH-004, Layar 7; v1.3 GH-009 for Phase 4)
+- `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.2 (REQ-013, CON-003, CL-015, §4.4, AC-013 — source of Phase 4)
 - `docs/CHAT.md`, `docs/TODO-CHAT.md`
 
 ## 9. Rollback / Recovery Plan
@@ -146,4 +170,5 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
   - Jika migration TASK-007 perlu di-rollback: `php spark migrate:rollback` (kolom `is_internal` additive, aman di-drop, tidak ada data existing yang bergantung padanya).
   - Jika endpoint Internal Note (TASK-008) bermasalah di produksi (mis. ternyata memicu perubahan `response_state` akibat bug REQ-009): nonaktifkan route di `app/Config/Routes.php` (comment out) sebagai mitigasi cepat sebelum `git revert` penuh, karena data `messages.is_internal=TRUE` yang sudah terlanjur tersimpan tidak perlu dihapus (tidak destruktif, hanya perlu diperbaiki logikanya).
   - **Phase 3 (Fase 1c, rev 1.1)**: Screen-only changes in `app/Views/inbox/index.php` + one test file. No migration and no data change. Roll back with `git revert` of the TASK-015/016/017 commits. The backend endpoints stay and keep working without the screen.
+  - **Phase 4 (Fase 1d, rev 1.2)**: One predicate in `app/Controllers/Inbox.php` + tests. No migration, no data change, no screen change. Roll back with `git revert` of the TASK-020 commit; search goes back to `contact_name`/`phone` only and everything else keeps working.
   - `git revert` per-task-commit direkomendasikan (bukan `reset --hard`) agar histori tetap bisa diaudit sesuai `CLAUDE.md` konvensi git commit yang deskriptif.

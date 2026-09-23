@@ -3,6 +3,13 @@
 # 🔍 Consistency Audit Report [Review Iteration 2]
 
 > [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED for Plan scope (Fase 1d plan + ST-01/ST-02)**
+> This audit report has been remediated by Planner Architect on 2026-09-24.
+> - **Resolved:** NG-01 at plan level: `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2 adds Phase 4 (Fase 1d, TASK-020 five-column `q` predicate + AC-013 a–g tests, TASK-021 VERIFY incl. AC-013 h and a CON-003 boundary check, TASK-022 APPROVAL); status back to `In progress` until TASK-022. ST-01: `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` rev 1.1, TASK-001..014 ticked with evidence, status `Completed`. ST-02: `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` rev 1.1, TASK-101..110 and TASK-201..205 ticked with evidence (TASK-203 stays VOID), status `Completed`. Evidence re-checked against code and git history; all Fase 2a commits are in `v2.3` (PR #41); suite re-run `vendor/bin/phpunit --no-coverage` OK 317 tests / 1061 assertions.
+> - **Still open:** Fase 1d code (`/sdlc-write-code`, TASK-020..022). GH-010 / Fase 1e is not in any Spec yet (out of scope per Spec §1.1). PRD §9.2 is now behind: it still says Fase 1d "Plan belum" and that the Fase 2a plans are not synced (`/sdlc-draft-prd`, status text only). Four approvals (Fase 1 TASK-006, Fase 2a TASK-008/011, refactor TASK-205) are marked implied, with no written record. The "karakter" wording in code stays a code-review TODO.
+> - **Projected Readiness Score:** 95/100 (Completeness 38/40, Clarity 29/30, Alignment 28/30).
+
+> [!SUCCESS]
 > **REMEDIATION STATUS: RESOLVED for Spec scope (REFINE step 3)**
 > This audit report has been remediated by Specification Architect on 2026-09-24 in `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.2.
 > - **Resolved:** NG-01 / TODO-SEARCH-01 (Fase 1d contract per PRD v1.3 GH-009: `q` matches `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id`, per column, no phone normalization. See CL-015, REQ-013, CON-003, §4.4, AC-013 a–h, §6, §12, §13, §15). NG-04 (literal `\n` in §1.2 replaced with real line breaks). NG-05 ("4096 byte" in CL-006, the §8 sample, and §12).
