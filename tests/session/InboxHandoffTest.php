@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ConversationHandoffModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
@@ -505,5 +506,147 @@ final class InboxHandoffTest extends CIUnitTestCase
 
         $this->assertSame(42, (int) $this->conversation($id)['assigned_to']);
         $this->assertCount(0, $this->handoffRows($id));
+    }
+
+    // ================================================================
+    // TB-03 (TASK-009) -- GET /inbox/percakapan/(:num)/handoff
+    // ================================================================
+    //
+    // Endpoint KHUSUS riwayat Handoff (P-04). Gerbang baca sengaja hanya
+    // `auth` (Q7): staff mana pun boleh MEMBACA riwayat, beda dari jalur
+    // tulis yang mensyaratkan assignee. `GET /inbox/api/conversations/
+    // (:num)/messages` tidak boleh berubah.
+
+    public function testG01RiwayatDibacaTerbaruDuluLengkapDanTanpaGerbangAssignee(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        // Dua penyerahan berurutan: 7 -> 8, lalu 8 -> 11.
+        $this->withSession($this->sesi('kasir', 7))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(8, 7))
+            ->assertOK();
+
+        $this->withSession($this->sesi('kasir', 8))
+            ->post(self::HANDOFF_URL . $id . '/handoff', $this->validPayload(11, 8))
+            ->assertOK();
+
+        // Dibaca oleh staff 12 yang TIDAK terlibat apa pun -- inilah bukti
+        // gerbang baca Q7 (auth saja, tanpa gerbang assignee).
+        $response = $this->withSession($this->sesi('kasir', 12))
+            ->get(self::HANDOFF_URL . $id . '/handoff');
+
+        $response->assertOK();
+
+        $json = json_decode($response->getJSON(), true);
+        $this->assertSame('success', $json['status']);
+        $this->assertSame(50, $json['limit'], 'Envelope P-04 harus menyertakan limit 50.');
+        $this->assertCount(2, $json['handoffs']);
+
+        $riwayat = $json['handoffs'];
+
+        // Terbaru dulu: penyerahan 8 -> 11 muncul lebih dulu.
+        $this->assertGreaterThan((int) $riwayat[1]['id'], (int) $riwayat[0]['id']);
+        $this->assertSame(8, (int) $riwayat[0]['from_user_id']);
+        $this->assertSame(11, (int) $riwayat[0]['to_user_id']);
+        $this->assertSame(8, (int) $riwayat[0]['initiated_by_user_id']);
+        $this->assertSame(7, (int) $riwayat[1]['from_user_id']);
+        $this->assertSame(8, (int) $riwayat[1]['to_user_id']);
+        $this->assertSame(7, (int) $riwayat[1]['initiated_by_user_id']);
+
+        // Envelope entri P-04 lengkap (8 field) dan tidak kosong.
+        foreach ($riwayat as $entri) {
+            foreach (['id', 'from_user_id', 'to_user_id', 'initiated_by_user_id', 'summary', 'next_action', 'note', 'created_at'] as $field) {
+                $this->assertArrayHasKey($field, $entri);
+            }
+            $this->assertNotEmpty($entri['summary']);
+            $this->assertNotEmpty($entri['next_action']);
+            $this->assertNotEmpty($entri['created_at']);
+        }
+
+        // Membaca riwayat tidak menulis apa pun (GET murni).
+        $this->assertSame(0, db_connect('inbox')->table('messages')
+            ->where('conversation_id', $id)
+            ->countAllResults());
+        $this->assertCount(2, $this->handoffRows($id));
+
+        // Regresi kontrak lama: endpoint thread pesan tetap seperti semula.
+        $this->withSession($this->sesi('kasir', 12))
+            ->get('inbox/api/conversations/' . $id . '/messages')
+            ->assertOK();
+    }
+
+    public function testG02RiwayatDibatasiLimaPuluhEntriTerbaru(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => 7]);
+        $model = new ConversationHandoffModel();
+
+        for ($i = 1; $i <= 55; $i++) {
+            $model->insertHandoff([
+                'conversation_id'      => $id,
+                'from_user_id'         => 7,
+                'to_user_id'           => 8,
+                'initiated_by_user_id' => 7,
+                'summary'              => 'Handoff #' . $i,
+                'next_action'          => 'Lanjutkan penanganan.',
+                'note'                 => null,
+                'created_at'           => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        $response = $this->withSession($this->sesi('kasir', 12))
+            ->get(self::HANDOFF_URL . $id . '/handoff');
+
+        $response->assertOK();
+
+        $json = json_decode($response->getJSON(), true);
+        $this->assertSame(50, $json['limit']);
+        $this->assertCount(50, $json['handoffs'], 'Riwayat harus dipotong di 50 entri terbaru.');
+        $this->assertSame('Handoff #55', $json['handoffs'][0]['summary']);
+        $this->assertSame('Handoff #6', $json['handoffs'][49]['summary']);
+    }
+
+    public function testG03RiwayatPercakapanTidakDikenalDitolak404(): void
+    {
+        $response = $this->withSession($this->sesi('kasir', 7))
+            ->get(self::HANDOFF_URL . '999999/handoff');
+
+        $response->assertStatus(404);
+
+        $json = json_decode($response->getJSON(), true);
+        $this->assertSame('error', $json['status']);
+        $this->assertSame('Conversation tidak ditemukan.', $json['message']);
+    }
+
+    public function testG04RiwayatWajibLoginLewatFilterAuth(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        // Tanpa session: filter `auth` mengalihkan ke /login. Test ini
+        // memastikan route GET handoff benar-benar terpasang filter
+        // (bukan hanya terdaftar di Routes.php).
+        $response = $this->get(self::HANDOFF_URL . $id . '/handoff');
+
+        $response->assertRedirectTo('/login');
+        $response->assertStatus(302);
+    }
+
+    public function testG05HalamanInboxMerenderPanelRiwayatHandoff(): void
+    {
+        // TASK-010: test render (bukan cuma kontrak JSON) -- membuktikan
+        // panel riwayat benar-benar ada di markup dan peta nama kasirnya
+        // ter-render sebagai JSON dari sumber Q6 yang sama dengan dropdown
+        // dialog Handoff (bukan daftar terpisah yang bisa drift).
+        $response = $this->withSession($this->sesi('kasir', 7))->get('inbox');
+
+        $response->assertOK();
+
+        // Body dibaca langsung (TestResponse meneruskan getBody() ke
+        // response aslinya) -- assertSee() milik CI4 mengambil argumen
+        // kedua sebagai CSS selector, bukan flag escape.
+        $body = (string) $response->getBody();
+
+        $this->assertStringContainsString('id="panelRiwayatHandoff"', $body);
+        $this->assertStringContainsString('id="daftarRiwayatHandoff"', $body);
+        $this->assertStringContainsString('"11":"Kasir Sebelas"', $body);
     }
 }
