@@ -2327,3 +2327,45 @@
   - Still open overall: the real `aulia_inboxdb` has no `gateway_operation_id` column yet (F-01), AC-026(b)/AC-042/AC-027 remain unmeasured, GW-09 is not closed, and `DELIVERY_MAX_ATTEMPTS`/`DELIVERY_DEAD_AFTER_MS` still need post-outage calibration (K-04).
 
 <!-- checkpoint-tail: M1 Wave 2 Phase 4 + owner-authorised F-03 remediation are COMPLETE on AuliaPos branch feature/m1-wave2-outgoing-idempotency (tip 771545e, 9 commits ahead of v2.3, all unpushed): media replay now shares one findMessageByOperationId() dedupe with the text path (commit 94845a0, red-checked, suite OK 349 tests / 1209 assertions, AC-040/AC-045 harness 24 PASS/0 FAIL); F-01 was decided as option (i) — the AuliaPos merge + aulia_inboxdb migration + smoke test become sub-steps of TASK-022 in Phase 5; TASK-021 approval is STILL PENDING, so Phase 5, the real-database migration, and the plan front-matter change ('Planned') all wait. -->
+
+---
+
+
+
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — Phase 4 CLOSED, TASK-021 APPROVED; Phase 5 handed off)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code — **Phase 4 is CLOSED** (TASK-015..TASK-021, including the F-03 remediation) after the owner approved TASK-021 on 2026-09-24. **Phase 5 is opened as a gate but has NOT been executed**: no Gateway deploy, no `pm2`, no production migration, no push. Per the owner's session-per-phase rule it must run in a NEW session.
+- **Active Artifacts:**
+  - `docs/handoff-m1-wave2-fase5-deploy-measure-2026-09-24.md` — **new** Phase 5 handoff: ready-to-paste prompt, verified starting state, per-task detail (TASK-022 incl. sub-step (f), TASK-023 measurement, TASK-024 closure), prerequisites table, gotcha table, and the reproducible AC-040 harness command.
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — TASK-021 row now `✅ APPROVED pemilik ("setuju")` with date; TASK-022 row extended with sub-step **(f)**; front matter deliberately still `status: 'Planned'` (that change belongs to TASK-024).
+  - `docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md` — new §8 recording the approval, the suite boundary at approval time, and explicitly what the approval does NOT authorise in the AuliaPos session.
+- **Achieved Milestones:**
+  - Owner decisions executed: **F-03** = option (a) as a TASK-017 extension (done, `94845a0`); **F-01** = option (i) → the AuliaPos merge + `aulia_inboxdb` migration + smoke test became **sub-step (f) of TASK-022**.
+  - **TASK-021 approved** → Phase 4 closed; commit summary per task is in decision log §6.1 as TASK-021 requires.
+  - Phase 5 planned but intentionally not started: three independent boundaries (different repo, live customer traffic, production database) plus the owner's session-per-phase preference.
+  - Branch `feature/m1-wave2-outgoing-idempotency` tip now `4e59885` (12 commits ahead of `origin/v2.3`, all local). Approved boundary: suite `OK (349 tests, 1209 assertions)`, AC-040/AC-045 harness `24 PASS / 0 FAIL`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** appending a new section with an `editor` edit whose `old_text` was the file's LAST line (a table row), without echoing that line back in `new_text`.
+    **Reason:** the anchor line is *consumed* — the append silently DELETED two table rows in the new handoff document (`| Push | ... |` and `| Aturan sesi-per-fase | ... |`), and nothing failed.
+    **Note:** when appending, ALWAYS re-include the anchor line as the first line of `new_text`; then verify the file grew by anchor+new content, not by new content alone.
+  - **Attempted:** trusting that an append "worked" because the editor reported success.
+    **Reason:** `markdownlint-cli2` (MD058 blanks-around-tables / MD022 blanks-around-headings) was what exposed the missing rows — the lint failure was a *content-loss* signal, not a cosmetic one.
+    **Note:** lint every NEW markdown artifact before committing it; treat a non-MD013 finding on a brand-new file as a possible structural defect worth reading, not just noise.
+  - **Also:** embedding a commit's own hash inside the document that commit carries goes stale on amend; cite such commits by subject + `git log -1 --format=%h` (re-confirmed this session).
+- **Updated Files:**
+  - `docs/handoff-m1-wave2-fase5-deploy-measure-2026-09-24.md` — new (152 lines; §1 prompt, §2 verified state, §3 per-task, §4 prerequisites, §5 gotchas, §6 references).
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — 2 lines changed (TASK-021 row, TASK-022 row).
+  - `docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md` — §8 added (+20/−1).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint.
+- **Decisions Made:**
+  - Phase 5 is a NEW session; the AuliaPos session that produced Phase 4 must not deploy, restart the Gateway, or migrate production (repo + live-traffic + production-DB boundaries).
+  - The F-01 work is sequenced inside one change window: backup → migrate `aulia_inboxdb` (with `SHOW COLUMNS`/`SHOW INDEX` proof) → re-sync `aulia_inboxdb_test` → merge/deploy AuliaPos → text + media smoke test. Order must not be reversed, or every send would fail on the missing column.
+  - The front-matter status change stays with TASK-024.
+- **Next Action / Pending:**
+  - **Start a NEW session** and paste the prompt from `docs/handoff-m1-wave2-fase5-deploy-measure-2026-09-24.md` §1 (`/sdlc-write-code`, Phase 5 scope). Re-verify everything in §4 first — the Gateway serves live traffic and state may have changed since 2026-09-24.
+  - TASK-023 needs its own explicit in-the-moment approval (it slows/pauses the active Gateway) and must account for **K-13**: the first attempt ends as an AuliaPos 502, and the "uncertain outcome" UI only appears on a resend inside the lease.
+  - Still open overall: GW-09 closes only after TASK-023; the real `aulia_inboxdb` still lacks the column; AC-026(b) stays `stub-only`; `422` stays `[Assumed / Out of Scope]`; `DELIVERY_MAX_ATTEMPTS`/`DELIVERY_DEAD_AFTER_MS` still need post-outage calibration (K-04); RISK-002 follow-up lets M3 Fase 1e start only after this branch merges into `v2.3`.
+
+<!-- checkpoint-tail: M1 Wave 2 Phase 4 is CLOSED and TASK-021 was APPROVED by the owner on 2026-09-24 (AuliaPos branch feature/m1-wave2-outgoing-idempotency, tip 4e59885, 12 commits ahead of origin/v2.3, all unpushed; suite OK 349 tests / 1209 assertions; AC-040/AC-045 harness 24 PASS/0 FAIL); Phase 5 (TASK-022 incl. AuliaPos deploy + aulia_inboxdb migration as sub-step (f), TASK-023 real AC-027/AC-042 measurement, TASK-024 closure) is planned in docs/handoff-m1-wave2-fase5-deploy-measure-2026-09-24.md but NOT executed, because it needs a new session plus its own approvals for the WA-Gateway repo, the live Gateway, and the production database; the plan front matter stays 'Planned' until TASK-024. -->
+
