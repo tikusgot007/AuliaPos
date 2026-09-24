@@ -963,7 +963,7 @@ class Inbox extends BaseController
         if (strlen($text) > 4096) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
-                'message' => 'Teks catatan terlalu panjang (maksimal 4096 karakter).',
+                'message' => 'Teks catatan terlalu panjang (maksimal 4096 byte).',
             ]);
         }
 

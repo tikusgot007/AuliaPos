@@ -1180,7 +1180,7 @@
         // Reject BEFORE snoozing: an over-limit reason must not leave a
         // snooze saved without its note (CL-006).
         if (new TextEncoder().encode(alasan).length > SNOOZE_ALASAN_MAKS_BYTE) {
-            showToast('Alasan terlalu panjang (maksimal 4096 karakter).', 'warning');
+            showToast('Alasan terlalu panjang (maksimal 4096 byte).', 'warning');
             return false;
         }
 
@@ -1305,7 +1305,7 @@
             return false;
         }
         if (new TextEncoder().encode(teks).length > SNOOZE_ALASAN_MAKS_BYTE) {
-            showToast('Catatan terlalu panjang (maksimal 4096 karakter).', 'warning');
+            showToast('Catatan terlalu panjang (maksimal 4096 byte).', 'warning');
             return false;
         }
 
