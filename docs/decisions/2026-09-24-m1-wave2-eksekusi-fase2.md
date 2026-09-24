@@ -101,12 +101,15 @@ Semua di bawah ini berada dalam Fase 2, mudah dibalik, dan tidak menambah REQ/AC
 - **Kode Fase 2 belum ter-deploy**; folder live tetap `21a4cb6`, jadi tidak ada perubahan
   perilaku pada Gateway yang sedang berjalan.
 
-## 6. Berikutnya
+## 6. TASK-010 — APPROVAL (disetujui)
 
-TASK-010 (**APPROVAL**) menunggu keputusan pemilik. Fase 3 (TASK-011..TASK-014: attempt
-counter, dead-letter `incoming_queue`, klasifikasi `postToCI4`) dikerjakan di sesi
-terpisah dengan `/sdlc-write-code`, hanya setelah pemilik menyetujui. Fase 2 **tidak**
-menyentuh kode AuliaPos, sehingga branch AuliaPos `feature/m1-wave2-outgoing-idempotency`
-(TASK-015) belum perlu dibuat.
+**Disetujui pemilik pada 2026-09-24** ("setuju") dalam sesi yang sama, setelah checkpoint Fase 2 disimpan
+(commit memori `e85c9a6`). Fase 2 **ditutup**. Fase 3 (TASK-011..TASK-014: attempt counter, dead-letter
+`incoming_queue`, klasifikasi `postToCI4`) dikerjakan di **sesi baru** dengan `/sdlc-write-code`; brief +
+prompt siap paste ada di `docs/handoff-m1-wave2-fase3-write-code-2026-09-24.md`. Fase 2 **tidak** menyentuh
+kode AuliaPos, sehingga branch AuliaPos `feature/m1-wave2-outgoing-idempotency` (TASK-015) belum perlu dibuat.
+
+Batas yang **tidak** berubah oleh approval ini: kode Fase 1-2 belum ter-deploy (folder live tetap `21a4cb6`),
+GW-09 belum tertutup (AC-027/AC-042 nyata baru di Fase 5), dan TASK-022/024 tetap gate DEPLOY/APPROVAL.
 
 
