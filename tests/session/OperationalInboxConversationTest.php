@@ -181,11 +181,11 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
 
     public function testQFilterCocokContactNameDanPhone(): void
     {
-        $byName = $this->seedConversation([
+        $byName = $this->seedIdentitas('q-filter-nama@s.whatsapp.net', [
             'contact_name' => 'Budi Surabaya',
             'phone' => '628123450001',
         ]);
-        $byPhone = $this->seedConversation([
+        $byPhone = $this->seedIdentitas('q-filter-nomor@s.whatsapp.net', [
             'contact_name' => 'Customer Lain',
             'phone' => '628123459999',
         ]);
@@ -496,8 +496,8 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
     }
 
     /**
-     * Fase 1d seeds use a fixed, digit-free chat_id, because chat_id is
-     * now searched too and the random default could match a number query.
+     * Seed with a fixed, digit-free chat_id for q tests: chat_id is searched
+     * too (Fase 1d), so the random default could match a number query.
      */
     private function seedIdentitas(string $chatId, array $override = []): int
     {
