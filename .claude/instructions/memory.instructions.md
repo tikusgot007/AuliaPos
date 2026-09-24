@@ -2179,3 +2179,31 @@
 ---
 
 
+
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — TASK-010 APPROVED; Phase 2 CLOSED, Phase 3 handoff ready)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code — M1 Wave 2 **Phase 2 is CLOSED**: TASK-007..TASK-009 done and verified, and **TASK-010 APPROVED by the owner ("setuju", 2026-09-24)**. Phase 3 (TASK-011..TASK-014) has NOT started and MUST run in a NEW session.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — front-matter still `status: 'Planned'` (flips only at TASK-024); Completed/Date now filled for TASK-001..TASK-010.
+  - `docs/decisions/2026-09-24-m1-wave2-eksekusi-fase2.md` — §6 replaced by "TASK-010 — APPROVAL (disetujui)".
+  - `docs/handoff-m1-wave2-fase3-write-code-2026-09-24.md` — **NEW**: paste-ready prompt + brief for Phase 3 + verified `incoming_queue` code facts.
+- **Achieved Milestones:**
+  - Approval recorded (plan TASK-010 row + decision-log §6) and the Phase 3 handoff written with code-verified line references (`incomingBuffer.js` `_migrate():192`, `getDueEvents():308/548`, `markFailedAttempt():316/564`, `incomingDelivery.deliverOne():30-63`).
+  - AuliaPos doc commits: `8e0da29` (Phase 2 log), `e85c9a6` (memory checkpoint), `854de60` (TASK-010 APPROVED + Phase 3 handoff). Working tree clean.
+  - No Gateway change in this step: worktree HEAD stays `e0f5585`, live folder stays `21a4cb6`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** appending to the memory file with an exact-text `old_text` anchor on the Phase 1 `checkpoint-tail` line. **Reason:** the editor returned "text not found" (encoding/CRLF nuance on a 200 KB+ UTF-8 file). **Correct solution:** append with an explicit `insert_line` at EOF, then verify UTF-8 integrity byte-level via Node (`s.includes('\u{1F4DD} Session Checkpoint')`).
+- **Updated Files:**
+  - AuliaPos docs only: the plan (TASK-010 row), the Phase 2 decision log (§6), the Phase 3 handoff (new), and this checkpoint.
+- **Decisions Made:**
+  - The bare reply "setuju" followed a *different* question (a memory-commit offer), so the phase gate was confirmed explicitly before being recorded — a phase APPROVAL must never be inferred from an ambiguous reply.
+  - Phase 3 stays out of this session (owner's session-per-phase rule); the operational brief travels in the handoff document instead.
+- **Next Action / Pending:**
+  - **Start a NEW session**: `/sdlc-write-code` Phase 3 (TASK-011..TASK-014) using `docs/handoff-m1-wave2-fase3-write-code-2026-09-24.md`. Verify HEAD `e0f5585` and a clean `git status --short`, do NOT recreate the worktree, stop at TASK-014 (APPROVAL), do NOT push without an owner command.
+  - Still open: F-01/F-02 (AuliaPos migration mechanics, before TASK-016), finding T-1 (5 wave-1 scripts without a temp `SQLITE_PATH`), AC-026(b)/AC-042 stub-only, GW-09 not closed until Phase 5, and `DELIVERY_MAX_ATTEMPTS`/`DELIVERY_DEAD_AFTER_MS` need post-outage review (K-04).
+
+<!-- checkpoint-tail: M1 Wave 2 Phase 2 is CLOSED — TASK-007..009 verified (commits 62e92c2, e0f5585) and TASK-010 APPROVED by the owner; AuliaPos docs at 854de60; live folder still 21a4cb6; next is a NEW session running /sdlc-write-code Phase 3 (TASK-011..014) via docs/handoff-m1-wave2-fase3-write-code-2026-09-24.md. -->
+
+---
+
