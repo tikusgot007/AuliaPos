@@ -187,6 +187,20 @@ These routes use the `gatewaytoken` filter rather than browser session authentic
 
 Browser Inbox routes use the `auth` filter.
 
+### Outgoing send idempotency (M1 Wave 2)
+
+Outbound replies cross the Gateway boundary carrying a caller-owned `operation_id`, so a cashier retry after a timeout does not deliver a second WhatsApp message.
+
+- The reply form in `app/Views/inbox/index.php` owns the key: it creates it with `crypto.randomUUID()` (hex fallback for older browsers), reuses it while the cashier retries the same content, and discards it on success or when the content changes.
+- AuliaPos forwards the key and stores it in `messages.gateway_operation_id` (nullable `VARCHAR(64)` with `UNIQUE uniq_messages_gateway_operation_id`, migration `2026-09-24-000001_AddGatewayOperationIdToMessages`). When the Gateway answers with a replayed result, AuliaPos returns the stored row instead of inserting a second one.
+- The Gateway owns the matching `outgoing_operations` state machine inside the WA-Gateway repository and answers `409 SEND_IN_PROGRESS`, `504 SEND_UNRESOLVED`, or `409 OPERATION_ID_REUSED`; AuliaPos surfaces those as an "uncertain result" state instead of a plain failure.
+
+| Concern | Location |
+| --- | --- |
+| Key creation and reuse | `app/Views/inbox/index.php` (reply-form JavaScript) |
+| Forwarding, dedupe, response mapping | `app/Controllers/Inbox.php`: `kirimKeConversation()`, `kirimMedia()`, `findMessageByOperationId()`, `gatewayFailureResponse()` |
+| Persistence | `messages.gateway_operation_id` |
+
 ## 7. Inbox HTTP Surface
 
 Current Inbox routes include:
@@ -198,8 +212,8 @@ Current Inbox routes include:
 | `GET /inbox/api/conversations/(:num)/messages` | Conversation thread |
 | `GET /inbox/api/gateway-status` | Gateway status |
 | `GET /inbox/media/(:num)` | Authenticated media access |
-| `POST /inbox/kirim` | Send text reply |
-| `POST /inbox/kirim-media` | Send media |
+| `POST /inbox/kirim` | Send text reply (idempotent per caller-owned `operation_id`) |
+| `POST /inbox/kirim-media` | Send media (idempotent per caller-owned `operation_id`) |
 | `POST /inbox/percakapan/(:num)/ambil` | Take ownership |
 | `POST /inbox/percakapan/(:num)/lepas` | Release ownership |
 | `POST /inbox/percakapan/(:num)/tutup` | Close conversation |
