@@ -2225,3 +2225,58 @@
 - **Next Action / Pending:** In a NEW session, run `/sdlc-write-code` Phase 4 (TASK-015..TASK-021) for AuliaPos. Do not raise the plan front-matter status before TASK-024. Gateway push/deploy remains out of scope unless separately authorized.
 
 <!-- checkpoint-tail: M1 Wave 2 Phase 3 is CLOSED — TASK-011..013 verified (commits c766d6a, 4010cc1), TASK-014 APPROVED by owner; AuliaPos documentation commit and push are the finalization steps; live Gateway remains 21a4cb6; Phase 4 must start in a new session. -->
+
+---
+
+
+
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — Phase 4 CODE COMPLETE; TASK-021 awaiting owner approval)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code — M1 Wave 2 **Phase 4 code is complete (TASK-015..TASK-020 verified)**. **TASK-021 is an OPEN owner-approval gate**: Phase 5 (TASK-022..TASK-024) has NOT started, nothing was pushed, and the plan front matter stays `status: 'Planned'`.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — unchanged front matter (`Planned`); Completed/Date still blank for Phase 4.
+  - `docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md` — new Phase 4 decision log: §2 RISK-002 ordering, §3 boundary notes P-19..P-22, §4 open decisions F-01/F-02/F-03, §5 verification evidence, §6 per-task commit summary + approval ask.
+  - `spec/spec-process-m1-wave2-outgoing-idempotency.md` — unchanged this phase.
+- **Achieved Milestones:**
+  - AuliaPos branch `feature/m1-wave2-outgoing-idempotency` created from `f2b4f2c`; **6 local, unpushed commits**: `8bc4a8e` (TASK-015 preflight/guard), `5ce8efb` (TASK-016 migration), `f56446b` (TASK-017 forward+dedupe), `0c53e1c` (TASK-018 response states), `ef98533` (TASK-019 reply-form key), `a69c2ae` (TASK-020/021 record). One commit per task; only TASK-015's record commit lands after TASK-016's code commit (documented in the log).
+  - Migration `2026-09-24-000001_AddGatewayOperationIdToMessages.php`: `messages.gateway_operation_id VARCHAR(64) NULL` + `UNIQUE uniq_messages_gateway_operation_id`. Applied to **`aulia_inboxdb_test` only**; the real `aulia_inboxdb` was NOT touched. Column width 64 matches REQ-020 so silent truncation is impossible; no other column and no FK was changed.
+  - `MessageModel::$allowedFields` needed the new column (P-19): without it `Model::insert()` silently drops the value and the AC-041 dedupe would never work.
+  - `Inbox::kirimKeConversation()` reads `operation_id` from the kasir AJAX request (never generates it server-side, REQ-039/A-4), forwards it to `callGatewaySend()`/`callGatewaySendMedia()`, and on success looks up `messages` by `gateway_operation_id` — returning the existing row with `replayed: true` instead of a second insert.
+  - Two non-obvious details worth keeping: the text path now inserts through the **raw query builder**, which (unlike `Model::insert()`) does not auto-fill timestamps, so `created_at` is written explicitly (`messages.created_at` is `datetime NOT NULL`); and the dedupe lookup deliberately does **not** filter `deleted_at`, because the UNIQUE index also covers soft-deleted rows, so a soft-deleted row holding the key must be returned rather than re-inserted.
+  - New private `gatewayFailureResponse()`: `SEND_IN_PROGRESS`/`SEND_UNRESOLVED` → error + `uncertain: true`; `OPERATION_ID_REUSED` → error + `new_key_required: true` + `log_message('error', ...)`; `NOT_CONNECTED`/`DEAD_LETTERED` → ordinary failure. Both send helpers changed `private` → `protected` (test seam only) and now return `error_code`/`state`/`replayed` alongside the old keys.
+  - Reply form (surgical, form + its JS only): `data-operation-id` on `#formBalas` plus a persistent `#statusKirimBalasan` element; key from `crypto.randomUUID()` with a 32-char `Math.random` hex fallback; reused on retry after failure/timeout, discarded after success or any composer content change, rotated on `OPERATION_ID_REUSED`. Conversation list, search, and `apiConversations()` were not touched.
+  - Verification: full suite **`OK (348 tests, 1197 assertions)`**, 0 failures/errors/skips (pre-change baseline `328 / 1102`; +20 tests, +95 assertions). AC-040 + AC-045 were proven against a **real HTTP listener** (`build/ac040-router.php` + `build/scratch-ac040-verify.php`, gitignored) → **24 PASS / 0 FAIL**, including byte-identical `/send` and `/send-media` payloads when no `operation_id` is supplied. AC-041/AC-044 covered by controller + database tests; AC-046 by 4 render tests plus `tests/js/operation-id-composer.check.js`.
+  - Footprint audit clean: `git diff --name-status 4fba319..HEAD` lists only the CON-012 files + tests + docs; no change to `apiConversations()`, `ConversationModel`, or `InboxGatewayApi`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** byte-comparing the media payload with the literal `"mimetype":"image/png"`.
+    **Reason:** `json_encode()` escapes `/` as `\/` (identically before and after this change, since no call site altered its flags) — the harness expectation was wrong, not the application.
+    **Note:** when asserting raw payload strings, expect `\/`; fix the expectation, never the encoder or the assertion's strictness.
+  - **Attempted:** writing a commit-message temp file with `Set-Content -Encoding UTF8` (PowerShell 5.1).
+    **Reason:** it prepends a BOM, which lands inside the commit subject line (visible as a stray character in `git log --oneline`).
+    **Note:** use `-Encoding ASCII` for commit-message files; verify with `git log -1 --format=%s | Format-Hex`.
+  - **Attempted:** embedding the record commit's own hash inside the document that commit carries.
+    **Reason:** amending changes the hash, so the table goes stale on every amend (8d8088c → 853888a → a69c2ae).
+    **Note:** self-referencing commits must be cited by subject plus `git log -1 --format=%h`, never by a literal hash.
+  - **Attempted:** reading a long file region through the read tool twice; the second call answered `[outdated - see the latest file content]`.
+    **Reason:** the tool cache was stale after an edit, and it does not always invalidate.
+    **Note:** after editing a file, re-read it via `Get-Content`/`git diff` in the shell to confirm final state.
+  - **Also:** M3 Fase 1e is still spec-only, so there was no collision on the shared files — but it must not start plan/code work until this branch is merged into `v2.3` (RISK-002).
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — send path only: `kirimMedia()`, `kirimKeConversation()`, `callGatewaySend()`, `callGatewaySendMedia()`, new `gatewayFailureResponse()`.
+  - `app/Models/MessageModel.php` — `$allowedFields` += `gateway_operation_id`.
+  - `app/Database/Migrations/2026-09-24-000001_AddGatewayOperationIdToMessages.php` — new.
+  - `app/Views/inbox/index.php` — reply form markup + composer key JS only.
+  - `tests/session/InboxOutgoingIdempotencyTest.php`, `tests/session/InboxOutgoingIdempotencyScreenTest.php`, `tests/database/GatewayOperationIdMigrationTest.php`, `tests/database/InboxOutgoingOperationIdTest.php`, `tests/js/operation-id-composer.check.js` — new.
+  - `docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md` — new.
+  - `build/ac040-router.php`, `build/scratch-ac040-verify.php` — throwaway AC-040/AC-045 harness (gitignored, kept so the evidence can be regenerated).
+- **Decisions Made:**
+  - Server-side key generation is deleted everywhere; the frontend is the sole owner of `operation_id` (REQ-039/A-4), and a missing key degrades gracefully to the old behaviour.
+  - The row dedupe stays in `kirimKeConversation()` only, per TASK-017's literal wording; the media path intentionally has none.
+  - `private` → `protected` on the two send helpers is a test seam, not a behaviour change.
+  - Verification for AC-040 was done with a real local HTTP listener instead of mocking, because the payload is built inline and posted with cURL.
+- **Next Action / Pending:**
+  - **Owner decision needed BEFORE Phase 5.** **F-03 (new, blocking for media retry):** `Inbox::kirimMedia()` (`app/Controllers/Inbox.php:886-904`) inserts unconditionally, so a Gateway replay for the same `operation_id` collides with `UNIQUE uniq_messages_gateway_operation_id`; with `DBDebug = true` on the `inbox` group that surfaces as HTTP 500 instead of returning the stored row. Reachable because TASK-019 deliberately reuses the key on retry. Recommended fix: one small follow-up commit mirroring the `kirimKeConversation()` dedupe inside `kirimMedia()` plus a controller test. **F-01:** the migration must be applied to the real `aulia_inboxdb` before any kasir traffic (otherwise every successful send fails on the missing column).
+  - No push, no Phase 5, no front-matter change: the plan stays `Planned`, and TASK-022..TASK-024 wait for explicit approval.
+
+<!-- checkpoint-tail: M1 Wave 2 Phase 4 code is COMPLETE on AuliaPos branch feature/m1-wave2-outgoing-idempotency (6 local commits, tip a69c2ae, suite 348 tests / 1197 assertions green, AC-040/AC-045 proven against a real HTTP listener); TASK-021 is an OPEN owner-approval gate with F-03 (media replay vs UNIQUE → HTTP 500) and F-01 (migration not yet applied to the real aulia_inboxdb) awaiting a decision; nothing pushed, Phase 5 not started, plan still 'Planned'. -->
