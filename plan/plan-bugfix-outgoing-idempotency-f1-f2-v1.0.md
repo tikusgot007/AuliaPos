@@ -2,15 +2,15 @@
 goal: M1 Wave 2 Outgoing Idempotency — F-1 (OPERATION_STORE_ERROR signaling) & F-2 (uncertain-send UX mitigation)
 version: 1.0
 date_created: 2026-09-24
-last_updated: 2026-09-24
+last_updated: 2026-09-25
 owner: AuliaPos Inbox module
-status: "In progress"
+status: "Completed"
 tags: ["bug-fix", "remediation", "patch", "inbox", "gateway", "outgoing-idempotency"]
 ---
 
 # Introduction
 
-![Status: In progress](https://img.shields.io/badge/status-In%20progress-orange)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 This plan remediates two findings recorded in the M1 Wave 2 code review checkpoint
 (`.claude/instructions/memory.instructions.md`, commit `e49b582`, findings F-1 and F-2), both located in the
@@ -94,9 +94,9 @@ Wave 3 candidate.
 | TASK-007 | Strengthen the existing `SEND_IN_PROGRESS`/`SEND_UNRESOLVED` branch message text (both in `index.php` and its verbatim JS copy) to add a short explicit instruction, e.g. append "Periksa WhatsApp atau tab lain sebelum mengirim ulang." to the existing "Hasil belum pasti, jangan kirim ulang dulu." string. Do NOT change `error_code`/`state`/`uncertain` keys or insert any `messages` row. | REQ-003             |    ✅     | 2026-09-24 |
 | TASK-008 | Update only the JSDoc-style comment block above `tanganiKegagalanKirimBalasan()` (both copies) to mention the new `OPERATION_STORE_ERROR` branch, keeping the existing comment style.                                                                                   | REQ-001             |    ✅     | 2026-09-24 |
 | TASK-009 | **VERIFY**: Run `node tests/js/operation-id-composer.check.js`. It MUST PASS (all blocks, including the new `OPERATION_STORE_ERROR` block).                                                                                                                             | -                   |    ✅     | 2026-09-24 |
-| TASK-010 | **VERIFY**: Run `vendor/bin/phpunit --no-coverage --filter InboxOutgoingIdempotencyTest` to confirm no server-side regression, since `CON-002` means these tests should be unaffected.                                                                                  | CON-001, CON-002    |    [ ]    |      |
-| TASK-011 | **VERIFY**: Run the full suite `vendor/bin/phpunit --no-coverage` to confirm zero regressions project-wide.                                                                                                                                                              | -                   |    [ ]    |      |
-| TASK-012 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing this plan                                                                                                                                                                                            | -                   |    [ ]    |      |
+| TASK-010 | **VERIFY**: Run `vendor/bin/phpunit --no-coverage --filter InboxOutgoingIdempotencyTest` to confirm no server-side regression, since `CON-002` means these tests should be unaffected.                                                                                  | CON-001, CON-002    |    ✅     | 2026-09-25 (8 tests, 58 assertions OK) |
+| TASK-011 | **VERIFY**: Run the full suite `vendor/bin/phpunit --no-coverage` to confirm zero regressions project-wide.                                                                                                                                                              | -                   |    ✅     | 2026-09-25 (349 tests, 1209 assertions OK) |
+| TASK-012 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing this plan                                                                                                                                                                                            | -                   |    ✅     | 2026-09-25 |
 
 ## 3. Rollback Strategy
 

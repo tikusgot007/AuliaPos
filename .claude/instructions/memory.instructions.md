@@ -2490,3 +2490,17 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-25 (Bugfix F-1/F-2 — CLOSED, TASK-012 APPROVED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code (`/sdlc-write-code`) — `plan/plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md` is **Completed** (front matter + badge). Owner approved TASK-012 on 2026-09-25.
+- **Verified (real runs, 2026-09-25):** `node tests/js/operation-id-composer.check.js` exit 0; `--filter InboxOutgoingIdempotencyTest` OK (8 tests / 58 assertions); full `vendor/bin/phpunit --no-coverage` OK (**349 tests / 1209 assertions**, identical to the pre-change baseline).
+- **Delivered:** F-1 full fix (client-only `OPERATION_STORE_ERROR` branch, key preserved, operator-restart message); F-2 UX mitigation only ("Periksa WhatsApp atau tab lain sebelum mengirim ulang."). `Inbox.php`, schema and Gateway untouched (CON-002/CON-003).
+- **Honest limits:** TASK-003 (red-first run) was never observed because the shell tool was unavailable in Phase 1 — the fix was verified green, not red-then-green. F-2's real fix (reconciliation of sends delivered through the in-lease 409/504 path, never written to `messages`) is NOT done; it remains a Wave 3 candidate needing `/sdlc-define-specs` (RISK-002).
+- **Dead-End (environment):** the first phpunit run failed with `MySQL server has gone away` / 10061 because MariaDB was down and then restarting (crash recovery). **Note:** check `netstat` for a LISTENING :3306 and `mysqladmin status` before reading DB test errors as code failures; a run that hangs for minutes with a wall of `E` means the DB is down.
+- **Next Action / Pending:** none for this bugfix. Optional: open `/sdlc-define-specs` for the F-2 reconciliation design.
+
+<!-- checkpoint-tail: F-1/F-2 bugfix is CLOSED (2026-09-25): plan Completed, JS check + 8-test filter + full suite 349/1209 all green, pushed to v2.3; F-2 real fix (recording sends delivered via the 409/504 path) remains an open Wave 3 candidate for /sdlc-define-specs. -->
+
+---
+
