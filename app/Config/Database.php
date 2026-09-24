@@ -288,8 +288,15 @@ class Database extends Config
         // Ensure that we always set the database group to 'tests' if
         // we are currently running an automated test suite, so that
         // we don't overwrite live data on accident.
+        //
+        // The `inbox` group must be redirected too: it is a real MySQL
+        // database and several tests empty its tables in setUp(). It is
+        // forced to a dedicated test database here (after parent applied
+        // .env values, so .env cannot point tests back at live data).
+        // Hostname/username/password still come from .env.
         if (ENVIRONMENT === 'testing') {
-            $this->defaultGroup = 'tests';
+            $this->defaultGroup      = 'tests';
+            $this->inbox['database'] = 'aulia_inboxdb_test';
         }
     }
 }

@@ -11,7 +11,8 @@ use CodeIgniter\Test\FeatureTestTrait;
  * ConversationModel::resolveConversationId().
  *
  * Tabel inbox (`conversations`/`messages`/`conversation_identities`)
- * hidup di koneksi 'inbox' (aulia_inboxdb), TERPISAH dari koneksi
+ * hidup di koneksi 'inbox' (dialihkan ke aulia_inboxdb_test saat
+ * testing, lihat Config\Database), TERPISAH dari koneksi
  * 'tests' yang dipakai DatabaseTestTrait untuk migrate/refresh
  * otomatis di bawah -- migration `$DBGroup='inbox'` SENGAJA di-skip
  * oleh migrate('tests') (CodeIgniter memfilter per group), jadi tidak

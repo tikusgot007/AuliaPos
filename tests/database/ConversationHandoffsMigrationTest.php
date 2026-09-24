@@ -7,8 +7,8 @@ use CodeIgniter\Test\CIUnitTestCase;
  * M3 Phase 2a (TB-01, TASK-001) -- schema contract for the additive
  * `conversation_handoffs` migration.
  *
- * Runs against the real Inbox database (group `inbox`) -- the same
- * environment the migration was applied to via `php spark migrate`,
+ * Runs against the `inbox` group, redirected to `aulia_inboxdb_test`
+ * under testing (a schema copy of the migrated Inbox database),
  * mirroring how the session tests already exercise the Inbox schema.
  *
  * @internal

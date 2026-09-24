@@ -8,8 +8,8 @@ use CodeIgniter\Test\CIUnitTestCase;
  * (Spec Section 4.2): insertHandoff (incl. NULL from for K-06) and
  * forConversation (newest-first, cap 50).
  *
- * Runs against the real Inbox database (group `inbox`), same as the
- * migration test and the session tests.
+ * Runs against the `inbox` group, redirected to `aulia_inboxdb_test`
+ * under testing, same as the migration test and the session tests.
  *
  * @internal
  */

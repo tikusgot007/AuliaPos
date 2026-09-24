@@ -18,6 +18,7 @@ This map is an architectural reference, not a product specification. Feature req
 | Inbox database | Separate MySQL/MariaDB connection group `inbox` |
 | Archive database | Separate SQLite connection group `archive` |
 | Test database | In-memory SQLite connection group `tests` |
+| Inbox test database | MySQL/MariaDB `aulia_inboxdb_test`, forced by `Config\Database` for group `inbox` under `testing` |
 | Dependency management | Composer |
 | Test framework | PHPUnit `^10.5.16` |
 | Production web entry point | `public/index.php` |
@@ -138,7 +139,12 @@ AuliaPos intentionally uses multiple database groups.
                          SQLite :memory:
 ```
 
-The `tests` database becomes the default group during the testing environment, providing protection against accidental writes to live/default data.
+During the testing environment, both real MySQL groups are redirected so tests never write to live data:
+
+- `default` → the `tests` group (SQLite `:memory:`);
+- `inbox` → the dedicated database `aulia_inboxdb_test` (same server credentials from `.env`, only the database name is forced).
+
+Both redirects live in `Config\Database::__construct()`. In addition, `tests/_support/bootstrap.php` refuses to start PHPUnit if the `inbox` group does not resolve to `aulia_inboxdb_test`.
 
 Production migrations live in `app/Database/Migrations/`. Test-only schema support lives in `tests/_support/Database/Migrations/`.
 
@@ -286,6 +292,20 @@ The repository's test command is:
 ```text
 composer test
 ```
+
+### One-time setup: Inbox test database
+
+Inbox tests run against `aulia_inboxdb_test`, never the real `aulia_inboxdb`. Create it once, schema only (no rows):
+
+```text
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS aulia_inboxdb_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+mysqldump -u root -p --no-data --routines --triggers aulia_inboxdb | mysql -u root -p aulia_inboxdb_test
+```
+
+`php spark migrate` cannot build this database: migration history is stored in the `default` database, so the inbox migrations are already marked as run and would be skipped.
+
+> [!IMPORTANT]
+> Re-run the `mysqldump --no-data ... | mysql ...` step after adding a new inbox migration. Otherwise tests fail with "unknown column/table" errors in `aulia_inboxdb_test`.
 
 The M3 Phase 2a checkpoint recorded in `.claude/instructions/memory.instructions.md` reports 283 tests and 867 assertions on branch `feature/m3-operational-inbox-fase1a-task001` using `vendor/bin/phpunit --no-coverage` (plain `composer test` still exits non-zero because of the pre-existing "No code coverage driver available" warning).
 

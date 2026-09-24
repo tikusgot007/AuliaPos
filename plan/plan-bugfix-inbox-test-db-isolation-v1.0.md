@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-09-24
 last_updated: 2026-09-24
 owner: AuliaPos Inbox module
-status: "Planned"
+status: "Completed"
 tags: ["bug-fix", "remediation", "patch", "inbox", "testing", "data-loss"]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 Every PHPUnit run deletes all rows in the real local Inbox database `aulia_inboxdb`. The Inbox screen (`/inbox`) that used to be full of chats is now empty. `conversations` holds 2 rows with `AUTO_INCREMENT = 25801`, and one of them is test seed data (`ac-g-andi@s.whatsapp.net`, "Andi", from `OperationalInboxConversationTest::testQKolomNullTidakError`).
 
@@ -56,12 +56,24 @@ The design comment "tests live in the real `inbox` group" in `InboxHandoffTest` 
 
 | Task     | Description | Ref ID | Completed | Date |
 | -------- | ----------- | ------ | :-------: | :--: |
-| TASK-001 | Snapshot the real database before anything else: `mysqldump -u root -p aulia_inboxdb > <scratch>/aulia_inboxdb-before-fix.sql` (outside the repo, never committed). | RBCK-003 | [ ] | |
-| TASK-002 | Create the test database: `mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS aulia_inboxdb_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"`. | REQ-004 | [ ] | |
-| TASK-003 | Copy the schema only (no rows): `mysqldump -u root -p --no-data --routines --triggers aulia_inboxdb \| mysql -u root -p aulia_inboxdb_test`. Why not `php spark migrate`: migration history is stored in `aulia_kasirdb.migrations`, so the inbox migrations are already marked as run and would be skipped. | REQ-004 | [ ] | |
-| TASK-004 | Record the baseline of the real database: `SELECT COUNT(*) FROM aulia_inboxdb.conversations` (and `messages`, `conversation_identities`, `conversation_handoffs`), plus `SELECT TABLE_NAME, AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA='aulia_inboxdb'`. Save the numbers in the plan notes. | REQ-005 | [ ] | |
-| TASK-005 | **VERIFY**: `SHOW TABLES FROM aulia_inboxdb_test` lists the same tables as `aulia_inboxdb`; `SHOW TRIGGERS FROM aulia_inboxdb_test` is empty (no leftover `trg_handoff_fail_insert`). | - | [ ] | |
-| TASK-006 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 1 | - | [ ] | |
+| TASK-001 | Snapshot the real database before anything else: `mysqldump -u root -p aulia_inboxdb > <scratch>/aulia_inboxdb-before-fix.sql` (outside the repo, never committed). | RBCK-003 | [x] | 2026-09-24 |
+| TASK-002 | Create the test database: `mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS aulia_inboxdb_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"`. | REQ-004 | [x] | 2026-09-24 |
+| TASK-003 | Copy the schema only (no rows): `mysqldump -u root -p --no-data --routines --triggers aulia_inboxdb \| mysql -u root -p aulia_inboxdb_test`. Why not `php spark migrate`: migration history is stored in `aulia_kasirdb.migrations`, so the inbox migrations are already marked as run and would be skipped. | REQ-004 | [x] | 2026-09-24 |
+| TASK-004 | Record the baseline of the real database: `SELECT COUNT(*) FROM aulia_inboxdb.conversations` (and `messages`, `conversation_identities`, `conversation_handoffs`), plus `SELECT TABLE_NAME, AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA='aulia_inboxdb'`. Save the numbers in the plan notes. | REQ-005 | [x] | 2026-09-24 |
+| TASK-005 | **VERIFY**: `SHOW TABLES FROM aulia_inboxdb_test` lists the same tables as `aulia_inboxdb`; `SHOW TRIGGERS FROM aulia_inboxdb_test` is empty (no leftover `trg_handoff_fail_insert`). | - | [x] | 2026-09-24 |
+| TASK-006 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 1 | - | [x] | 2026-09-24 |
+
+**Phase 0 notes (2026-09-24).** Baseline of `aulia_inboxdb` recorded by TASK-004 (exact `COUNT(*)`), used by TASK-015:
+
+| Table | Rows | AUTO_INCREMENT |
+| ----- | ---: | -------------: |
+| `conversations` | 2 | 25801 |
+| `messages` | 33 | 339 |
+| `conversation_identities` | 1 | 123 |
+| `conversation_handoffs` | 0 | 3256 |
+| `gateway_status` | 1 | NULL |
+
+TASK-005 result: `SHOW TABLES` is identical in both databases; `aulia_inboxdb_test` has 0 triggers and 0 rows. The TASK-001 snapshot was written to the agent scratchpad (outside the repo).
 
 ### Implementation Phase 1: Test Writing (Test-Driven Bug Fixing)
 
@@ -69,9 +81,9 @@ The design comment "tests live in the real `inbox` group" in `InboxHandoffTest` 
 
 | Task     | Description | Ref ID | Completed | Date |
 | -------- | ----------- | ------ | :-------: | :--: |
-| TASK-007 | Create `tests/database/InboxTestDatabaseIsolationTest.php` (`CIUnitTestCase`, NO `DatabaseTestTrait`, NO writes). Three assertions: (a) `config('Database')->inbox['database'] === 'aulia_inboxdb_test'`; (b) `db_connect('inbox')->query('SELECT DATABASE() AS db')->getRow()->db === 'aulia_inboxdb_test'`; (c) the live name is not `aulia_inboxdb`. Failure messages must say plainly that tests are about to touch the real Inbox database. | REQ-003 | [ ] | |
-| TASK-008 | **VERIFY**: Run ONLY this file: `vendor/bin/phpunit --no-coverage tests/database/InboxTestDatabaseIsolationTest.php`. It MUST FAIL (live database is `aulia_inboxdb`). The test does not write, so running it is safe. | - | [ ] | |
-| TASK-009 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2 | - | [ ] | |
+| TASK-007 | Create `tests/database/InboxTestDatabaseIsolationTest.php` (`CIUnitTestCase`, NO `DatabaseTestTrait`, NO writes). Three assertions: (a) `config('Database')->inbox['database'] === 'aulia_inboxdb_test'`; (b) `db_connect('inbox')->query('SELECT DATABASE() AS db')->getRow()->db === 'aulia_inboxdb_test'`; (c) the live name is not `aulia_inboxdb`. Failure messages must say plainly that tests are about to touch the real Inbox database. | REQ-003 | [x] | 2026-09-24 |
+| TASK-008 | **VERIFY**: Run ONLY this file: `vendor/bin/phpunit --no-coverage tests/database/InboxTestDatabaseIsolationTest.php`. It MUST FAIL (live database is `aulia_inboxdb`). The test does not write, so running it is safe. | - | [x] | 2026-09-24 |
+| TASK-009 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2 | - | [x] | 2026-09-24 |
 
 ### Implementation Phase 2: Minimal Root Cause Remediation
 
@@ -79,13 +91,31 @@ The design comment "tests live in the real `inbox` group" in `InboxHandoffTest` 
 
 | Task     | Description | Ref ID | Completed | Date |
 | -------- | ----------- | ------ | :-------: | :--: |
-| TASK-010 | `app/Config/Database.php` `__construct()`: inside the existing `if (ENVIRONMENT === 'testing')` block, add `$this->inbox['database'] = 'aulia_inboxdb_test';` after the `defaultGroup` line. Extend the comment: the `inbox` group must be redirected too, because it is a real MySQL database and tests empty its tables. Hostname/username/password still come from `.env`. | REQ-001, CON-001, CON-004 | [ ] | |
-| TASK-011 | Create `tests/_support/bootstrap.php`: `require` the CodeIgniter test bootstrap (`vendor/codeigniter4/framework/system/Test/bootstrap.php`), then read `config('Database')->inbox['database']`; if it is not `aulia_inboxdb_test`, write a clear message to `STDERR` ("Refusing to run tests: inbox group points to <name>, expected aulia_inboxdb_test") and `exit(1)`. No DB connection here, config check only. | REQ-002 | [ ] | |
-| TASK-012 | `phpunit.dist.xml`: change `bootstrap=` to `tests/_support/bootstrap.php`. | REQ-002 | [ ] | |
-| TASK-013 | **VERIFY**: Run `vendor/bin/phpunit --no-coverage tests/database/InboxTestDatabaseIsolationTest.php`. It MUST PASS. | - | [ ] | |
-| TASK-014 | **VERIFY (fail-closed)**: Temporarily comment out the line from TASK-010, run the same single test file, and confirm PHPUnit exits with the bootstrap refusal message and runs ZERO tests. Restore the line and confirm `git diff app/Config/Database.php` shows only the intended change. | - | [ ] | |
-| TASK-015 | **VERIFY (no damage)**: Run the full suite `vendor/bin/phpunit --no-coverage`. It MUST be green (baseline: 317 tests on 2026-09-24, plus 1 new class). Then repeat the TASK-004 queries on `aulia_inboxdb`: row counts and `AUTO_INCREMENT` MUST be identical to the baseline. `aulia_inboxdb_test` is expected to contain test rows. | REQ-005 | [ ] | |
-| TASK-016 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 3 | - | [ ] | |
+| TASK-010 | `app/Config/Database.php` `__construct()`: inside the existing `if (ENVIRONMENT === 'testing')` block, add `$this->inbox['database'] = 'aulia_inboxdb_test';` after the `defaultGroup` line. Extend the comment: the `inbox` group must be redirected too, because it is a real MySQL database and tests empty its tables. Hostname/username/password still come from `.env`. | REQ-001, CON-001, CON-004 | [x] | 2026-09-24 |
+| TASK-011 | Create `tests/_support/bootstrap.php`: `require` the CodeIgniter test bootstrap (`vendor/codeigniter4/framework/system/Test/bootstrap.php`), then read `config('Database')->inbox['database']`; if it is not `aulia_inboxdb_test`, write a clear message to `STDERR` ("Refusing to run tests: inbox group points to <name>, expected aulia_inboxdb_test") and `exit(1)`. No DB connection here, config check only. | REQ-002 | [x] | 2026-09-24 |
+| TASK-012 | `phpunit.dist.xml`: change `bootstrap=` to `tests/_support/bootstrap.php`. | REQ-002 | [x] | 2026-09-24 |
+| TASK-013 | **VERIFY**: Run `vendor/bin/phpunit --no-coverage tests/database/InboxTestDatabaseIsolationTest.php`. It MUST PASS. | - | [x] | 2026-09-24 |
+| TASK-014 | **VERIFY (fail-closed)**: Temporarily comment out the line from TASK-010, run the same single test file, and confirm PHPUnit exits with the bootstrap refusal message and runs ZERO tests. Restore the line and confirm `git diff app/Config/Database.php` shows only the intended change. | - | [x] | 2026-09-24 |
+| TASK-015 | **VERIFY (no damage)**: Run the full suite `vendor/bin/phpunit --no-coverage`. It MUST be green (baseline: 317 tests on 2026-09-24, plus 1 new class). Then repeat the TASK-004 queries on `aulia_inboxdb`: row counts and `AUTO_INCREMENT` MUST be identical to the baseline. `aulia_inboxdb_test` is expected to contain test rows. | REQ-005 | [x] | 2026-09-24 |
+| TASK-016 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 3 | - | [x] | 2026-09-24 |
+
+**Phase 2 notes (2026-09-24).**
+
+- TASK-013: guard test `OK (3 tests, 3 assertions)`.
+- TASK-014: with the TASK-010 line commented out, PHPUnit printed `Refusing to run tests: inbox group points to 'aulia_inboxdb', expected aulia_inboxdb_test.`, exited 1 and ran zero tests. The line was restored; `git diff app/Config/Database.php` shows only the intended change.
+- TASK-015: full suite `OK (327 tests, 1100 assertions)`. The plan's "317" baseline was stale: at `HEAD` the suite has 307 test methods, and now it has 310 (the 3 new guard tests). The run count is higher because of data-provider cases.
+- TASK-015, real database after the suite:
+
+| Table | Rows (baseline → after) | AUTO_INCREMENT (baseline → after) |
+| ----- | ----------------------- | --------------------------------- |
+| `conversations` | 2 → 2 | 25801 → 25801 |
+| `messages` | 33 → 53 | 339 → 359 |
+| `conversation_identities` | 1 → 1 | 123 → 123 |
+| `conversation_handoffs` | 0 → 0 | 3256 → 3256 |
+| `gateway_status` | 1 → 1 | NULL → NULL |
+
+> [!NOTE]
+> The 20 extra `messages` rows are NOT from tests. They are live WhatsApp traffic from the running Gateway (`gateway_status.status = connected`): all `incoming`, all with a real `wa_message_id`, all in the real group conversation 25800, arriving steadily from 12:23 onward. None arrived during the suite window (12:49:28-12:49:47). No row was deleted and no test seed row appeared in `aulia_inboxdb`, while `aulia_inboxdb_test.conversations` reached `AUTO_INCREMENT = 27078`, which shows that test writes went there. REQ-005 is met in intent (tests do not change the real database). A byte-for-byte identical check is only possible with the Gateway stopped.
 
 ### Implementation Phase 3: Correct misleading documentation
 
@@ -93,10 +123,10 @@ The design comment "tests live in the real `inbox` group" in `InboxHandoffTest` 
 
 | Task     | Description | Ref ID | Completed | Date |
 | -------- | ----------- | ------ | :-------: | :--: |
-| TASK-017 | `docs/ARCHITECTURE.md`: §2 table add row "Inbox test database — MySQL/MariaDB `aulia_inboxdb_test`, forced by `Config\Database` under `testing`"; §5 correct the sentence so it says both `default` and `inbox` are redirected under test; §11 add a short "One-time setup" block with the TASK-002/TASK-003 commands and the rule "re-run TASK-003 after adding a new inbox migration". | REQ-004 | [ ] | |
-| TASK-018 | Comment-only fixes: `tests/session/InboxHandoffTest.php` docblock (lines 43-44) and `tests/database/ConversationHandoffsMigrationTest.php` docblock (lines 10-12): replace "real `inbox` group (MySQL aulia_inboxdb)" with "`inbox` group, redirected to `aulia_inboxdb_test` under testing". No logic change. | CON-003 | [ ] | |
-| TASK-019 | **VERIFY**: `git diff --stat` touches only the files in Section 5. Grep `aulia_inboxdb[^_]` in `tests/` returns no claim that tests use the real database. Run the guard test once more: PASS. | - | [ ] | |
-| TASK-020 | **APPROVAL**: 🛑 Wait for explicit user confirmation that the fix is complete | - | [ ] | |
+| TASK-017 | `docs/ARCHITECTURE.md`: §2 table add row "Inbox test database — MySQL/MariaDB `aulia_inboxdb_test`, forced by `Config\Database` under `testing`"; §5 correct the sentence so it says both `default` and `inbox` are redirected under test; §11 add a short "One-time setup" block with the TASK-002/TASK-003 commands and the rule "re-run TASK-003 after adding a new inbox migration". | REQ-004 | [x] | 2026-09-24 |
+| TASK-018 | Comment-only fixes: `tests/session/InboxHandoffTest.php` docblock (lines 43-44) and `tests/database/ConversationHandoffsMigrationTest.php` docblock (lines 10-12): replace "real `inbox` group (MySQL aulia_inboxdb)" with "`inbox` group, redirected to `aulia_inboxdb_test` under testing". No logic change. | CON-003 | [x] | 2026-09-24 |
+| TASK-019 | **VERIFY**: `git diff --stat` touches only the files in Section 5. Grep `aulia_inboxdb[^_]` in `tests/` returns no claim that tests use the real database. Run the guard test once more: PASS. | - | [x] | 2026-09-24 |
+| TASK-020 | **APPROVAL**: 🛑 Wait for explicit user confirmation that the fix is complete | - | [x] | 2026-09-24 |
 
 ## 3. Rollback Strategy
 
@@ -119,6 +149,7 @@ The design comment "tests live in the real `inbox` group" in `InboxHandoffTest` 
 - **FILE-004**: `tests/database/InboxTestDatabaseIsolationTest.php` — new guard test (TASK-007).
 - **FILE-005**: `docs/ARCHITECTURE.md` — §2, §5, §11 (TASK-017).
 - **FILE-006**: `tests/session/InboxHandoffTest.php`, `tests/database/ConversationHandoffsMigrationTest.php` — docblock only (TASK-018).
+- **FILE-007**: `tests/database/ConversationHandoffModelTest.php`, `tests/session/InboxSoftDeleteTest.php` — docblock only. Added during TASK-019 (user-approved, 2026-09-24): the grep found the same "real aulia_inboxdb" claim in these two files.
 
 ## 6. Testing Strategy & Edge Cases
 

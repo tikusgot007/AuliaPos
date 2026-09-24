@@ -40,8 +40,9 @@ use CodeIgniter\Test\FeatureTestTrait;
  * which the Database constructor switches to `tests` under ENVIRONMENT
  * testing -- the same setup as UserModelDaftarKasirAktifTest.
  *
- * Conversations / messages / handoffs live in the real `inbox` group
- * (MySQL aulia_inboxdb), same as InboxInternalNoteTest.
+ * Conversations / messages / handoffs live in the `inbox` group,
+ * redirected to `aulia_inboxdb_test` under testing, same as
+ * InboxInternalNoteTest.
  *
  * @internal
  */
