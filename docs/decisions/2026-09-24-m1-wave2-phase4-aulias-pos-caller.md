@@ -85,11 +85,108 @@ CodeIgniter's `Model::insert()` silently drops data for fields absent from `$all
 
 - **F-01 — real database migration is NOT executed.** `aulia_inboxdb.messages` does not have `gateway_operation_id` yet. The moment kasir traffic runs against the real database with the Phase 4 code active, every successful send would fail with `Unknown column 'gateway_operation_id'`. Because of this, the Phase 4 code must not be used by kasir until the migration is applied to `aulia_inboxdb`; that application is an owner-approved step (same decision point as the Phase 5 deploy, and it is listed in the clarification report F-01 recommendation as one explicit deploy task). CON-014 forbids doing it silently, so it was not done here.
 - **F-02 — test database sync.** Resolved for this phase by P-17; the procedure to repeat after this migration lands in the real database is `mysqldump --no-data --routines --triggers aulia_inboxdb | mysql aulia_inboxdb_test` (`docs/ARCHITECTURE.md` §11), which will then be a no-op for this column because the names match.
+- **F-03 — media replay path is NOT deduplicated (open; needs an owner decision, found during TASK-020).** TASK-017 names `Inbox::kirimKeConversation()` for the "look up by `gateway_operation_id` before inserting" step, so the dedupe landed there only. `Inbox::kirimMedia()` still inserts unconditionally with `gateway_operation_id` filled in (`app/Controllers/Inbox.php:886-904`). The TASK-019 UI deliberately reuses the same key when the cashier retries media, so this sequence is reachable: media send times out -> Gateway actually delivered -> cashier retries with the same key -> Gateway answers `200` with `replayed:true` -> AuliaPos attempts a second insert with the same non-`NULL` value -> `UNIQUE KEY uniq_messages_gateway_operation_id` rejects it. Because the `inbox` DB group has `DBDebug = true`, that raises a `DatabaseException` and the request fails with `500` instead of returning the already-stored row. Two facts were verified rather than assumed: UNIQUE rejection is proven by `tests/database/GatewayOperationIdMigrationTest.php`, and the unconditional insert is plain code at the line range above. This is inside Fase 4's allowed files but outside TASK-017's literal wording, and this session was explicitly instructed not to create new tasks, so it was **not** changed. Recommended options: (a) owner approves a small follow-up commit that mirrors the `kirimKeConversation()` dedupe block inside `kirimMedia()` plus a controller test, or (b) owner records it as a known limitation that must be closed before AuliaPos handles real media retries. Coverage note: Gateway-side idempotency (E-O1) still prevents a second WhatsApp delivery; only AuliaPos's response handling is affected.
 
 ## 5. Verification Evidence (TASK-020)
 
-Filled in when TASK-020 runs; see §6 for the per-task commit summary.
+### 5.1 Full suite (boundary)
+
+`vendor/bin/phpunit --no-coverage` (PHPUnit 10.5.64, PHP 8.2.12, config `phpunit.dist.xml`):
+
+| Item | Value |
+| --- | --- |
+| Recorded pre-change baseline (branch time) | `OK (328 tests, 1102 assertions)` |
+| Final result after TASK-015..TASK-019 | **`OK (348 tests, 1197 assertions)`** |
+| Delta | +20 tests, +95 assertions |
+| Failures / errors / skips / incomplete | 0 / 0 / 0 / 0 |
+| Plan minimum (TASK-020 item 3) | satisfied (>= 324 tests, >= 1097 assertions, plus new tests) |
+
+No suppression, skip, `markTestIncomplete`, or removed assertion exists in the new test files; a scan for `markTestSkipped|markTestIncomplete|->skip(|@group|eslint-disable|noqa|ts-ignore` across all five new test files returned nothing.
+
+### 5.2 AC-040 and AC-045 against a real HTTP listener
+
+AC-040 cannot be proven by mocking, because `callGatewaySend()`/`callGatewaySendMedia()` build the JSON body inline and post it with cURL. A throwaway harness (gitignored `build/`, not part of the application) was therefore used:
+
+```text
+php -S 127.0.0.1:8792 build/ac040-router.php      # separate process
+php build/scratch-ac040-verify.php 8792
+== 24 PASS, 0 FAIL ==
+```
+
+`build/ac040-router.php` records every request (path, `Authorization`, raw body) and answers with canned Gateway responses; `build/scratch-ac040-verify.php` drives the unmodified controller methods through reflection and asserts the recorded bodies.
+
+| AC | Assertion | Result |
+| --- | --- | --- |
+| AC-040 | Endpoint still `/send` and `/send-media` | PASS |
+| AC-040 | `Authorization: Bearer <token>` still sent | PASS |
+| AC-040 | Text payload with **no** `operation_id` is byte-identical to the pre-change payload: `{"chat_id":"...","text":"Hello"}` | PASS |
+| AC-040 | Text payload **with** `operation_id` is the same object plus one appended field | PASS |
+| AC-040 | Media payload with **no** `operation_id` is byte-identical (same keys, order, and `json_encode` escaping) | PASS |
+| AC-040 | Media payload **with** `operation_id` is the same object plus one appended field | PASS |
+| AC-045 | `SEND_IN_PROGRESS` -> `ok=false`, `error_code`, `state='in_flight'`, `replayed=false`, `http_code=409` | PASS |
+| AC-045 | `SEND_UNRESOLVED` -> `error_code`, `state='failed'`, `http_code=504` | PASS |
+| AC-045 | `OPERATION_ID_REUSED` -> `error_code`, `state='sent'` | PASS |
+| AC-045 | Replayed success -> `ok=true`, `replayed=true`, `state='sent'` | PASS |
+| AC-045 | Same keys for the `/send-media` path | PASS |
+
+> [!NOTE]
+> The first harness run reported 2 failures in the media payload assertions. That was a defect in the harness literal, not in the application: `json_encode()` escapes `/` as `\/` (both before and after this change, since neither call site altered its encoding flags). After correcting the expected literal, all 24 assertions pass.
+
+### 5.3 AC-041 and AC-044 (controller + database)
+
+Covered by `tests/session/InboxOutgoingIdempotencyTest.php`: `testSuccessfulSendForwardsOperationIdAndDeduplicatesReplay()` proves a replayed send returns the **existing** row (same `id`, same `gateway_operation_id`, `replayed: true`) and that exactly one row exists for that key; `testSendWithoutOperationIdDoesNotCreateServerSideKey()` proves a send without `operation_id` stores `NULL` and creates no server-side key (AC-044). The schema half of AC-041 (column exists, UNIQUE rejects non-`NULL` duplicates, many `NULL`s accepted) is covered by `tests/database/GatewayOperationIdMigrationTest.php` and `tests/database/InboxOutgoingOperationIdTest.php`.
+
+### 5.4 AC-046 (render evidence)
+
+`tests/session/InboxOutgoingIdempotencyScreenTest.php` (4 tests) proves the shipped page contains the client-owned key slot (`<form id="formBalas" data-operation-id="">`), the persistent uncertain-result element (`id="statusKirimBalasan"`), the `crypto.randomUUID()` generator with its `Math.random` hex fallback, `operation_id` in both the urlencoded text request and the media `FormData`, and both Gateway rejection branches (`SEND_IN_PROGRESS`/`SEND_UNRESOLVED`, `OPERATION_ID_REUSED`). The key lifecycle itself is exercised by `tests/js/operation-id-composer.check.js` (`node tests/js/operation-id-composer.check.js` -> all cases pass), which checks create, reuse-on-retry, discard-on-success/content-change, rotate-on-`OPERATION_ID_REUSED`, and that the ambiguous state keeps the key and does not advise a blind resend.
+
+### 5.5 Footprint check (CON-012 / CON-013)
+
+`git --no-pager diff --name-status 4fba319..HEAD` returns exactly:
+
+```text
+M  app/Controllers/Inbox.php
+A  app/Database/Migrations/2026-09-24-000001_AddGatewayOperationIdToMessages.php
+M  app/Models/MessageModel.php
+M  app/Views/inbox/index.php
+A  docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md
+A  docs/handoff-m1-wave2-fase4-write-code-2026-09-24.md
+A  tests/database/GatewayOperationIdMigrationTest.php
+A  tests/database/InboxOutgoingOperationIdTest.php
+A  tests/js/operation-id-composer.check.js
+A  tests/session/InboxOutgoingIdempotencyScreenTest.php
+A  tests/session/InboxOutgoingIdempotencyTest.php
+```
+
+`Inbox.php` hunks fall only in `kirimMedia()`, `kirimKeConversation()`, `callGatewaySend()`, `callGatewaySendMedia()`, and the new `gatewayFailureResponse()`; no hunk touches `apiConversations()`. The only changed declarations are the two send helpers (`private` -> `protected`, plus the optional `$operationId` parameter) and the new private helper. A search for `InboxGatewayApi|ConversationModel|GatewayStatusModel` across the changed-file list returns nothing, confirming `apiConversations()`, `ConversationModel`, and `InboxGatewayApi` are unchanged.
+
+### 5.6 Cleanup notes
+
+- No `php spark migrate` was executed against `aulia_inboxdb` in this phase; only `aulia_inboxdb_test` (CON-014). F-01 still blocks real-database use.
+- The two `build/` harness files are gitignored throwaway verification tooling; they are kept so the AC-040/AC-045 evidence can be regenerated with the command in §5.2. `build/ac040-capture.json` is only a run artifact.
 
 ## 6. TASK-021 Approval Checkpoint
 
-Pending. TASK-021 requires the owner's explicit confirmation, including the suite result recorded in §5, before Phase 5 (TASK-022..TASK-024) may start.
+### 6.1 Commit summary (one small commit per code task)
+
+| Task | Commit | Subject | Files |
+| --- | --- | --- | --- |
+| TASK-015 | `8bc4a8e` | `docs(m1-wave2): TASK-015 preflight branch and M3 guard` | this decision log |
+| TASK-016 | `5ce8efb` | `feat(m1-wave2): TASK-016 add messages gateway operation ID` | migration + `tests/database/GatewayOperationIdMigrationTest.php`, `tests/database/InboxOutgoingOperationIdTest.php`, `app/Models/MessageModel.php` |
+| TASK-017 | `f56446b` | `feat(m1-wave2): TASK-017 forward and deduplicate outgoing operation ID` | `app/Controllers/Inbox.php` (send methods), `tests/session/InboxOutgoingIdempotencyTest.php` |
+| TASK-018 | `0c53e1c` | `feat(m1-wave2): TASK-018 handle gateway response states` | `app/Controllers/Inbox.php` (`gatewayFailureResponse()` + response mapping), controller tests |
+| TASK-019 | `ef98533` | `feat(m1-wave2): TASK-019 reuse client operation ID in reply form` | `app/Views/inbox/index.php` (reply form + JS), `tests/session/InboxOutgoingIdempotencyScreenTest.php`, `tests/js/operation-id-composer.check.js` |
+| TASK-020 + TASK-021 | this record commit (`git log -1 --format=%h`) | `docs(m1-wave2): TASK-020 verification evidence + TASK-021 checkpoint` | this decision log |
+
+The TASK-015 record commit lands after the TASK-016 code commit for the reason already stated in §2.1; every other task has exactly one commit. Nothing was squashed and nothing was pushed (`git status` shows this branch ahead of `v2.3` only).
+
+### 6.2 What is being asked
+
+- **Stop here.** TASK-021 is an explicit owner-approval gate. Phase 5 was not started: no WA-Gateway action, no `pm2` restart, no real AC-027/AC-042 measurement, no live-database migration, no `git push`, and no front-matter change to `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (still `status: 'Planned'`).
+- **Suite result for the decision:** `OK (348 tests, 1197 assertions)` — 0 failures, 0 errors, 0 skips (see §5.1).
+- **Two decisions are needed before Phase 5 can be planned:**
+  1. **F-03** (§4): close the media-replay dedupe gap with a small follow-up commit, or accept it as a known limitation for now.
+  2. **F-01** (§4): approve the migration against the real `aulia_inboxdb`. Until that happens, the Phase 4 code must not receive kasir traffic, because every successful send would fail on the missing column.
+- After approval, per the plan: TASK-022 deploys the Gateway to the live folder, TASK-023 runs the real AC-027/AC-042 measurement (needs explicit approval to pause/slow the active Gateway), and TASK-024 closes the plan (`status: 'Planned'` -> `'Completed'`) and offers a `memory-manager` checkpoint. RISK-002 follow-up: once this branch is merged into `v2.3`, M3 Fase 1e may start its plan/code work on top of the merged result.
+
+No further code, migration, or test change will be made until the owner answers.
