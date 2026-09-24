@@ -2144,3 +2144,38 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — `/sdlc-write-code` Phase 2 DONE, awaiting TASK-010 APPROVAL)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code — M1 Wave 2 **Phase 2 (TASK-007..TASK-009) complete and verified; TASK-010 APPROVAL is waiting for the owner's explicit decision.** Phase 3 (TASK-011..TASK-014) was NOT started; nothing of Phase 3-5 was written.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — status still `Planned` (flips only at TASK-024); Completed/Date filled for TASK-001..006 and TASK-007..009; TASK-010 row still empty.
+  - `docs/decisions/2026-09-24-m1-wave2-eksekusi-fase2.md` — **NEW**: per-task commits, TASK-009 evidence, deviations P-8..P-12, honest limits.
+  - `docs/decisions/2026-09-24-m1-wave2-eksekusi-fase1.md` — untouched (Phase 1 log preserved, not overwritten).
+- **Achieved Milestones:**
+  - WA-Gateway worktree `C:\projects\WA-Gateway-m1w2`, branch `feature/m1-wave2-outgoing-idempotency`: `62e92c2` (lease + attempt cap + response matrix), `e0f5585` (`runStartupRecovery()` + call in `src/app/index.js`). 2 commits, 3 files, +546/-16. Live folder still `21a4cb6` and clean; nothing deployed.
+  - AuliaPos docs commit `8e0da29` on branch `v2.3` (decision log + plan columns). No AuliaPos code touched.
+  - TASK-009 VERIFY green: `simulate-outgoing-recovery.js` **0 failures** (AC-026 stub-only; AC-028 30s→409 without changing `attempts`, 40s→retry `attempts` 1→2; AC-029 5 sends then 6th → `abandoned`+`502`+`[CRITICAL]` with no send; AC-030; AC-031 max-20 id listing; AC-032; AC-043); cumulative regression **21/21** scripts exit 0; static guard OK and 11 mutations still caught; AC-039 log-file scan OK (0 leaks); `data/gateway.sqlite` never created.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `node -e "require('./src/...')"` as a module smoke test without `SQLITE_PATH`. **Reason:** it silently created `data/gateway.sqlite` in the worktree (the exact TEST-010 violation). Use `node --check` for syntax instead, or set `SQLITE_PATH` to temp first, and delete any stray `data/` immediately.
+  - **Attempted:** running the whole `test/*.js` regression in one PowerShell loop. **Reason:** exceeds the 30s command cap; split into batches of 3-4 scripts per command.
+  - **Attempted:** `Select-String` regex `xit\(` to detect skipped tests. **Reason:** false-positives on `process.exit(`; check the git diff instead.
+- **Updated Files:**
+  - WA-Gateway: `src/delivery/outgoingOperationService.js` (`isLeaseExpired`, `classifyExisting`, `deadLetter`, `runStartupRecovery`, `dead_lettered`→502), `src/app/index.js` (1 require + 1 call), `test/simulate-outgoing-recovery.js` (**NEW**, 416 lines).
+  - AuliaPos docs only: the Phase 2 decision log, the plan's TASK-007..009 columns, and this checkpoint.
+- **Decisions Made:**
+  - **P-8:** TASK-008 start-up logic lives in `outgoingOperationService.runStartupRecovery()` (called from `src/app/index.js`) instead of inline, because `app/index.js` runs `main()` when required and is therefore untestable; it never throws (REQ-031 "must not block start").
+  - **P-9:** the post-lease retry path also checks `isReady()` before `registerRetry()`, so `409 NOT_CONNECTED` does not consume an attempt (`attempts` = sends actually executed, REQ-029/D-11).
+  - **P-10:** TASK-007 needed no change to `src/api/ci4Routes.js` — the whole response matrix (including `502 DEAD_LETTERED`) is produced by `toHttpResponse()`.
+  - **P-11:** the first `dead_lettered` (cap reached) uses `replayed:true` on `502`, matching the single spec §4.3 `abandoned` row and the earlier P-3 convention.
+  - **P-12:** `MAX_LISTED_IDS = 20` is redefined in the service rather than exported from the store, keeping the store diff small.
+  - Honest limits unchanged: AC-026(b) stub-only; AC-042 stub-only here (real measurement is TASK-023); AC-027 not measured; **GW-09 is NOT closed**; ASSUMPTION-009 crash window still open; JSON-fallback parity still untested on Android; idempotency guaranteed only ≤ TTL (D-13/A-5).
+- **Next Action / Pending:**
+  - **Owner decision on TASK-010 (APPROVAL).** If approved, run `/sdlc-write-code` **Phase 3 (TASK-011..TASK-014: attempt counter, `incoming_queue` dead-letter, `postToCI4` classification)** in a NEW session — do NOT recreate the worktree, do NOT push without an explicit owner command.
+  - F-01/F-02 (AuliaPos migration mechanics) are still owed before TASK-016 (Phase 4); finding T-1 (5 unsafe wave-1 test scripts) is still open.
+
+<!-- checkpoint-tail: M1 Wave 2 Phase 2 (TASK-007..009) is done and verified — 2 commits (62e92c2, e0f5585) on feature/m1-wave2-outgoing-idempotency in WA-Gateway, live folder still 21a4cb6, regression 21/21, recovery suite 0 failures; TASK-010 APPROVAL is awaiting the owner before /sdlc-write-code Phase 3 (TASK-011..014). -->
+
+---
+
+
