@@ -1712,3 +1712,28 @@
 <!-- checkpoint-tail: PRD v1.4 synced §9.2 (Fase 1c/1d/2a) and ticked GH-009 per audit Iteration 3 ST-04; next is /sdlc-define-specs for Fase 1e (GH-010). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (Bug: PHPUnit wipes real aulia_inboxdb)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Supplementary: Bug Fix (`/sdlc-bug-report`), plan created, awaiting `/sdlc-write-code`.
+- **Active Artifacts:**
+  - `plan/plan-bugfix-inbox-test-db-isolation-v1.0.md` — Status: ⏳ Planned (Phase 0 prepare test DB, Phase 1 failing guard test, Phase 2 fix, Phase 3 docs).
+- **Achieved Milestones:**
+  - Root cause confirmed: `Config\Database::__construct()` only switches `defaultGroup` to `tests` under `testing`; `.env` sets `database.inbox.database = aulia_inboxdb` and is loaded by the PHPUnit bootstrap; 8 test classes `emptyTable()` the Inbox tables in `setUp()`. Fingerprint: 2 rows left, `AUTO_INCREMENT = 25801`, leftover seed "Andi" (`ac-g-andi@s.whatsapp.net`).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted (rejected in design):** overriding the inbox DB via `phpunit.dist.xml` `<env>` or shell env var. **Reason:** `.env` puts dotted `database.inbox.database` into `$_ENV`, which `BaseConfig` checks first; precedence depends on key spelling and `variables_order`. Use a hard-coded override in `Database::__construct()` instead.
+  - **Attempted (rejected in design):** building `aulia_inboxdb_test` with `php spark migrate`. **Reason:** migration history lives in `aulia_kasirdb.migrations`, so inbox migrations are already marked run and get skipped. Use `mysqldump --no-data aulia_inboxdb | mysql aulia_inboxdb_test`.
+- **Updated Files:**
+  - `plan/plan-bugfix-inbox-test-db-isolation-v1.0.md` — new bug fix plan.
+- **Decisions Made:**
+  - Under `testing`, force `$this->inbox['database'] = 'aulia_inboxdb_test'`; fail-closed check in new `tests/_support/bootstrap.php` (PHPUnit exits before any test if inbox DB is not the test DB); guard test `tests/database/InboxTestDatabaseIsolationTest.php` checks `SELECT DATABASE()`.
+- **Next Action / Pending:**
+  - New session: `/sdlc-write-code` executing the plan phase by phase.
+  - DO NOT run the full suite (`vendor/bin/phpunit` / `composer test`) until plan Phase 2 is done — each run wipes `aulia_inboxdb`.
+  - Separate TODO: recover the lost chat data (backup / MariaDB binlog / Gateway re-sync) — not covered by the plan (RISK-004).
+  - Carried over: `/sdlc-define-specs` Fase 1e (GH-010); `/code-janitor` STD-02 wording.
+
+<!-- checkpoint-tail: PHPUnit wipes real aulia_inboxdb because the inbox group is not redirected under testing; bug fix plan plan-bugfix-inbox-test-db-isolation-v1.0.md is Planned; next is /sdlc-write-code, and do not run the full suite until its Phase 2 is done. -->
+
+---
