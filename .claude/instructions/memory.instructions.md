@@ -1895,3 +1895,51 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — `/sdlc-clarify-reqs` pada spec idempotensi kirim keluar)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Recurring checkpoint — `/sdlc-clarify-reqs` (Clarification Analyst) atas spec gelombang 2 M1, ditutup dengan keputusan **PROCEED** pada Readiness Score **88/100**. Persona terkunci; **tidak ada kode aplikasi atau spec yang diubah** sesi ini (batas kewenangan Clarification Analyst: hanya menulis laporan di `docs/audit/`).
+- **Active Artifacts:**
+  - `spec/spec-process-m1-wave2-outgoing-idempotency.md` — Status: 🔄 v1.0, **perlu revisi** (R-1..R-3 + A-1..A-8); task berikutnya.
+  - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-2026-09-24.md` — Status: ✅ FINAL (Readiness 88/100, *Good Enough*, veto tidak aktif, tanpa item terbuka).
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — Status: ⏳ Pending (belum dimulai, setelah spec direvisi).
+- **Achieved Milestones:**
+  - Audit dilakukan terhadap **kode yang berjalan**, bukan hanya antar-dokumen: tekad `C:\projects\WA-Gateway` @ `21a4cb6` (`ci4Routes.js`, `connectionManager.js`, `incomingBuffer.js`, `incomingDelivery.js`, `ci4Client.js`) dan AuliaPos (`Inbox.php`, `InboxGatewayApi.php`, migrasi `messages`).
+  - 6 temuan pemblokir (**C-1..C-6**) + 8 asumsi tersembunyi (**H-1..H-8**) ditemukan. Skor iterasi awal 76/100 dengan veto; setelah 3 keputusan menjadi **88/100**.
+  - **Keputusan pemilik proyek (R-1..R-3):** (R-1) `OUTGOING_LEASE_MS` `15000` → **`35000`** supaya retry pasca-timeout klien (teks 10 s / media 30 s) selalu di dalam lease → `409 SEND_IN_PROGRESS`, AC-027 ditulis ulang jadi "maksimal satu pesan" + AC baru untuk replay setelah lease lewat; (R-2) `attempts` = jumlah kiriman yang dijalankan, cap diperiksa **sebelum** kirim ulang (`attempts >= cap` → `abandoned` tanpa `sendMessage`) ⇒ cap 5 = maksimum **5 kiriman**; (R-3) REQ-020 disempitkan ke **1–64 karakter**, kolom AuliaPos tetap `VARCHAR(64)` ⇒ pemotongan senyap mustahil.
+  - **Auto-resolved via PROCEED (A-1..A-8):** §4.3/AC-026 memakai `500` (kode berjalan) bukan `502`; `failed` dipertahankan sebagai jalur cadangan + catatan AC-026(b) *stub-only*; **REQ-039..REQ-041** ditambahkan untuk E-O4 (pemilik kunci = frontend, `callGatewaySend*` mengembalikan `error_code`/`state`/`replayed`, perilaku UI "hasil belum pasti" + kunci baru saat `OPERATION_ID_REUSED`); pembuatan kunci di server dihapus; scope idempotensi ≤ TTL + AC negatif; replay = satu siklus & enum `reason` dibakukan (`max_attempts|max_age|permanent_rejection`); semua validasi payload sebelum `begin()`; basis counter dinyatakan eksplisit; `422` ditandai *out of scope*; kebijakan log dead-letter massal.
+  - Tidak ada ADR dan tidak ada perubahan `CONTEXT.md`: R-1..R-3 dan A-1..A-8 semuanya reversibel (gagal Triple Gate).
+- **Findings — bukti kode (kandidat promosi Knowledge Base saat compaction berikutnya):**
+  - **`/send` membalas `500`, bukan `502`,** untuk setiap kegagalan: `WA-Gateway/src/api/ci4Routes.js:94` dan `:226` (`res.status(500)` + `error_code: err.code || 'SEND_FAILED'`). Spec gelombang 2 menuntut `502` → kontradiksi dengan klaim "additive".
+  - **`INVALID_CHAT_ID` adalah guard pra-kirim, bukan error Baileys:** di-set di `connectionManager.js:891` (`sendReply`) dan `:1037` (`sendMediaReply`) saat `isDecodableJid()` gagal — **sebelum** `sendMessage()`. Route sudah menolak JID yang sama lebih dulu (`ci4Routes.js:41` dan `:124`, `400`). Konsekuensi: state `failed` praktis tak terjangkau dan setiap cabang "gagal definitif" bergantung pada stub uji.
+  - **`InboxGatewayApi.php` tidak pernah membalas `422`** — hanya `400` (validasi payload, baris 58/74/113/170/343), `500` (283/370), dan `200`. D-06 mengklasifikasikan `422` sebagai penolakan permanen ⇒ kode mati.
+  - **Timeout klien AuliaPos:** `Inbox.php:2047-2048` `CURLOPT_TIMEOUT => 10` (teks), `:2112` `CURLOPT_TIMEOUT => 30` (media). Angka inilah yang harus jadi dasar nilai `OUTGOING_LEASE_MS`.
+  - **`callGatewaySend()` tidak membaca `error_code` maupun `state`** (`Inbox.php:2062-2074` hanya `success`, `wa_message_id`, `timestamp`, `message`) ⇒ langkah 4-5 §4.7 tidak bisa diimplementasikan tanpa perubahan signature.
+  - **Basis `attempts` asimetris:** `incomingBuffer.js:177` `SET attempts = attempts + 1` dengan `attempts` mulai dari `0` (jumlah kegagalan), sedangkan `outgoing_operations.begin()` menulis `attempts = 1` (jumlah kiriman). Cap `5` dan `100` karena itu mengukur hal berbeda.
+  - `getDueEvents()` (`incomingBuffer.js:166`) sudah memfilter `status IN ('pending','failed')`, sehingga `status='dead'` (D-07) otomatis berhenti — keputusan D-07/D-08 valid tanpa perubahan skema selain kolom.
+
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** memakai tool prompt interaktif (`ask_question`) untuk pertanyaan grilling.
+    **Reason:** tool berhenti pada timeout 300 detik tanpa jawaban; waktu tunggu terbuang dan sesi sempat tampak "belum dijawab".
+    **Note:** untuk protokol "satu pertanyaan per balasan" di lingkungan ini, ajukan pertanyaan **langsung di teks balasan** (dengan opsi A/B/C + rekomendasi) dan tunggu user mengetik jawabannya. Tool prompt tetap boleh dipakai, tetapi jangan menggantungkan alur padanya.
+  - **Attempted:** commit lewat rantai `git add ... && git commit -m "..."`.
+    **Reason:** PowerShell menolak `&&` dan memecah kutip ganda — lihat dead-end PowerShell/commit yang sudah tercatat di checkpoint 2026-09-23/24 (jangan diulang; tidak ditulis ulang di sini).
+    **Note:** tulis pesan commit ke `build/commit-msg-*.txt` (folder `build/` gitignored, `.gitignore:31`) lalu `git commit -F`.
+- **Updated Files:**
+  - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-2026-09-24.md` — berkas baru (195 baris): §1 C-1..C-6, §2 R-1..R-3 + §2.1 H-1..H-8, §3 A-1..A-8, §4 Final Status & Routing.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+  - **Tidak disentuh (sengaja):** `spec/spec-process-m1-wave2-outgoing-idempotency.md` (perbaikan adalah tugas `/sdlc-define-specs`, bukan Clarification Analyst) dan `spec/spec-design-m3-operational-inbox-fase1.md` (masih `M`/dirty dari sesi M3 Fase 1e yang lain).
+- **Decisions Made:**
+  - R-1 (lease 35000 ms > timeout klien terpanjang; retry di dalam lease = `409 SEND_IN_PROGRESS`), R-2 (cap = maksimum kiriman; cek sebelum kirim ulang), R-3 (batas `operation_id` 1–64 karakter = lebar kolom).
+  - A-1..A-8 di-auto-resolve memakai rekomendasi analis karena pemilik proyek memilih PROCEED (§3 laporan).
+  - Tidak ada ADR baru; istilah domain tetap tidak dibakukan di `CONTEXT.md` (mengikuti gelombang 1).
+- **Next Action / Pending:**
+  - **`/sdlc-define-specs` di sesi BARU**, lampirkan `spec/spec-process-m1-wave2-outgoing-idempotency.md` + `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-2026-09-24.md`; terapkan R-1..R-3 dan A-1..A-8 ke §1.2, §2, §4.2, §4.3, §4.6, §4.7, §5, §6, §12. Daftar lengkap per-bagian ada di §4 "Final Status & Routing" laporan.
+  - Setelah itu (opsional) `/sdlc-audit-consistency`, lalu `/sdlc-plan-tasks`.
+  - Blocker terbuka: **tidak ada** (semua item laporan sudah tertutup). Catatan operasional: `spec/spec-design-m3-operational-inbox-fase1.md` masih dirty dan MUST NOT diikutkan ke commit mana pun yang bukan milik Fase 1e.
+  - Prompt siap-tempel untuk sesi berikutnya disimpan di `build/prompt-m1w2-define-specs.md` (gitignored).
+
+<!-- checkpoint-tail: M1 Wave 2 /sdlc-clarify-reqs closed at 88/100 (PROCEED): lease 35000 ms, cap = 5 kiriman, operation_id 1–64 char, plus A-1..A-8 auto-resolved; report is docs/audit/clarification-report-m1-wave2-outgoing-idempotency-2026-09-24.md, next step is /sdlc-define-specs in a new session. -->
+
+---
+
