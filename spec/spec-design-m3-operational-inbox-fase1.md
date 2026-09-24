@@ -1,6 +1,6 @@
 ---
 title: M3 Operational Inbox — Fase 1 (Queue View, Conversation Detail, Snooze, Selesai/Arsip, Internal Note, SLA, Filter)
-version: 1.2
+version: 1.3
 date_created: 2026-09-20
 last_updated: 2026-09-24
 owner: AuliaPos Inbox module
@@ -19,12 +19,16 @@ Dasar spec ini: `blueprint-m3-operational-inbox.md`, `Panduan_Layar_AuliaPos_M3.
 > [!NOTE]
 > **Revisi 1.2 (2026-09-24), per audit yang sama (Iterasi 2, REFINE langkah 3) dan PRD v1.3:** (1) NG-01 / TODO-SEARCH-01 — kontrak **Fase 1d** (GH-009): `q` mencocokkan semua nama/nomor yang tampil di daftar (`contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id`) — CL-015, REQ-013, CON-003, §4.4, AC-013. TODO-SEARCH-01 ditutup di level Spec. (2) NG-04 — teks `\n` literal di §1.2 diganti baris baru. (3) NG-05 — batas ditulis "4096 byte" di CL-006, contoh §8, dan §12. **Fase 1e (GH-010, pencarian isi pesan) belum dicakup** — lihat §1.1.
 
+> [!NOTE]
+> **Revisi 1.3 (2026-09-24), per PRD v1.3 GH-010:** kontrak **Fase 1e** — `q` juga mencocokkan isi pesan (pesan pelanggan, balasan staff, Internal Note) di seluruh riwayat, dan response membawa key baru `match_snippet` (potongan pesan cocok terbaru, dengan penanda Internal Note). Rancangan kecepatan: satu query `LIKE` ke `messages` per request, tanpa index/migration baru, target ≤ 3 detik pada data uji ASSUMPTION-004, plus pengaman polling di layar. Bagian yang berubah: §1, §1.1, §1.2 (ASSUMPTION-004, CL-016..CL-021), §2, §3 (REQ-014..REQ-017, CON-004), §4.4, §5 (AC-014..AC-016), §6, §9, §10, §12, §13, §15.
+
 ## 1. Purpose & Scope
 
 Spec ini mencakup:
 - **Fase 1a** (bisa mulai sekarang, backend sudah siap): Queue View (5 tab), Conversation Detail dasar (thread + action bar), Snooze Dialog (tanpa field Alasan), tab Selesai/Arsip.
 - **Fase 1b** (butuh migration baru): Internal Note (`is_internal`), SLA Timer + warna prioritas, field Alasan Snooze (via Internal Note), Filter & Pencarian.
 - **Fase 1d** (tanpa migration, tanpa perubahan layar): pencarian nama/nomor lengkap (PRD GH-009) — `q` mencocokkan semua nama dan nomor yang tampil di daftar percakapan (REQ-013).
+- **Fase 1e** (tanpa migration, dengan perubahan layar kecil): pencarian isi pesan (PRD GH-010) — `q` juga mencocokkan isi pesan, hasil membawa Match Snippet, dan pencarian tetap ≤ 3 detik (REQ-014..REQ-017).
 
 Audiens: developer yang akan mengeksekusi `/sdlc-plan-tasks` → `/sdlc-write-code` untuk modul Inbox AuliaPos v2.2.
 
@@ -37,7 +41,10 @@ Asumsi: seluruh kerja ini dibangun di atas branch turunan `v2.2` (bukan `v2.1`/`
 - **Customer Context penuh** (riwayat order/payment dari modul Transaksi) — ditunda ke **M4**. Fase 1 Customer Context dibatasi ke data Inbox sendiri (nama, nomor, riwayat percakapan, internal note).
 - **@mention dengan notifikasi nyata** (tabel `message_mentions`, mekanisme notifikasi) — ditunda ke Fase 2.
 - Perubahan apa pun pada Gateway WhatsApp (Node.js/Baileys, repo terpisah `tikusgot007/WA-Gateway`) — Fase 1 murni sisi AuliaPos (CI4).
-- **Fase 1e — pencarian isi pesan** (PRD GH-010: pesan pelanggan, balasan staff, Internal Note, plus potongan pesan yang cocok di hasil) — belum dicakup spec ini; akan ditulis di revisi spec tersendiri, termasuk rancangan kecepatan pencarian.
+- **Loncat langsung ke pesan yang cocok** di dalam Conversation Detail (scroll otomatis/penandaan pesan) — ditunda (PRD §2.3). Fase 1e hanya menampilkan Match Snippet di daftar.
+- **Penyorotan (highlight) kata yang cocok** di dalam Match Snippet, pengurutan hasil berdasarkan relevansi, dan pencarian per kata terpisah (mis. `pesan saerah` mencocokkan pesan yang memuat kedua kata di posisi berbeda) — tidak dilakukan. `q` tetap dicocokkan sebagai satu potongan teks utuh, dan urutan hasil tetap `last_message_at` terbaru.
+- **Index pencarian khusus** (FULLTEXT, tabel pencarian terpisah, mesin pencari eksternal) — tidak dipakai di Fase 1e (lihat §10). Baru dipertimbangkan bila pengukuran REQ-016 gagal.
+- **Isi file media** (teks di dalam gambar/PDF, nama file lampiran) — tidak dicari. Hanya kolom `messages.text` (teks pesan dan caption) yang dicari.
 - **Pencarian berdasarkan data nota/transaksi POS** — ditunda ke M4 (PRD §2.3).
 - **Normalisasi format nomor telepon** saat mencari (mis. `0812…` dianggap sama dengan `62812…`) — tidak dilakukan; nomor dicocokkan apa adanya (ASSUMPTION-001).
 - M1 (Reliability, repo Gateway) tidak menjadi prasyarat teknis untuk Fase 1a/1b AuliaPos (tidak ada dependency kode), tapi tetap relevan secara operasional (data yang ditampilkan Queue View baru berguna kalau pesan masuk/keluar reliable).
@@ -59,6 +66,9 @@ Semua ambiguitas mayor sudah diselesaikan lewat sesi `/sdlc-clarify-reqs` (lihat
 > **ASSUMPTION-003 — CONFIRMED:** Kolom `is_internal` pada `messages` diberi `default => false` dan **tidak nullable**. Justifikasi dikoreksi dari draf awal: klaim "konsisten dengan pola boolean lain di skema Inbox" tidak akurat — verifikasi ke `2026-09-07-000001_CreateInboxTables.php` dan `2026-09-19-000001_AddResponseStateFoundation.php` menunjukkan **tidak ada satu pun kolom `BOOLEAN`** di skema Inbox sampai saat ini. Preseden yang benar adalah pola `tinyint(1) NOT NULL DEFAULT ...` (`is_locked`, `aktif`) di modul POS (`2026-09-08-000001_CreateAuliaPosCore.php`). Kesimpulan (`NOT NULL DEFAULT FALSE`) tetap valid atas dasar ini. Baris lama (sebelum migration) otomatis terisi `false` lewat default kolom saat `ADD COLUMN`, tidak perlu backfill manual.
 
 Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi kedua (di luar 3 ASSUMPTION di atas), dua hal berikut juga sudah diresolusi dan tercermin di Bagian 3/4.3/12: (a) endpoint Internal Note diizinkan ditulis pada conversation berstatus `closed` tanpa pembatasan tambahan; (b) REQ-009 direvisi karena `conversations.last_message_at`/`last_message_direction` adalah kolom denormalized yang di-`update()` manual di titik insert pesan (bukan hasil query agregasi) — lihat REQ-009 dan Bagian 12.
+
+> [!WARNING]
+> **ASSUMPTION-004 (Fase 1e) — perlu dikonfirmasi:** PRD GH-010 meminta hasil ≤ 3 detik "pada data chat toko saat ini", tetapi database pengembangan hampir kosong (1 conversation, 0 pesan per 2026-09-24), sehingga ukuran nyatanya tidak bisa diukur dari repo. Spec memakai **data uji tetap: 2.000 conversation × 100 pesan = 200.000 baris `messages`** (rata-rata ±100 karakter per pesan, 5% Internal Note), di MariaDB 10.4 (XAMPP, sama dengan server). Angka ini dianggap di atas volume toko saat ini. Bila data nyata toko lebih besar, angka uji dinaikkan ke ukuran nyata sebelum REQ-016 dinilai.
 
 > [!NOTE]
 > **Aturan klarifikasi:** hanya keputusan yang memengaruhi perilaku bisnis atau kontrak publik yang perlu dikunci lewat sesi klarifikasi. Detail implementasi dan edge case teknis yang tidak membutuhkan keputusan bisnis diselesaikan saat implementasi melalui guard/handling yang wajar dan test.
@@ -82,6 +92,12 @@ Sebagai gap tambahan yang ditemukan lewat verifikasi kode saat sesi klarifikasi 
 | CL-013 | **Jika `page` valid tetapi tidak ada data pada halaman tersebut, endpoint tetap mengembalikan HTTP `200` dengan hasil kosong `[]`.** | Halaman di luar jumlah data dianggap empty result normal, bukan `404` atau `400`. |
 | CL-014 | **Jika `last_message_at` kosong/null, `sla_color` harus `null`** dan conversation tidak diberi warna SLA. | SLA hanya dihitung bila timestamp pesan terakhir tersedia. |
 | CL-015 | **(Fase 1d, PRD v1.3 GH-009, menutup TODO-SEARCH-01)** `q` cocok bila terkandung di **salah satu** dari lima kolom identitas yang bisa tampil di daftar: `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id` — **selalu kelimanya**, tidak peduli kolom mana yang sedang tampil. | REQ-013 dan §4.4 menggantikan cakupan lama (`contact_name`/`phone` saja). Parameter, validasi, pagination, dan bentuk response tidak berubah. |
+| CL-016 | **(Fase 1e, GH-010)** Conversation cocok dengan `q` bila `q` terkandung di salah satu kolom identitas (CL-015) **atau** di `text` minimal satu pesan miliknya. Pesan yang dicari: pesan pelanggan (`incoming`), balasan staff (`outgoing`), dan Internal Note (`is_internal = TRUE`), di seluruh riwayat, tanpa batas umur/jumlah pesan. Pesan yang di-soft-delete (`deleted_at` terisi) tidak dicari. | REQ-014 dan §4.4. Parameter, validasi `q`, AND dengan `status`, pagination, dan urutan hasil tidak berubah. |
+| CL-017 | **Satu conversation muncul satu kali** walau banyak pesannya cocok. Match Snippet diambil dari **pesan cocok terbaru**: `message_timestamp` paling besar, bila sama dipakai `id` paling besar. | REQ-015. |
+| CL-018 | **Match Snippet hanya diisi bila conversation cocok lewat isi pesan saja.** Bila `q` cocok dengan kolom identitas (walau pesannya juga cocok), atau tidak ada `q`, `match_snippet = null`. | PRD §5.3 ("kalau yang cocok nama/nomornya, tidak perlu potongan pesan"). Aturan ini membuat hasil tetap bisa ditebak. |
+| CL-019 | **Match Snippet dipotong di server**, maksimal 120 karakter (`mb_*`, bukan byte), di sekitar kemunculan pertama `q`. Tanda `…` ditambahkan di sisi yang dipotong. | §4.4. Layar tidak memotong ulang dan tidak menerima isi pesan lengkap lewat endpoint daftar. |
+| CL-020 | **Tidak ada index/migration baru untuk Fase 1e.** Pencarian isi pesan memakai pencocokan `LIKE '%q%'` di database. FULLTEXT ditolak. | REQ-016, CON-004, §10. |
+| CL-021 | **Target kecepatan:** satu request `GET /inbox/api/conversations?q=...` selesai ≤ 3 detik (diukur di server) pada data uji ASSUMPTION-004. Layar tidak memulai putaran pemuatan baru selama putaran sebelumnya belum selesai. | REQ-016, REQ-017, AC-016. |
 
 ## 2. Definitions
 
@@ -93,6 +109,7 @@ Istilah berikut mengikuti dokumen sumber (`Panduan_Layar_AuliaPos_M3.md`, `docs/
 | **Queue View Status** | Status computed BARU (Fase 1a) untuk 5 tab: Belum Diambil / Open / Menunggu / Ditunda / Selesai — **turunan** dari Response State + `assigned_to` (lihat ADR-0001). | "display status", "queue status" sebagai kolom DB |
 | **Internal Note** | Catatan staff yang TIDAK terkirim ke WhatsApp, disimpan sebagai baris `messages` dengan `is_internal = TRUE`. | "catatan internal", "note" saja (ambigu dengan pesan biasa) |
 | **SLA Timer** | Indikator warna (hijau/kuning/merah) berdasarkan usia `last_message_at`, dihitung real-time di UI, tidak disimpan di DB. | "prioritas" (istilah ini sudah dipakai domain lain, lihat `docs/USER-SHIFT.md`) |
+| **Match Snippet** | (Fase 1e) Potongan teks dari pesan cocok terbaru, dikirim server di key `match_snippet` dan ditampilkan di bawah nama pada daftar hasil pencarian, supaya kasir tahu **kenapa** conversation itu muncul. Bila berasal dari Internal Note, ditampilkan dengan label "Internal". | "preview", "cuplikan", "potongan pesan" sebagai nama field. `list-preview` di layar adalah baris nomor/badge yang sudah ada, **bukan** Match Snippet. |
 | **Handoff** | Perpindahan `assigned_to` dari satu staff ke staff lain dengan ringkasan/next action tersimpan. **Fase 2a, di luar scope spec ini** (diatur spec Fase 2a, constraint K-01 PRD §2.3). | — |
 
 ## 3. Requirements, Constraints & Guidelines
@@ -123,6 +140,21 @@ Istilah berikut mengikuti dokumen sumber (`Panduan_Layar_AuliaPos_M3.md`, `docs/
 
 - **REQ-013**: Pencarian `q` pada `GET /inbox/api/conversations` mencocokkan **semua nama dan nomor yang bisa tampil di daftar percakapan**. Daftar menampilkan nama = `contact_name` → `whatsapp_name` → `phone` → `chat_id` (nilai pertama yang tidak kosong) dan nomor = `manual_phone` → `phone`. Karena itu `q` wajib dicocokkan ke kelima kolom `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id` (CL-015). Conversation cocok bila `q` terkandung di **minimal satu** kolom tersebut. Aturan lain `q` tetap berlaku (§4.4): tidak membedakan huruf besar/kecil, di-trim, `%`/`_` sebagai teks biasa, maks. 255 karakter, AND dengan `status`, seluruh dataset, 50 per halaman.
 - **CON-003**: Fase 1d tidak menambah migration, parameter, maupun perubahan layar. Kotak pencarian Fase 1c sudah mengirim `q` ke server (AC-012), jadi perluasan kolom langsung terlihat di layar. Batas ini membuat Fase 1d cukup berupa satu perubahan predikat pencarian di `apiConversations()` beserta test-nya.
+
+### Fase 1e (PRD v1.3 GH-010)
+
+- **REQ-014**: `q` pada `GET /inbox/api/conversations` juga mencocokkan `messages.text` (CL-016). Conversation masuk hasil bila cocok lewat identitas (REQ-013) **atau** isi pesan. Aturan `q` yang lain tetap sama: trim, maks. 255 karakter, tidak membedakan huruf besar/kecil, `%`/`_` sebagai teks biasa, tanpa normalisasi, AND dengan `status`, seluruh dataset, 50 per halaman, urutan `last_message_at` terbaru. Pesan dengan `text` `NULL`/kosong (mis. stiker/media tanpa caption) tidak pernah cocok dan tidak boleh menimbulkan error.
+- **REQ-015**: Setiap conversation di response membawa key `match_snippet` (§4.4). Isinya dari pesan cocok terbaru (CL-017), hanya bila conversation cocok lewat isi pesan saja (CL-018), dan membawa `is_internal` supaya layar bisa memberi label "Internal". Satu conversation tetap satu elemen di `conversations`.
+- **REQ-016 (kecepatan)**: Pencarian isi pesan dijalankan **di database**, bukan dengan memuat semua pesan ke PHP. Batasnya:
+  - (a) Per request, pesan dicari lewat **satu query agregat** ke tabel `messages` untuk semua conversation sekaligus, bukan satu query per conversation (tanpa N+1).
+  - (b) PHP hanya menerima `conversation_id` yang cocok dan paling banyak **satu pesan per conversation** (untuk Match Snippet), tidak pernah seluruh baris `messages`.
+  - (c) Bila `q` kosong, query ke `messages` tidak dijalankan sama sekali, sehingga daftar tanpa pencarian tidak menjadi lebih lambat.
+  - (d) Target: ≤ 3 detik per request pada data uji ASSUMPTION-004, termasuk kata kunci yang sangat umum (lihat AC-016).
+- **REQ-017 (layar tidak macet)**: Daftar conversation di layar:
+  - (a) menampilkan Match Snippet di bawah nama, dengan label "Internal" bila `match_snippet.is_internal = true`, memakai `escapeHtmlInbox()`;
+  - (b) tidak memulai putaran pemuatan baru (polling 6 detik maupun pencarian dengan kata kunci yang sama) selama putaran sebelumnya masih berjalan, sehingga request lambat tidak menumpuk;
+  - (c) tetap menampilkan daftar sebelumnya dan tetap bisa diklik selama menunggu hasil pencarian. Pencarian dengan kata kunci **baru** tetap boleh dimulai, dan hasil kata kunci lama dibuang (perilaku yang sudah ada).
+- **CON-004**: Fase 1e tidak menambah migration, index, parameter query, maupun endpoint. Perubahan terbatas pada `apiConversations()` (predikat + `match_snippet`) dan daftar di `app/Views/inbox/index.php`. Tidak ada panggilan ke Gateway dan tidak ada penulisan data apa pun (pencarian hanya membaca). Status, pemilik, `last_seen_by_assignee_at`, dan SLA Timer tidak berubah karena pencarian.
 
 ## 4. Interfaces & Data Contracts
 
@@ -165,7 +197,7 @@ Tidak melalui `cekOwnership()` (lihat SEC-001). Insert ke `messages` dengan `is_
 Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
 - `page` (opsional): nomor halaman, mulai dari `1`. Jika tidak diisi, gunakan `page=1`. Nilai `page` yang bukan bilangan bulat positif (termasuk `0` atau negatif) wajib menghasilkan HTTP 400. `page` yang dikirim tapi kosong (`?page=`) juga dianggap tidak valid (HTTP 400); hanya `page` yang tidak dikirim sama sekali yang memakai `page=1`. Jika `page` valid tetapi melewati halaman terakhir, response tetap HTTP 200 dengan array kosong `[]`.
 - `status` (opsional): salah satu dari `belum_diambil|open|menunggu|ditunda|selesai`, filter tab Queue View. **Nilai selain enum tersebut wajib ditolak dengan HTTP 400.**
-- `q` (opsional): keyword, cocok bila **terkandung** di minimal satu dari `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id` (Fase 1d, REQ-013/CL-015; sebelum rev 1.2 hanya `contact_name`/`phone`). Pencocokan setara `LIKE '%q%'`, per kolom: `q` tidak dicocokkan ke gabungan beberapa kolom. Nilai mentah, tanpa normalisasi format nomor telepon, tidak membedakan huruf besar/kecil. Kolom yang `NULL`/kosong dianggap tidak cocok dan tidak boleh menimbulkan error. Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian. Karakter `%` dan `_` harus diperlakukan sebagai teks biasa, bukan wildcard. Panjang `q` maksimal 255 karakter; nilai yang lebih panjang wajib menghasilkan HTTP 400.
+- `q` (opsional): keyword, cocok bila **terkandung** di minimal satu dari `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id` (Fase 1d, REQ-013/CL-015; sebelum rev 1.2 hanya `contact_name`/`phone`), **atau** di `text` minimal satu pesan conversation itu yang belum di-soft-delete (Fase 1e, REQ-014/CL-016). Pencocokan setara `LIKE '%q%'`, per kolom: `q` tidak dicocokkan ke gabungan beberapa kolom. Nilai mentah, tanpa normalisasi format nomor telepon, tidak membedakan huruf besar/kecil. Kolom yang `NULL`/kosong dianggap tidak cocok dan tidak boleh menimbulkan error. Nilai `q` harus di-trim; bila hasil trim kosong, perlakukan sebagai tidak ada filter pencarian. Karakter `%` dan `_` harus diperlakukan sebagai teks biasa, bukan wildcard. Panjang `q` maksimal 255 karakter; nilai yang lebih panjang wajib menghasilkan HTTP 400.
 - Bila filter `status`/`q` valid tetapi tidak ada conversation yang cocok, response tetap **HTTP 200** dengan array hasil kosong `[]`.
 
 **Bentuk response 200:** `{ "status": "success", "conversations": [ ... ] }`. Setiap "array kosong `[]`" di bagian ini dan di CL-005/CL-013 berarti `conversations: []`. Response 400 berbentuk `{ "status": "error", "message": ... }`.
@@ -177,6 +209,26 @@ Parameter baru (lihat ASSUMPTION-001 — CONFIRMED):
 4. Cara teknis mencapai kontrak tersebut (query SQL, pagination, index, filter-after-fetch, atau kombinasi) boleh dipilih saat implementasi dan **tidak dikunci oleh Blueprint** selama hasil pencarian lengkap dan tidak menduplikasi sumber computed status.
 
 Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b) `sla_color` (`hijau|kuning|merah|null`, `null` untuk `selesai`/`ditunda`; **`menunggu_customer` tetap dihitung** — lihat ASSUMPTION-002 — CONFIRMED).
+
+**Key `match_snippet` (Fase 1e, REQ-015):** selalu ada di setiap conversation pada response endpoint ini.
+
+```json
+"match_snippet": null
+```
+
+```json
+"match_snippet": {
+  "text": "…kak saya mau pesan atas nama Saerah, 2 lusin kaos ukuran L, bisa jadi hari…",
+  "is_internal": false,
+  "message_timestamp": "2026-09-20 14:05:11"
+}
+```
+
+- `null` bila tidak ada `q`, atau bila `q` cocok dengan kolom identitas (CL-018).
+- Berisi objek bila conversation cocok **hanya** lewat isi pesan. Sumbernya pesan cocok terbaru (CL-017).
+- `text`: isi pesan dengan semua whitespace berurutan (termasuk baris baru) diganti satu spasi, lalu di-trim. Bila panjangnya ≤ 120 karakter, dikirim utuh. Bila lebih, diambil jendela 120 karakter yang dimulai ±40 karakter sebelum kemunculan pertama `q` (tidak membedakan huruf besar/kecil), dan `…` ditambahkan di sisi yang terpotong. Bila posisi `q` tidak ditemukan di PHP (mis. database menganggap `é` = `e`), jendela dimulai dari awal teks. Semua hitungan memakai fungsi `mb_*` supaya huruf/emoji multi-byte tidak terbelah.
+- `is_internal`: boolean dari `messages.is_internal`.
+- `message_timestamp`: nilai `messages.message_timestamp` pesan itu, dengan format yang sama seperti kolom waktu lain di response.
 
 ## 5. Acceptance Criteria
 
@@ -235,13 +287,35 @@ Response payload conversation bertambah key: `queue_status` (4.2), dan (Fase 1b)
   - (g) Given kolom `whatsapp_name`/`manual_phone` bernilai `NULL`, When pencarian apa pun, Then tidak ada error dan conversation tetap dinilai dari kolom lain.
   - (h) Level layar: Given conversation dari (a), When kasir mengetik "budi cetak" di kotak pencarian lalu Enter, Then "Budi Cetak" muncul di tab yang sesuai (dicek manual; kotak pencarian tidak berubah, CON-003).
 
+### AC Pencarian isi pesan — Fase 1e (REQ-014..REQ-017, PRD GH-010)
+
+- **AC-014 (API)**: `GET /inbox/api/conversations?q=...` mencari isi pesan:
+  - (a) Given conversation `contact_name = "Jamet"` dengan pesan `incoming` "pesan atas nama Saerah", When `?q=saerah`, Then conversation Jamet ada di `conversations` dan `match_snippet.text` memuat "Saerah" dengan `is_internal = false` (GH-010 kriteria 1).
+  - (b) Given tiga conversation yang masing-masing hanya cocok lewat satu jenis pesan — pesan pelanggan (`incoming`), balasan staff (`outgoing`), atau Internal Note — When `q` berisi potongan teks tersebut, Then ketiganya ditemukan. Untuk yang cocok lewat Internal Note, `match_snippet.is_internal = true` (GH-010 kriteria 2 dan 3).
+  - (c) Given conversation `selesai` dengan `last_message_at` di luar 50 terbaru dan pesan cocok yang ditulis lama (bukan pesan terakhir), When `?status=selesai&q=...`, Then conversation itu ditemukan. When `?status=open&q=...` (conversation tidak `open`), Then tidak ikut (seluruh riwayat, AND, CL-001/CL-003).
+  - (d) Given satu conversation dengan tiga pesan cocok pada waktu berbeda, When dicari, Then conversation muncul **satu kali** dan `match_snippet` berasal dari pesan cocok terbaru. Given dua pesan cocok dengan `message_timestamp` sama, Then yang dipakai adalah `id` terbesar (CL-017).
+  - (e) Given `contact_name = "Saerah Cetak"` dan pesannya juga memuat "saerah", When `?q=saerah`, Then conversation ditemukan dengan `match_snippet = null` (CL-018). Given request tanpa `q`, Then setiap conversation punya `match_snippet = null`.
+  - (f) Given pesan cocok yang sudah di-soft-delete (`deleted_at` terisi) dan tidak ada kecocokan lain, Then conversation tidak ditemukan. Given pesan dengan `text = NULL` (media tanpa caption), Then tidak ada error.
+  - (g) Given pesan 500 karakter dengan "Saerah" di tengah dan beberapa baris baru, Then `match_snippet.text` ≤ 122 karakter (120 + dua `…`), memuat "Saerah", tanpa baris baru, serta diawali dan diakhiri `…`. Given pesan ≤ 120 karakter, Then teks dikirim utuh tanpa `…` (CL-019).
+  - (h) Given `q = "50%"`, satu pesan berisi "diskon 50%", dan pesan lain berisi "diskon 500", Then hanya conversation pertama yang cocok lewat isi pesan (CL-008 berlaku juga untuk isi pesan).
+  - (i) Given pencarian isi pesan dijalankan, Then `conversations.assigned_to`, `status`, `snoozed_until`, `last_message_at`, `last_message_direction`, dan `last_seen_by_assignee_at` tidak berubah, jumlah baris `messages` tidak berubah, dan tidak ada panggilan ke Gateway (CON-004, GH-010 kriteria 5).
+- **AC-015 (layar, `app/Views/inbox/index.php`)**:
+  - (a) Given hasil pencarian berisi conversation dengan `match_snippet`, Then di bawah nama tampil teks Match Snippet (di-escape). Bila `is_internal = true`, teks didahului label "Internal" dengan gaya label Internal Note di thread (AC-010a).
+  - (b) Given `match_snippet = null`, Then tidak ada baris Match Snippet dan tampilan daftar sama seperti Fase 1d.
+  - (c) Given Match Snippet berisi `<b>` atau `<script>`, Then ditampilkan sebagai teks biasa, bukan HTML.
+  - (d) Given satu putaran pemuatan daftar masih berjalan, When interval polling 6 detik tiba, Then putaran baru tidak dimulai (REQ-017b). Given kasir mengetik kata kunci baru lalu Enter, Then pencarian baru tetap dikirim dan hasil kata kunci lama dibuang (REQ-017c).
+  - (e) Level layar untuk GH-010 kriteria 1: Given data AC-014(a), When kasir mengetik "saerah" lalu Enter, Then "Jamet" muncul dengan Match Snippet yang memuat "Saerah" (dicek manual).
+- **AC-016 (kecepatan, REQ-016)**: Given data uji ASSUMPTION-004 di MariaDB 10.4, When `GET /inbox/api/conversations?page=1&q=<kata>` dipanggil untuk tiga kata kunci — (1) kata langka yang hanya ada di 1 pesan, (2) kata umum yang ada di ±10% pesan, (3) satu huruf `a` — Then setiap request selesai ≤ 3 detik (median dari 3 kali percobaan, diukur dari waktu response server). Hasil pengukuran dicatat di plan atau walkthrough Fase 1e. Request tanpa `q` tidak boleh lebih lambat daripada sebelum Fase 1e (REQ-016c).
+
 ## 6. Test Automation Strategy & Testing Seams
 
 - **Testing Seams**: Prioritaskan seam tertinggi yang sudah ada — controller HTTP boundary (`tests/session/` untuk endpoint baru & yang diperluas) dan Model boundary murni (`tests/database/` untuk `ConversationModel::withComputedStatus()`). Hindari testing lewat browser/JS untuk logic computed status.
 - **Test Levels**:
   - `tests/database/` — `ConversationModel::withComputedStatus()` per kombinasi `response_state` × `assigned_to` (5 tab). *(rev 1.1: tidak ada test "filter `is_internal = FALSE` pada query `last_message_at`" — query seperti itu tidak ada, lihat REQ-009. Perlindungannya adalah test endpoint di bawah yang memastikan `last_message_at`/`last_message_direction` tidak berubah.)*
-  - `tests/session/` — endpoint POST Internal Note (akses tanpa `cekOwnership()`, AC-004; `conversations.last_message_at`/`last_message_direction` tidak berubah setelah note, REQ-009; 400 untuk teks kosong dan > 4096 byte), endpoint `GET /inbox/api/conversations` dengan parameter `status`/`q`/`page` (AC-009), dan (Fase 1d) `q` terhadap kelima kolom identitas (AC-013 a–g). Test AC-013 ditambahkan ke test session `apiConversations` yang sudah ada (seam yang sama dengan AC-009), bukan seam baru.
-  - `tests/session/` (level layar) — GET `/inbox` sebagai kasir, lalu assert HTML berisi elemen dialog Internal Note, kotak pencarian, dan JS yang membaca `sla_color` serta mengirim `q` (AC-010..AC-012). Perilaku JS (klik, toast, polling) dicek manual di browser dengan checklist per poin AC, karena proyek ini tidak punya test runner JS.
+  - `tests/session/` — endpoint POST Internal Note (akses tanpa `cekOwnership()`, AC-004; `conversations.last_message_at`/`last_message_direction` tidak berubah setelah note, REQ-009; 400 untuk teks kosong dan > 4096 byte), endpoint `GET /inbox/api/conversations` dengan parameter `status`/`q`/`page` (AC-009), dan (Fase 1d) `q` terhadap kelima kolom identitas (AC-013 a–g). Test AC-013 ditambahkan ke test session `apiConversations` yang sudah ada (seam yang sama dengan AC-009), bukan seam baru. (Fase 1e) AC-014 a–i juga di seam yang sama. Pemotongan Match Snippet (AC-014g) boleh juga diuji sebagai pure function di `tests/unit/` bila logikanya diekstrak ke Service, mengikuti pola `InboxSlaService`.
+  - **Catatan database test (Fase 1e):** test memakai SQLite `:memory:`, sedangkan produksi memakai MariaDB. `LIKE` di keduanya tidak membedakan huruf besar/kecil untuk huruf latin biasa, sehingga AC-014 cukup memakai teks ASCII. Perbedaan untuk huruf beraksen/non-latin diterima dan tidak diuji (§12).
+  - **Kecepatan (AC-016)** tidak diuji lewat PHPUnit, karena SQLite in-memory tidak mewakili MariaDB. Kecepatan diukur manual dengan data uji ASSUMPTION-004 (mis. seeder/skrip sekali pakai di luar `composer test`), lalu hasilnya dicatat. Skrip pengisi data uji tidak boleh berjalan otomatis di database produksi.
+  - `tests/session/` (level layar) — GET `/inbox` sebagai kasir, lalu assert HTML berisi elemen dialog Internal Note, kotak pencarian, dan JS yang membaca `sla_color` serta mengirim `q` (AC-010..AC-012), dan (Fase 1e) JS yang membaca `match_snippet` (AC-015). Perilaku JS (klik, toast, polling) dicek manual di browser dengan checklist per poin AC, karena proyek ini tidak punya test runner JS.
   - `tests/unit/` — kalkulasi warna SLA (`hijau|kuning|merah|null`) sebagai pure function jika logic ini diekstrak ke Service (disarankan, konsisten pola `KalkulasiStatusPembayaran` proyek ini), bukan ditaruh di controller.
 - **Test Data Management**: mengikuti pola existing (`tests/_support/` untuk migration/seed test-only), gunakan `DatabaseTestTrait` seperti test Inbox lain yang sudah ada.
 - **Coverage Requirements**: setiap REQ-00x baru (007-012) wajib punya minimal 1 test yang gagal sebelum implementasi (Red) dan lolos sesudahnya (Green), sesuai `tdd-implement` skill proyek ini.
@@ -300,14 +374,21 @@ public function catatanInternal($conversationId = null)
 
 ## 9. Implementation Boundaries
 
-- **Always do:** Reuse `attachResponseState()` (REQ-002); di endpoint Internal Note, JANGAN panggil `ConversationModel::update()` untuk `last_message_at`/`last_message_direction` (REQ-009); jalankan `composer test` sebelum menganggap task selesai; migration additive-only; `apiConversations()` mencari di **seluruh** conversation tanpa batas baris, lalu mengirim hasil **50 per halaman** lewat `page` (ASSUMPTION-001 — CONFIRMED, CL-001, CL-010/011, lihat 4.4). Jangan memasang batas seperti `findAll(500)` atau "N terbaru". (Fase 1d) `q` mencocokkan kelima kolom identitas REQ-013. Jangan menambah kolom di luar lima itu, mis. isi pesan (itu Fase 1e).
-- **Ask first:** Perubahan pada `Inbox::snoozePercakapan()` yang mengubah kontrak existing (dipakai Fase 1a, jangan pecah backward compatibility saat menambah Fase 1b); field filter tambahan di luar `status`/`q` pada `apiConversations()` yang tidak tercakup spec ini.
-- **Never do:** Menambah kolom `display_status` atau `snooze_reason` baru (sudah diputuskan ditolak di clarification report); membuat Internal Note memicu panggilan ke Gateway; membiarkan Internal Note ikut mengubah `last_message_direction`/`last_message_at`.
+- **Always do:** Reuse `attachResponseState()` (REQ-002); di endpoint Internal Note, JANGAN panggil `ConversationModel::update()` untuk `last_message_at`/`last_message_direction` (REQ-009); jalankan `composer test` sebelum menganggap task selesai; migration additive-only; `apiConversations()` mencari di **seluruh** conversation tanpa batas baris, lalu mengirim hasil **50 per halaman** lewat `page` (ASSUMPTION-001 — CONFIRMED, CL-001, CL-010/011, lihat 4.4). Jangan memasang batas seperti `findAll(500)` atau "N terbaru". (Fase 1d) `q` mencocokkan kelima kolom identitas REQ-013. (Fase 1e) `q` juga mencocokkan `messages.text` lewat satu query agregat di database (REQ-016). Jangan memuat semua pesan ke PHP, dan jangan menjalankan query `messages` bila `q` kosong. `match_snippet` wajib di-escape di layar.
+- **Ask first:** (Fase 1e) Menambah index, FULLTEXT, tabel pencarian, atau migration apa pun untuk mempercepat pencarian, termasuk bila AC-016 gagal (CL-020) — berhenti dan laporkan hasil pengukurannya dulu. Menambah batas minimum panjang `q` juga termasuk di sini. Perubahan pada `Inbox::snoozePercakapan()` yang mengubah kontrak existing (dipakai Fase 1a, jangan pecah backward compatibility saat menambah Fase 1b); field filter tambahan di luar `status`/`q` pada `apiConversations()` yang tidak tercakup spec ini.
+- **Never do:** (Fase 1e) Mengirim isi pesan lengkap lewat `match_snippet`, menampilkan `match_snippet` sebagai HTML, atau membuat pencarian menulis data apa pun (mis. menandai dibaca). Menambah kolom `display_status` atau `snooze_reason` baru (sudah diputuskan ditolak di clarification report); membuat Internal Note memicu panggilan ke Gateway; membiarkan Internal Note ikut mengubah `last_message_direction`/`last_message_at`.
 
 ## 10. Rationale, Context & Architecture Decisions (ADRs)
 
 - **`docs/adr/0001-reuse-response-state-for-queue-view-status.md`** — keputusan reuse `attachResponseState()` untuk `withComputedStatus()` (REQ-002), termasuk konsekuensi kopling antara kedua fitur dan kewajiban filter `is_internal`.
 - Keputusan lain (threshold SLA, scope Customer Context, storage Internal Note, akses tulis Internal Note, storage snooze reason) didokumentasikan lengkap di `docs/audit/clarification-report-m3-fase1-operational-inbox-2026-09-20.md` — tidak diulang sebagai ADR terpisah karena tidak semuanya memenuhi 3 syarat ADR (`.claude/standards/ADR-FORMAT.md`); mis. threshold SLA mudah diubah (hardcode di config, bukan hard-to-reverse).
+- **Fase 1e — kenapa `LIKE '%q%'` tanpa index (CL-020):**
+  - Aturan `q` sejak Fase 1b adalah **"terkandung"** (potongan teks, mis. `aerah` cocok dengan "Saerah"). FULLTEXT MariaDB mencocokkan **kata**, bukan potongan kata, dan mengabaikan kata pendek (< 3 huruf) serta *stopword*. Dengan FULLTEXT, isi pesan akan punya aturan pencarian yang berbeda dari nama/nomor, dan hasilnya membingungkan kasir.
+  - FULLTEXT tidak ada di SQLite, database test proyek ini, sehingga pencarian tidak bisa diuji otomatis.
+  - Index B-tree biasa tidak membantu `LIKE` yang diawali `%`, jadi tidak ada index biasa yang berguna untuk ditambahkan.
+  - Satu kali scan `messages.text` pada data uji 200.000 baris (±20 MB teks) diperkirakan jauh di bawah 3 detik di MariaDB. AC-016 memverifikasi perkiraan ini dengan pengukuran nyata.
+  - Keputusan ini **mudah dibalik**: tidak ada migration, dan kontrak API tidak berubah bila nanti implementasinya diganti FULLTEXT/tabel pencarian. Karena tidak memenuhi syarat "hard to reverse", keputusan ini **tidak** dijadikan ADR (`.agents/standards/ADR-FORMAT.md`) dan cukup dicatat di sini.
+- **Fase 1e — pengaman polling (REQ-017b):** layar memuat ulang daftar setiap 6 detik dengan `q` aktif, dan tiap putaran bisa berisi beberapa request halaman. Tanpa pengaman, satu request lambat bisa membuat putaran saling tumpuk dan membebani server. Menunda putaran baru selama putaran lama belum selesai adalah perubahan terkecil yang menjaga layar tetap responsif.
 
 ## 11. Dependencies & External Integrations
 
@@ -351,6 +432,11 @@ Edge case eksplisit yang harus ditangani implementasi (dari sesi clarification):
 - (Fase 1d) `whatsapp_name` selalu diperbarui Gateway. Setelah pelanggan mengganti nama profil WhatsApp, nama lama tidak lagi ditemukan. Ini diterima karena pencarian mengikuti nama yang tampil sekarang, bukan riwayat nama.
 - (Fase 1d) Nomor dicocokkan apa adanya: `manual_phone = "0812-3456"` tidak ditemukan dengan `q = "62812"`, dan sebaliknya (tanpa normalisasi, §1.1).
 - (Fase 1d) `q` yang sangat umum seperti "lid" atau "whatsapp" bisa cocok dengan banyak `chat_id`. Hasil ini sesuai aturan "terkandung" dan tidak perlu disaring khusus.
+- (Fase 1e) Kata kunci sangat umum (mis. `a`, `ok`) bisa cocok dengan hampir semua conversation. Ini sesuai aturan "terkandung" dan tidak disaring khusus. Bebannya dibatasi oleh REQ-016b (maks. satu pesan per conversation dikirim ke PHP) dan diukur di AC-016.
+- (Fase 1e) Huruf beraksen/non-latin: MariaDB `utf8mb4_general_ci` menganggap `é` = `e`, sedangkan SQLite dan `mb_stripos()` tidak. Hasil pencarian bisa sedikit berbeda antara test dan produksi, dan jendela Match Snippet dimulai dari awal teks bila posisi `q` tidak ditemukan di PHP (§4.4). Ini diterima.
+- (Fase 1e) Pesan `outgoing` yang gagal terkirim (`send_status = failed`) tetap ikut dicari, karena isinya memang pernah ditulis staff di conversation itu.
+- (Fase 1e) Alasan Snooze disimpan sebagai Internal Note (REQ-011), jadi ikut dicari dan tampil dengan label "Internal". Handoff Summary, Next Action, dan Handoff Note disimpan di tabel `conversation_handoffs`, bukan `messages`, sehingga **tidak** ikut dicari.
+- (Fase 1e) Pesan di conversation yang di-soft-delete tidak pernah muncul, karena conversation-nya sendiri tidak ada di daftar.
 - Staff bukan admin, bukan assignee, menulis Internal Note ke conversation yang di-assign orang lain → tetap 200 (SEC-001), beda hasil dari `cekOwnership()` yang akan menolak aksi balas/hapus/snooze di conversation yang sama.
 - Conversation baru tanpa `last_message_direction` sama sekali (fallback `attachResponseState()` baris ~483-487) → `withComputedStatus()` harus mewarisi fallback yang sama (`perlu_dibalas` → `belum_diambil`/`open` tergantung `assigned_to`), bukan crash/nilai kosong.
 - Internal Note ditulis pada conversation berstatus `closed` (Response State `selesai`) → request tetap 200, tidak ditolak karena status. Endpoint ini tidak mengecek status conversation sama sekali di luar cek "conversation ditemukan" (404).
@@ -358,15 +444,19 @@ Edge case eksplisit yang harus ditangani implementasi (dari sesi clarification):
 ## 13. Validation Criteria
 
 - `composer test` lolos 100% (macro-level gate per `AGENTS.md` Testing Policy) sebelum Fase 1a/1b dianggap selesai.
-- Setiap REQ-0xx di Bagian 3 punya minimal 1 acceptance criteria terkait di Bagian 5 — sudah dipenuhi (AC-001 s/d AC-013):
+- Setiap REQ-0xx di Bagian 3 punya minimal 1 acceptance criteria terkait di Bagian 5 — sudah dipenuhi (AC-001 s/d AC-016):
   - REQ-001..004 → AC-001, AC-002
   - REQ-007..009, SEC-001, CON-002 → AC-003, AC-004, AC-010
   - REQ-010 → AC-005, AC-006, AC-008, AC-011
   - REQ-011 → AC-007
   - REQ-012 → AC-009, AC-012
   - REQ-013, CON-003 (Fase 1d) → AC-013
+  - REQ-014, REQ-015, CON-004 (Fase 1e) → AC-014
+  - REQ-016 (Fase 1e) → AC-016
+  - REQ-017 (Fase 1e) → AC-015
   - REQ-005, REQ-006 (wiring ke endpoint existing, Fase 1a) diverifikasi lewat regresi UI, tanpa AC terpisah.
-- AC level layar (AC-010..AC-012) dianggap lolos hanya setelah test render halaman lolos **dan** checklist manual di browser tercatat per poin.
+- AC-016 dianggap lolos hanya setelah hasil pengukuran (tiga kata kunci × tiga percobaan, median ≤ 3 detik) tercatat di plan atau walkthrough Fase 1e.
+- AC level layar (AC-010..AC-012, AC-015) dianggap lolos hanya setelah test render halaman lolos **dan** checklist manual di browser tercatat per poin.
 - Tidak ada regresi pada `attachResponseState()` existing (badge sidebar Tahap A, `apiPerluDibalasCount()`) — jalankan test existing untuk Tahap A sebelum & sesudah perubahan.
 
 ## 14. Related Specifications / Further Reading
@@ -389,7 +479,7 @@ The product-level requirements are documented in `prd-20260922-0141-chat-whatsap
 | SLA indicator (GH-004) | REQ-010; AC-005, AC-006, AC-008; screen AC-011 |
 | Filter & Search (Layar 7) | REQ-012 and Section 4.4; AC-009; screen AC-012 |
 | Full name/number search (GH-009, Fase 1d) | REQ-013, CON-003, CL-015, Section 4.4; AC-013 (closes TODO-SEARCH-01 / NG-01) |
-| Message-text search (GH-010, Fase 1e) | Not covered yet; out of scope per Section 1.1, to be specified in a later revision |
+| Message-text search (GH-010, Fase 1e) | REQ-014 to REQ-017, CON-004, CL-016 to CL-021, Section 4.4 (`match_snippet`); AC-014 (API), AC-015 (screen), AC-016 (≤ 3 s) |
 | Gateway changes | Explicitly out of scope; covered separately by the M1 Gateway specification |
 | M3 Phase 2 / AI / full Customer Context | Explicitly out of scope per Section 1.1 |
 
