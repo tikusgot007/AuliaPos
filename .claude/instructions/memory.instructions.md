@@ -2409,4 +2409,35 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — `/sdlc-code-review` completed, no blocker)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code Review (`/sdlc-code-review`) — **completed** for M1 Wave 2 across both repos: WA-Gateway (`21a4cb6..4010cc1`, `C:\home\gw-review` @ `4010cc1`) and AuliaPos (`f2b4f2c..HEAD`, branch `v2.3`, 18 local commits). Findings + fix plan delivered in-chat; no patches produced (review agent does not implement fixes).
+- **Prior blocker resolved (start of this session):** the missing `gateway_operation_id` column on the live/production `aulia_inboxdb` at the old computer ("Aan-PC") was confirmed to be the intentional F-01/TASK-022 Phase 5 gated decision (pending owner approval), NOT data loss or drift. The migration applied locally in this session's dev environment (`AddGatewayOperationIdToMessages`, plus rebuilding `aulia_inboxdb_test`) is a dev-only copy for test purposes and does not touch or violate that production gate.
+- **Active Artifacts:**
+  - This chat's in-line review report (not yet saved as a `docs/` file) — severity-tagged findings (F-1..F-4) + PASS verifications (SEC-001, SEC-002, state machine, `findMessageByOperationId`/`gatewayFailureResponse` sharing) + a table re-validating every §5 open item from `docs/handoff-m1-wave2-fase5-code-review-2026-09-24.md` against current code.
+  - `docs/handoff-m1-wave2-fase5-code-review-2026-09-24.md` — consumed as the mandatory upstream input for this review.
+- **Achieved Milestones / Findings Summary:**
+  - **No Critical/High findings.** Release is not blocked.
+  - **[Medium] F-1 (new, not previously documented):** if `outgoingOperations.begin()` throws persistently (e.g. corrupt SQLite file, disk full), `outcome: 'store_error'` → `500 OPERATION_STORE_ERROR` repeats forever for the same `operation_id`, because the client (`index.php` composer JS) keeps the key on "kegagalan biasa" (default branch of `tanganiKegagalanKirimBalasan`). Fail-closed is correct; the gap is UX — the cashier has no way to know this needs an operator restart, not another retry. **Not yet logged anywhere** — recommended to add to §5 handoff or Wave 3 backlog.
+  - **[Medium] F-2 (already known, re-confirmed with code):** messages delivered via the in-lease `409 SEND_IN_PROGRESS` path are never written to `messages` (by REQ-041 design) — confirmed `kirimKeConversation()`/`kirimMedia()` only insert on `ok===true` or replay, never on 409/504. Real UX consequence: if the send genuinely succeeded before the 409 was returned, the Inbox thread shows nothing until a later successful retry. Recommended: keep as `[Assumed / Out of Scope]` for M1 W2, explicit Wave 3 candidate — not a code-review blocker.
+  - **[Low] F-3:** balapan-path `classifyExisting()` already checks `payload_hash` before `dead_lettered`, so the `raced.outcome === 'dead_lettered' ? deadLetter(...) : raced` branch in `outgoingOperationService.js` is correct as-is; flagged only for an explanatory comment, not a code change.
+  - **[Low] F-4:** `warnedWithoutOperationIdOnce` is a module-level singleton (per-process, per REQ-026), so it re-fires after every PM2 restart — by design, just needs a runbook note, not a fix.
+  - **[Info] §5 items re-validated against current code, all still accurate:** GW-09 (rare duplicate on crash between send success and `markSent`, confirmed real code window), AC-026(b) (`INVALID_CHAT_ID` stub-only, guarded earlier by `isDecodableJid()`), the HTTP 422 branch (defensive, untested — `InboxGatewayApi` only replies 200/400/500), D-13/A-5 (24h TTL confirmed via `config/index.js` `outgoingOperationTtlMs`).
+  - **[Info] F-01 status upgrade:** per `docs/decisions/2026-09-24-m1-wave2-phase5-deploy.md` §2, the production migration is now claimed APPLIED — this item should move from "open risk" to "resolved" in tracking docs (owner should reconfirm).
+  - **PASS:** SEC-001 (no `text`/`caption`/`media_base64` in any new `logger.*`/`log_message()` call, `check-outgoing-log-scan.js` exit 0), SEC-002 (all new AuliaPos DB access is query-builder or parameterized `$this->db->query(..., [binding])`, zero string-concatenated SQL), state machine transitions (all guarded by `WHERE state='in_flight'`, attempts cap checked before `registerRetry()`, `pruneTerminal()` never touches `in_flight`), client-side idempotency key lifecycle in `index.php` (`buatOperationIdBalasan`/`ambilOperationIdBalasan`/`buangOperationIdBalasan`, discarded on success, on `OPERATION_ID_REUSED`, and on composer text edit via the `input` listener at line 2378-2379 — confirmed correct).
+  - **Test execution confirmed this session:** WA-Gateway 23 test scripts exit 0 (including `check-outgoing-log-scan.js`, previously an outstanding diagnostic item from a prior session — now resolved simply by having a clean synced environment); AuliaPos suite 349 tests / 1209 assertions OK (re-confirmed, closing the previously-unconfirmed `/tmp/phpunit3.out` item).
+- **Dead-Ends (Do NOT Repeat):** none new this session.
+- **Decisions Made:**
+  - F-1 and F-2 are documented as known limitations, not implemented as fixes in this session (out of scope for `/sdlc-code-review`, which produces a plan/report, not patches, per role boundary rules in AGENTS.md §"SDLC Framework & Targeted Agent Boundaries").
+  - No ADR triggered (no hard-to-reverse, surprising, real-trade-off decision made during this review).
+- **Next Action / Pending:**
+  - User to decide whether to formalize F-1/F-2 as a Wave 3 backlog item (via `/sdlc-plan-tasks` or `/sdlc-bug-report`) or leave as informal notes.
+  - Optional: `/sdlc-audit-consistency` (PRD + Spec + Plan) as the recurring checkpoint after code review, per the standard SDLC sequence — not yet invoked this session.
+  - Confirm F-01 production-migration status with the owner and flip its tracking status from "open" to "resolved" once confirmed.
+  - Pushing the 18 local AuliaPos commits (and the WA-Gateway state) to remote still needs an explicit owner order (unchanged from the prior checkpoint).
+
+<!-- checkpoint-tail: M1 Wave 2 code review is DONE (2026-09-24): reviewed WA-Gateway 21a4cb6..4010cc1 and AuliaPos f2b4f2c..HEAD (v2.3), zero Critical/High findings, two Medium (F-1 store_error retry loop UX gap -- new; F-2 in-lease 409 path not recorded in messages -- previously known, re-confirmed), two Low (F-3 comment-only, F-4 restart-log-noise by design); SEC-001/SEC-002 PASS, state machine PASS, all §5 open items from the prior handoff re-validated as still accurate except F-01 which is now claimed resolved per the deploy decision doc; no code changed (review produces findings/plan only); next optional step is /sdlc-audit-consistency or formalizing F-1/F-2 into a Wave 3 backlog item. -->
+
+---
 
