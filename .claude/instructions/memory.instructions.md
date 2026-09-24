@@ -1610,3 +1610,26 @@
 <!-- checkpoint-tail: Fase 1d code is committed (db7f301, q searches five name/number columns per column, AC-013 tests, suite 324/1097 green); only the manual browser check TASK-021 (c) and approval TASK-022 remain, then /sdlc-code-review of db7f301. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (Janitor: flaky q=9999 test fixed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (M3 Fase 1 plan, Phase 4). Ad-hoc `/code-janitor` fix in the same session (user override of the session lock).
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.2, `In progress`: TASK-020 ✅, TASK-021 (c) manual browser check still pending, TASK-022 open. Unchanged by this fix.
+- **Achieved Milestones:**
+  - Commit `88cc7e0`: `testQFilterCocokContactNameDanPhone` now seeds via `seedIdentitas()` with fixed, digit-free chat_ids (`q-filter-nama@…`, `q-filter-nomor@…`). Closes the "~0.1% flaky q=9999" TODO from the previous checkpoint. `seedIdentitas()` docblock generalized (now used outside Fase 1d tests).
+  - Suite: `vendor\bin\phpunit --no-coverage` exit 0, **324 tests / 1097 assertions** (`build\janitor-chatid.txt`).
+- **Dead-Ends (Do NOT Repeat):**
+  - None new. Rule kept: any `q` test that searches digits must use a fixed, digit-free `chat_id`; other tests in the file keep the random `chat_id` because they search no digits.
+- **Updated Files:**
+  - `tests/session/OperationalInboxConversationTest.php` — fixed chat_ids in one test + docblock.
+- **Decisions Made:**
+  - None beyond the fix.
+- **Next Action / Pending:**
+  - **User:** TASK-021 (c) manual browser check AC-013 (h), then `/sdlc-write-code` TASK-022 → `/sdlc-code-review` of `db7f301` (+ `88cc7e0`).
+  - Carried over: "4096 karakter" → "4096 byte" wording (`Inbox.php` `catatanInternal()`, `index.php`); `/sdlc-draft-prd` PRD §9.2 status text; `/sdlc-define-specs` Fase 1e (GH-010); NIT STD-03, FYI STD-04; check WA Gateway `data/` before moving the gateway.
+
+<!-- checkpoint-tail: Flaky q=9999 test fixed (88cc7e0, suite 324/1097 green); Fase 1d still waits only for the manual browser check TASK-021 (c) and approval TASK-022, then /sdlc-code-review of db7f301+88cc7e0. -->
+
+---
