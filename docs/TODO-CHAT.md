@@ -1,6 +1,6 @@
 # Status Proyek — AuliaPos + WA-Gateway (Master Reference)
 
-**Terakhir diupdate:** 23 September 2026 WIB, setelah **M1 Wave 1 ditutup** (deploy TASK-019, AC-001 nyata TASK-017 lulus 3/3, APPROVAL TASK-018). **Status M1 Wave 1:** TASK-001 s/d TASK-019 selesai mengikuti `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (21 komit M1 `065f683` berjalan di Gateway nyata sejak 23 Sep 16:40 WIB; plan refactor pasca `/sdlc-code-review` **selesai** — 9 komit `2ca3065`..`fb585f1`; semuanya (30 komit) masuk `origin/master` lewat **PR #4, merge commit `21a4cb6`** (23 Sep malam), branch fitur + worktree `C:\projects\WA-Gateway-m1` sudah dihapus; **folder live di-deploy ke `21a4cb6` pada 23 Sep 18:47 WIB** — sama dengan `origin/master`). Kode ad-hoc sandbox (E-03/E-04/E-05/E-09) sudah ditimpa/disesuaikan sesuai kontrak plan, dan E-01/E-06 diimplementasikan ulang sesuai plan — rincian dan penyimpangan dari spec: `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`. **Bukti AC-001 sudah nyata** (Gateway live, 3× `pm2 stop`: 30/30 pesan, 0 hilang, 0 duplikat); bukti AC-002–AC-018 tetap simulasi. **M1 Wave 1 ditutup 23 Sep** — bukti: `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md`.
+**Terakhir diupdate:** 24 September 2026 WIB (koreksi janitor: status live Gateway, roadmap M1 dan M3, serta pemulihan 2 laporan klarifikasi M1 Wave 1 dari riwayat git — isi laporan tidak diubah), setelah **M1 Wave 1 ditutup** (deploy TASK-019, AC-001 nyata TASK-017 lulus 3/3, APPROVAL TASK-018). **Status M1 Wave 1:** TASK-001 s/d TASK-019 selesai mengikuti `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (21 komit M1 `065f683` berjalan di Gateway nyata sejak 23 Sep 16:40 WIB; plan refactor pasca `/sdlc-code-review` **selesai** — 9 komit `2ca3065`..`fb585f1`; semuanya (30 komit) masuk `origin/master` lewat **PR #4, merge commit `21a4cb6`** (23 Sep malam), branch fitur + worktree `C:\projects\WA-Gateway-m1` sudah dihapus; **folder live di-deploy ke `21a4cb6` pada 23 Sep 18:47 WIB** — sama dengan `origin/master`). Kode ad-hoc sandbox (E-03/E-04/E-05/E-09) sudah ditimpa/disesuaikan sesuai kontrak plan, dan E-01/E-06 diimplementasikan ulang sesuai plan — rincian dan penyimpangan dari spec: `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`. **Bukti AC-001 sudah nyata** (Gateway live, 3× `pm2 stop`: 30/30 pesan, 0 hilang, 0 duplikat); bukti AC-002–AC-018 tetap simulasi. **M1 Wave 1 ditutup 23 Sep** — bukti: `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md`. **Diverifikasi ulang 24 Sep 2026:** folder live `C:\projects\WA-Gateway` = `21a4cb6` = `origin/master`, PM2 `wa-gateway` status `online` (unstable restarts 0).
 **Cek centang:** 21 September 2026 ~14:30 WIB (diverifikasi langsung ke repo dan mesin Aan-PC) + **pembaruan 23 September 2026**: M1 Wave 1 ditutup dengan **bukti nyata** (Gateway live, 3× `pm2 stop`), bukan lagi hanya simulasi/mock. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[~]` = selesai sebagian, `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
 **Cara pakai:** Sematkan/paste dokumen ini di awal sesi Claude Code baru sebagai context. Update bagian "Status Sekarang" dan "Yang Menggantung" setiap kali ada progres baru — dokumen ini gampang basi kalau kerja paralel jalan di beberapa sesi Claude Code sekaligus, jadi **selalu `git fetch` + cek HEAD nyata sebelum percaya isi dokumen ini secara buta**.
 
@@ -13,9 +13,9 @@
 ## Roadmap Besar
 
 - [x] Tahap 0 — Baseline (DONE 20 Sep; decision log `docs/decisions/2026-09-19-tahap-0-baseline.md`)
-- [~] M1 — Reliability (Ticket 01 selesai; **Wave 1 = Ticket 02–04 SELESAI & LIVE 23 Sep** — AC-001 3/3 nyata, `065f683` berjalan di Gateway live; Ticket 05–16 belum)
+- [~] M1 — Reliability (Ticket 01 selesai; **Wave 1 = Ticket 02–04 SELESAI & LIVE 23 Sep** — AC-001 3/3 nyata **diukur pada** `065f683`; folder live sekarang **@ `21a4cb6`** (deploy 23 Sep 18:47 WIB, sama dengan `origin/master`); Ticket 05–16 belum)
 - [ ] M2 — State Consistency (belum mulai)
-- [ ] M3 — Operational Workflow (spec + plan siap, 0 dari 14 task dikerjakan)
+- [~] M3 — Operational Workflow (**Fase 1 (1a–1d) + Fase 2a Handoff/Collision SELESAI & ter-merge di `v2.3` lewat PR #41 `ce94660`**; audit konsistensi Fase 1 (24 Sep) = 95/100; Fase 1e (GH-010) dan sisa M3 belum)
 - [ ] M4 — POS / Customer Context (belum dibahas)
 - [ ] M5 — Intelligence / AI (belum dibahas)
 
@@ -156,7 +156,10 @@ Fokus:
 
 ---
 
-### M3 — Operational Inbox 🚦 PLAN LENGKAP & SIAP EKSEKUSI — belum ada task yang dikerjakan
+### M3 — Operational Inbox 🚦 FASE 1 (1a–1d) + FASE 2a SELESAI & TER-MERGE (PR #41, `v2.3`)
+
+> [!WARNING]
+> **Seksi ini belum disinkronkan (potret 21–23 Sep, sebelum eksekusi M3).** Status nyata per 24 Sep 2026: Fase 1 (1a–1d) dan Fase 2a (Handoff + Collision Detection) sudah dieksekusi dan ter-merge ke `v2.3` lewat PR #41 (`ce94660`); plan terkait berstatus `Completed` (`plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2, `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` rev 1.1, `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` rev 1.1). Audit konsistensi Fase 1 (24 Sep) = Readiness 95/100. Fase 1e (GH-010) dan sisa pekerjaan M3 belum. Jangan baca checklist "0 dari 14 task" di bawah sebagai status terkini.
 
 **Update penting (21 Sep)**: sesi Claude Code sudah menghasilkan spec + plan formal yang jauh melampaui blueprint awal kita, lewat proses SDLC terstruktur (spec → clarification report → remediasi → plan → clarification report kedua → resolusi). Semua 5 keputusan desain 🔶 yang saya tandai sebelumnya **sudah diresolusikan** (jadi "7 resolusi klarifikasi").
 
