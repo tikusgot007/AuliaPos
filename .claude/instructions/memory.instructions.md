@@ -1862,3 +1862,36 @@
 ---
 
 
+## 📝 Session Checkpoint: 2026-09-24 (Spec: M1 Gelombang 2 — idempotensi `/send` + dead-letter/attempt counter)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`)
+- **Active Artifacts:**
+  - `spec/spec-process-m1-wave2-outgoing-idempotency.md` — Status: 🔄 Draft v1.0 (539 baris, 14 bagian). Belum diklarifikasi, belum ada Readiness Score. Belum di-commit (untracked).
+  - `spec/spec-process-m1-wave1-incoming-reliability.md` — Status: ✅ Approved & berjalan; tidak disentuh, penomorannya dilanjutkan.
+- **Achieved Milestones:**
+  - Spec gelombang 2 M1 baru dibuat dari brief user + heavy lifting, mencakup: **E-O1** idempotensi `operation_id` untuk `/send` & `/send-media`; **E-O2** state machine pemulihan kirim ambigu (`in_flight`/`sent`/`failed`/`abandoned` + lease); **E-O3** batas percobaan + dead-letter `incoming_queue` (Ticket 06–07, ditarik dari gelombang 3 sesuai instruksi user) + poison-message (Ticket 08); **E-O4** perubahan sisi pemanggil AuliaPos.
+  - Semua fakta teknis diverifikasi ke sumber yang berjalan, bukan diasumsikan: WA-Gateway @ `21a4cb6` (`ci4Routes.js`, `incomingBuffer.js`, `incomingDelivery.js`, `config/index.js`, `connectionManager.js`, `ownSentRegistry.js`) dan AuliaPos (`Inbox.php` `kirimKeConversation()`/`callGatewaySend()` dengan `CURLOPT_TIMEOUT => 10`, `InboxGatewayApi.php`, migrasi additive `2026-09-22-000001_AddIsInternalToMessages.php`, DDL tabel `messages`).
+  - `markdownlint-cli2` v0.22.1 dijalankan: profil temuan berkas baru **sama jenisnya** dengan spec gelombang 1 yang sudah di-approve (MD013/MD028/MD060/MD025) — **tidak ada kelas aturan baru**. Tidak ada `.markdownlint*` di repo; `markdown.instructions.md` menetapkan batas 400 karakter, jadi MD013 bawaan bukan konvensi proyek. Normalisasi lint lintas-repo sengaja TIDAK dilakukan (di luar kewenangan persona Spec).
+- **Updated Files:**
+  - `spec/spec-process-m1-wave2-outgoing-idempotency.md` — berkas baru (539 baris), untracked. Tidak ada berkas lain yang disentuh dan **tidak ada kode aplikasi yang diubah** (batas persona Spec: hanya menulis di `/spec/`).
+- **Decisions Made:**
+  - **D-05:** `in_flight` + lease lewat => kirim ulang berbata (`attempts < OUTGOING_MAX_ATTEMPTS`), lalu terminal `abandoned`.
+  - **D-06:** hanya HTTP `400`/`422` dari `POST /api/inbox/gateway/messages` yang permanen (poison); `401/403/404/408/429/5xx` tetap retryable (mencegah salah token membuang seluruh antrean).
+  - **D-07:** dead-letter = `status='dead'` + kolom `dead_lettered_at` pada `incoming_queue` yang sama (tanpa tabel baru; memenuhi CON-002 gelombang 1).
+  - **D-08:** tabel baru `outgoing_operations` di berkas SQLite yang sama dengan `incoming_queue`, dengan fallback JSON.
+  - **D-09:** `operation_id` opsional saat rollout (additive/backward compatible), `warn` sekali per proses.
+  - Tidak ada ADR — D-05..D-09 mudah dibalik (keputusan yang sama diambil pada gelombang 1).
+  - Konvensi penomoran lintas-spec M1 supaya traceability utuh: **REQ-020..038, AC-019..041, CON-005..010, SEC-001/002, GUD-003/004** (lanjutan gelombang 1). *Kandidat promosi Knowledge Base saat compaction berikutnya.*
+  - Nilai bawaan batas: `OUTGOING_MAX_ATTEMPTS=5`, `OUTGOING_LEASE_MS=15000`, `OUTGOING_OPERATION_TTL_MS=86400000`, `DELIVERY_MAX_ATTEMPTS=100`, `DELIVERY_DEAD_AFTER_MS=86400000`.
+- **Asumsi untuk klarifikasi (`ASSUMPTION-001..011`):** prioritas tertinggi = **ASSUMPTION-001** (dead-letter/attempt-counter berlaku untuk DUA antrean: `incoming_queue` dan `outgoing_operations`), **ASSUMPTION-002** (perubahan AuliaPos termasuk scope), dan **ASSUMPTION-009** (jendela duplikat "crash tepat setelah WhatsApp menerima" diterima & dicatat jujur; hanya GW-21/M2 yang menutupnya).
+- **Next Action / Pending:**
+  - Jalankan `/sdlc-clarify-reqs` di **sesi baru** pada `@spec/spec-process-m1-wave2-outgoing-idempotency.md`, target utama ASSUMPTION-001, ASSUMPTION-002, dan D-05.
+  - Setelah Readiness ≥ 80, lanjut `/sdlc-plan-tasks`.
+  - Spec belum di-commit ke git (untracked).
+  - Catatan lingkungan: `spec/spec-design-m3-operational-inbox-fase1.md` masih berstatus `M` (dirty) dari sesi sebelumnya dan **tidak disentuh** sesi ini — jangan ikut di-commit.
+
+<!-- checkpoint-tail: M1 Wave 2 spec created (spec/spec-process-m1-wave2-outgoing-idempotency.md): operation_id idempotensi /send + /send-media, ambiguous-send recovery + lease, attempt-cap & dead-letter (status='dead'), poison-message 400/422, kolom AuliaPos gateway_operation_id; next is /sdlc-clarify-reqs targeting ASSUMPTION-001/002 and D-05. -->
+
+---
+
