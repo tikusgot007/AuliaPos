@@ -89,6 +89,8 @@
 - **M3 Fase 2a boundary delta:** `app/Controllers/Inbox.php` **+312 / −0** (the 7 protected methods byte-identical); `app/Views/inbox/index.php` +325 / −1; zero diff on `ConversationModel.php`, `InboxSlaService.php`, `InboxGatewayApi.php`.
 - **markdownlint baseline:** audit reports are **MD013-only**; plan/architecture docs effectively tolerate MD013 up to 400 chars (default limit 80). `docs/ARCHITECTURE.md` carries ~32 × MD013.
 - **WA-Gateway M1:** 17 `test/simulate-*.js` scripts + 1 static guard `test/check-register-before-send.js`, all passing; branch `feature/stage-1-reliability`, 13 commits above `091fe19`.
+- **AuliaPos PHPUnit suite (current):** **324 tests / 1097 assertions** OK (2026-09-24, after M3 Fase 1d `db7f301`) — use this as the ≥ baseline for M1 Wave 2 TASK-020; the 283/867 entry above is historical.
+- **WA-Gateway repo state (2026-09-24):** live folder `C:\projects\WA-Gateway` is at `21a4cb6` on `master` with a single worktree; the Wave 2 worktree `C:\projects\WA-Gateway-m1w2` and branch `feature/m1-wave2-outgoing-idempotency` did **not** exist (they are created by M1 Wave 2 plan TASK-001).
 
 ---
 
@@ -2020,3 +2022,49 @@
 <!-- checkpoint-tail: M3 Fase 1 spec revised to v1.3 for Fase 1e message-text search (LIKE, no index, match_snippet, <=3s), PRD 9.2 synced, ASSUMPTION-004 left open on purpose; next is /sdlc-clarify-reqs in a new session. -->
 
 ---
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — `/sdlc-plan-tasks`, plan v1.0)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (M1 Gelombang 2). `/sdlc-plan-tasks` finished; the plan is `Planned` and waits for user approval, then `/sdlc-clarify-reqs` → `/sdlc-write-code`.
+- **Active Artifacts:**
+  - `spec/spec-process-m1-wave2-outgoing-idempotency.md` — v1.1 (commit `7897d38`), PROCEED (Readiness 88/100).
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — **NEW**, status `Planned`, 24 tasks / 5 phases, 320 lines (only file created this session).
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — `Completed` (shape + VERIFY/APPROVAL/DEPLOY pattern source).
+  - M3: `plan-feature-m3-operational-inbox-fase1-v1.0.md` `Completed` (Fase 1d merged `db7f301`, TASK-022 approved); `spec/spec-design-m3-operational-inbox-fase1.md` v1.3 (Fase 1e) is **Spec-only**, no plan/code.
+- **Achieved Milestones:**
+  - Plan built from spec v1.1 §1–§13: E-O1 (TASK-001..006 idempotency tracer bullet), E-O2 (TASK-007..010 lease/cap/start-up), E-O3 (TASK-011..014 dead-letter), E-O4 (TASK-015..021 AuliaPos), Phase 5 deploy + real measurement (TASK-022..024). Every phase ends with VERIFY + APPROVAL; TASK-022 is the single DEPLOY (`merge --ff-only` + `pm2 restart`).
+  - Every task row carries a **`Repo` column** (`GW` / `AP` / `-`) per the owner's instruction; `Dep` is fully bottom-up with an explicit dependency graph in §2.
+  - Owner-mandated risks are §7.1: **RISK-001** (worktree `C:\projects\WA-Gateway-m1w2` + branch `feature/m1-wave2-outgoing-idempotency` do not exist → TASK-001 is the first task), **RISK-002** (AuliaPos shared working copy with M3), **RISK-003** (honest limits: ASSUMPTION-009 crash window, ASSUMPTION-007 JSON parity on Android, D-13 idempotency ≤ 24 h TTL, AC-027/AC-042 require the written real-measurement procedure). All `[ASSUMPTION-001..011]` are extracted to §7.2 with mitigations + task links.
+  - Verified facts (not assumed): `C:\projects\WA-Gateway` @ `21a4cb6` on `master`, single worktree, wave-2 branch absent; AuliaPos working copy clean on `v2.3` (`84f5636`); Fase 1d already merged, so the real file collision is with **M3 Fase 1e** (`Inbox::apiConversations()` + `app/Views/inbox/index.php`).
+  - Lint measured with `markdownlint-cli2@0.22.1`: plan = **MD013=186, MD028=1, MD060=90** (inherited types only, same as wave-1 docs); `MD009`/`MD012`/`MD025`/`MD032`/`MD056` fixed to 0.
+
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** naming a PowerShell helper function `R` for a line-range slicer.
+    **Reason:** `R` is a built-in alias for `Invoke-History` → `A positional parameter cannot be found that accepts argument '140'` and nothing ran.
+    **Note:** use a multi-letter name (e.g. `GetBlk`); never shadow PowerShell aliases.
+  - **Attempted:** appending sections to a long markdown file with repeated `editor` `insert_line` values derived from *estimated* line counts.
+    **Reason:** when the estimate was below the real length the block landed **inside** previously inserted content and the document came out scrambled (heading order + split table rows were the tell).
+    **Note:** anchor on the file's last unique line, or count first (`(Get-Content $f).Count`) and insert at count+1; re-dump headings after every 2–3 inserts.
+  - **Attempted:** repairing a scrambled markdown file with further ad-hoc edits.
+    **Reason:** 4+ moves by exact multi-line match would have been as error-prone as the cause.
+    **Note:** reorder deterministically with `[IO.File]::ReadAllLines` → explicit range slices into a `List[string]` → `WriteAllLines` with `UTF8Encoding($false)`, then collapse consecutive blank lines; verify with a heading dump + ID-coverage scan (also mind DE-10's CRLF rule).
+  - **Reference:** hit **DE-05** again (`npx … | Out-File` in PowerShell aborts the pipeline on stderr) — use `cmd /c "npx … > build\out.txt 2>&1"` and read the file.
+- **Updated Files:**
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — new plan (320 lines).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint + Key Metrics baseline refresh.
+- **Decisions Made:**
+  - Plan written in **Indonesian**, following the wave-1 plan and spec v1.1 (ASSUMPTION-011); stated openly in the plan with an offer to translate if the AGENTS.md English-only rule should win.
+  - **AuliaPos ordering/branch:** do M1 W2 on branch `feature/m1-wave2-outgoing-idempotency` and **merge it before M3 Fase 1e** starts its own plan/code; Fase 1e rebases on the merged base. Overlap is confined to `kirimKeConversation()`/`callGatewaySend*()` + the reply form vs Fase 1e's `apiConversations()` + list/search (plan CON-012).
+  - **Six env vars, not five:** spec §7 says "lima" but §4.6/GUD-003 list six; the plan keeps `DELIVERY_DEAD_BURST_THRESHOLD` (REQ-038/AC-038 depend on it) and records the doc inconsistency as RISK-005.
+  - Baseline for TASK-020 set to **324 tests / 1097 assertions** (post-Fase-1d), not the 298/948 printed in spec §13.
+  - Wave-2 test scripts follow the existing pattern: `test/simulate-outgoing-store.js`, `simulate-outgoing-idempotency.js`, `simulate-outgoing-recovery.js`, `simulate-dead-letter.js` (temp SQLite only, never `data/gateway.sqlite`).
+- **Next Action / Pending:**
+  - **`/sdlc-clarify-reqs` in a NEW session** on the plan (attach the plan + spec v1.1); a ready-to-paste prompt was drafted at the end of this session. Priority targets: ASSUMPTION-001/ASSUMPTION-002 scope confirmation, RISK-002 ordering, RISK-005 env-var count, and the AC-027/AC-042 measurement protocol.
+  - Then `/sdlc-write-code` Phase 1 starting at **TASK-001** (create `C:\projects\WA-Gateway-m1w2` worktree + branch from `21a4cb6`).
+  - Two explicit user confirmations still owed before execution: AuliaPos scope (ASSUMPTION-002) and `php spark migrate` limited to a test DB (CON-014).
+  - Plan `status` flips to `Completed` only at TASK-024 (APPROVAL/handoff).
+
+<!-- checkpoint-tail: M1 Wave 2 plan v1.0 created (24 tasks / 5 vertical phases, Repo column, RISK-001/002/003 recorded, lint clean of new finding types); next is /sdlc-clarify-reqs on the plan, then /sdlc-write-code TASK-001 (create the WA-Gateway-m1w2 worktree). -->
+
+---
+
