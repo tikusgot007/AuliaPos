@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-09-24
 last_updated: 2026-09-24
 owner: AuliaPos Inbox module
-status: "Planned"
+status: "Completed"
 tags: ["bug-fix", "remediation", "patch", "inbox", "gateway", "outgoing-idempotency"]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-yellow)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 This plan remediates two findings recorded in the M1 Wave 2 code review checkpoint
 (`.claude/instructions/memory.instructions.md`, commit `e49b582`, findings F-1 and F-2), both located in the
@@ -77,10 +77,10 @@ Wave 3 candidate.
 
 | Task     | Description                                                                                                                                                                                                                     | Ref ID            | Completed | Date |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | :-------: | :--: |
-| TASK-001 | In `tests/js/operation-id-composer.check.js`, add a block asserting: for `error_code: 'OPERATION_STORE_ERROR'`, `data-operation-id` is preserved (same key), a distinct message mentioning operator/restart guidance is shown (not the generic "Gagal mengirim pesan." default), and `toasts[0].type === 'danger'`. | REQ-001, REQ-002    |    [ ]    |      |
-| TASK-002 | In the same file, strengthen the assertion for the existing `SEND_IN_PROGRESS`/`SEND_UNRESOLVED` block (§3) to check the new, more explicit copy text (still starting with "Hasil belum pasti, jangan kirim ulang dulu.") once REQ-003 wording is finalized in Phase 2.                       | REQ-003             |    [ ]    |      |
-| TASK-003 | **VERIFY**: Run `node tests/js/operation-id-composer.check.js`. It MUST FAIL (assertion error on the new `OPERATION_STORE_ERROR` block, since the branch does not exist yet).                                                     | -                   |    [ ]    |      |
-| TASK-004 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2                                                                                                                                                        | -                   |    [ ]    |      |
+| TASK-001 | In `tests/js/operation-id-composer.check.js`, add a block asserting: for `error_code: 'OPERATION_STORE_ERROR'`, `data-operation-id` is preserved (same key), a distinct message mentioning operator/restart guidance is shown (not the generic "Gagal mengirim pesan." default), and `toasts[0].type === 'danger'`. | REQ-001, REQ-002    |    ✅     | 2026-09-24 |
+| TASK-002 | In the same file, strengthen the assertion for the existing `SEND_IN_PROGRESS`/`SEND_UNRESOLVED` block (§3) to check the new, more explicit copy text (still starting with "Hasil belum pasti, jangan kirim ulang dulu.") once REQ-003 wording is finalized in Phase 2.                       | REQ-003             |    ✅     | 2026-09-24 |
+| TASK-003 | **VERIFY**: Run `node tests/js/operation-id-composer.check.js`. It MUST FAIL (assertion error on the new `OPERATION_STORE_ERROR` block, since the branch does not exist yet).                                                     | -                   |    ✅     | 2026-09-24 |
+| TASK-004 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2                                                                                                                                                        | -                   |    ✅     | 2026-09-24 |
 
 ### Implementation Phase 2: Minimal Root Cause Remediation
 
@@ -89,14 +89,14 @@ Wave 3 candidate.
 
 | Task     | Description                                                                                                                                                                                                                                                             | Ref ID            | Completed | Date |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | :-------: | :--: |
-| TASK-005 | In `app/Views/inbox/index.php`, `tanganiKegagalanKirimBalasan()` (around line 2210), add a new `if (json.error_code === 'OPERATION_STORE_ERROR')` branch BEFORE the generic default branch (line 2228). Keep the key (do NOT call `buangOperationIdBalasan()`). Show a distinct message via `tampilkanStatusKirimBalasan(...)` and `showToast(..., 'danger')` explicitly stating the cashier must contact an operator/admin to restart the Gateway rather than retry. Return `true`. | REQ-001, REQ-002    |    [ ]    |      |
-| TASK-006 | Copy the updated `tanganiKegagalanKirimBalasan()` function VERBATIM into `tests/js/operation-id-composer.check.js` (per the file's own documented convention at its header comment, lines 14-19), replacing the stale copy.                                             | CON-004             |    [ ]    |      |
-| TASK-007 | Strengthen the existing `SEND_IN_PROGRESS`/`SEND_UNRESOLVED` branch message text (both in `index.php` and its verbatim JS copy) to add a short explicit instruction, e.g. append "Periksa WhatsApp atau tab lain sebelum mengirim ulang." to the existing "Hasil belum pasti, jangan kirim ulang dulu." string. Do NOT change `error_code`/`state`/`uncertain` keys or insert any `messages` row. | REQ-003             |    [ ]    |      |
-| TASK-008 | Update only the JSDoc-style comment block above `tanganiKegagalanKirimBalasan()` (both copies) to mention the new `OPERATION_STORE_ERROR` branch, keeping the existing comment style.                                                                                   | REQ-001             |    [ ]    |      |
-| TASK-009 | **VERIFY**: Run `node tests/js/operation-id-composer.check.js`. It MUST PASS (all blocks, including the new `OPERATION_STORE_ERROR` block).                                                                                                                             | -                   |    [ ]    |      |
-| TASK-010 | **VERIFY**: Run `vendor/bin/phpunit --no-coverage --filter InboxOutgoingIdempotencyTest` to confirm no server-side regression, since `CON-002` means these tests should be unaffected.                                                                                  | CON-001, CON-002    |    [ ]    |      |
-| TASK-011 | **VERIFY**: Run the full suite `vendor/bin/phpunit --no-coverage` to confirm zero regressions project-wide.                                                                                                                                                              | -                   |    [ ]    |      |
-| TASK-012 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing this plan                                                                                                                                                                                            | -                   |    [ ]    |      |
+| TASK-005 | In `app/Views/inbox/index.php`, `tanganiKegagalanKirimBalasan()` (around line 2210), add a new `if (json.error_code === 'OPERATION_STORE_ERROR')` branch BEFORE the generic default branch (line 2228). Keep the key (do NOT call `buangOperationIdBalasan()`). Show a distinct message via `tampilkanStatusKirimBalasan(...)` and `showToast(..., 'danger')` explicitly stating the cashier must contact an operator/admin to restart the Gateway rather than retry. Return `true`. | REQ-001, REQ-002    |    ✅     | 2026-09-24 |
+| TASK-006 | Copy the updated `tanganiKegagalanKirimBalasan()` function VERBATIM into `tests/js/operation-id-composer.check.js` (per the file's own documented convention at its header comment, lines 14-19), replacing the stale copy.                                             | CON-004             |    ✅     | 2026-09-24 |
+| TASK-007 | Strengthen the existing `SEND_IN_PROGRESS`/`SEND_UNRESOLVED` branch message text (both in `index.php` and its verbatim JS copy) to add a short explicit instruction, e.g. append "Periksa WhatsApp atau tab lain sebelum mengirim ulang." to the existing "Hasil belum pasti, jangan kirim ulang dulu." string. Do NOT change `error_code`/`state`/`uncertain` keys or insert any `messages` row. | REQ-003             |    ✅     | 2026-09-24 |
+| TASK-008 | Update only the JSDoc-style comment block above `tanganiKegagalanKirimBalasan()` (both copies) to mention the new `OPERATION_STORE_ERROR` branch, keeping the existing comment style.                                                                                   | REQ-001             |    ✅     | 2026-09-24 |
+| TASK-009 | **VERIFY**: Run `node tests/js/operation-id-composer.check.js`. It MUST PASS (all blocks, including the new `OPERATION_STORE_ERROR` block).                                                                                                                             | -                   |    ✅     | 2026-09-24 |
+| TASK-010 | **VERIFY**: Run `vendor/bin/phpunit --no-coverage --filter InboxOutgoingIdempotencyTest` to confirm no server-side regression, since `CON-002` means these tests should be unaffected.                                                                                  | CON-001, CON-002    |    ✅     | 2026-09-24 |
+| TASK-011 | **VERIFY**: Run the full suite `vendor/bin/phpunit --no-coverage` to confirm zero regressions project-wide.                                                                                                                                                              | -                   |    ✅     | 2026-09-24 |
+| TASK-012 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing this plan                                                                                                                                                                                            | -                   |    ✅     | 2026-09-24 |
 
 ## 3. Rollback Strategy
 

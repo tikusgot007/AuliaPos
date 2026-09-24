@@ -2205,14 +2205,14 @@
         if (el) el.style.display = 'none';
     }
 
-    // Cabang respons Gateway yang ambigu / kunci dipakai ulang.
+    // Cabang respons Gateway yang ambigu / kunci dipakai ulang / penyimpanan gagal.
     // Mengembalikan true kalau kegagalan sudah ditangani khusus di sini.
     function tanganiKegagalanKirimBalasan(json, pesanDefault) {
         if (json.error_code === 'SEND_IN_PROGRESS' || json.error_code === 'SEND_UNRESOLVED') {
             // Hasil belum pasti: kunci DIPERTAHANKAN (kirim ulang tidak
             // menggandakan pesan), tapi kasir diminta memeriksa dulu.
-            tampilkanStatusKirimBalasan('Hasil belum pasti, jangan kirim ulang dulu. ' + (json.message || ''), 'warning');
-            showToast('Hasil belum pasti, jangan kirim ulang dulu.', 'warning');
+            tampilkanStatusKirimBalasan('Hasil belum pasti, jangan kirim ulang dulu. Periksa WhatsApp atau tab lain sebelum mengirim ulang.', 'warning');
+            showToast('Hasil belum pasti, jangan kirim ulang dulu. Periksa WhatsApp atau tab lain sebelum mengirim ulang.', 'warning');
             return true;
         }
 
@@ -2222,6 +2222,16 @@
             buangOperationIdBalasan();
             sembunyikanStatusKirimBalasan();
             showToast(json.message || 'Kunci pengiriman tidak valid. Gunakan kunci baru sebelum mengirim ulang.', 'danger');
+            return true;
+        }
+
+        if (json.error_code === 'OPERATION_STORE_ERROR') {
+            // Penyimpanan operasi gagal (disk penuh, basis data rusak, dll).
+            // Kunci DIPERTAHANKAN (fail closed) supaya operator bisa lihat
+            // riwayat percobaan. Kasir harus menghubungi operator untuk
+            // restart Gateway, bukan mengirim ulang.
+            tampilkanStatusKirimBalasan('Penyimpanan operasi gagal. Hubungi operator untuk restart Gateway. Jangan coba kirim ulang sendiri.', 'danger');
+            showToast('Penyimpanan operasi gagal. Hubungi operator untuk restart Gateway.', 'danger');
             return true;
         }
 

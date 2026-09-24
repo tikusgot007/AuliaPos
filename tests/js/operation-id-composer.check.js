@@ -9,7 +9,8 @@
  * dengan fallback hex Math.random), pemakaian ulang saat kirim ulang
  * setelah gagal/timeout, pembuangan kunci setelah sukses atau isi
  * berubah, pembuatan kunci baru saat OPERATION_ID_REUSED, dan status
- * "hasil belum pasti" untuk SEND_IN_PROGRESS/SEND_UNRESOLVED.
+ * "hasil belum pasti" untuk SEND_IN_PROGRESS/SEND_UNRESOLVED, serta
+ * penanganan OPERATION_STORE_ERROR dengan pesan restart operator (F-1).
  *
  * Fungsi diduplikasi PERSIS di sini (bukan di-require dari view PHP,
  * tidak ada infra Node di project ini -- lihat CLAUDE.md, aplikasi ini
@@ -96,6 +97,40 @@ function tampilkanStatusKirimBalasan(pesan, tipe) {
 function sembunyikanStatusKirimBalasan() {
     const el = document.getElementById('statusKirimBalasan');
     if (el) el.style.display = 'none';
+}
+
+function tanganiKegagalanKirimBalasan(json, pesanDefault) {
+    if (json.error_code === 'SEND_IN_PROGRESS' || json.error_code === 'SEND_UNRESOLVED') {
+        // Hasil belum pasti: kunci DIPERTAHANKAN (kirim ulang tidak
+        // menggandakan pesan), tapi kasir diminta memeriksa dulu.
+        tampilkanStatusKirimBalasan('Hasil belum pasti, jangan kirim ulang dulu. Periksa WhatsApp atau tab lain sebelum mengirim ulang.', 'warning');
+        showToast('Hasil belum pasti, jangan kirim ulang dulu. Periksa WhatsApp atau tab lain sebelum mengirim ulang.', 'warning');
+        return true;
+    }
+
+    if (json.error_code === 'OPERATION_ID_REUSED') {
+        // Kunci lama tidak boleh dipakai lagi -- buang supaya kirim
+        // berikutnya memakai kunci baru (AC-046).
+        buangOperationIdBalasan();
+        sembunyikanStatusKirimBalasan();
+        showToast(json.message || 'Kunci pengiriman tidak valid. Gunakan kunci baru sebelum mengirim ulang.', 'danger');
+        return true;
+    }
+
+    if (json.error_code === 'OPERATION_STORE_ERROR') {
+        // Penyimpanan operasi gagal (disk penuh, basis data rusak, dll).
+        // Kunci DIPERTAHANKAN (fail closed) supaya operator bisa lihat
+        // riwayat percobaan. Kasir harus menghubungi operator untuk
+        // restart Gateway, bukan mengirim ulang.
+        tampilkanStatusKirimBalasan('Penyimpanan operasi gagal. Hubungi operator untuk restart Gateway. Jangan coba kirim ulang sendiri.', 'danger');
+        showToast('Penyimpanan operasi gagal. Hubungi operator untuk restart Gateway.', 'danger');
+        return true;
+    }
+
+    // Kegagalan biasa (NOT_CONNECTED/DEAD_LETTERED/HTTP lain):
+    // kunci DIPERTAHANKAN supaya percobaan ulang tetap idempoten.
+    showToast(json.message || pesanDefault, 'danger');
+    return true;
 }
 
 // Cabang respons Gateway yang ambigu / kunci dipakai ulang.
@@ -191,6 +226,11 @@ assert.strictEqual(elemen.formBalas.attrs['data-operation-id'], kunciKedua);
         elemen.statusKirimBalasan.textContent.indexOf('Hasil belum pasti, jangan kirim ulang dulu.') === 0,
         errorCode + ': status harus memuat peringatan hasil belum pasti'
     );
+    // REQ-003: pesan harus memberikan arahan eksplisit tambahan (F-2 mitigation)
+    assert.ok(
+        elemen.statusKirimBalasan.textContent.indexOf('Periksa') !== -1 || elemen.statusKirimBalasan.textContent.indexOf('sebelum mengirim') !== -1,
+        errorCode + ': status harus mengandung arahan untuk memeriksa sebelum kirim ulang (REQ-003 mitigation)'
+    );
     assert.strictEqual(elemen.statusKirimBalasan.className, 'small mt-1 text-warning');
     assert.strictEqual(toasts.length, 1, errorCode + ': harus ada satu toast');
     assert.strictEqual(toasts[0].type, 'warning', errorCode + ': toast harus warning, bukan saran kirim ulang');
@@ -229,4 +269,36 @@ assert.strictEqual(toasts.length, 1);
 assert.strictEqual(toasts[0].type, 'danger');
 assert.strictEqual(toasts[0].message, 'Gagal mengirim pesan.');
 
-console.log('OK: semua kasus siklus hidup operation_id composer (crypto + fallback, reuse, discard, SEND_IN_PROGRESS/SEND_UNRESOLVED, OPERATION_ID_REUSED, kegagalan biasa) lulus.');
+// --- 6. Cabang OPERATION_STORE_ERROR (F-1: kegagalan penyimpanan operasi) ---
+resetComposer();
+const kunsiStore = ambilOperationIdBalasan();
+
+tanganiKegagalanKirimBalasan({ error_code: 'OPERATION_STORE_ERROR', message: 'Gagal menyimpan operasi: disk penuh atau basis data rusak.' }, 'Gagal mengirim pesan.');
+
+assert.strictEqual(
+    elemen.formBalas.attrs['data-operation-id'],
+    kunsiStore,
+    'OPERATION_STORE_ERROR: kunci harus DIPERTAHANKAN (fail closed, tidak discard)'
+);
+assert.strictEqual(
+    elemen.statusKirimBalasan.style.display,
+    'block',
+    'OPERATION_STORE_ERROR: status harus ditampilkan dengan pesan khusus'
+);
+assert.ok(
+    elemen.statusKirimBalasan.textContent.indexOf('operator') !== -1 || elemen.statusKirimBalasan.textContent.indexOf('restart') !== -1,
+    'OPERATION_STORE_ERROR: pesan status harus menyebut operator atau restart, tidak hanya pesan default'
+);
+assert.strictEqual(
+    elemen.statusKirimBalasan.className,
+    'small mt-1 text-danger',
+    'OPERATION_STORE_ERROR: harus menggunakan kelas text-danger'
+);
+assert.strictEqual(toasts.length, 1, 'OPERATION_STORE_ERROR: harus ada satu toast');
+assert.strictEqual(toasts[0].type, 'danger', 'OPERATION_STORE_ERROR: toast harus danger');
+assert.ok(
+    toasts[0].message.indexOf('operator') !== -1 || toasts[0].message.indexOf('restart') !== -1,
+    'OPERATION_STORE_ERROR: toast pesan harus menyebut operator atau restart'
+);
+
+console.log('OK: semua kasus siklus hidup operation_id composer (crypto + fallback, reuse, discard, SEND_IN_PROGRESS/SEND_UNRESOLVED, OPERATION_ID_REUSED, OPERATION_STORE_ERROR, kegagalan biasa) lulus.');
