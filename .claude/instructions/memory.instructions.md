@@ -1633,3 +1633,28 @@
 <!-- checkpoint-tail: Flaky q=9999 test fixed (88cc7e0, suite 324/1097 green); Fase 1d still waits only for the manual browser check TASK-021 (c) and approval TASK-022, then /sdlc-code-review of db7f301+88cc7e0. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (Janitor: "4096 byte" wording)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (M3 Fase 1 plan, Phase 4). Ad-hoc `/code-janitor` fix in a fresh session.
+- **Active Artifacts:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.2, `In progress`: TASK-021 (c) manual browser check pending, TASK-022 open. Unchanged by this fix.
+- **Achieved Milestones:**
+  - Commit `7f2d82b`: "4096 karakter" → "4096 byte" in `Inbox::catatanInternal()` error message and the two toasts in `index.php` (Alasan Snooze, Internal Note). Wording only, no logic change. Closes the carried-over "4096 karakter" code-review TODO.
+  - No test asserts these texts, so no test changed. Suite: `vendor\bin\phpunit --no-coverage` **324 tests / 1097 assertions**, OK.
+- **Dead-Ends (Do NOT Repeat):**
+  - None.
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — `catatanInternal()` message.
+  - `app/Views/inbox/index.php` — snooze reason + internal note toasts.
+- **Decisions Made:**
+  - Handoff message (`Inbox.php` ~1111) keeps "karakter": it is measured with `mb_strlen` (REQ-003 / CR-05), so "karakter" is correct there.
+- **Next Action / Pending:**
+  - **User:** TASK-021 (c) manual browser check AC-013 (h), then `/sdlc-write-code` TASK-022 → `/sdlc-code-review` of `db7f301` (+ `88cc7e0`, `7f2d82b`).
+  - TODO (small, new): `Inbox.php` ~658 (`kirimPesan`) and ~729 (`kirim`) check `strlen($text) > 4096` but still say "4096 karakter" — same byte/karakter mismatch, left out of scope.
+  - Carried over: `/sdlc-draft-prd` PRD §9.2 status text; `/sdlc-define-specs` Fase 1e (GH-010); NIT STD-03, FYI STD-04; check WA Gateway `data/` before moving the gateway.
+
+<!-- checkpoint-tail: "4096 byte" wording fixed for Internal Note and Snooze reason (7f2d82b, suite 324/1097 green); Fase 1d still waits for manual browser check TASK-021 (c) and TASK-022, then /sdlc-code-review. -->
+
+---
