@@ -2369,3 +2369,44 @@
 
 <!-- checkpoint-tail: M1 Wave 2 Phase 4 is CLOSED and TASK-021 was APPROVED by the owner on 2026-09-24 (AuliaPos branch feature/m1-wave2-outgoing-idempotency, tip 4e59885, 12 commits ahead of origin/v2.3, all unpushed; suite OK 349 tests / 1209 assertions; AC-040/AC-045 harness 24 PASS/0 FAIL); Phase 5 (TASK-022 incl. AuliaPos deploy + aulia_inboxdb migration as sub-step (f), TASK-023 real AC-027/AC-042 measurement, TASK-024 closure) is planned in docs/handoff-m1-wave2-fase5-deploy-measure-2026-09-24.md but NOT executed, because it needs a new session plus its own approvals for the WA-Gateway repo, the live Gateway, and the production database; the plan front matter stays 'Planned' until TASK-024. -->
 
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — Phase 5 CLOSED: deploy + real AC-027/AC-042 measurement)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — **Phase 5 complete and the plan is `Completed`**. Next phase: `/sdlc-code-review` in a NEW session.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — ✅ `Completed` (front matter + badge, TASK-022/023/024 rows filled)
+  - `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 — ✅ unchanged this session
+  - `docs/decisions/2026-09-24-m1-wave2-phase5-deploy.md` — ✅ new, §1–§8 (deploy record, boundary notes P-24..P-27, TASK-023 pre-flight and rounds S/1–4)
+- **Achieved Milestones:**
+  - **TASK-022 deploy.** WA-Gateway live folder `master` `21a4cb6` → `4010cc1` via `merge --ff-only`, then `pm2 restart wa-gateway` (online, `script path`/`exec cwd` unchanged, `auth/` untouched, no npm dependency change). Start-up log proved the additive SQLite migration (`incoming_queue.dead_lettered_at` added, `outgoing_operations` created) with `inFlightSaatStartup: 0`, `pendingSaatStartup: 0`, 0 `dead` rows and no `[CRITICAL]`.
+  - **TASK-022(f), real database.** `mysqldump` backup of `aulia_inboxdb` (SHA-256 recorded AND a restore into a scratch database proving 91/91 messages and 4/4 conversations) → `php spark migrate` → the real database now has `gateway_operation_id varchar(64) YES UNI NULL` plus `uniq_messages_gateway_operation_id` → `aulia_inboxdb_test` re-synced with `mysqldump --no-data` → AuliaPos `v2.3` fast-forwarded `f2b4f2c` → `7ac1487`, suite `OK (349 tests, 1209 assertions)`.
+  - **Round S smoke test** (owner at the cashier UI): text and media rows both stored the key with `send_status='sent'`; the "Mulai Percakapan" path stored `NULL`; the Gateway created operation rows ONLY for keyed sends (AC-044) and sent exactly one message per attempt.
+  - **TASK-023 measured on the real system** (owner driving the UI, test number `6281913500707`): **AC-027 twice** — in-lease retry answered `409 SEND_IN_PROGRESS`, one `[SEND]`, `attempts` stayed 1, exactly one delivery, UI showed "Hasil belum pasti, jangan kirim ulang dulu."; **AC-042 twice** — retry on a `sent` operation answered `replay hasil tersimpan, tidak dikirim ulang`, with round 4 retrying 47.1 s after creation (past the 35 s lease). AC-040 harness re-run after the deploy: `24 PASS, 0 FAIL`.
+  - **TASK-024 closure.** Front matter `Planned` → `Completed`, badge `status-Planned-yellow` → `status-Completed-brightgreen`. Working copy clean; **nothing pushed** (AuliaPos `v2.3` +18 vs `origin/v2.3`, Gateway `master` +8 vs `origin/master`).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** reproducing `409 SEND_IN_PROGRESS` by blocking the Gateway port (the clarification report's recommended technique). **Reason:** the Gateway listens on `127.0.0.1:3000` and Windows does not filter loopback traffic with the host firewall, so the block rule is a no-op. **Correct solution:** a local delay proxy in front of the Gateway (`build/delay-proxy.js`, gitignored) that slows only requests whose `chat_id` is the agreed test target.
+  - **Attempted:** making the retry observe `in_flight` by holding only the HTTP **response**. **Reason:** the Gateway resolves the operation to `sent` in well under a second, so the retry is answered by a replay (the AC-042 path) and never with `409`. **Correct solution:** hold BOTH the first request and the retry, then release #1 and, ~1.5 s later, #2 (`--mode hold --autoReleaseMs`) so #2 arrives while the media send is genuinely in flight. Releasing manually fails because AuliaPos's 30 s cURL timeout has already given up and the `409` would never reach the UI.
+  - **Attempted:** forwarding the buffered body while keeping the client's `transfer-encoding: chunked` header. **Reason:** the upstream rejects a request carrying both `chunked` and the fresh `Content-Length` with HTTP 400 — every proxied send would have failed. **Correct solution:** drop hop-by-hop framing headers before setting `Content-Length` (caught by the proxy self-test: 12 PASS).
+  - **Attempted:** running the proxy self-test while a live proxy already occupied port 3010. **Reason:** the self-test's requests were then forwarded by the LIVE proxy to the real Gateway without a token (HTTP 401), producing false failures. **Correct solution:** a `SELFTEST_PORT` override; the 401s were verified to leave no trace (no operation row, no `[SEND]`).
+  - **Note:** the first three traps (loopback firewall, response-only delay, `chunked` + `Content-Length`) are generalizable — flag for Knowledge Base promotion at the next compaction.
+- **Updated Files:**
+  - `docs/decisions/2026-09-24-m1-wave2-phase5-deploy.md` — new; deploy record, boundary notes, measurement pre-flight and results.
+  - `docs/ARCHITECTURE.md` — new "Outgoing send idempotency (M1 Wave 2)" subsection and idempotency notes on the two send routes.
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — task rows filled, front matter `Completed`; also repaired a pre-existing MD056 defect in the TASK-011..TASK-014 rows (one extra empty cell each).
+  - `build/delay-proxy.js`, `build/scratch-delay-proxy-check.js`, `build/scratch-proxy-live-pass.js` — new gitignored throwaway measurement tooling, kept so the evidence can be regenerated.
+- **Decisions Made:**
+  - The measurement technique changed from "block the port" to a `chat_id`-scoped delay proxy; `inbox.gatewayBaseUrl` pointed at it for rounds 1–4 only, with a backup taken first, and restored immediately afterwards (`http://localhost:3000` verified, proxy removed from PM2, backup kept in `C:\xampp\backups\`).
+  - A message delivered through the in-lease `409` path is deliberately NOT recorded in AuliaPos (REQ-041). Recorded as a real operational consequence and a code-review/Wave-3 input, not as a spec deviation.
+  - The plan front matter was flipped only after the owner explicitly declared Wave 2 finished.
+- **Next Action / Pending:**
+  - **`/sdlc-code-review` in a NEW session** (spec + plan + full diff), then optional `/sdlc-audit-consistency`. Paste-ready prompt: `docs/handoff-m1-wave2-fase5-code-review-2026-09-24.md`.
+  - Limits that MUST NOT be claimed closed: ASSUMPTION-009 (crash window → GW-21/M2), AC-026(b) `stub-only`, the `422` branch `[Assumed / Out of Scope]`, K-04 (`DELIVERY_MAX_ATTEMPTS` / `DELIVERY_DEAD_AFTER_MS` need a real outage), and idempotency bounded by the 24 h `OUTGOING_OPERATION_TTL_MS`.
+  - **Code-review input (new observation):** media delivered through the in-lease `409` path is not recorded in AuliaPos, so the Inbox thread shows nothing while the cashier is told the result is uncertain (REQ-041 by design) — decide whether to track it as a Wave 3 item.
+  - **RISK-002 satisfied:** AuliaPos `v2.3` now contains M1 Wave 2, so M3 Fase 1e may start its plan/code work on this basis.
+  - Pushing still needs an explicit owner order.
+
+<!-- checkpoint-tail: M1 Wave 2 Phase 5 is COMPLETE and the plan is 'Completed' (2026-09-24): WA-Gateway live at master 4010cc1 + pm2 restart, the real aulia_inboxdb migrated from a restore-verified backup, AuliaPos v2.3 at 7ac1487 (suite 349/1209), and real measurement rounds S/1-4 yielding AC-027 x2 (409 SEND_IN_PROGRESS, one delivery, UI uncertain state) and AC-042 x2 (replay past the lease, no second delivery) with the AC-040 harness at 24 PASS; nothing pushed; next is /sdlc-code-review using docs/handoff-m1-wave2-fase5-code-review-2026-09-24.md. -->
+
+---
+
+
