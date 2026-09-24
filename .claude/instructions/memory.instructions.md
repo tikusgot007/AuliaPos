@@ -1985,3 +1985,38 @@
 
 ---
 
+
+## 📝 Session Checkpoint: 2026-09-24 (M3 Fase 1e — `/sdlc-define-specs`, spec v1.3: pencarian isi pesan)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (revisi Fase 1e) — SELESAI, siap `/sdlc-clarify-reqs`
+- **Active Artifacts:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — Status: ✅ v1.3; §9.2 Fase 1e disinkronkan ("Spec ✅ v1.3")
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — Status: ✅ v1.3 (belum diaudit clarify; ASSUMPTION-004 sengaja tetap "perlu dikonfirmasi")
+  - `plan/` untuk Fase 1d/1e — Status: ⏳ Belum dibuat
+- **Achieved Milestones:**
+  - Spec M3 Fase 1 v1.2 → v1.3: kontrak Fase 1e (GH-010) ditambahkan surgical (+101/−11): CL-016..CL-021, REQ-014..REQ-017, CON-004, AC-014..AC-016, ASSUMPTION-004, istilah **Match Snippet**, key response `match_snippet`, Out of Scope baru, bagian §6/§9/§10/§12/§13/§15 disinkronkan.
+  - Verifikasi: semua ID baru muncul dan terhubung di §13/§15; lint markdown = tanpa jenis temuan baru (hanya MD028 +2, pola sama dengan kotak catatan yang ada); akhir baris CRLF dipertahankan.
+  - Fakta kode diverifikasi (bukan asumsi): `apiConversations()` memuat SEMUA conversation lalu memfilter `q` di PHP (`SEARCH_COLUMNS`, `mb_stripos`); `messages` hanya berindeks `(conversation_id, message_timestamp)`, `wa_message_id` unik, `sent_by_user_id` — tidak ada index `text`; test memakai SQLite `:memory:` sedangkan produksi MariaDB 10.4; DB dev hampir kosong (1 conversation, 0 pesan); layar polling daftar tiap 6 detik memuat halaman berurutan.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** menulis skrip edit dokumen dengan `python` dari Bash, dan heredoc inline berisi apostrof.
+  - **Reason:** Python tidak terpasang (hanya alias Microsoft Store); heredoc inline gagal di-parse shell.
+  - **Note:** pakai tool Edit, atau `php`/`node` yang tersedia; jangan menaruh skrip panjang di heredoc inline.
+- **Updated Files:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — v1.3 (Fase 1e).
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — satu baris §9.2 Fase 1e.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Pencarian isi pesan = `LIKE '%q%'` di database, satu query agregat per request, **tanpa index/migration** (FULLTEXT ditolak: mencocokkan kata utuh bukan potongan kata, abaikan kata < 3 huruf, tidak ada di SQLite). Mudah dibalik → **tidak dijadikan ADR**.
+  - `match_snippet` hanya bila cocok lewat isi pesan saja; pesan cocok terbaru (`message_timestamp`, lalu `id`); dipotong server maks. 120 karakter; label "Internal" untuk Internal Note.
+  - Pengaman layar: putaran pemuatan baru tidak dimulai selama putaran sebelumnya belum selesai (REQ-017b).
+  - Handoff Summary/Next Action/Handoff Note (tabel `conversation_handoffs`) **tidak** ikut dicari; alasan Snooze ikut dicari (disimpan sebagai Internal Note).
+  - **Angka uji kecepatan (ASSUMPTION-004: 2.000 percakapan × 100 pesan = 200.000 pesan) TIDAK diubah** atas keputusan pemilik proyek; diputuskan di sesi `/sdlc-clarify-reqs`.
+- **Next Action / Pending:**
+  - **`/sdlc-clarify-reqs` di sesi BARU** pada `spec/spec-design-m3-operational-inbox-fase1.md` v1.3 (lampirkan PRD); prioritas: ASSUMPTION-004 (angka uji), lalu REQ-016/REQ-017.
+  - Sesudahnya: `/sdlc-plan-tasks` untuk Fase 1d + 1e (Fase 1d masih belum punya Plan/Kode).
+  - Hasil pengukuran AC-016 harus dicatat di plan/walkthrough; jika gagal, berhenti dan tanya dulu sebelum menambah index (Ask first, §9).
+
+<!-- checkpoint-tail: M3 Fase 1 spec revised to v1.3 for Fase 1e message-text search (LIKE, no index, match_snippet, <=3s), PRD 9.2 synced, ASSUMPTION-004 left open on purpose; next is /sdlc-clarify-reqs in a new session. -->
+
+---
