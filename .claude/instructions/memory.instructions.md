@@ -1658,3 +1658,30 @@
 <!-- checkpoint-tail: "4096 byte" wording fixed for Internal Note and Snooze reason (7f2d82b, suite 324/1097 green); Fase 1d still waits for manual browser check TASK-021 (c) and TASK-022, then /sdlc-code-review. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (Code review: Fase 1d TASK-020)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (M3 Fase 1 plan, Phase 4 closed). `/sdlc-code-review` of `db7f301` + `88cc7e0` + `7f2d82b`.
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — rev 1.2, unchanged.
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — rev 1.2, **`Completed`**: TASK-021 (c) ✅ (manual browser check AC-013 (h), dummy conversations ids 24575-24584 in local `aulia_inboxdb`), TASK-022 ✅ approved, TODO-SEARCH-01 closed in TASK-018, review result noted in TASK-022.
+- **Achieved Milestones:**
+  - Code review verdict **Merge**: no CRITICAL/REQUIRED findings, so no refactoring plan file. Reviewed inline (diff ~150 lines), not with the two sub-agents the skill describes.
+  - Findings: [NIT] STD-01 AC-013 (d) negative check uses `assertNotContains`, could be `assertSame([])` (`OperationalInboxConversationTest.php:575`). [FYI] STD-02 `Inbox.php` ~658/~729 use `strlen` but say "4096 karakter" (already a TODO). [FYI] STD-03 five `mb_stripos` per row (= Plan RISK-005, accepted). [FYI] SPEC-01 `7f2d82b` touches `app/Views/` but CON-003 applies only to the TASK-020 commit; wording follows Spec NG-05.
+  - Security: `q` is only used in in-memory `mb_stripos`, never in SQL; 255 cap kept.
+  - Re-ran `tests/session/OperationalInboxConversationTest.php`: 25 tests / 159 assertions OK.
+- **Dead-Ends (Do NOT Repeat):**
+  - None.
+- **Updated Files:**
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — status `Completed`, TASK-021 (c)/TASK-022 evidence, review note.
+- **Decisions Made:**
+  - No refactoring plan for Fase 1d; STD-01 is optional.
+- **Next Action / Pending:**
+  - `/sdlc-audit-consistency` of PRD ↔ Spec rev 1.2 ↔ Plan rev 1.2 (re-check MC-01..03 and NG-01, TASK-019 hand-off).
+  - Small TODOs (`/code-janitor`): STD-02 wording at `Inbox.php` ~658/~729; optional STD-01; optionally delete dummy conversations 24575-24584 from local `aulia_inboxdb`.
+  - Carried over: `/sdlc-draft-prd` PRD §9.2 status text; `/sdlc-define-specs` Fase 1e (GH-010); check WA Gateway `data/` before moving the gateway.
+
+<!-- checkpoint-tail: Fase 1d (TASK-020, db7f301+88cc7e0+7f2d82b) reviewed: Merge, no refactoring plan; plan rev 1.2 Completed; next is /sdlc-audit-consistency for MC-01..03/NG-01. -->
+
+---
