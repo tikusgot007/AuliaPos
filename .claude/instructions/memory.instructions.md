@@ -2280,3 +2280,50 @@
   - No push, no Phase 5, no front-matter change: the plan stays `Planned`, and TASK-022..TASK-024 wait for explicit approval.
 
 <!-- checkpoint-tail: M1 Wave 2 Phase 4 code is COMPLETE on AuliaPos branch feature/m1-wave2-outgoing-idempotency (6 local commits, tip a69c2ae, suite 348 tests / 1197 assertions green, AC-040/AC-045 proven against a real HTTP listener); TASK-021 is an OPEN owner-approval gate with F-03 (media replay vs UNIQUE → HTTP 500) and F-01 (migration not yet applied to the real aulia_inboxdb) awaiting a decision; nothing pushed, Phase 5 not started, plan still 'Planned'. -->
+
+---
+
+
+
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — F-03 fix shipped, F-01 deferred to TASK-022; TASK-021 still open)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code — M1 Wave 2 **Phase 4 remains the active phase**, now including the owner-authorised F-03 remediation. **TASK-021 approval is STILL PENDING**: Phase 5 (TASK-022 incl. the new F-01 sub-steps, TASK-023, TASK-024) has not started, nothing was pushed, and the plan front matter stays `status: 'Planned'`.
+- **Active Artifacts:**
+  - `docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md` — updated: §4 F-03 marked RESOLVED / F-01 decided, new boundary note P-23, §6.1 commit table extended, new §7 addendum with the decisions, evidence, and remaining open items.
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — front matter untouched (`Planned`); the F-01 sub-steps will be written into TASK-022 when Phase 5 opens.
+- **Achieved Milestones:**
+  - **Owner decisions taken:** F-03 = option **(a)** recorded as an **extension of TASK-017** (no new task row); F-01 = option **(i)**, the AuliaPos merge + `aulia_inboxdb` migration + smoke test become **sub-steps of TASK-022** in Phase 5.
+  - **F-03 fixed and committed (`94845a0`).** `kirimMedia()` previously inserted unconditionally, so a Gateway replay for the same `operation_id` collided with the new UNIQUE indexes → `DatabaseException` → HTTP 500 for media the customer had already received. Now both send paths call ONE shared private `findMessageByOperationId()` helper, so they cannot drift apart again.
+  - **Red/green proof that the new test has teeth:** with the shared helper temporarily neutralised, `testMediaSendDeduplicatesReplayWithoutSecondInsert` AND the text replay test error with `mysqli_sql_exception: Duplicate entry ... for key 'wa_message_id'` surfaced through `DatabaseException` — the exact predicted 500 mode. Temporary change reverted and the marker scanned for (none left).
+  - **Media test seam discovered (reusable):** `UploadedFile::isValid()` is `is_uploaded_file($path) && $error === UPLOAD_ERR_OK`, and `is_uploaded_file()` is ALWAYS false under CLI, so `kirimMedia()` rejects every fixture. Working seam: reflect-set the request's protected `files` property to a `FileCollection` whose protected `files` array holds `InboxTestUploadedMedia` (a test-only subclass relaxing ONLY `isValid()`). `FileCollection` has no constructor and `populateFiles()` early-returns when `$files` is already an array.
+  - **Fixtures must be real files:** `File::getMimeType()` uses `finfo_file()` on the real path, so a truncated PNG signature is reported as `application/octet-stream` and the send is classified as `document` instead of `image`. A real minimal 1x1 PNG (68 bytes, base64) is detected as `image/png`.
+  - **Verification after the fix:** full suite `OK (349 tests, 1209 assertions)` (was `348 / 1197`); AC-040/AC-045 harness re-run → `24 PASS, 0 FAIL`, i.e. the `/send` and `/send-media` payloads are still byte-identical.
+  - **Documentation committed (`771545e`)**; lint on the decision log = MD013 only (pre-existing class).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** creating the red-check by deleting just the guard line (`if ($existingMessage !== null) {`) inside `kirimMedia()`.
+    **Reason:** it left the guarded body and braces behind → parse error, so the check proved nothing.
+    **Note:** to neuter a guard temporarily, add one early `return null;` inside the shared helper (single, unique, trivially restorable line) instead of deleting structure.
+  - **Attempted:** building the PNG fixture from the 8-byte PNG signature plus zero padding.
+    **Reason:** `finfo_file()` reported `application/octet-stream`, so `kirimMedia()` classified the upload as `document` and the assertion on `message_type` failed. The harness, not the application, was wrong again.
+    **Note:** fixtures for mime-dependent code must be real files; verify with a throwaway `finfo_file()` probe before asserting.
+  - **Attempted:** expecting a Java-style constructor/setter to inject the uploaded file into `FileCollection`.
+    **Reason:** `FileCollection` declares no constructor and no setter; the array is built lazily by `populateFiles()` from the superglobals service.
+    **Note:** reflection on the protected `files` property is the working seam (request side and collection side both need it).
+  - **Also:** `Get-ChildItem -Filter 'a*','b*'` is invalid in PowerShell (single string only) — use `Where-Object { $_.Name -like '*x*' }`.
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — `kirimMedia()` replay block + new shared `findMessageByOperationId()`; `kirimKeConversation()` now calls the shared helper (no duplicated lookup).
+  - `tests/session/InboxOutgoingIdempotencyTest.php` — media replay test, `controllerForMedia()`/`fakeUploadedMedia()` helpers, `callGatewaySendMedia()` spy override, `InboxTestUploadedMedia` double, temp-file cleanup in `tearDown()`.
+  - `docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md` — F-03/F-01 decisions, P-23, §6.1 table, §7 addendum.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint.
+- **Decisions Made:**
+  - F-03 is fixed via one **shared** lookup rather than a copied block, specifically to remove the drift risk that caused it.
+  - The lookup intentionally ignores `deleted_at`, because the UNIQUE index also covers soft-deleted rows (returning the row is the only correct behaviour).
+  - F-03 remediation was done as an extension of the existing TASK-017 (no new plan row), matching the owner's chosen bookkeeping style.
+  - The media test seam relaxes only `isValid()` in a subclass; production code gained no test hooks.
+- **Next Action / Pending:**
+  - **Waiting on the owner's explicit TASK-021 approval.** When given, Phase 5 starts: TASK-022 (Gateway deploy + the new F-01 sub-steps: backup → migrate `aulia_inboxdb` with `SHOW COLUMNS`/`SHOW INDEX` proof → re-sync `aulia_inboxdb_test` → merge/deploy AuliaPos → one text and one media smoke test), then TASK-023 real AC-027/AC-042 measurement (needs approval to slow/pause the active Gateway), then TASK-024 closure.
+  - When Phase 5 opens, also write the F-01 sub-steps into the TASK-022 row of the plan (the owner chose option (i) but the plan text was deliberately left untouched while Phase 5 is closed).
+  - Still open overall: the real `aulia_inboxdb` has no `gateway_operation_id` column yet (F-01), AC-026(b)/AC-042/AC-027 remain unmeasured, GW-09 is not closed, and `DELIVERY_MAX_ATTEMPTS`/`DELIVERY_DEAD_AFTER_MS` still need post-outage calibration (K-04).
+
+<!-- checkpoint-tail: M1 Wave 2 Phase 4 + owner-authorised F-03 remediation are COMPLETE on AuliaPos branch feature/m1-wave2-outgoing-idempotency (tip 771545e, 9 commits ahead of v2.3, all unpushed): media replay now shares one findMessageByOperationId() dedupe with the text path (commit 94845a0, red-checked, suite OK 349 tests / 1209 assertions, AC-040/AC-045 harness 24 PASS/0 FAIL); F-01 was decided as option (i) — the AuliaPos merge + aulia_inboxdb migration + smoke test become sub-steps of TASK-022 in Phase 5; TASK-021 approval is STILL PENDING, so Phase 5, the real-database migration, and the plan front-matter change ('Planned') all wait. -->
