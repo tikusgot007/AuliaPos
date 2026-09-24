@@ -2111,4 +2111,36 @@
 <!-- checkpoint-tail: M1 Wave 2 plan clarification DONE and the owner chose PROCEED at 82/100 — K-01..K-11 plus F-01 (no task migrates aulia_inboxdb to add messages.gateway_operation_id), F-02 (spark migrate hits the real inbox DB while aulia_inboxdb_test is a schema copy that drifts), K-13 (the AC-027 first attempt ends 502; the "uncertain" state only appears on the in-lease resend) and K-09 (gate on 328/1102 measured today; these numbers drift); next is /sdlc-write-code Phase 1 TASK-001 using docs/handoff-m1-wave2-fase1-write-code-2026-09-24.md. -->
 
 ---
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — `/sdlc-write-code` Phase 1 DONE + APPROVED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code — M1 Wave 2 **Phase 1 (TASK-001..TASK-006) complete; TASK-006 APPROVED by the owner** ("setuju, lanjut ke Fase 2"). Phase 2 (TASK-007..TASK-010) is next, in a NEW session (owner chose to switch sessions). Nothing of Phase 2 was written.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — status still `Planned` (flips only at TASK-024); Completed/Date columns filled for TASK-001..006.
+  - `docs/decisions/2026-09-24-m1-wave2-eksekusi-fase1.md` — **NEW**: rollback point `21a4cb6`, per-task commits, TASK-005 evidence, deviations P-1..P-7, finding T-1, honest limits.
+  - `docs/handoff-m1-wave2-fase2-write-code-2026-09-24.md` — **NEW**: paste-ready prompt + brief for Phase 2 (non-normative; plan/spec win).
+- **Achieved Milestones:**
+  - WA-Gateway worktree `C:\projects\WA-Gateway-m1w2`, branch `feature/m1-wave2-outgoing-idempotency`: `55a1ae1` store + 6 env vars; `6fe151a` idempotent `/send`; `bdbf534` idempotent `/send-media`; `5a48311` static guard + log-file scan + DB-isolation checker. 4 commits, 10 files, +2268/−24. Live folder still `21a4cb6` and clean (nothing deployed).
+  - Evidence (simulation only, Baileys stubbed): store suite passes on SQLite **and** JSON fallback; HTTP idempotency suite covers AC-019..AC-025/AC-044 for text and media; guard proven by 11 mutations; real `gateway.log` (55 lines) scanned with random secrets → 0 leaks; regression **20/20** scripts pass; `data/gateway.sqlite` never created.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** HTTP tests calling `isDecodableJid()` without `ensureBaileysLoaded()`. **Reason:** valid JIDs are rejected (`400 INVALID_CHAT_ID`), which looked like a product bug.
+  - **Attempted:** `fs.rmSync` of the temp dir while `incomingBuffer` (opened via `connectionManager`) or a store still held the SQLite file. **Reason:** `EBUSY` on Windows; close every handle first.
+  - **Attempted:** `node -e "…regex…"` inside bash for a bulk edit of the plan table. **Reason:** bash quoting broke the regex and it overwrote line 1 (`---`); reverted with `git checkout`, redone from a script **file**. **Note:** always check `git diff --stat` after a bulk edit.
+  - **Attempted:** multi-line string mutations/regexes on working files. **Reason:** files are CRLF (`core.autocrlf=true`); normalize `\r\n` → `\n` first. No `python` in the shell.
+- **Updated Files:**
+  - WA-Gateway (commits above): `src/config/index.js`, `src/store/outgoingOperations.js`, `src/delivery/outgoingOperationService.js`, `src/api/ci4Routes.js`, `test/simulate-outgoing-{store,idempotency,order-guard}.js`, `test/check-outgoing-{begin-before-send,log-scan}.js`, `test/check-test-sqlite-isolation.js`.
+  - AuliaPos docs only: the decision log, the Phase 2 handoff, the plan's Completed columns, and this checkpoint. No AuliaPos code touched.
+- **Decisions Made:**
+  - **P-1:** TASK-003 already maps the current attempt's outcome (`200`/`500 failed`/`504 SEND_UNRESOLVED`) and answers any existing `in_flight` with `409 SEND_IN_PROGRESS` (no lease yet, never duplicates). **Left for TASK-007:** lease, retry after lease, cap → `abandoned` + `502 DEAD_LETTERED`, formal AC-026/028/029/030/042.
+  - **P-2:** new code `OPERATION_STORE_ERROR` (500) outside spec §4.3 — failing to record BEFORE sending means NOT sending (fail closed); failing to record AFTER a successful send still answers `200 sent`. Reversible via `/sdlc-define-specs`.
+  - **P-3..P-6:** `replayed:true` on `409 SEND_IN_PROGRESS`; replay answered even when not connected (`isConnected()` only for new operations); `markSent(sentAt)` so replay `timestamp` matches the first reply; `abandon()`/`pruneTerminal()` log `[CRITICAL]` inside the store.
+  - **Finding T-1 (not fixed, out of scope):** 5 wave-1 scripts (`simulate-audio-video`, `-identity-hint`, `-lid-conversation`, `-send-media`, `-sticker`) load `connectionManager` without a temp `SQLITE_PATH` → would touch production `data/gateway.sqlite` if run from the LIVE folder. Run them only from the worktree with `SQLITE_PATH` forced via env.
+  - F-01/F-02/K-13 (Phase 4/5 concerns) remain owed and are NOT dropped; AC-026(b) stays stub-only; GW-09 is NOT closed until AC-027/AC-042 are measured in Phase 5.
+- **Next Action / Pending:**
+  - **`/sdlc-write-code` in a NEW session, Phase 2 (TASK-007..TASK-010)** using `docs/handoff-m1-wave2-fase2-write-code-2026-09-24.md`; do NOT recreate the worktree; stop at TASK-010 (APPROVAL). Do not push without the owner's command.
+  - Optional cleanup task (owner decides): make the 5 unsafe wave-1 scripts set a temp `SQLITE_PATH` (pattern of `simulate-durable-buffer.js`).
+
+<!-- checkpoint-tail: M1 Wave 2 Phase 1 (TASK-001..006) is done and approved — 4 commits on feature/m1-wave2-outgoing-idempotency in WA-Gateway, live folder still 21a4cb6, regression 20/20; next is /sdlc-write-code Phase 2 (TASK-007..010: lease, cap, start-up checks) in a new session using docs/handoff-m1-wave2-fase2-write-code-2026-09-24.md. -->
+
+---
 
