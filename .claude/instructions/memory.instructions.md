@@ -1737,3 +1737,36 @@
 <!-- checkpoint-tail: PHPUnit wipes real aulia_inboxdb because the inbox group is not redirected under testing; bug fix plan plan-bugfix-inbox-test-db-isolation-v1.0.md is Planned; next is /sdlc-write-code, and do not run the full suite until its Phase 2 is done. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (Bug fix DONE: tests isolated from real aulia_inboxdb)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Supplementary: Bug Fix — `/sdlc-write-code` executed, plan Completed; next is Review.
+- **Active Artifacts:**
+  - `plan/plan-bugfix-inbox-test-db-isolation-v1.0.md` — Status: ✅ Completed (20/20 tasks, Phase 0-3, notes hold baseline + TASK-015 evidence).
+- **Achieved Milestones:**
+  - Phase 0: created `aulia_inboxdb_test` (schema copy via `mysqldump --no-data`), 0 rows, 0 triggers; baseline of real DB recorded (conversations 2 / AI 25801, messages 33 / AI 339, identities 1 / AI 123, handoffs 0 / AI 3256, gateway_status 1).
+  - Phase 1: guard test failed 3/3 before the fix (live DB was `aulia_inboxdb`).
+  - Phase 2: guard test 3/3 green; fail-closed proven (line disabled → bootstrap refused, 0 tests ran); full suite `OK (327 tests, 1100 assertions)`; real DB conversations/identities/handoffs unchanged.
+  - Phase 3: ARCHITECTURE §2/§5/§11 (one-time setup + re-sync rule), 4 test docblocks fixed (plan FILE-006 + user-approved FILE-007).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** proving REQ-005 by exact row-count equality on `aulia_inboxdb`. **Reason:** the WA Gateway is live and keeps inserting `incoming` messages (messages 33 → 53 during the session, none inside the suite window). Compare conversations/handoffs + `AUTO_INCREMENT`, check new messages are `incoming` with a real `wa_message_id`, or stop the Gateway for a byte-exact check.
+- **Updated Files:**
+  - `app/Config/Database.php` — under `testing`: `$this->inbox['database'] = 'aulia_inboxdb_test'`.
+  - `tests/_support/bootstrap.php` — new; CI4 test bootstrap + fail-closed inbox DB check.
+  - `phpunit.dist.xml` — `bootstrap="tests/_support/bootstrap.php"`.
+  - `tests/database/InboxTestDatabaseIsolationTest.php` — new guard test (read-only, `SELECT DATABASE()`).
+  - `docs/ARCHITECTURE.md` — §2, §5, §11.
+  - `tests/session/InboxHandoffTest.php`, `tests/database/ConversationHandoffsMigrationTest.php`, `tests/database/ConversationHandoffModelTest.php`, `tests/session/InboxSoftDeleteTest.php` — docblock only.
+- **Decisions Made:**
+  - Suite size baseline corrected: 310 test methods (307 at HEAD + 3 guard), 327 runs incl. data providers (plan's "317" was stale).
+  - Running the full suite is SAFE again from this commit on.
+- **Next Action / Pending:**
+  - `/sdlc-code-review` of the fix commit (attach the plan).
+  - After any new inbox migration: re-run `mysqldump --no-data --routines --triggers aulia_inboxdb | mysql aulia_inboxdb_test`.
+  - Separate TODO: recover the lost chat data (RISK-004). Session snapshot (post-loss state) only exists in the agent scratchpad.
+  - Carried over: `/sdlc-define-specs` Fase 1e (GH-010); `/code-janitor` STD-02 wording; `spec/spec-design-m3-operational-inbox-fase1.md` has uncommitted edits from before this session.
+
+<!-- checkpoint-tail: Tests now use aulia_inboxdb_test (forced in Config\Database + fail-closed tests/_support/bootstrap.php + guard test); 327 green, real DB untouched; plan Completed; next is /sdlc-code-review. -->
+
+---
