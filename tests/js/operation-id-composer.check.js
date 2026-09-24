@@ -99,6 +99,8 @@ function sembunyikanStatusKirimBalasan() {
     if (el) el.style.display = 'none';
 }
 
+// Cabang respons Gateway yang ambigu / kunci dipakai ulang / penyimpanan gagal.
+// Mengembalikan true kalau kegagalan sudah ditangani khusus di sini.
 function tanganiKegagalanKirimBalasan(json, pesanDefault) {
     if (json.error_code === 'SEND_IN_PROGRESS' || json.error_code === 'SEND_UNRESOLVED') {
         // Hasil belum pasti: kunci DIPERTAHANKAN (kirim ulang tidak
@@ -124,32 +126,6 @@ function tanganiKegagalanKirimBalasan(json, pesanDefault) {
         // restart Gateway, bukan mengirim ulang.
         tampilkanStatusKirimBalasan('Penyimpanan operasi gagal. Hubungi operator untuk restart Gateway. Jangan coba kirim ulang sendiri.', 'danger');
         showToast('Penyimpanan operasi gagal. Hubungi operator untuk restart Gateway.', 'danger');
-        return true;
-    }
-
-    // Kegagalan biasa (NOT_CONNECTED/DEAD_LETTERED/HTTP lain):
-    // kunci DIPERTAHANKAN supaya percobaan ulang tetap idempoten.
-    showToast(json.message || pesanDefault, 'danger');
-    return true;
-}
-
-// Cabang respons Gateway yang ambigu / kunci dipakai ulang.
-// Mengembalikan true kalau kegagalan sudah ditangani khusus di sini.
-function tanganiKegagalanKirimBalasan(json, pesanDefault) {
-    if (json.error_code === 'SEND_IN_PROGRESS' || json.error_code === 'SEND_UNRESOLVED') {
-        // Hasil belum pasti: kunci DIPERTAHANKAN (kirim ulang tidak
-        // menggandakan pesan), tapi kasir diminta memeriksa dulu.
-        tampilkanStatusKirimBalasan('Hasil belum pasti, jangan kirim ulang dulu. ' + (json.message || ''), 'warning');
-        showToast('Hasil belum pasti, jangan kirim ulang dulu.', 'warning');
-        return true;
-    }
-
-    if (json.error_code === 'OPERATION_ID_REUSED') {
-        // Kunci lama tidak boleh dipakai lagi -- buang supaya kirim
-        // berikutnya memakai kunci baru (AC-046).
-        buangOperationIdBalasan();
-        sembunyikanStatusKirimBalasan();
-        showToast(json.message || 'Kunci pengiriman tidak valid. Gunakan kunci baru sebelum mengirim ulang.', 'danger');
         return true;
     }
 

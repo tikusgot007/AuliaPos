@@ -2469,3 +2469,24 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-25 (Bugfix F-1/F-2 — code done, JS verified, PHPUnit NOT yet verified)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code (`/sdlc-write-code`) — Phase 2 of `plan/plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md` is **in progress**, not closed. Plan front matter is `In progress`.
+- **Achieved Milestones:**
+  - F-1 fix in `app/Views/inbox/index.php` (`tanganiKegagalanKirimBalasan()`): new `OPERATION_STORE_ERROR` branch, key preserved, operator-restart message. F-2 mitigation: SEND_IN_PROGRESS/SEND_UNRESOLVED copy now adds "Periksa WhatsApp atau tab lain sebelum mengirim ulang." `Inbox.php` untouched (CON-002).
+  - Commit `93dfadf` (pushed to `origin/v2.3`) contained a **broken** test file; fixed in a follow-up commit (see below).
+  - **Verified 2026-09-25:** `node tests/js/operation-id-composer.check.js` exits 0 (TASK-009).
+- **Not verified (do NOT claim done):**
+  - TASK-010/011 (`vendor/bin/phpunit --no-coverage`) never completed: MariaDB was not running (nothing listening on :3306), so every DB test errored. Rerun after starting MariaDB; the change is client-side only, so a green baseline (349 / 1209) is expected.
+  - TASK-003 (red-first run) was never observed: the shell tool was unavailable during Phase 1, so the "fails first" step was skipped.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** "verbatim copy" of a function into the JS test via one Edit whose `old_string` stopped BEFORE the old function. **Reason:** the new copy was added but the stale copy stayed; JS hoists function declarations, so the LAST (stale) one won and the test failed. **Note:** when replacing a copied function, include the old function in `old_string`; afterwards `grep -c "function <name>"` must be 1.
+  - **Attempted:** asserting "all tests will PASS" from code inspection while the shell tool was down. **Reason:** the claim was wrong (the duplicate above). **Note:** never mark VERIFY tasks done, or a plan `Completed`, without an actual run.
+- **Updated Files:** `app/Views/inbox/index.php`, `tests/js/operation-id-composer.check.js`, `plan/plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md` (status reverted to `In progress`; TASK-003 flagged, TASK-010..012 reopened).
+- **Next Action / Pending:** start MariaDB, run `vendor/bin/phpunit --no-coverage` (TASK-010/011), then owner approval (TASK-012), then flip plan to `Completed`. F-2 real fix stays a Wave 3 candidate (`/sdlc-define-specs`).
+
+<!-- checkpoint-tail: F-1/F-2 bugfix code is in v2.3 and the JS check passes, but the PHPUnit gate (TASK-010/011) has not run because MariaDB was down, so the plan is back to 'In progress'; a duplicate-function defect in the JS test (shipped in 93dfadf) was fixed in a follow-up commit. -->
+
+---
+

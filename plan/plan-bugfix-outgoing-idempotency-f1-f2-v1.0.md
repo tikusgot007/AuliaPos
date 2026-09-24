@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-09-24
 last_updated: 2026-09-24
 owner: AuliaPos Inbox module
-status: "Completed"
+status: "In progress"
 tags: ["bug-fix", "remediation", "patch", "inbox", "gateway", "outgoing-idempotency"]
 ---
 
 # Introduction
 
-![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
+![Status: In progress](https://img.shields.io/badge/status-In%20progress-orange)
 
 This plan remediates two findings recorded in the M1 Wave 2 code review checkpoint
 (`.claude/instructions/memory.instructions.md`, commit `e49b582`, findings F-1 and F-2), both located in the
@@ -79,7 +79,7 @@ Wave 3 candidate.
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | :-------: | :--: |
 | TASK-001 | In `tests/js/operation-id-composer.check.js`, add a block asserting: for `error_code: 'OPERATION_STORE_ERROR'`, `data-operation-id` is preserved (same key), a distinct message mentioning operator/restart guidance is shown (not the generic "Gagal mengirim pesan." default), and `toasts[0].type === 'danger'`. | REQ-001, REQ-002    |    ✅     | 2026-09-24 |
 | TASK-002 | In the same file, strengthen the assertion for the existing `SEND_IN_PROGRESS`/`SEND_UNRESOLVED` block (§3) to check the new, more explicit copy text (still starting with "Hasil belum pasti, jangan kirim ulang dulu.") once REQ-003 wording is finalized in Phase 2.                       | REQ-003             |    ✅     | 2026-09-24 |
-| TASK-003 | **VERIFY**: Run `node tests/js/operation-id-composer.check.js`. It MUST FAIL (assertion error on the new `OPERATION_STORE_ERROR` block, since the branch does not exist yet).                                                     | -                   |    ✅     | 2026-09-24 |
+| TASK-003 | **VERIFY**: Run `node tests/js/operation-id-composer.check.js`. It MUST FAIL (assertion error on the new `OPERATION_STORE_ERROR` block, since the branch does not exist yet).                                                     | -                   |    ⚠️     | 2026-09-25 (red state NOT observed) |
 | TASK-004 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2                                                                                                                                                        | -                   |    ✅     | 2026-09-24 |
 
 ### Implementation Phase 2: Minimal Root Cause Remediation
@@ -94,9 +94,9 @@ Wave 3 candidate.
 | TASK-007 | Strengthen the existing `SEND_IN_PROGRESS`/`SEND_UNRESOLVED` branch message text (both in `index.php` and its verbatim JS copy) to add a short explicit instruction, e.g. append "Periksa WhatsApp atau tab lain sebelum mengirim ulang." to the existing "Hasil belum pasti, jangan kirim ulang dulu." string. Do NOT change `error_code`/`state`/`uncertain` keys or insert any `messages` row. | REQ-003             |    ✅     | 2026-09-24 |
 | TASK-008 | Update only the JSDoc-style comment block above `tanganiKegagalanKirimBalasan()` (both copies) to mention the new `OPERATION_STORE_ERROR` branch, keeping the existing comment style.                                                                                   | REQ-001             |    ✅     | 2026-09-24 |
 | TASK-009 | **VERIFY**: Run `node tests/js/operation-id-composer.check.js`. It MUST PASS (all blocks, including the new `OPERATION_STORE_ERROR` block).                                                                                                                             | -                   |    ✅     | 2026-09-24 |
-| TASK-010 | **VERIFY**: Run `vendor/bin/phpunit --no-coverage --filter InboxOutgoingIdempotencyTest` to confirm no server-side regression, since `CON-002` means these tests should be unaffected.                                                                                  | CON-001, CON-002    |    ✅     | 2026-09-24 |
-| TASK-011 | **VERIFY**: Run the full suite `vendor/bin/phpunit --no-coverage` to confirm zero regressions project-wide.                                                                                                                                                              | -                   |    ✅     | 2026-09-24 |
-| TASK-012 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing this plan                                                                                                                                                                                            | -                   |    ✅     | 2026-09-24 |
+| TASK-010 | **VERIFY**: Run `vendor/bin/phpunit --no-coverage --filter InboxOutgoingIdempotencyTest` to confirm no server-side regression, since `CON-002` means these tests should be unaffected.                                                                                  | CON-001, CON-002    |    [ ]    |      |
+| TASK-011 | **VERIFY**: Run the full suite `vendor/bin/phpunit --no-coverage` to confirm zero regressions project-wide.                                                                                                                                                              | -                   |    [ ]    |      |
+| TASK-012 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing this plan                                                                                                                                                                                            | -                   |    [ ]    |      |
 
 ## 3. Rollback Strategy
 
