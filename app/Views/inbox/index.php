@@ -405,7 +405,12 @@
                             <button type="button" class="btn-close btn-sm ms-1" style="font-size:0.6rem;" onclick="batalkanMediaBalasan()"></button>
                         </span>
                     </div>
-                    <form id="formBalas" onsubmit="return kirimBalasan(event)">
+                    <!-- data-operation-id (M1 Wave 2, TASK-019): kunci
+                         idempotensi milik frontend, hidup selama satu
+                         percobaan kirim dan dipakai ulang saat kirim ulang
+                         setelah gagal/timeout (REQ-039). Kosong = kunci
+                         akan dibuat saat kirim pertama. -->
+                    <form id="formBalas" data-operation-id="" onsubmit="return kirimBalasan(event)">
                         <div class="input-group">
                             <button class="btn btn-outline-secondary" type="button" id="btnLampirkanMedia" disabled onclick="document.getElementById('inputMediaBalasan').click()">
                                 <i class="fas fa-paperclip"></i>
@@ -417,6 +422,11 @@
                             </button>
                         </div>
                     </form>
+                    <!-- Status kirim yang tidak auto-hilang (M1 Wave 2,
+                         TASK-019/AC-046): dipakai untuk memberi tahu kasir
+                         bahwa hasil kirim BELUM PASTI, sehingga kirim ulang
+                         buta tidak disarankan. -->
+                    <div id="statusKirimBalasan" class="small mt-1" style="display:none;" role="status" aria-live="polite"></div>
                 </div>
             </div>
         </div>
@@ -1847,6 +1857,10 @@
         document.getElementById('previewMediaNama').textContent = file.name;
         document.getElementById('previewMediaBalasan').style.display = 'block';
         document.getElementById('teksBalasan').placeholder = 'Caption (opsional)...';
+        // Lampiran berubah = isi composer berubah -> operasi baru
+        // (M1 Wave 2, TASK-019).
+        buangOperationIdBalasan();
+        sembunyikanStatusKirimBalasan();
     }
 
     function pilihMediaBalasan(e) {
@@ -1859,6 +1873,10 @@
         document.getElementById('inputMediaBalasan').value = '';
         document.getElementById('previewMediaBalasan').style.display = 'none';
         document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
+        // Lampiran dibatalkan = isi composer berubah -> operasi baru
+        // (M1 Wave 2, TASK-019).
+        buangOperationIdBalasan();
+        sembunyikanStatusKirimBalasan();
     }
 
     // --- Drag-and-drop file ke panel chat (mirip WhatsApp Web) ---------
@@ -2130,6 +2148,90 @@
     }
 
     // ================================================================
+    // OPERATION ID KIRIM BALASAN (M1 Wave 2, TASK-019 / REQ-039/REQ-041)
+    // ================================================================
+    // Kunci idempotensi MILIK FRONTEND (client-generated). AuliaPos tidak
+    // pernah membuatnya di server. Kunci hidup di form balas
+    // (`data-operation-id`) selama satu percobaan kirim:
+    // - dipakai ulang saat kirim ulang setelah gagal/timeout, supaya
+    //   Gateway bisa mengenali percobaan yang sama dan tidak menggandakan
+    //   pesan pelanggan;
+    // - dibuang setelah kirim BERHASIL atau setelah isi composer berubah
+    //   (pesan berbeda = operasi berbeda);
+    // - dibuat baru saat Gateway menolak dengan OPERATION_ID_REUSED.
+    function buatOperationIdBalasan() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+
+        // Fallback peramban lama: hex 32 karakter (di dalam batas 64
+        // karakter REQ-020).
+        let hex = '';
+        for (let i = 0; i < 32; i++) {
+            hex += Math.floor(Math.random() * 16).toString(16);
+        }
+        return hex;
+    }
+
+    function ambilOperationIdBalasan() {
+        const form = document.getElementById('formBalas');
+        if (!form) return buatOperationIdBalasan();
+
+        let kunci = form.getAttribute('data-operation-id');
+        if (!kunci) {
+            kunci = buatOperationIdBalasan();
+            form.setAttribute('data-operation-id', kunci);
+        }
+        return kunci;
+    }
+
+    function buangOperationIdBalasan() {
+        const form = document.getElementById('formBalas');
+        if (form) form.setAttribute('data-operation-id', '');
+    }
+
+    function tampilkanStatusKirimBalasan(pesan, tipe) {
+        const el = document.getElementById('statusKirimBalasan');
+        if (!el) return;
+
+        const kelas = tipe === 'warning' ? 'text-warning' : 'text-danger';
+        el.className = 'small mt-1 ' + kelas;
+        el.textContent = pesan;
+        el.style.display = 'block';
+    }
+
+    function sembunyikanStatusKirimBalasan() {
+        const el = document.getElementById('statusKirimBalasan');
+        if (el) el.style.display = 'none';
+    }
+
+    // Cabang respons Gateway yang ambigu / kunci dipakai ulang.
+    // Mengembalikan true kalau kegagalan sudah ditangani khusus di sini.
+    function tanganiKegagalanKirimBalasan(json, pesanDefault) {
+        if (json.error_code === 'SEND_IN_PROGRESS' || json.error_code === 'SEND_UNRESOLVED') {
+            // Hasil belum pasti: kunci DIPERTAHANKAN (kirim ulang tidak
+            // menggandakan pesan), tapi kasir diminta memeriksa dulu.
+            tampilkanStatusKirimBalasan('Hasil belum pasti, jangan kirim ulang dulu. ' + (json.message || ''), 'warning');
+            showToast('Hasil belum pasti, jangan kirim ulang dulu.', 'warning');
+            return true;
+        }
+
+        if (json.error_code === 'OPERATION_ID_REUSED') {
+            // Kunci lama tidak boleh dipakai lagi -- buang supaya kirim
+            // berikutnya memakai kunci baru (AC-046).
+            buangOperationIdBalasan();
+            sembunyikanStatusKirimBalasan();
+            showToast(json.message || 'Kunci pengiriman tidak valid. Gunakan kunci baru sebelum mengirim ulang.', 'danger');
+            return true;
+        }
+
+        // Kegagalan biasa (NOT_CONNECTED/DEAD_LETTERED/HTTP lain):
+        // kunci DIPERTAHANKAN supaya percobaan ulang tetap idempoten.
+        showToast(json.message || pesanDefault, 'danger');
+        return true;
+    }
+
+    // ================================================================
     // KIRIM BALASAN (teks, atau media kalau ada lampiran dipilih)
     // ================================================================
     function kirimBalasan(e) {
@@ -2161,12 +2263,18 @@
         btn.disabled = true;
         textarea.disabled = true;
 
+        // Kunci idempotensi percobaan ini. Dibuat di sini kalau belum ada --
+        // dan DIPERTAHANKAN kalau kirim ulang karena gagal/timeout.
+        const operationId = ambilOperationIdBalasan();
+
         fetch('<?= base_url('/inbox/kirim') ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: 'conversation_id=' + encodeURIComponent(conversationAktif) + '&text=' + encodeURIComponent(text)
+                body: 'conversation_id=' + encodeURIComponent(conversationAktif) +
+                    '&text=' + encodeURIComponent(text) +
+                    '&operation_id=' + encodeURIComponent(operationId)
             })
             .then(function(res) {
                 return res.json();
@@ -2174,12 +2282,16 @@
             .then(function(json) {
                 if (json.status === 'success') {
                     textarea.value = '';
+                    // Kirim berhasil: operasi selesai, kunci dibuang supaya
+                    // pesan berikutnya memakai operasi baru.
+                    buangOperationIdBalasan();
+                    sembunyikanStatusKirimBalasan();
                     // Langsung tampilkan pesan baru tanpa nunggu polling
                     // (sesuai spec: outgoing langsung terlihat setelah sukses).
                     tampilkanBubbleOutgoing(json.message);
                     muatUlangDaftarConversation();
                 } else {
-                    showToast(json.message || 'Gagal mengirim pesan.', 'danger');
+                    tanganiKegagalanKirimBalasan(json, 'Gagal mengirim pesan.');
                 }
             })
             .catch(function(err) {
@@ -2209,10 +2321,14 @@
         textarea.disabled = true;
         document.getElementById('btnLampirkanMedia').disabled = true;
 
+        // Kunci idempotensi percobaan ini -- lihat kirimBalasan().
+        const operationId = ambilOperationIdBalasan();
+
         const formData = new FormData();
         formData.append('conversation_id', conversationAktif);
         formData.append('caption', caption);
         formData.append('media', file);
+        formData.append('operation_id', operationId);
 
         fetch('<?= base_url('/inbox/kirim-media') ?>', {
                 method: 'POST',
@@ -2224,11 +2340,14 @@
             .then(function(json) {
                 if (json.status === 'success') {
                     textarea.value = '';
+                    // Kirim berhasil: operasi selesai, kunci dibuang.
+                    buangOperationIdBalasan();
+                    sembunyikanStatusKirimBalasan();
                     batalkanMediaBalasan();
                     tampilkanBubbleOutgoing(json.message);
                     muatUlangDaftarConversation();
                 } else {
-                    showToast(json.message || 'Gagal mengirim media.', 'danger');
+                    tanganiKegagalanKirimBalasan(json, 'Gagal mengirim media.');
                 }
             })
             .catch(function(err) {
@@ -2250,6 +2369,15 @@
             e.preventDefault();
             kirimBalasan(e);
         }
+    });
+
+    // Isi composer berubah = operasi berbeda (M1 Wave 2, TASK-019):
+    // kunci lama dibuang supaya kirim berikutnya memakai kunci baru.
+    // Mengubah .value lewat kode TIDAK memicu event ini, jadi pembersihan
+    // otomatis setelah kirim sukses tidak terganggu.
+    document.getElementById('teksBalasan').addEventListener('input', function() {
+        buangOperationIdBalasan();
+        sembunyikanStatusKirimBalasan();
     });
 
     // ================================================================
