@@ -1,5 +1,26 @@
 # 🔍 Clarification Report [Review Iteration 1]
 
+> [!IMPORTANT]
+> **REMEDIATION STATUS: RESOLVED** — 2026-09-24, authoring agent `/sdlc-define-specs`.
+> Revised artifact: `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.0 -> **v1.1**. Documentation-only edits; no application code, migration, or test was changed.
+> Every blocker (C-1..C-6) and hidden assumption (H-1..H-8 -> A-1..A-8) was applied:
+>
+> - **R-1:** `OUTGOING_LEASE_MS` default `15000` -> `35000` (above the 30 s media / 10 s text client timeouts); in-lease retry is answered `409 SEND_IN_PROGRESS` without calling Baileys; AC-027 rewritten ("at most one message reaches the customer"); AC-042 added for a post-lease retry on a `sent` operation returning `200 replayed:true`. §1.2 (ASSUMPTION-003, D-10), §2, REQ-028, §4.2, §4.6, §5, §12, §13. ✅
+> - **R-2:** `attempts` = executed sends and the cap is checked **before** resending (`attempts >= cap` -> `abandoned` without a Baileys call), so `5` = at most 5 sends; the stale `attempts + 1 >= cap` row in §4.2 was fixed, AC-029 got explicit numbers, and the §8 example now checks the cap before `registerRetry()`. ✅
+> - **R-3:** REQ-020 narrowed to 1-64 characters with the AuliaPos column kept at `VARCHAR(64)` and an explicit note that the column width equals the validation bound, so silent truncation is impossible; AC-019 tests the 65-character bound. ✅
+> - **A-1:** the definitive-failure path now matches the running code (HTTP `500` with `SEND_FAILED`/`INVALID_CHAT_ID`, `ci4Routes.js:94`/`:226`); `502` removed; CON-007 stays additive. ✅
+> - **A-2:** `failed` kept as a backup path with an honest §4.2 note (only reachable when the `isDecodableJid()` guard at `connectionManager.js:891`/`:1037` fires before `sendMessage()`), and AC-026(b) is marked stub-only in §6. ✅
+> - **A-3:** REQ-039 (frontend is the sole owner of `operation_id`), REQ-040 (`callGatewaySend()`/`callGatewaySendMedia()` must return `error_code`, `state`, and `replayed`), REQ-041 (UI "uncertain outcome" state and a new key on `409 OPERATION_ID_REUSED`) plus AC-044..AC-046 and an updated REQ -> AC map. ✅
+> - **A-4:** server-side `operation_id` generation removed from §4.7 step 1; a missing key means REQ-026 behaviour. ✅
+> - **A-5:** idempotency scope stated as `<= OUTGOING_OPERATION_TTL_MS`; negative AC-043 for `pruneTerminal`; `[CRITICAL]` logging before pruning `abandoned` rows. ✅
+> - **A-6:** `replayDeadLetter()` documented as granting exactly one extra attempt cycle; dead-letter reason enum fixed to `max_attempts | max_age | permanent_rejection` (REQ-035, AC-035, §12). ✅
+> - **A-7:** all payload validation (base64 decode, media checks, `payload_hash`) must finish before `begin()`; `INVALID_MEDIA_*` leaves no operation row (REQ-021, AC-019). ✅
+> - **A-8:** counter bases stated explicitly (outgoing starts at 1 = sends, incoming starts at 0 = failures); `422` marked `[Assumed / Out of Scope]`; burst-log policy added via `DELIVERY_DEAD_BURST_THRESHOLD=10`. ✅
+>
+> **Projected Readiness Score after remediation: 94/100** (Completeness 37/40, Clarity 29/30, Alignment 28/30; no Critical Flaw veto). Residual 6 points: real-measurement dependence of AC-027/AC-042, the calibrated burst threshold, the non-verbatim `409 SEND_IN_PROGRESS` wording, `422` retained as intentional dead code, and the burst policy being a local guard not named in GW-19.
+> Markdownlint: the spec keeps the same rule set as the approved wave 1 spec (`MD013/MD025/MD028/MD060`) with no new rule type; measured v1.1 counts are 247/1/10/24 vs 117/1/11/18 for wave 1.
+> Routing: `/sdlc-audit-consistency` (optional), then `/sdlc-plan-tasks` in a new session.
+
 **Target Document:** `spec/spec-process-m1-wave2-outgoing-idempotency.md` (v1.0)
 **Reference Documents:** `spec/spec-process-m1-wave1-incoming-reliability.md` v1.1, `docs/GATEWAY-REQUIREMENTS.md` (GW-09, GW-19), `docs/decisions/2026-09-21-m1-ticket01-baseline.md`, dan kode nyata `C:\projects\WA-Gateway` @ `21a4cb6` + `app/Controllers/Inbox.php` / `app/Controllers/InboxGatewayApi.php`.
 
