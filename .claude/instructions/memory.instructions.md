@@ -89,7 +89,7 @@
 - **M3 Fase 2a boundary delta:** `app/Controllers/Inbox.php` **+312 / −0** (the 7 protected methods byte-identical); `app/Views/inbox/index.php` +325 / −1; zero diff on `ConversationModel.php`, `InboxSlaService.php`, `InboxGatewayApi.php`.
 - **markdownlint baseline:** audit reports are **MD013-only**; plan/architecture docs effectively tolerate MD013 up to 400 chars (default limit 80). `docs/ARCHITECTURE.md` carries ~32 × MD013.
 - **WA-Gateway M1:** 17 `test/simulate-*.js` scripts + 1 static guard `test/check-register-before-send.js`, all passing; branch `feature/stage-1-reliability`, 13 commits above `091fe19`.
-- **AuliaPos PHPUnit suite (current):** **324 tests / 1097 assertions** OK (2026-09-24, after M3 Fase 1d `db7f301`) — use this as the ≥ baseline for M1 Wave 2 TASK-020; the 283/867 entry above is historical.
+- **AuliaPos PHPUnit suite (current):** **328 tests / 1102 assertions** OK (2026-09-24, branch `v2.3`, after the inbox test-DB isolation fix `aad7720`/`f1268af`). Historical: 324/1097 (after M3 Fase 1d `db7f301`) and 298/948 (after Fase 2a). **The suite count drifts every session** — gate M1 Wave 2 TASK-020 on "≥ the count measured immediately before the change + new tests", not on a frozen number.
 - **WA-Gateway repo state (2026-09-24):** live folder `C:\projects\WA-Gateway` is at `21a4cb6` on `master` with a single worktree; the Wave 2 worktree `C:\projects\WA-Gateway-m1w2` and branch `feature/m1-wave2-outgoing-idempotency` did **not** exist (they are created by M1 Wave 2 plan TASK-001).
 
 ---
@@ -2065,6 +2065,50 @@
   - Plan `status` flips to `Completed` only at TASK-024 (APPROVAL/handoff).
 
 <!-- checkpoint-tail: M1 Wave 2 plan v1.0 created (24 tasks / 5 vertical phases, Repo column, RISK-001/002/003 recorded, lint clean of new finding types); next is /sdlc-clarify-reqs on the plan, then /sdlc-write-code TASK-001 (create the WA-Gateway-m1w2 worktree). -->
+
+---
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — `/sdlc-clarify-reqs` on the PLAN, PROCEED 82/100)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Clarification of the **plan** (Review Iteration 1) — finished. Owner answered **PROCEED** at **82/100**. Next phase is `/sdlc-write-code` Phase 1 starting at **TASK-001** in a NEW session.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — v1.0, status `Planned`, 24 tasks / 5 phases (commit `57de122`). Untouched this session.
+  - `spec/spec-process-m1-wave2-outgoing-idempotency.md` — v1.1 (commit `7897d38`). Untouched this session.
+  - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-plan-2026-09-24.md` — **NEW**, 272 lines, Readiness **82/100** (Completeness 32/40, Clarity 25/30, Alignment 25/30, veto inactive), PROCEED recorded. Commits `249770a` + `ca98eff`.
+  - `docs/handoff-m1-wave2-fase1-write-code-2026-09-24.md` — **NEW**, paste-ready prompt/brief for the next `/sdlc-write-code` session (non-normative; the plan wins on conflict).
+  - `plan/plan-bugfix-inbox-test-db-isolation-v1.0.md` — `Completed` (2026-09-24) and is the **new context input** behind F-02 below.
+- **Achieved Milestones:**
+  - **F-01 (blocker for TASK-016):** the plan has **no task that applies the AuliaPos migration to the working database `aulia_inboxdb`**, yet TASK-017/018 write and read `messages.gateway_operation_id` on every successful send → without it every cashier send fails with `Unknown column`. Recommended fix: add ONE `[AP]` DEPLOY task (owner approval + `SHOW COLUMNS` proof + `down()` rollback).
+  - **F-02 (blocker for TASK-016 as written):** `php spark migrate` cannot do what TASK-016/CON-014 literally says. Migrations with `$DBGroup='inbox'` apply to the REAL `aulia_inboxdb` (history lives in `aulia_kasirdb.migrations`), while `aulia_inboxdb_test` is a **schema copy** (`mysqldump --no-data`) that then drifts and fails with `Unknown column/table`. Evidence: `app/Config/Database.php:297-310`, `tests/_support/bootstrap.php`, `docs/ARCHITECTURE.md:298-308`. Recommended command: `CI_ENVIRONMENT=testing` + `php spark migrate --dbgroup inbox`.
+  - **K-13 (found during interrogation):** the AC-027 evidence order in TASK-023/spec §13 cannot run as written — the first attempt ends as an AuliaPos **502** (cURL 10 s timeout), so the "uncertain outcome" UI state can only appear on the **resend inside the lease** (`409 SEND_IN_PROGRESS`). Recommended: reword the procedure (no code/REQ change); treating `CURLE_OPERATION_TIMEDOUT` as "uncertain" is a Wave-3 candidate needing `/sdlc-define-specs`.
+  - **Runtime facts verified (read-only):** `C:\projects\WA-Gateway` @ `21a4cb6` on `master`, single worktree, wave-2 branch absent → **RISK-001 true**; Node `v20.20.2`; `baileys 6.7.24`; `better-sqlite3 ^11.3.0`; `pm2` 7.0.4 with `wa-gateway` **online 21 h** on the same machine; AuliaPos on `v2.3` clean; suite `OK (328 tests, 1102 assertions)`; `aulia_inboxdb` = 2 conversations / 87 **incoming** messages (last `14:34`) with `gateway_status = connected` → **the number carries live WhatsApp traffic right now**; `InboxGatewayApi` replies only `200/400/500` (confirms A-8b / 422 dead code); `Inbox.php:2047` = 10 s and `:2112` = 30 s (confirms lease 35000); `Inbox.php:2062-2074` reads only `success/wa_message_id/timestamp` (confirms REQ-040); the reply form is AJAX (`index.php:2164`) with **no** `sessionStorage` (RISK-007 unchanged).
+  - **K-04 answer:** every default value is usable EXCEPT the uncalibrated pair `DELIVERY_MAX_ATTEMPTS=100` + `DELIVERY_DEAD_AFTER_MS=86400000` (an outage longer than ±3,4 h moves customer messages to `dead`) and the uncalibrated `DELIVERY_DEAD_BURST_THRESHOLD=10`.
+  - Report built from 11 owner-directed interrogations (K-01..K-11) plus 4 extra findings (K-12..K-15, §3), each with lettered options (a/b/c), impact, and an analyst recommendation.
+  - Lint: `markdownlint-cli2@0.22.1` on the new report = **MD013 only (141)** — the same finding type as the wave-1 plan clarification report (29 × MD013); no new type.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** passing a 7.5k–8.5k-char `new_text` to the editor in one call when appending a long section.
+    **Reason:** rejected with `Editor input too large: new_text was 7555 characters, exceeding the recommended limit of 6000` and **nothing was written**.
+    **Note:** split appends into ≤6k chunks and anchor each edit on the file's **last unique line** (not on an estimated `insert_line`).
+  - **Attempted:** treating `markdownlint-cli2` exit code 1 as a tool failure.
+    **Reason:** exit 1 is the linter's normal "findings exist" signal; the shell reports it as `[Command exited with code 1]` while the findings are still captured.
+    **Note:** aggregate the finding types (`Group-Object` over the matched `MDxxx`) and compare against the precedent document instead of judging by exit code.
+- **Updated Files:**
+  - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-plan-2026-09-24.md` — new (272 lines; §1 F-01/F-02, §2 K-01..K-11, §3 K-12..K-15, §4 Next Steps + PROCEED).
+  - `docs/handoff-m1-wave2-fase1-write-code-2026-09-24.md` — new (paste-ready prompt for the next session).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint + Key Metrics baseline refresh (324/1097 → **328/1102**).
+  - **Not touched on purpose:** the plan, the spec, and every source file (a clarification session writes no code).
+- **Decisions Made:**
+  - **Owner decision: PROCEED (2026-09-24)** at 82/100; unanswered items follow the report's `[Assumed / Auto-Resolved]` handling (analyst recommendations). Deviating on K-01 (dead-letter scope) or K-02 (AuliaPos scope) requires `/sdlc-define-specs` first, because it changes spec v1.1 — not the plan.
+  - **Scope:** K-11 option (a) — no TASK/AC dropped; only **+1** `[AP]` DEPLOY task for the `aulia_inboxdb` migration plus the TASK-023 wording fix.
+  - **Ordering (K-03):** merge M1 W2 AuliaPos into `v2.3` after TASK-020 passes and TASK-021 is approved, and **before** M3 Fase 1e starts its plan/code.
+  - **Measurement (K-06):** technique = temporary inbound port block ≤15 s (no code change, no `pm2 stop`; `pm2 stop` yields connection-refused, not the timeout the scenario needs); owner acts as the UI tester; re-confirm the "not production" premise because the number carries live traffic.
+  - No new ADR (all decisions are cheaply reversible) and no new `CONTEXT.md` terms.
+- **Next Action / Pending:**
+  - **`/sdlc-write-code` in a NEW session, Phase 1, TASK-001** — `git -C C:\projects\WA-Gateway worktree add C:\projects\WA-Gateway-m1w2 -b feature/m1-wave2-outgoing-idempotency 21a4cb6`, verify the live folder is still `21a4cb6` with a clean `status --short`, `npm ci` + `require('better-sqlite3')` on Node 20, then record `21a4cb6` as the rollback point in a new `docs/decisions/` log. Paste `docs/handoff-m1-wave2-fase1-write-code-2026-09-24.md` and attach the plan + the clarification report.
+  - **Before TASK-016 (Fase 4 only — does NOT block Phase 1):** insert the F-01 DEPLOY task, rewrite TASK-016 per F-02, update the TASK-020/TEST-008/DEP-009 gate numbers, and reword TASK-023.
+  - Plan `status` flips to `Completed` only at TASK-024 (APPROVAL/handoff).
+
+<!-- checkpoint-tail: M1 Wave 2 plan clarification DONE and the owner chose PROCEED at 82/100 — K-01..K-11 plus F-01 (no task migrates aulia_inboxdb to add messages.gateway_operation_id), F-02 (spark migrate hits the real inbox DB while aulia_inboxdb_test is a schema copy that drifts), K-13 (the AC-027 first attempt ends 502; the "uncertain" state only appears on the in-lease resend) and K-09 (gate on 328/1102 measured today; these numbers drift); next is /sdlc-write-code Phase 1 TASK-001 using docs/handoff-m1-wave2-fase1-write-code-2026-09-24.md. -->
 
 ---
 
