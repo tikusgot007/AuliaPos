@@ -1827,3 +1827,38 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-24 (Janitor: M1 Wave 1 evidence cleanup — restore reports + tracker correction)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Supplementary: ad-hoc housekeeping via `/code-janitor` (no PRD/Spec/Plan artifact — Broom-level docs fix).
+- **Active Artifacts:**
+  - `docs/TODO-CHAT.md` — Status: ✅ Updated (roadmap M1 + M3 corrected to reality)
+  - `docs/audit/clarification-report-m1-wave1-incoming-reliability-2026-09-21.md` — Status: ✅ Restored (blob `1b33af1`, from `0c4e1a0`)
+  - `docs/audit/clarification-report-m1-wave1-incoming-reliability-plan-2026-09-21.md` — Status: ✅ Restored (blob `4a47558`, from `70251fd`)
+  - `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md`, `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` — read-only, untouched
+- **Achieved Milestones:**
+  - Restored the two M1 Wave 1 clarification reports that `b4d2fe1` ("Merapikan dokumentasi") dropped from the active branch while the blobs still existed in history. Restore used `git checkout <sha> -- <path>` (then unstaged), so both files are byte-identical to the committed blobs; proven with `git hash-object` (worktree) vs `git rev-parse <sha>:<path>` on both files.
+  - Verified the real state before writing any status: live Gateway `C:\projects\WA-Gateway` HEAD = `21a4cb6` = `origin/master`, clean worktree, PM2 `wa-gateway` `online` (unstable restarts 0).
+  - Corrected `docs/TODO-CHAT.md` in 3 spots: header date + verification note, roadmap M1 (`065f683` = the AC-001 measurement commit, live folder is now `21a4cb6`), roadmap M3 (`0 dari 14 task` → Fase 1 (1a–1d) + Fase 2a merged into `v2.3` via PR #41 `ce94660`). Added a `> [!WARNING]` callout at the M3 section header because its body (lines 163–290) is still a 21–23 Sep snapshot.
+  - Root cause of the M3 tracker drift: the M3 work (Fase 1a–1d + Fase 2a + refactors) landed in `v2.3` through PR #41 (`ce94660`), but `docs/TODO-CHAT.md` was never touched afterwards — its last update was the M1 Wave 1 work (`b9f4e4b`). Confirmed `ce94660` is an ancestor of HEAD and "All commits are in `v2.3` via PR #41" per both plan rev notes.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `git show <sha>:<path> | Set-Content -Path <path> -Encoding UTF8` to restore a dropped file. **Reason:** PowerShell 5.1 writes a UTF-8 BOM, so the restored file is not byte-identical to the blob and adds diff/lint noise. **Correct solution:** `git checkout <sha> -- <path>` then `git reset -- <path>` (file stays untracked but byte-exact). Candidate for Knowledge Base promotion if a second session hits the same encoding trap.
+- **Updated Files:**
+  - `docs/TODO-CHAT.md` — 4 surgical edits (header date + verification note, roadmap M1, roadmap M3, M3 section header + WARNING callout). No other section rewritten.
+  - `docs/audit/clarification-report-m1-wave1-incoming-reliability-2026-09-21.md` — restored, technical content unchanged.
+  - `docs/audit/clarification-report-m1-wave1-incoming-reliability-plan-2026-09-21.md` — restored, technical content unchanged.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint only (the commit for it is the second one of this session).
+- **Decisions Made:**
+  - Keep the M3 section body as-is and mark it stale instead of rewriting it: a full sync of lines 163–290 is a tracker-sync task, not a janitor task. Offered to the user as a follow-up.
+  - Do NOT commit `spec/spec-design-m3-operational-inbox-fase1.md` — it carries pre-existing uncommitted edits from an earlier session (see the SEC-01 checkpoint above) and is outside this session's scope. It is the only remaining dirty file in the worktree.
+  - Commit the docs work as one focused commit on `v2.3` (`b3bb3d3`); no push, so local `v2.3` is now 2 commits ahead of `origin/v2.3` (`f1268af` + `b3bb3d3`).
+- **Next Action / Pending:**
+  - Optional follow-up: full sync of the M3 section in `docs/TODO-CHAT.md` (checklist TASK-001..014, "Migration baru yang dibutuhkan", and the "Fase 2 wajib tunggu M2" claim — Fase 2a is already done while M2 has not started).
+  - Push `v2.3` when the user is ready (`origin/v2.3` is behind by the two commits above).
+  - Still open from before: recovery of chat data already lost from `aulia_inboxdb` (plan RISK-004); `/sdlc-define-specs` Fase 1e (GH-010); `/code-janitor` STD-02 wording; the uncommitted `spec/spec-design-m3-operational-inbox-fase1.md` edits.
+
+<!-- checkpoint-tail: Restored the two M1 Wave 1 clarification reports byte-exact (from 0c4e1a0/70251fd) into docs/audit/ and corrected docs/TODO-CHAT.md — live Gateway is 21a4cb6 (= origin/master, PM2 online) and M3 Fase 1 (1a-1d) + Fase 2a are merged via PR #41 ce94660; snapshot committed as b3bb3d3 on v2.3, not pushed. -->
+
+---
+
+
