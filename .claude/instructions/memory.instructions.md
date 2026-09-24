@@ -1943,3 +1943,45 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — `/sdlc-define-specs`, spec v1.1)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (revisi pasca-klarifikasi) — SELESAI, siap `/sdlc-plan-tasks`
+- **Active Artifacts:**
+  - `spec/spec-process-m1-wave2-outgoing-idempotency.md` — Status: ✅ Finalized **v1.1** (proyeksi Readiness: 94/100)
+  - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-2026-09-24.md` — Status: ✅ FINAL + banner `REMEDIATION STATUS: RESOLVED` (proyeksi 94/100)
+  - `plan/plan-*m1-wave2*` — Status: ⏳ Belum dibuat (langkah berikutnya, sesi baru)
+- **Achieved Milestones:**
+  - Menerapkan **R-1..R-3 + A-1..A-8** secara surgical ke spec M1 Gelombang 2 (v1.0 → v1.1); bagian yang disentuh: §1.2, §2, §3 (E-O1..E-O4), §4.1, §4.2, §4.3, §4.6, §4.7, §5, §6, §8, §10, §12, §13.
+  - Menambah **REQ-039..REQ-041** + **AC-042..AC-046** (E-O4 kini punya kontrak formal, bukan prosa); AC baru untuk `pruneTerminal` (AC-043) dan post-lease replay (AC-042); pemetaan REQ→AC di §6 diperbarui.
+  - Commit **`7897d38`** (branch `v2.3`), 2 berkas, insertions 134 / deletions 61; `spec/spec-design-m3-operational-inbox-fase1.md` tetap dirty dan **tidak** di-commit (hanya `git add` dua path eksplisit).
+  - Fakta diverifikasi dari kode nyata (bukan asumsi): `ci4Routes.js:94`/`:226` = `res.status(500)` + `err.code || 'SEND_FAILED'`; `INVALID_CHAT_ID` di-set di `connectionManager.js:891`/`:1037` (guard `isDecodableJid` di `:889`/`:1035`, sebelum `sendMessage()`); `Inbox.php:2047` (`CURLOPT_TIMEOUT` 10 s), `:2112` (30 s), `:2062-2074` (tidak pernah membaca `error_code`/`state`/`replayed`).
+  - Verifikasi lint: spec v1.1 = `MD013=247 / MD025=1 / MD028=10 / MD060=24` (gelombang 1 = 117/1/11/18) → **tipe temuan sama, tanpa jenis baru**; laporan = `MD012=3 / MD013=115 / MD022=1 / MD032=1` → identik dengan baseline HEAD-nya, hanya `MD013` naik karena teks baru.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** menulis banner remediasi sebagai H1 baru (`# REMEDIATION STATUS: RESOLVED`) di baris paling atas laporan, lengkap dengan tabel per-item.
+    **Reason:** menambah temuan lint **jenis baru** pada berkas itu (`MD025` + `MD060`=16) dan melanggar **DE-06** (banner MUST tepat setelah H1, bukan di atasnya) — memory instructions menegaskan posisi blok remediasi adalah front matter lalu H1 lalu banner.
+    **Note:** pakai banner blockquote `> [!IMPORTANT]` + `> **REMEDIATION STATUS: RESOLVED**` tepat setelah H1 dengan daftar `> -` per item; kalau struktur sudah salah, `git checkout -- <file>` lalu sisipkan ulang lebih murah daripada memutasi blok besar dengan editor. Temuan sisa (MD012/MD022/MD032) semuanya sudah ada di baseline berkas → bukan regresi.
+  - **Attempted:** merantai dua invokasi `markdownlint-cli2` dengan `&&` di PowerShell untuk membandingkan dua berkas.
+    **Reason:** lint mengembalikan exit code 1 sehingga rantai berhenti dan berkas output kedua tidak terbentuk (`Cannot find path ...l1r.txt`).
+    **Note:** jalankan lint per berkas (jangan dirantai dengan &&), atau bungkus dengan cmd /c lalu pastikan proses keluar dengan status 0; pola redirect ke berkas temp dengan 2>&1 tetap dipakai (lihat DE-05).
+- **Updated Files:**
+  - `spec/spec-process-m1-wave2-outgoing-idempotency.md` — v1.0 → v1.1 (R-1..R-3 + A-1..A-8; +134/−61).
+  - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-2026-09-24.md` — banner `REMEDIATION STATUS: RESOLVED` (+21 baris, tepat setelah H1).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+  - `build/commit-msg-m1w2-spec-v1.1.txt` — pesan commit (folder `build/` gitignored, `.gitignore:31`).
+  - **Tidak disentuh (sengaja):** `spec/spec-design-m3-operational-inbox-fase1.md` (dirty dari sesi M3 Fase 1e lain); tidak ada kode aplikasi, migration, atau test (batas kewenangan `/sdlc-define-specs`).
+- **Decisions Made:**
+  - `OUTGOING_LEASE_MS` bawaan **35000** (di atas timeout klien terpanjang 30 s media) ⇒ retry pasca-timeout kasir selalu `409 SEND_IN_PROGRESS`; kiriman ulang hanya setelah lease benar-benar lewat.
+  - `attempts` operasi keluar = **jumlah kiriman yang sudah dijalankan** (mulai 1) dan cap diperiksa **sebelum** kirim ulang ⇒ maksimum **5 kiriman/operasi**; basis `incoming_queue.attempts` (mulai 0 = jumlah kegagalan) dinyatakan eksplisit agar tidak dibaca sebagai inkonsistensi baru.
+  - Jalur gagal definitif memakai **HTTP 500** (menyamai kode berjalan), 502 dihapus, CON-007 tetap bersifat additive; state failed = **jalur cadangan** dengan catatan jujur + AC-026(b) ditandai *stub-only*.
+  - **Frontend AuliaPos = pemilik tunggal `operation_id`** (REQ-039); jaminan idempotensi dibatasi **≤ `OUTGOING_OPERATION_TTL_MS`**; enum alasan dead-letter dibakukan (`max_attempts | max_age | permanent_rejection`); `422` ditandai `[Assumed / Out of Scope]`; kebijakan log burst `DELIVERY_DEAD_BURST_THRESHOLD=10`.
+  - Tidak ada ADR baru (semua keputusan dapat dibalik lewat env/kolom/validasi) dan **tidak ada** perubahan `CONTEXT.md` (pembakuan istilah tetap ditunda mengikuti gelombang 1).
+- **Next Action / Pending:**
+  - **`/sdlc-plan-tasks` di sesi BARU**, lampirkan `spec/spec-process-m1-wave2-outgoing-idempotency.md` **v1.1**. Plan MUST memakai vertical slicing (tracer bullet) dan memuat bagian Risks & Assumptions dari batas jujur yang sudah dideklarasikan (ASSUMPTION-009 jendela crash, paritas fallback JSON Android, jaminan idempotensi <= TTL, AC-027/AC-042 berbasis prosedur pengukuran nyata).
+  - `/sdlc-audit-consistency` **opsional** (belum ada PRD untuk M1; sumbernya brief + GW-09/GW-19).
+  - Blocker terbuka: **tidak ada**. Catatan operasional: `spec/spec-design-m3-operational-inbox-fase1.md` masih `M`/dirty dan MUST NOT di-commit kecuali oleh sesi M3 Fase 1e.
+
+<!-- checkpoint-tail: M1 Wave 2 spec revised to v1.1 (commit 7897d38) with R-1..R-3 + A-1..A-8 applied and REMEDIATION STATUS: RESOLVED on the clarification report at a projected 94/100; next step is /sdlc-plan-tasks in a new session, and spec/spec-design-m3-operational-inbox-fase1.md must stay uncommitted. -->
+
+---
+
