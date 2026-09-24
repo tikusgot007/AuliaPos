@@ -5,7 +5,7 @@
 ### 1.1 Document title and version
 
 - PRD: Chat / WhatsApp Inbox — AuliaPos
-- Version: 1.3 (retroactive — v1.0 ditulis setelah Spec dan Plan sebagian sudah ada dan sebagian sudah dikoding; v1.1 adalah amandemen yang memasukkan lingkup M3 Fase 2a; v1.2 menyinkronkan status dan istilah dengan Spec; v1.3 menambah kebutuhan pencarian menyeluruh)
+- Version: 1.4 (retroactive — v1.0 ditulis setelah Spec dan Plan sebagian sudah ada dan sebagian sudah dikoding; v1.1 adalah amandemen yang memasukkan lingkup M3 Fase 2a; v1.2 menyinkronkan status dan istilah dengan Spec; v1.3 menambah kebutuhan pencarian menyeluruh; v1.4 menyinkronkan status Fase 1c/1d/2a)
 
 **Riwayat amandemen:**
 
@@ -15,6 +15,7 @@
 | 1.1 | 2026-09-22 | Fase 2 dikeluarkan dari Section 2.3 Non-goals; user story baru GH-006 (Handoff), GH-007 (Collision Detection), GH-008 (Auto-assignment, inkremen Fase 2b); gate M2 dicatat sebagai *constraint*; item yang ditunda dinamai (Presence, notifikasi/unread); Section 9.2 disinkronkan | `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` (K-02, K-03, K-04, K-08) |
 | 1.2 | 2026-09-24 | Section 9.2 disinkronkan dengan status nyata M3 Fase 1a/1b/1c dan Fase 2a (ST-03); kriteria GH-001 s.d. GH-004 dicentang; istilah "catatan internal" → **Internal Note** dan "indikator prioritas" → **SLA Timer** sesuai glosarium Spec §2. Tidak ada perubahan lingkup atau perilaku. | `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` (Iterasi 2, REFINE langkah 2) |
 | 1.3 | 2026-09-24 | Kebutuhan baru: pencarian menyeluruh dalam dua tahap. Fase 1d: nama/nomor yang dicari mencakup semua nama dan nomor yang tampil di daftar, termasuk nama profil WhatsApp (menutup NG-01 / TODO-SEARCH-01), GH-009. Fase 1e: pencarian isi pesan (pesan pelanggan, balasan staff, Internal Note) dengan potongan pesan yang cocok di hasil, GH-010. Section 2.2, 2.3, 4, 5, 8.3, 9.2 dan 10 diperbarui. | Diskusi dengan pemilik proyek 2026-09-24 (kasus: nota atas nama "Saerah", kontak tersimpan "Jamet") |
+| 1.4 | 2026-09-24 | Section 9.2 disinkronkan dengan status nyata (ST-04): Fase 1c — TODO-SEARCH-01 ditutup di Fase 1d; Fase 1d — Spec, Plan, Kode, dan code review selesai; Fase 2a — kedua plan sudah `Completed`. Kriteria GH-009 dicentang. Tidak ada perubahan lingkup atau perilaku. | `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` (Iterasi 3, ST-04) |
 
 ### 1.2 Product summary
 
@@ -206,10 +207,10 @@ Ketika keduanya sempat menyentuh percakapan yang sama, hanya satu perubahan yang
 - **M1 Gelombang 1** (repo WA-Gateway): keandalan pesan masuk — Spec ✅ selesai, Plan ✅ selesai, Kode 🔄 sedang berjalan (Fase 1–3 dari 3 fase sudah dikoding & diuji simulasi, menunggu pengujian nyata TASK-017/018).
 - **M3 Fase 1a** (AuliaPos, tanpa migration): Queue View, Conversation Detail dasar, Snooze tanpa alasan — Spec ✅, Plan ✅, Kode ✅ selesai dan sudah digabung ke branch `v2.3` (PR #41).
 - **M3 Fase 1b** (AuliaPos, dengan migration baru): sisi server untuk Internal Note, SLA Timer, alasan Snooze, Filter & Pencarian — Spec ✅, Plan ✅, Kode ✅ selesai dan sudah digabung ke `v2.3` (PR #41).
-- **M3 Fase 1c** (AuliaPos, tanpa migration): sisi layar yang tertinggal dari Fase 1b — tombol Internal Note mandiri, titik warna SLA Timer di daftar, kotak pencarian nama/nomor — Spec ✅ (rev 1.1, AC-010..AC-012), Plan ✅ (Phase 3 + plan refactor Fase 1c, keduanya `Completed`), Kode ✅ selesai, diuji (317/317 test, cek manual browser 8/8), code review: layak digabung. Sisa kecil: pencarian belum mencakup nama profil WhatsApp (TODO-SEARCH-01), dilanjutkan di Fase 1d.
-- **M3 Fase 1d** (AuliaPos, tanpa migration): pencarian nama/nomor lengkap — semua nama/nomor yang tampil di daftar ikut dicari (GH-009, menutup NG-01 / TODO-SEARCH-01) — PRD ✅ v1.3, Spec belum, Plan belum, Kode belum.
+- **M3 Fase 1c** (AuliaPos, tanpa migration): sisi layar yang tertinggal dari Fase 1b — tombol Internal Note mandiri, titik warna SLA Timer di daftar, kotak pencarian nama/nomor — Spec ✅ (rev 1.1, AC-010..AC-012), Plan ✅ (Phase 3 + plan refactor Fase 1c, keduanya `Completed`), Kode ✅ selesai, diuji (317/317 test, cek manual browser 8/8), code review: layak digabung. Sisa kecil (pencarian belum mencakup nama profil WhatsApp, TODO-SEARCH-01) ✅ sudah ditutup di Fase 1d.
+- **M3 Fase 1d** (AuliaPos, tanpa migration): pencarian nama/nomor lengkap — semua nama/nomor yang tampil di daftar ikut dicari (GH-009, menutup NG-01 / TODO-SEARCH-01) — PRD ✅ v1.3, Spec ✅ rev 1.2 (REQ-013, AC-013), Plan ✅ rev 1.2 (Phase 4, TASK-020..022, `Completed`), Kode ✅ selesai (`db7f301`), diuji (324/324 test, cek manual browser TASK-021 c), code review: layak digabung.
 - **M3 Fase 1e** (AuliaPos): pencarian isi pesan + potongan pesan yang cocok di hasil (GH-010) — PRD ✅ v1.3, Spec belum (termasuk rancangan kecepatan pencarian), Plan belum, Kode belum. Dikerjakan setelah Fase 1d.
-- **M3 Fase 2a** (AuliaPos, dengan migration baru): Handoff antar staff + Collision Detection — PRD ✅ v1.1, Spec ✅ v1.2, Plan ✅ dibuat, Kode ✅ sudah dikoding dan diuji, code review ✅ (0 Blocker, 0 Critical; perbaikan kecil lewat plan refactor Fase 2a). Catatan: status di kedua plan Fase 2a belum disinkronkan dengan kode (masih tertulis `Planned`), akan dirapikan di sesi `/sdlc-plan-tasks` terpisah.
+- **M3 Fase 2a** (AuliaPos, dengan migration baru): Handoff antar staff + Collision Detection — PRD ✅ v1.1, Spec ✅ v1.2, Plan ✅ rev 1.1 (plan fitur dan plan refactor Fase 2a, keduanya `Completed`), Kode ✅ sudah dikoding, diuji, dan digabung ke `v2.3` (PR #41), code review ✅ (0 Blocker, 0 Critical; perbaikan kecil lewat plan refactor Fase 2a).
 - **M3 Fase 2b** (inkremen berikutnya): Auto-assignment (GH-008) — belum dijadwalkan; menunggu aturan pembagian beban kerja ditetapkan lebih dulu.
 - **M2, M4, M5** — di luar scope PRD ini sebagai program, roadmap jangka panjang (State Consistency, Customer Context penuh, fitur AI). Catatan: *constraint* K-01 di Section 2.3 membuka jalur sempit agar Fase 2a bisa berjalan tanpa menutup M2 sebagai program.
 
@@ -308,10 +309,13 @@ Ketika keduanya sempat menyentuh percakapan yang sama, hanya satu perubahan yang
 - **ID**: GH-009
 - **Story**: Sebagai kasir, saya ingin setiap nama atau nomor yang tampil di daftar percakapan bisa dipakai untuk mencari, supaya percakapan yang namanya saya lihat di layar selalu bisa saya temukan kembali.
 - **Acceptance criteria**:
-  - [ ] Percakapan tanpa nama kontak tersimpan yang tampil di daftar dengan nama profil WhatsApp-nya (mis. "Budi Cetak") ditemukan saat kasir mencari "budi cetak".
-  - [ ] Percakapan ditemukan lewat nama kontak yang disimpan, nama profil WhatsApp, nomor yang disimpan, maupun nomor WhatsApp-nya.
-  - [ ] Pencarian tidak membedakan huruf besar/kecil dan mencari di seluruh riwayat percakapan, termasuk yang sudah "Selesai" dan yang lama.
-  - [ ] Pencarian tetap berlaku bersamaan dengan tab status, dan angka di tiap tab mengikuti hasil pencarian (perilaku Fase 1c tetap).
+  - [x] Percakapan tanpa nama kontak tersimpan yang tampil di daftar dengan nama profil WhatsApp-nya (mis. "Budi Cetak") ditemukan saat kasir mencari "budi cetak".
+  - [x] Percakapan ditemukan lewat nama kontak yang disimpan, nama profil WhatsApp, nomor yang disimpan, maupun nomor WhatsApp-nya.
+  - [x] Pencarian tidak membedakan huruf besar/kecil dan mencari di seluruh riwayat percakapan, termasuk yang sudah "Selesai" dan yang lama.
+  - [x] Pencarian tetap berlaku bersamaan dengan tab status, dan angka di tiap tab mengikuti hasil pencarian (perilaku Fase 1c tetap).
+
+> [!NOTE]
+> GH-009 dicentang per v1.4 (2026-09-24) berdasarkan bukti di `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` Iterasi 3: Spec AC-013 (a)–(h), plan Fase 1 rev 1.2 Phase 4 `Completed`, kode `db7f301`, 324/324 test lolos, dan cek manual browser TASK-021 (c).
 
 ### 10.10. Menemukan percakapan dari isi chat (Fase 1e)
 

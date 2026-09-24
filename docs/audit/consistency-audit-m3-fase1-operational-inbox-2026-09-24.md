@@ -1,5 +1,97 @@
 <!-- markdownlint-disable -->
 
+# 🔍 Consistency Audit Report [Review Iteration 3]
+
+> [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED for PRD scope (ST-04 + GH-009)**
+> This audit report has been remediated by Product Manager PRD on 2026-09-24 in `prd-20260922-0141-chat-whatsapp-inbox.md` v1.4 (status text and checkboxes only, no scope change).
+> - **Resolved:** ST-04. §9.2 Fase 1c row now marks TODO-SEARCH-01 closed in Fase 1d. Fase 1d row: Spec rev 1.2 (REQ-013, AC-013), Plan rev 1.2 (Phase 4, `Completed`), code `db7f301`, 324/324 tests + manual check TASK-021 (c), code review Merge. Fase 2a row: the "plans not synced" note is removed; both plans rev 1.1 `Completed` (verified in their frontmatter). GH-009 criteria ticked in §10.9 with an evidence note. Amendment row v1.4 added in §1.1.
+> - **Still open (outside PRD scope):** Spec editorial (§1 Fase 1c, §6 REQ-013, §13 wording) → `/sdlc-define-specs`; Plan editorial (TASK-011 pointer, TASK-020 line refs) → `/sdlc-plan-tasks`; Fase 1 TASK-006 implied approval.
+> - **Projected Readiness Score:** 98/100 (Completeness 40/40, Clarity 28/30, Alignment 30/30).
+
+**Date:** 2026-09-24 · **Scope:** M3 Fase 1 focused re-check of MC-01..03 (Fase 1c) and NG-01 (Fase 1d, TASK-020 `db7f301`, code review verdict: Merge, no refactoring plan)
+
+**Readiness Score:** 95/100
+**Status:** Good Enough
+
+**Score Breakdown:**
+
+- **Completeness (max 40):** 39 - Every Fase 1a–1d PRD story traces to a Spec REQ + AC, a Plan task, code and tests. -1: PRD GH-009 criteria are verified but still `[ ]`.
+- **Clarity (max 30):** 28 - -1: Spec §1 intro/scope omit Fase 1c; §6 coverage says "REQ-00x baru (007-012)" without REQ-013; §13 gate says "Fase 1a/1b". -1: Plan TASK-011 still says `q` matches `contact_name`/`phone` without a pointer to TASK-020; TASK-020 cites `Inbox.php:123-131`, the code is now at `Inbox.php:37` and `:137-138`.
+- **Alignment (max 30):** 28 - -2: PRD §9.2 status is stale: the Fase 1d row still says "Spec belum, Plan belum, Kode belum", and the Fase 2a row still says its plans are not synced (ST-01/ST-02 were resolved).
+- **Critical Flaw Veto:** No - no blocking defect in the Fase 1 scope.
+
+---
+
+## 1. 📊 Executive Summary
+
+- **SDLC Phase:** Plan (post-implementation; Plan Phases 1–4 `Completed`)
+- **Documents Analyzed:**
+  - [x] PRD: `prd-20260922-0141-chat-whatsapp-inbox.md` v1.3
+  - [x] Spec: `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.2
+  - [x] Plan: `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2
+- **Also checked:** `app/Controllers/Inbox.php`, `app/Views/inbox/index.php`, `tests/session/OperationalInboxConversationTest.php`, `CONTEXT.md`, `docs/adr/0001-reuse-response-state-for-queue-view-status.md`
+- **Standards Compliance:** PASS
+
+### Re-check status
+
+| ID | Iteration 2 | Now | Evidence (current code) |
+|---|---|---|---|
+| MC-01 (GH-002 Internal Note) | ✅ Closed | ✅ **Still closed** | Button in `renderThreadHeader()` (`index.php:1117`), `#modalCatatanInternal` (`index.php:668`), byte check + toast "maksimal 4096 byte" (`index.php:1308`); endpoint message "maksimal 4096 byte" (`Inbox.php:966`). |
+| MC-02 (GH-004 SLA dot) | ✅ Closed | ✅ **Still closed** | `SLA_WARNA` + `renderTitikSla()` (`index.php:840-858`), used in the list (`index.php:905`). |
+| MC-03 (Layar 7 search box) | ✅ Closed | ✅ **Still closed** | `#inputCariConversation` `maxlength="255"` (`index.php:331`); `kataKunciAktif` kept during polling (`index.php:928`, `:1811`); CL-005 empty text (`index.php:879`). |
+| NG-01 / TODO-SEARCH-01 | ⚠️ Backlog | ✅ **Closed end-to-end** | PRD v1.3 GH-009 → Spec CL-015, REQ-013, CON-003, §4.4, AC-013 → Plan TASK-020..022 → `Inbox::SEARCH_COLUMNS` = 5 columns (`Inbox.php:37`), per-column `mb_stripos` (`Inbox.php:137-138`) → one test per AC-013 (a)–(g) (`OperationalInboxConversationTest.php:510-618`); (h) manual check TASK-021 (c). List display order (`index.php:352/361`, `:887/901`) matches REQ-013. CON-003 boundary: `db7f301` touches only the controller and one test file. |
+| NG-05 ("4096 byte") | ⚠️ Backlog | ✅ **Closed for Internal Note / Snooze reason** | Remaining "4096 karakter" at `Inbox.php:658/729` is the reply-text limit, which the Fase 1 Spec does not define; not a Fase 1 finding. |
+
+## 2. 🔍 Traceability Findings
+
+### 🚨 Critical Blockers (Must Fix)
+
+- **Missing Coverage (Upstream -> Downstream):** None. GH-010 (Fase 1e) is declared out of scope in Spec §1.1/§15 and Plan rev 1.2; it is a planned next step, not a defect.
+- **Orphaned Items (Scope Creep):** None. TASK-020..022 trace to GH-009 / REQ-013.
+- **Contradictions (Cross-Document Conflicts):** None.
+
+### ⚠️ Minor Gaps (Assumed / Backlog - The 20% we skip)
+
+- **ST-04 — PRD §9.2 status is stale:** Fase 1d row should read Spec ✅ rev 1.2, Plan ✅ rev 1.2, Code ✅ `db7f301`, code review Merge. Fase 2a row: drop "status di kedua plan Fase 2a belum disinkronkan". Fase 1c row: mark TODO-SEARCH-01 closed.
+  - **Handling:** `[Backlog]` - status text only. `/sdlc-draft-prd`.
+- **PRD §10 GH-009 checkboxes still `[ ]`:** all four criteria are verified (AC-013 a–h, 324/324 tests, manual check TASK-021 c).
+  - **Handling:** `[Backlog]` - `/sdlc-draft-prd`, together with ST-04.
+- **Spec editorial:** §1 intro and §1 scope list do not name Fase 1c (AC-010..AC-012); §6 Coverage Requirements says "REQ-00x baru (007-012)" without REQ-013; §13 gate says "sebelum Fase 1a/1b dianggap selesai".
+  - **Handling:** `[Backlog]` - wording only; the contracts are complete. `/sdlc-define-specs`, e.g. together with the Fase 1e revision.
+- **Plan editorial:** TASK-011 still describes `q` over `contact_name`/`phone` with no note that TASK-020 superseded it; TASK-020 line refs `Inbox.php:123-131` are out of date.
+  - **Handling:** `[Backlog]` - historical text, optional. `/sdlc-plan-tasks`.
+- **Carry-over:** Fase 1 TASK-006 approval is still marked implied (no written record).
+  - **Handling:** `[Backlog]` - unchanged from Iteration 2.
+
+## 3. 🛡️ Standards Compliance (Documentation Audit)
+
+- **ADR Format Compliance:** PASS
+  - Fase 1d keeps filter-after-fetch (Plan ALT-006), consistent with ADR-0001. No new decision meets the Triple Gate.
+- **Context/Glossary Alignment:** PASS
+  - PRD, Spec and Plan use "Internal Note" and "SLA Timer" (Spec §2 glossary). `CONTEXT.md` lists "Catatan Internal" under _Avoid_ for **Handoff Note**, which does not conflict.
+- **Codebase Reality Check:** PASS
+  - Code matches Spec rev 1.2 for every Fase 1 contract checked (Internal Note endpoint, SLA dot, search `q` over five columns + `page`).
+
+## 4. 📝 Action Plan (Corrective Actions)
+
+- **Updates Required:**
+  - [ ] **PRD:** ST-04 (§9.2 Fase 1c/1d/2a status) + tick GH-009. → `/sdlc-draft-prd`
+  - [ ] **Spec:** optional editorial (§1 Fase 1c, §6 REQ-013, §13 wording). → `/sdlc-define-specs`
+  - [ ] **Plan:** optional editorial (TASK-011 pointer to TASK-020, TASK-020 line refs). → `/sdlc-plan-tasks`
+  - [x] **Standards (ADR/Context):** None required.
+
+---
+> **User Decision Prompt:**
+> The document has achieved a Readiness Score of 95/100. It is ready for the next phase. Do you want to **PROCEED** to the next phase, or do you want to **REFINE** and clarify further?
+>
+> **User decision (2026-09-24): PROCEED.** Next: `/sdlc-define-specs` for Fase 1e (GH-010, message-text search, incl. search-speed design); the PRD ST-04 + GH-009 status fix is handled in the same round via `/sdlc-draft-prd`.
+
+---
+---
+
+# 📜 History — Review Iteration 2 (kept for traceability)
+
 # 🔍 Consistency Audit Report [Review Iteration 2]
 
 > [!SUCCESS]

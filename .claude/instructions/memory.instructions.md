@@ -1685,3 +1685,30 @@
 <!-- checkpoint-tail: Fase 1d (TASK-020, db7f301+88cc7e0+7f2d82b) reviewed: Merge, no refactoring plan; plan rev 1.2 Completed; next is /sdlc-audit-consistency for MC-01..03/NG-01. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (PRD v1.4: ST-04 + GH-009)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** PRD remediation after consistency audit Iteration 3 (95/100, user decision PROCEED).
+- **Active Artifacts:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — **v1.4**, status text only, no scope change.
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — Iteration 3 (95/100) + PRD Remediation Status block, projected 98/100 (40/28/30).
+  - Spec rev 1.2 and Plan rev 1.2 — unchanged.
+- **Achieved Milestones:**
+  - ST-04: PRD §9.2 Fase 1c row marks TODO-SEARCH-01 closed in Fase 1d; Fase 1d row = Spec rev 1.2 (REQ-013, AC-013), Plan rev 1.2 Phase 4 `Completed`, code `db7f301`, 324/324 tests + TASK-021 (c), review Merge; Fase 2a row drops the "plans not synced" note (both plans rev 1.1 `Completed`, checked in frontmatter).
+  - GH-009 (§10.9) criteria ticked with an evidence note; §1.1 amendment row v1.4.
+- **Dead-Ends (Do NOT Repeat):**
+  - None.
+- **Updated Files:**
+  - `prd-20260922-0141-chat-whatsapp-inbox.md` — v1.4.
+  - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` — Iteration 3 report + PRD Remediation Status.
+- **Decisions Made:**
+  - None beyond status sync.
+- **Next Action / Pending:**
+  - `/sdlc-define-specs` Fase 1e (GH-010, message-text search incl. search-speed design) + Spec editorial from Iteration 3 (§1 Fase 1c, §6 REQ-013, §13 wording).
+  - Optional `/sdlc-plan-tasks` editorial (TASK-011 pointer to TASK-020, TASK-020 line refs).
+  - Carried over: `/code-janitor` STD-02 wording `Inbox.php` ~658/~729, optional STD-01, dummy conversations 24575-24584; Fase 1 TASK-006 implied approval; check WA Gateway `data/` before moving the gateway.
+
+<!-- checkpoint-tail: PRD v1.4 synced §9.2 (Fase 1c/1d/2a) and ticked GH-009 per audit Iteration 3 ST-04; next is /sdlc-define-specs for Fase 1e (GH-010). -->
+
+---
