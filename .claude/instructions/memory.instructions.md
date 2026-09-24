@@ -2207,3 +2207,21 @@
 
 ---
 
+
+
+## 📝 Session Checkpoint: 2026-09-24 (M1 Wave 2 — Phase 3 CLOSED; TASK-014 APPROVED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code — M1 Wave 2 **Phase 3 is CLOSED**: TASK-011..TASK-013 completed and verified; TASK-014 approved by the owner (`setuju`). Phase 4 and Phase 5 have not started.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — front matter remains `status: 'Planned'`; Completed/Date filled for TASK-011..TASK-014.
+  - `docs/decisions/2026-09-24-m1-wave2-phase3-incoming-dead-letter.md` — new Phase 3 decision log with commits, AC-033..AC-038 evidence, deviations P-13..P-16, and TASK-014 approval.
+- **Gateway state:**
+  - Worktree `C:\projects\WA-Gateway-m1w2`, branch `feature/m1-wave2-outgoing-idempotency`, final HEAD `4010cc1`; TASK-011 commit `c766d6a`, TASK-012 commit `4010cc1`.
+  - Live `C:\projects\WA-Gateway` remains `master` at `21a4cb6`; no checkout/reset, live data/auth access, process stop, or deployment.
+- **Verification:** `test/simulate-dead-letter.js` passed with 0 failed assertions; cumulative suite passed 23/23; outgoing ordering guard, log scan, Floor-Guard, and SQLite isolation passed. All test SQLite/log paths were temporary; no worktree `data/` remained. HTTP 422 remains `[Assumed / Out of Scope]` (A-8b).
+- **Decisions made:** Permanent incoming rejection uses a non-counting `markDeadLetter()` transition; existing `getDueEvents()` filter is preserved; burst observability remains in the delivery loop; allowed reasons remain `max_attempts`, `max_age`, and `permanent_rejection`.
+- **Evidence limits:** AC-026(b)/AC-042 and AC-027 remain stub-only or unmeasured; GW-09 is not closed until Phase 5. `DELIVERY_MAX_ATTEMPTS=100` and `DELIVERY_DEAD_AFTER_MS` still require post-outage calibration (K-04).
+- **Next Action / Pending:** In a NEW session, run `/sdlc-write-code` Phase 4 (TASK-015..TASK-021) for AuliaPos. Do not raise the plan front-matter status before TASK-024. Gateway push/deploy remains out of scope unless separately authorized.
+
+<!-- checkpoint-tail: M1 Wave 2 Phase 3 is CLOSED — TASK-011..013 verified (commits c766d6a, 4010cc1), TASK-014 APPROVED by owner; AuliaPos documentation commit and push are the finalization steps; live Gateway remains 21a4cb6; Phase 4 must start in a new session. -->
