@@ -2441,3 +2441,31 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-24
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Bug Remediation Planning (`/sdlc-bug-report`, Fase 1 diagnosis + Fase 2 plan writing)
+- **Active Artifacts:**
+  - `plan/plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md` — Status: ✅ Drafted, `status: "Planned"` (not yet executed via `/sdlc-write-code`)
+- **Achieved Milestones:**
+  - Diagnosed F-1 (`OPERATION_STORE_ERROR` 500 falls into the generic "kegagalan biasa" branch of `tanganiKegagalanKirimBalasan()`, `app/Views/inbox/index.php:2210-2231`) with confirmed root cause: no explicit branch exists for this `error_code`; `Inbox.php::gatewayFailureResponse()` already forwards it unmodified (line 2301), so the fix is client-only.
+  - Diagnosed F-2 (409 `SEND_IN_PROGRESS`/504 `SEND_UNRESOLVED` never insert a `messages` row even if the send actually succeeded) and confirmed via the already-locked test `testAmbiguousGatewayResponseDoesNotInsertSuccessfulMessage()` (`tests/session/InboxOutgoingIdempotencyTest.php:140-160`) that "no insert on this path" is an intentionally locked REQ-041 contract, not an oversight.
+  - Applied the skill's Architecture Escalation rule to F-2: a real fix needs either a new Gateway status-check contract or a new `send_status` enum value (touches `DAT-002`/`CON-009`), so it is out of scope for a surgical bug-fix plan.
+  - User explicitly chose: F-1 = full fix; F-2 = UX-copy mitigation only + formal recommendation to route the real fix through `/sdlc-define-specs`.
+  - Wrote the full bug-fix plan (`plan/plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md`) following the same template/structure as `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md`: Requirements & Constraints (REQ-001..003, CON-001..005), Implementation Phase 1 (test-first, TASK-001..004) and Phase 2 (minimal fix, TASK-005..012) each gated by an explicit APPROVAL stop, Rollback Strategy, Dependencies, Files Affected, Testing Strategy & Edge Cases (E-01..E-03), and Risks & Assumptions (RISK-001..003, ASSUMPTION-001).
+- **Dead-Ends (Do NOT Repeat):** none new this session.
+- **Updated Files:**
+  - `plan/plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md` — new file, full bug-fix plan for F-1 (full fix) and F-2 (UX mitigation only).
+- **Decisions Made:**
+  - F-1 will be fixed entirely in `app/Views/inbox/index.php` (new `OPERATION_STORE_ERROR` branch in `tanganiKegagalanKirimBalasan()`, key preserved, distinct operator-restart message); `Inbox.php` is NOT touched (CON-002).
+  - F-2 will NOT insert a `messages` row on the 409/504 path in this plan; only the existing "hasil belum pasti" warning copy is strengthened. The real reconciliation fix (Gateway status-check contract or new `send_status` value) is deferred to a future `/sdlc-define-specs` session (RISK-002).
+  - `tests/js/operation-id-composer.check.js` remains the authoritative test for this client-side function per its own documented convention (verbatim copy, no Node infra elsewhere in the project).
+- **Next Action / Pending:**
+  - Plan is ready for `/sdlc-write-code` (or an optional `/sdlc-clarify-reqs` pass first, at the user's discretion) to execute Phase 1 (red test) then Phase 2 (fix + green test) with explicit approval gates between phases.
+  - After execution, remember to update `plan/plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md` front-matter `status: "Planned"` → `"Completed"` and badge color, per the project's established convention (see `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` revision history).
+  - RISK-002 (F-2 real fix) remains an open backlog item — no session has yet opened `/sdlc-define-specs` for it.
+
+<!-- checkpoint-tail: 2026-09-24 bug-report session diagnosed F-1 (OPERATION_STORE_ERROR falls into generic failure branch, client-only fix, index.php:2210-2231) and F-2 (409 SEND_IN_PROGRESS/504 SEND_UNRESOLVED never insert messages row, intentional REQ-041 lock, real fix needs new Gateway contract or send_status value -- out of scope, Architecture Escalation applied); user chose F-1 full fix + F-2 UX-mitigation-only; wrote plan/plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md (status Planned, 2 phases with approval gates); no code executed yet, next step is /sdlc-write-code. -->
+
+---
+
