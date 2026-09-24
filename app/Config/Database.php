@@ -297,6 +297,16 @@ class Database extends Config
         if (ENVIRONMENT === 'testing') {
             $this->defaultGroup      = 'tests';
             $this->inbox['database'] = 'aulia_inboxdb_test';
+
+            // `.env` may also carry `database.inbox.DSN` or
+            // `database.inbox.failover`. A DSN is parsed on top of the group
+            // when the connection opens (system/Database/Database.php) and
+            // failover is used when the primary connection fails, so either
+            // one would silently point the tests back at the real
+            // aulia_inboxdb -- even though the database name above and the
+            // bootstrap check pass. Both are cleared here (SEC-01).
+            $this->inbox['DSN']      = '';
+            $this->inbox['failover'] = [];
         }
     }
 }

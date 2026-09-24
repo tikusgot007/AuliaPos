@@ -142,7 +142,7 @@ AuliaPos intentionally uses multiple database groups.
 During the testing environment, both real MySQL groups are redirected so tests never write to live data:
 
 - `default` → the `tests` group (SQLite `:memory:`);
-- `inbox` → the dedicated database `aulia_inboxdb_test` (same server credentials from `.env`, only the database name is forced).
+- `inbox` → the dedicated database `aulia_inboxdb_test` (same server credentials from `.env`; the database name is forced, and `DSN`/`failover` are cleared so an `.env` DSN or failover entry cannot redirect the connection).
 
 Both redirects live in `Config\Database::__construct()`. In addition, `tests/_support/bootstrap.php` refuses to start PHPUnit if the `inbox` group does not resolve to `aulia_inboxdb_test`.
 

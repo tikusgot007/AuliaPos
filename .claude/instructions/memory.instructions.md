@@ -1770,3 +1770,60 @@
 <!-- checkpoint-tail: Tests now use aulia_inboxdb_test (forced in Config\Database + fail-closed tests/_support/bootstrap.php + guard test); 327 green, real DB untouched; plan Completed; next is /sdlc-code-review. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-24 (Code review: bug fix aad7720, inbox test DB isolation)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (Supplementary)
+- **Active Artifacts:**
+  - `plan/plan-bugfix-inbox-test-db-isolation-v1.0.md` — Status: ✅ Completed (reviewed, no change)
+- **Achieved Milestones:**
+  - Two-Axis review of commit `aad7720` (two parallel read-only sub-agents). 0 CRITICAL, 0 REQUIRED. Verdict: **Merge**. No refactoring plan created.
+  - Guard test re-run by reviewer: `OK (3 tests, 3 assertions)`.
+- **Findings (all non-blocking):**
+  - [OPTIONAL] SEC-01: only `inbox['database']` is forced. A `database.inbox.DSN` (with `://`) or `failover` entry in `.env` would bypass both the redirect and the bootstrap check (CI4 `Database::load()` parses DSN over config, `system/Database/Database.php:51-52`). Guard test runs too late to help (`ConversationHandoff*Test` sort first and empty tables). No risk today: `.env` has no DSN/failover (verified). Remedy: in the `testing` block add `$this->inbox['DSN'] = ''; $this->inbox['failover'] = [];`.
+  - [NIT] STD-01: guard test 3 is implied by test 2 (kept, plan asked for it). [NIT] SPEC-01: REQ-005 met in intent only (+20 live Gateway messages). [NIT] SPEC-02: TASK-008 red output not recorded in plan. [OPTIONAL] SPEC-03: ARCHITECTURE.md §5 diagram lacks `aulia_inboxdb_test`.
+  - [FYI] `'aulia_inboxdb_test'` literal in 3 places is intentional (independent checks, not a DRY smell).
+- **Updated Files:**
+  - `.claude/instructions/memory.instructions.md` — this checkpoint only (review wrote no other files).
+- **Decisions Made:**
+  - Bug fix `aad7720` approved for merge; SEC-01 left to user decision.
+- **Next Action / Pending:**
+  - Optional: `/code-janitor` to apply SEC-01 (2 lines in `app/Config/Database.php`), then run `tests/database/InboxTestDatabaseIsolationTest.php`.
+  - Still open from before: recovery of chat data already lost from `aulia_inboxdb` (plan RISK-004), separate task.
+
+<!-- checkpoint-tail: Review of aad7720 done: merge approved, 0 blocking findings; optional SEC-01 (clear inbox DSN/failover under testing) awaits user decision. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-24 (Janitor fix: SEC-01 inbox DSN/failover cleared under testing)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Supplementary: ad-hoc fix executed through `/code-janitor` (SEC-01, the OPTIONAL finding from the review of `aad7720`). No PRD/Spec/Plan artifact — 2-line config change, Broom Rule.
+- **Active Artifacts:** none new. Executed against `plan/plan-bugfix-inbox-test-db-isolation-v1.0.md` (Status: ✅ Completed, unchanged).
+- **Achieved Milestones:**
+  - Reproduced SEC-01 as a RED test first: with `database.inbox.DSN=MySQLi://root:@localhost/aulia_inboxdb` present in the process environment, the guard test failed 2/3 (`SELECT DATABASE()` returned `aulia_inboxdb`), while `testConfigPointsInboxGroupToTestDatabase` still PASSED. Proven: neither the `inbox['database']` redirect nor `tests/_support/bootstrap.php` can stop a DSN override.
+  - Applied the remedy in `app/Config/Database.php` (`ENVIRONMENT === 'testing'` block): `$this->inbox['DSN'] = '';` and `$this->inbox['failover'] = [];`.
+  - GREEN: guard test `OK (4 tests, 5 assertions)`, including a re-run with the same injected DSN (0 failures); full suite `OK (328 tests, 1102 assertions)` in ~28 s.
+- **Findings / Corrections:**
+  - The `failover` half of SEC-01 is NOT reachable from `.env`: `BaseConfig::initEnvValue()` (`system/Config/BaseConfig.php:173-178`) recurses only into keys that already exist in the default array, and the `failover` default is `[]`. Proven empirically — `database.inbox.failover.hostname=evilhost` changed nothing, while `database.inbox.dateFormat.date=d/m/Y` (array WITH keys) did override. The `failover = []` line is therefore defense-in-depth, not the live hole; the DSN line is the real fix.
+  - `DSN` is dangerous because `Database::load()` merges the parsed DSN on top of the group config (`system/Database/Database.php:51` then `parseDSN()` → `array_merge($params, $dsnParams)`), so hostname, database, username, and DBDriver all come from the DSN.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** verifying the DSN bypass by setting `$_ENV['database.inbox.DSN']` only. **Reason:** `variables_order=GPCS` on the XAMPP CLI PHP leaves `$_ENV` empty; CI4 falls back to `getenv()`. Inject the probe as a real process env var (`env 'database.inbox.DSN=...' php vendor/bin/phpunit ...`), which is also what `$_SERVER` exposes.
+  - **Attempted:** making the DSN scheme lowercase (`mysqli://`). **Reason:** CI4 resolves the driver from the scheme string as written, so lowercase produces `ConfigException: Invalid DBDriver name: "mysqli"` instead of the database-switch failure being probed. Use `MySQLi://`.
+- **Updated Files:**
+  - `app/Config/Database.php` — +10 lines (2 config lines + English comment) in the `testing` block.
+  - `tests/database/InboxTestDatabaseIsolationTest.php` — +17 lines; new read-only test `testInboxGroupHasNoDsnOrFailoverOverride` (2 assertions).
+  - `docs/ARCHITECTURE.md` — §5 testing-redirect bullet now states that `DSN`/`failover` are cleared (old wording "only the database name is forced" was no longer true).
+- **Decisions Made:**
+  - Put the new assertions in the existing read-only guard test instead of creating a new file; the 3 independent `aulia_inboxdb_test` literals stay intentional (independent checks, not a DRY smell).
+  - Do not touch `.env`, the `default`/`tests` groups, or add a test for the failover path (unreachable without killing the primary connection — YAGNI).
+- **Next Action / Pending:**
+  - New suite baseline: **328 tests / 1102 assertions** (was 327 / 1100).
+  - At the next compaction, promote to the Knowledge Base: "a `DSN` in `.env` overrides the whole group at connect time, while empty-array defaults (`failover`) can never be set from `.env`".
+  - Still open: recovery of chat data already lost from `aulia_inboxdb` (plan RISK-004); `/sdlc-define-specs` Fase 1e (GH-010); `/code-janitor` STD-02 wording; `spec/spec-design-m3-operational-inbox-fase1.md` keeps pre-existing uncommitted edits (not touched this session).
+
+<!-- checkpoint-tail: SEC-01 closed — inbox DSN cleared (plus failover=[]) under testing; guard test 4/5 green with and without an injected DSN, full suite 328/1102 OK; failover half of SEC-01 proven unreachable from .env. -->
+
+---
+

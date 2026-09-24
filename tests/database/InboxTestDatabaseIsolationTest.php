@@ -28,6 +28,23 @@ final class InboxTestDatabaseIsolationTest extends CIUnitTestCase
         );
     }
 
+    public function testInboxGroupHasNoDsnOrFailoverOverride(): void
+    {
+        $inbox = config('Database')->inbox;
+
+        $this->assertSame(
+            '',
+            $inbox['DSN'],
+            "inbox DSN is '{$inbox['DSN']}': a DSN overrides the test database when the connection opens."
+        );
+
+        $this->assertSame(
+            [],
+            $inbox['failover'],
+            'inbox failover is set: a failed primary connection would fall back to a live database.'
+        );
+    }
+
     public function testLiveInboxConnectionUsesTestDatabase(): void
     {
         $live = $this->liveInboxDatabase();
