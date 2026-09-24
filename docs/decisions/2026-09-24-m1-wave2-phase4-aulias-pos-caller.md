@@ -218,4 +218,23 @@ The owner reviewed the open items in §4 and answered before Phase 5 was opened.
 - **TASK-021 approval is still pending.** Only the F-03 remediation was authorised; Phase 5 (TASK-022, including the F-01 sub-steps, TASK-023 measurement, TASK-024 closure) has not started.
 - No `git push`, no WA-Gateway action, no `pm2`, no migration against `aulia_inboxdb`, and the plan front matter is still `status: 'Planned'`.
 
-No further code, migration, or test change will be made until the owner approves TASK-021.
+## 8. TASK-021 APPROVED (2026-09-24) — Phase 4 closed
+
+The owner answered the two open items (F-03 = option (a) as a TASK-017 extension; F-01 = option (i), folded into TASK-022) and then approved TASK-021 explicitly. Phase 4 is therefore **closed**, and its per-task commit summary is recorded in §6.1 as TASK-021 requires.
+
+| At approval | Value |
+| --- | --- |
+| Suite | `OK (349 tests, 1209 assertions)` — 0 failures, 0 errors, 0 skips |
+| AC-040 / AC-045 harness | `24 PASS, 0 FAIL` (real HTTP listener, `build/` throwaway tooling) |
+| Branch | `feature/m1-wave2-outgoing-idempotency` at `771545e` + this record commit; 11 commits ahead of `origin/v2.3`, all local |
+| Real `aulia_inboxdb` | still without `gateway_operation_id` (F-01); no production migration ran |
+| Plan bookkeeping | TASK-021 row marked `APPROVED`; TASK-022 row extended with the F-01 sub-steps (e); front matter deliberately left `status: 'Planned'` until TASK-024 |
+
+### 8.1 What this approval does NOT authorise in the AuliaPos session
+
+Phase 5 is opened as a *planning* gate, but its execution cannot happen from the AuliaPos working session that produced Phase 4, for two independent reasons:
+
+1. **Repository boundary:** TASK-022 operates on the WA-Gateway repository and on the running Gateway process (`git -C C:\projects\WA-Gateway ...`, `pm2 restart wa-gateway`). That repo was explicitly out of scope for this session.
+2. **Live-traffic boundary:** TASK-023 slows or pauses the **active** Gateway that currently serves real customer traffic, and the F-01 sub-steps migrate the **real** `aulia_inboxdb`; both need their own explicit, in-the-moment approval with a rollback point recorded first.
+
+Phase 5 therefore starts in a **new session** using `docs/handoff-m1-wave2-fase5-deploy-measure-2026-09-24.md`.
