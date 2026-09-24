@@ -91,6 +91,89 @@ final class InboxOutgoingIdempotencyTest extends CIUnitTestCase
         $this->assertSame(1, db_connect('inbox')->table('messages')->where('gateway_operation_id', null)->countAllResults());
     }
 
+    /**
+     * @dataProvider ambiguousGatewayResponseProvider
+     */
+    public function testAmbiguousGatewayResponseDoesNotInsertSuccessfulMessage(string $errorCode, int $httpCode, string $state): void
+    {
+        $conversationId = $this->seedConversation();
+        $controller = $this->controllerWithOperationId('operation-ambiguous');
+        $controller->gatewayResult = [
+            'ok' => false, 'error' => 'ambiguous', 'error_code' => $errorCode,
+            'state' => $state, 'replayed' => false, 'http_code' => $httpCode,
+        ];
+        $method = (new ReflectionClass($controller))->getMethod('kirimKeConversation');
+        $method->setAccessible(true);
+
+        $response = $method->invoke($controller, $this->conversation($conversationId), 'Do not duplicate');
+        $body = json_decode($this->responseBody($controller), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame($httpCode, $response->getStatusCode());
+        $this->assertTrue($body['uncertain']);
+        $this->assertSame($errorCode, $body['error_code']);
+        $this->assertSame($state, $body['state']);
+        $this->assertStringContainsString('jangan kirim ulang dulu', $body['message']);
+        $this->assertSame(0, $this->messageCount('operation-ambiguous'));
+    }
+
+    public static function ambiguousGatewayResponseProvider(): array
+    {
+        return [
+            ['SEND_IN_PROGRESS', 409, 'in_flight'],
+            ['SEND_UNRESOLVED', 504, 'failed'],
+        ];
+    }
+
+    public function testReusedOperationIdRequestsNewClientKey(): void
+    {
+        $conversationId = $this->seedConversation();
+        $controller = $this->controllerWithOperationId('reused-operation');
+        $controller->gatewayResult = [
+            'ok' => false, 'error' => 'reused', 'error_code' => 'OPERATION_ID_REUSED',
+            'state' => 'sent', 'replayed' => false, 'http_code' => 409,
+        ];
+        $method = (new ReflectionClass($controller))->getMethod('kirimKeConversation');
+        $method->setAccessible(true);
+
+        $response = $method->invoke($controller, $this->conversation($conversationId), 'Retry with a new key');
+        $body = json_decode($this->responseBody($controller), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(409, $response->getStatusCode());
+        $this->assertTrue($body['new_key_required']);
+        $this->assertSame('OPERATION_ID_REUSED', $body['error_code']);
+        $this->assertSame(0, $this->messageCount('reused-operation'));
+    }
+
+    /**
+     * @dataProvider ordinaryFailureProvider
+     */
+    public function testOrdinaryGatewayFailureIsNotReportedAsUncertain(string $errorCode): void
+    {
+        $conversationId = $this->seedConversation();
+        $controller = $this->controllerWithOperationId('ordinary-operation');
+        $controller->gatewayResult = [
+            'ok' => false, 'error' => 'gateway unavailable', 'error_code' => $errorCode,
+            'state' => 'failed', 'replayed' => false, 'http_code' => 409,
+        ];
+        $method = (new ReflectionClass($controller))->getMethod('kirimKeConversation');
+        $method->setAccessible(true);
+
+        $response = $method->invoke($controller, $this->conversation($conversationId), 'Ordinary failure');
+        $body = json_decode($this->responseBody($controller), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(409, $response->getStatusCode());
+        $this->assertArrayNotHasKey('uncertain', $body);
+        $this->assertSame($errorCode, $body['error_code']);
+        $this->assertStringContainsString('Gagal mengirim pesan', $body['message']);
+        $this->assertSame(0, $this->messageCount('ordinary-operation'));
+    }
+
+    public static function ordinaryFailureProvider(): array
+    {
+        return [['NOT_CONNECTED'], ['DEAD_LETTERED']];
+    }
+
+
     private function controllerWithOperationId(?string $operationId): InboxGatewayIdempotencySpy
     {
         $request = new IncomingRequest(new \Config\App(), new URI('cli'), null, new UserAgent());
@@ -141,6 +224,7 @@ final class InboxOutgoingIdempotencyTest extends CIUnitTestCase
 final class InboxGatewayIdempotencySpy extends Inbox
 {
     public ?string $capturedOperationId = null;
+    public array $gatewayResult = [];
 
     public function __construct(private readonly ?string $expectedOperationId)
     {
@@ -153,7 +237,7 @@ final class InboxGatewayIdempotencySpy extends Inbox
             throw new RuntimeException('Gateway received an unexpected operation_id.');
         }
 
-        return [
+        return $this->gatewayResult !== [] ? $this->gatewayResult : [
             'ok' => true,
             'wa_message_id' => 'wa-test-' . $operationId,
         ];

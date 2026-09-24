@@ -868,12 +868,7 @@ class Inbox extends BaseController
         $result = $this->callGatewaySendMedia($config, $conversation['chat_id'], $mediaType, $mediaBase64, $mimetype, $fileName, $captionUntukGateway, $operationId);
 
         if (!$result['ok']) {
-            log_message('warning', 'Inbox::kirimMedia gagal mengirim ke Gateway. conversation_id=' . $conversationId . ' error=' . $result['error']);
-
-            return $this->response->setStatusCode(502)->setJSON([
-                'status'  => 'error',
-                'message' => 'Gagal mengirim media: ' . $result['error'],
-            ]);
+            return $this->gatewayFailureResponse($result, $conversationId, 'kirimMedia', 'Gagal mengirim media: ');
         }
 
         $userId = (int) session()->get('id_user');
@@ -1951,12 +1946,7 @@ class Inbox extends BaseController
         $result = $this->callGatewaySend($config, $chatId, $text, $operationId);
 
         if (!$result['ok']) {
-            log_message('warning', 'Inbox::kirimKeConversation gagal mengirim ke Gateway. conversation_id=' . $conversationId . ' error=' . $result['error']);
-
-            return $this->response->setStatusCode(502)->setJSON([
-                'status'  => 'error',
-                'message' => 'Gagal mengirim pesan: ' . $result['error'],
-            ]);
+            return $this->gatewayFailureResponse($result, $conversationId, 'kirimKeConversation', 'Gagal mengirim pesan: ');
         }
 
         // --- Sukses: BARU sekarang simpan sebagai outgoing 'sent' ----------
@@ -2117,6 +2107,10 @@ class Inbox extends BaseController
                 'ok'            => true,
                 'wa_message_id' => $json['wa_message_id'] ?? null,
                 'timestamp'     => $json['timestamp'] ?? null,
+                'error_code'    => $json['error_code'] ?? null,
+                'state'         => $json['state'] ?? 'sent',
+                'replayed'      => (bool) ($json['replayed'] ?? false),
+                'http_code'     => $httpCode,
             ];
         }
 
@@ -2124,7 +2118,14 @@ class Inbox extends BaseController
             ? ($json['message'] ?? ('Gateway menolak (HTTP ' . $httpCode . ')'))
             : ('HTTP ' . $httpCode . ', respons Gateway tidak valid: ' . substr((string) $rawResponse, 0, 200));
 
-        return ['ok' => false, 'error' => $errorMessage];
+        return [
+            'ok'         => false,
+            'error'      => $errorMessage,
+            'error_code' => is_array($json) ? ($json['error_code'] ?? null) : null,
+            'state'      => is_array($json) ? ($json['state'] ?? null) : null,
+            'replayed'   => is_array($json) ? (bool) ($json['replayed'] ?? false) : false,
+            'http_code'  => $httpCode,
+        ];
     }
 
     /**
@@ -2203,6 +2204,10 @@ class Inbox extends BaseController
                 'wa_message_id' => $json['wa_message_id'] ?? null,
                 'timestamp'     => $json['timestamp'] ?? null,
                 'media_ref'     => $mediaRef,
+                'error_code'    => $json['error_code'] ?? null,
+                'state'         => $json['state'] ?? 'sent',
+                'replayed'      => (bool) ($json['replayed'] ?? false),
+                'http_code'     => $httpCode,
             ];
         }
 
@@ -2210,6 +2215,48 @@ class Inbox extends BaseController
             ? ($json['message'] ?? ('Gateway menolak (HTTP ' . $httpCode . ')'))
             : ('HTTP ' . $httpCode . ', respons Gateway tidak valid: ' . substr((string) $rawResponse, 0, 200));
 
-        return ['ok' => false, 'error' => $errorMessage];
+        return [
+            'ok'         => false,
+            'error'      => $errorMessage,
+            'error_code' => is_array($json) ? ($json['error_code'] ?? null) : null,
+            'state'      => is_array($json) ? ($json['state'] ?? null) : null,
+            'replayed'   => is_array($json) ? (bool) ($json['replayed'] ?? false) : false,
+            'http_code'  => $httpCode,
+        ];
+    }
+
+    private function gatewayFailureResponse(array $result, int $conversationId, string $context, string $prefix)
+    {
+        $errorCode = $result['error_code'] ?? null;
+
+        if (in_array($errorCode, ['SEND_IN_PROGRESS', 'SEND_UNRESOLVED'], true)) {
+            log_message('warning', "Inbox::{$context} hasil belum pasti. conversation_id={$conversationId} error_code={$errorCode} state=" . ($result['state'] ?? 'unknown'));
+            return $this->response->setStatusCode((int) ($result['http_code'] ?? 409))->setJSON([
+                'status' => 'error', 'error_code' => $errorCode,
+                'state' => $result['state'] ?? null,
+                'replayed' => (bool) ($result['replayed'] ?? false),
+                'uncertain' => true,
+                'message' => 'Hasil belum pasti, jangan kirim ulang dulu. Periksa status pengiriman terlebih dahulu.',
+            ]);
+        }
+
+        if ($errorCode === 'OPERATION_ID_REUSED') {
+            log_message('error', "Inbox::{$context} operation_id dipakai ulang. conversation_id={$conversationId}");
+            return $this->response->setStatusCode(409)->setJSON([
+                'status' => 'error', 'error_code' => $errorCode,
+                'state' => $result['state'] ?? null,
+                'replayed' => (bool) ($result['replayed'] ?? false),
+                'new_key_required' => true,
+                'message' => 'Kunci pengiriman tidak valid. Gunakan kunci baru sebelum mengirim ulang.',
+            ]);
+        }
+
+        log_message('warning', "Inbox::{$context} gagal mengirim ke Gateway. conversation_id={$conversationId} error=" . ($result['error'] ?? 'unknown'));
+        return $this->response->setStatusCode((int) ($result['http_code'] ?? 502))->setJSON([
+            'status' => 'error', 'error_code' => $errorCode,
+            'state' => $result['state'] ?? null,
+            'replayed' => (bool) ($result['replayed'] ?? false),
+            'message' => $prefix . ($result['error'] ?? 'Gateway menolak permintaan.'),
+        ]);
     }
 }
