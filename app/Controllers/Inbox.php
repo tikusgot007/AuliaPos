@@ -770,6 +770,11 @@ class Inbox extends BaseController
         $caption        = trim((string) ($this->request->getPost('caption') ?? ''));
         $file           = $this->request->getFile('media');
 
+        // M1 Wave 2 (TASK-017): kunci idempotensi milik frontend, diteruskan
+        // apa adanya ke Gateway (REQ-039). Tidak pernah dibuat di sini.
+        $operationId = (string) ($this->request->getPost('operation_id') ?? '');
+        $operationId = $operationId === '' ? null : $operationId;
+
         if (!$conversationId) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
@@ -860,7 +865,7 @@ class Inbox extends BaseController
 
         $mediaBase64 = base64_encode(file_get_contents($file->getTempName()));
 
-        $result = $this->callGatewaySendMedia($config, $conversation['chat_id'], $mediaType, $mediaBase64, $mimetype, $fileName, $captionUntukGateway);
+        $result = $this->callGatewaySendMedia($config, $conversation['chat_id'], $mediaType, $mediaBase64, $mimetype, $fileName, $captionUntukGateway, $operationId);
 
         if (!$result['ok']) {
             log_message('warning', 'Inbox::kirimMedia gagal mengirim ke Gateway. conversation_id=' . $conversationId . ' error=' . $result['error']);
@@ -899,6 +904,8 @@ class Inbox extends BaseController
             'message_timestamp' => $now,
             'sent_by_user_id'   => $userId,
             'send_status'       => 'sent',
+            'gateway_operation_id' => $operationId,
+
         ]);
 
         $newMessageId = $messageModel->getInsertID();
@@ -1889,11 +1896,26 @@ class Inbox extends BaseController
      * sama sekali -- browser cukup diberi tahu gagal, silakan retry
      * (tidak ada outgoing queue, sesuai spec: "Gateway offline =>
      * reject segera", "tidak boleh membuat outgoing queue").
+     *
+     * M1 Wave 2 (TASK-017): `operation_id` milik FRONTEND diteruskan apa
+     * adanya ke Gateway supaya kirim ulang setelah timeout tidak
+     * menggandakan pesan pelanggan (REQ-039), dan baris `messages` hasil
+     * kirim di-dedupe lewat `gateway_operation_id` (AC-041). Kunci TIDAK
+     * PERNAH dibuat di server (A-4) -- kalau kasir tidak mengirimkannya
+     * (mis. halaman dimuat ulang), alur kirim berjalan seperti sebelumnya.
      */
     private function kirimKeConversation(array $conversation, string $text)
     {
         $conversationId = (int) $conversation['id'];
         $chatId         = $conversation['chat_id'];
+
+        // Dibaca dari request AJAX kasir, TIDAK dibuat/diubah di sini.
+        // Nilai ini juga tidak divalidasi polanya di AuliaPos: Gateway
+        // yang memvalidasi (REQ-020) dan menolak dengan 400
+        // INVALID_OPERATION_ID, sehingga payload ditolak sebelum apa pun
+        // ditulis ke database.
+        $operationId = (string) ($this->request->getPost('operation_id') ?? '');
+        $operationId = $operationId === '' ? null : $operationId;
 
         $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
         if ($ownershipError) {
@@ -1926,7 +1948,7 @@ class Inbox extends BaseController
             ]);
         }
 
-        $result = $this->callGatewaySend($config, $chatId, $text);
+        $result = $this->callGatewaySend($config, $chatId, $text, $operationId);
 
         if (!$result['ok']) {
             log_message('warning', 'Inbox::kirimKeConversation gagal mengirim ke Gateway. conversation_id=' . $conversationId . ' error=' . $result['error']);
@@ -1945,23 +1967,45 @@ class Inbox extends BaseController
         $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
 
         $messageModel = new MessageModel();
-        $messageModel->insert([
-            'conversation_id'   => $conversationId,
-            // Fallback kalau karena suatu alasan Gateway tidak mengirim
-            // wa_message_id (seharusnya selalu ada kalau success=true,
-            // tapi kolom ini NOT NULL UNIQUE, jadi tetap butuh fallback
-            // yang aman/tidak akan collide dengan wa_message_id asli).
-            'wa_message_id'     => $result['wa_message_id'] ?: ('local-' . bin2hex(random_bytes(8))),
-            'direction'         => 'outgoing',
-            'message_type'      => 'text',
-            'sender_jid'        => null,
-            'text'              => $text,
-            'message_timestamp' => $now,
-            'sent_by_user_id'   => $userId,
-            'send_status'       => 'sent',
+        $db           = db_connect('inbox');
+
+        // M1 Wave 2 (TASK-017/AC-041): a replayed Gateway response may arrive
+        // after AuliaPos already stored the outgoing message. Return that
+        // existing row instead of inserting a duplicate.
+        if ($operationId !== null) {
+            $existingMessages = $db->table('messages')
+                ->where('gateway_operation_id', $operationId)
+                ->get()
+                ->getResultArray();
+            $existingMessage = $existingMessages[0] ?? null;
+
+            if ($existingMessage !== null) {
+                log_message('info', "Inbox::kirimKeConversation replay (operation_id sama). conversation_id={$conversationId}, operation_id={$operationId}");
+
+                return $this->response->setStatusCode(200)->setJSON([
+                    'status'          => 'success',
+                    'conversation_id' => $conversationId,
+                    'message'         => $this->attachSenderNames([$existingMessage])[0],
+                    'replayed'        => true,
+                ]);
+            }
+        }
+
+        $db->table('messages')->insert([
+            'conversation_id'     => $conversationId,
+            'wa_message_id'       => $result['wa_message_id'] ?: ('local-' . bin2hex(random_bytes(8))),
+            'direction'           => 'outgoing',
+            'message_type'        => 'text',
+            'sender_jid'          => null,
+            'text'                => $text,
+            'message_timestamp'   => $now,
+            'sent_by_user_id'     => $userId,
+            'send_status'         => 'sent',
+            'gateway_operation_id' => $operationId,
+            'created_at'            => $now,
         ]);
 
-        $newMessageId = $messageModel->getInsertID();
+        $newMessageId = (int) $db->insertID();
 
         $conversationUpdate = [
             'last_message_at'          => $now,
@@ -2026,14 +2070,23 @@ class Inbox extends BaseController
      *
      * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, error?: string}
      */
-    private function callGatewaySend(InboxConfig $config, string $chatId, string $text): array
+    protected function callGatewaySend(InboxConfig $config, string $chatId, string $text, ?string $operationId = null): array
     {
         $url = $config->gatewayBaseUrl . '/send';
 
-        $payload = json_encode([
+        $payloadData = [
             'chat_id' => $chatId,
             'text'    => $text,
-        ]);
+        ];
+
+        // Additive (CON-007/REQ-039): `operation_id` hanya ikut dikirim
+        // kalau kasir mengirimkannya. Tanpa itu Gateway berperilaku
+        // seperti sebelumnya, dan kunci TIDAK dibuat di sini.
+        if ($operationId !== null) {
+            $payloadData['operation_id'] = $operationId;
+        }
+
+        $payload = json_encode($payloadData);
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -2082,11 +2135,11 @@ class Inbox extends BaseController
      *
      * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, media_ref?: ?array, error?: string}
      */
-    private function callGatewaySendMedia(InboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption): array
+    protected function callGatewaySendMedia(InboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null): array
     {
         $url = $config->gatewayBaseUrl . '/send-media';
 
-        $payload = json_encode([
+        $payloadData = [
             'chat_id'      => $chatId,
             'media_type'   => $mediaType,
             'media_base64' => $mediaBase64,
@@ -2098,7 +2151,16 @@ class Inbox extends BaseController
             // pernah ketahuan salah karena outgoing media belum pernah
             // dites sampai ke Gateway asli.
             'caption'      => $caption,
-        ]);
+        ];
+
+        // Additive (CON-007/REQ-039): sama seperti callGatewaySend(),
+        // kunci hanya diteruskan kalau kasir mengirimkannya -- tidak
+        // pernah dibuat di sisi server.
+        if ($operationId !== null) {
+            $payloadData['operation_id'] = $operationId;
+        }
+
+        $payload = json_encode($payloadData);
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [

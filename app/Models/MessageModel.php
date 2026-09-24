@@ -58,6 +58,7 @@ class MessageModel extends Model
         'sent_by_user_id',
         'send_status',
         'is_internal',
+        'gateway_operation_id',
         'deleted_at',
     ];
 
