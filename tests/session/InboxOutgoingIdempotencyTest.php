@@ -2,6 +2,8 @@
 
 use Config\Inbox as GatewayInboxConfig;
 use App\Controllers\Inbox;
+use CodeIgniter\HTTP\Files\FileCollection;
+use CodeIgniter\HTTP\Files\UploadedFile;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\Response;
 use CodeIgniter\HTTP\URI;
@@ -15,6 +17,9 @@ use Psr\Log\NullLogger;
 final class InboxOutgoingIdempotencyTest extends CIUnitTestCase
 {
     private ?Inbox $controller = null;
+
+    /** @var list<string> Temp files created by the media upload double. */
+    private array $tempMediaFiles = [];
 
     protected function setUp(): void
     {
@@ -46,6 +51,13 @@ final class InboxOutgoingIdempotencyTest extends CIUnitTestCase
         $this->controller = null;
         unset($_SESSION);
 
+        foreach ($this->tempMediaFiles as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+        $this->tempMediaFiles = [];
+
         parent::tearDown();
     }
 
@@ -67,6 +79,37 @@ final class InboxOutgoingIdempotencyTest extends CIUnitTestCase
         $this->assertSame(1, $this->messageCount($operationId));
 
         $second = $method->invoke($controller, $this->conversation($conversationId), 'Hello once');
+        $secondBody = json_decode($this->responseBody($controller), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(200, $second->getStatusCode());
+        $this->assertTrue($secondBody['replayed']);
+        $this->assertSame($firstBody['message']['id'], $secondBody['message']['id']);
+        $this->assertSame(1, $this->messageCount($operationId));
+    }
+
+    public function testMediaSendDeduplicatesReplayWithoutSecondInsert(): void
+    {
+        $conversationId = $this->seedConversation();
+        $operationId    = 'client-media-operation-017';
+        $controller     = $this->controllerForMedia($operationId, $conversationId, $this->fakeUploadedMedia());
+        $method         = (new ReflectionClass($controller))->getMethod('kirimMedia');
+        $method->setAccessible(true);
+
+        $first     = $method->invoke($controller);
+        $firstBody = json_decode($this->responseBody($controller), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(200, $first->getStatusCode());
+        $this->assertSame($operationId, $controller->capturedOperationId);
+        $this->assertSame($operationId, $firstBody['message']['gateway_operation_id']);
+        $this->assertSame('sent', $firstBody['message']['send_status']);
+        $this->assertSame('image', $firstBody['message']['message_type']);
+        $this->assertSame(1, $this->messageCount($operationId));
+
+        // F-03: a Gateway replay for the same key must return the stored row
+        // instead of inserting a second one (the UNIQUE index would reject
+        // it and the cashier would see HTTP 500 for a message that the
+        // customer already received).
+        $second     = $method->invoke($controller);
         $secondBody = json_decode($this->responseBody($controller), true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame(200, $second->getStatusCode());
@@ -174,6 +217,49 @@ final class InboxOutgoingIdempotencyTest extends CIUnitTestCase
     }
 
 
+    private function controllerForMedia(?string $operationId, int $conversationId, UploadedFile $file): InboxGatewayIdempotencySpy
+    {
+        $request = new IncomingRequest(new \Config\App(), new URI('cli'), null, new UserAgent());
+
+        $post = ['conversation_id' => (string) $conversationId, 'caption' => ''];
+        if ($operationId !== null) {
+            $post['operation_id'] = $operationId;
+        }
+        $request->setGlobal('post', $post);
+
+        // CI4's UploadedFile::isValid() calls is_uploaded_file(), which is
+        // always false under CLI, so kirimMedia() would reject every fixture.
+        // The request therefore gets a FileCollection holding a test double
+        // that only relaxes isValid(); every other file method keeps its real
+        // framework behaviour (finfo mime detection included).
+        $collection    = new FileCollection();
+        $filesProperty = new \ReflectionProperty($collection, 'files');
+        $filesProperty->setAccessible(true);
+        $filesProperty->setValue($collection, ['media' => $file]);
+
+        $requestFiles = new \ReflectionProperty($request, 'files');
+        $requestFiles->setAccessible(true);
+        $requestFiles->setValue($request, $collection);
+
+        $controller = new InboxGatewayIdempotencySpy($operationId);
+        $controller->initController($request, new Response(new \Config\App()), new NullLogger());
+
+        return $controller;
+    }
+
+    private function fakeUploadedMedia(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'aulia-media-');
+        $this->assertIsString($path);
+
+        // A real (minimal 1x1) PNG, so finfo detects image/png exactly like a
+        // genuine cashier upload and kirimMedia() classifies it as 'image'.
+        file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8AAAwAB/wD/AH8AAAAASUVORK5CYII='));
+        $this->tempMediaFiles[] = $path;
+
+        return new InboxTestUploadedMedia($path, 'test.png', 'image/png', (int) filesize($path), UPLOAD_ERR_OK);
+    }
+
     private function controllerWithOperationId(?string $operationId): InboxGatewayIdempotencySpy
     {
         $request = new IncomingRequest(new \Config\App(), new URI('cli'), null, new UserAgent());
@@ -241,5 +327,39 @@ final class InboxGatewayIdempotencySpy extends Inbox
             'ok' => true,
             'wa_message_id' => 'wa-test-' . $operationId,
         ];
+    }
+
+    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null): array
+    {
+        $this->capturedOperationId = $operationId;
+        if ($operationId !== $this->expectedOperationId) {
+            throw new RuntimeException('Gateway received an unexpected operation_id.');
+        }
+
+        return $this->gatewayResult !== [] ? $this->gatewayResult : [
+            'ok'            => true,
+            'wa_message_id' => 'wa-media-test-' . $operationId,
+            'media_ref'     => null,
+            'error_code'    => null,
+            'state'         => 'sent',
+            'replayed'      => false,
+        ];
+    }
+}
+
+/**
+ * Test-only upload whose isValid() no longer requires a real HTTP upload.
+ *
+ * CodeIgniter's UploadedFile::isValid() is `is_uploaded_file($path) &&
+ * $error === UPLOAD_ERR_OK`, and is_uploaded_file() is always false under
+ * CLI, so kirimMedia() would reject every test fixture. Only isValid() is
+ * relaxed here: getMimeType() (finfo), getSize(), getTempName(), and
+ * getClientName() keep the real framework behaviour.
+ */
+final class InboxTestUploadedMedia extends UploadedFile
+{
+    public function isValid(): bool
+    {
+        return true;
     }
 }

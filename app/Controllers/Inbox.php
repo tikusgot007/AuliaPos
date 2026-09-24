@@ -871,6 +871,25 @@ class Inbox extends BaseController
             return $this->gatewayFailureResponse($result, $conversationId, 'kirimMedia', 'Gagal mengirim media: ');
         }
 
+        // M1 Wave 2 (TASK-017 perluasan / F-03): sama seperti jalur teks,
+        // percobaan ulang media dengan kunci yang sama TIDAK BOLEH menulis
+        // baris kedua. Tanpa ini, replay Gateway menabrak indeks UNIQUE
+        // (HTTP 500) padahal medianya sudah terkirim ke pelanggan -- dan
+        // kasir tidak punya jalan keluar selain mengirim ulang sebagai
+        // operasi baru (media terkirim dua kali).
+        $existingMessage = $this->findMessageByOperationId($operationId);
+
+        if ($existingMessage !== null) {
+            log_message('info', "Inbox::kirimMedia replay (operation_id sama). conversation_id={$conversationId}, operation_id={$operationId}");
+
+            return $this->response->setStatusCode(200)->setJSON([
+                'status'          => 'success',
+                'conversation_id' => $conversationId,
+                'message'         => $this->attachSenderNames([$existingMessage])[0],
+                'replayed'        => true,
+            ]);
+        }
+
         $userId = (int) session()->get('id_user');
         $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
 
@@ -1959,26 +1978,22 @@ class Inbox extends BaseController
         $messageModel = new MessageModel();
         $db           = db_connect('inbox');
 
-        // M1 Wave 2 (TASK-017/AC-041): a replayed Gateway response may arrive
-        // after AuliaPos already stored the outgoing message. Return that
-        // existing row instead of inserting a duplicate.
-        if ($operationId !== null) {
-            $existingMessages = $db->table('messages')
-                ->where('gateway_operation_id', $operationId)
-                ->get()
-                ->getResultArray();
-            $existingMessage = $existingMessages[0] ?? null;
+        // M1 Wave 2 (TASK-017/AC-041; perluasan TASK-017 for F-03): a
+        // replayed Gateway response may arrive after AuliaPos already
+        // stored the outgoing message. Return that existing row instead of
+        // inserting a duplicate. The lookup is shared with kirimMedia() so
+        // the two send paths cannot drift apart again.
+        $existingMessage = $this->findMessageByOperationId($operationId);
 
-            if ($existingMessage !== null) {
-                log_message('info', "Inbox::kirimKeConversation replay (operation_id sama). conversation_id={$conversationId}, operation_id={$operationId}");
+        if ($existingMessage !== null) {
+            log_message('info', "Inbox::kirimKeConversation replay (operation_id sama). conversation_id={$conversationId}, operation_id={$operationId}");
 
-                return $this->response->setStatusCode(200)->setJSON([
-                    'status'          => 'success',
-                    'conversation_id' => $conversationId,
-                    'message'         => $this->attachSenderNames([$existingMessage])[0],
-                    'replayed'        => true,
-                ]);
-            }
+            return $this->response->setStatusCode(200)->setJSON([
+                'status'          => 'success',
+                'conversation_id' => $conversationId,
+                'message'         => $this->attachSenderNames([$existingMessage])[0],
+                'replayed'        => true,
+            ]);
         }
 
         $db->table('messages')->insert([
@@ -2032,6 +2047,36 @@ class Inbox extends BaseController
             'conversation_id' => $conversationId,
             'message'         => $newMessage,
         ]);
+    }
+
+    /**
+     * M1 Wave 2 (TASK-017/AC-041): cari baris `messages` yang sudah
+     * menyimpan operasi kirim ini, supaya percobaan ulang dengan
+     * `operation_id` yang sama tidak menulis baris kedua.
+     *
+     * Dipakai BERSAMA oleh kirimKeConversation() dan kirimMedia() -- kalau
+     * salah satu jalur menyimpan salinannya sendiri, keduanya bisa drift
+     * lagi (persis penyebab temuan F-03: jalur media kehilangan dedupe).
+     *
+     * SENGAJA tanpa filter `deleted_at`: indeks UNIQUE
+     * `uniq_messages_gateway_operation_id` juga mencakup baris yang sudah
+     * di-soft-delete, jadi baris itu harus dikembalikan -- kalau tidak,
+     * insert berikutnya justru ditolak database.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function findMessageByOperationId(?string $operationId): ?array
+    {
+        if ($operationId === null) {
+            return null;
+        }
+
+        $rows = db_connect('inbox')->table('messages')
+            ->where('gateway_operation_id', $operationId)
+            ->get()
+            ->getResultArray();
+
+        return $rows[0] ?? null;
     }
 
     /**
