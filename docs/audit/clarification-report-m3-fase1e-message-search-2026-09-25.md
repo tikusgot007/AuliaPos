@@ -1,5 +1,18 @@
 # 🔍 Clarification Report [Review Iteration 1]
 
+> [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED**
+> This audit report was remediated by the Specification Architect on 2026-09-25 (Spec v1.3 → **v1.4**, surgical: 25 insertions / 15 deletions).
+>
+> - **F-01 (test database facts) — RESOLVED:** §6, §10, and §12 no longer claim SQLite `:memory:`; they state that Inbox tests run on MariaDB `aulia_inboxdb_test`, that the ASCII-only scope of AC-014 is a deliberate scope limit, and that AC-016 is not measured through PHPUnit because the test database is empty (its `setUp()` methods call `emptyTable()`).
+> - **F-02 (CON-004 vs §6 contradiction) — RESOLVED:** CON-004 now carries the approved exception for **one pure Match Snippet Service** plus its unit test, and §7 lists it as a project-structure entry.
+> - **F-03 (missing AC-016 procedure) — RESOLVED:** §6 now holds the binding procedure (dedicated `aulia_inboxdb_perf`; schema-only provisioning per `docs/ARCHITECTURE.md` §11, not `php spark migrate`; guarded Spark command `aulia:seed-fase1e-perf`; temporary `.env` override; 3 keywords × 3 runs → median; record → clean up → restore `.env`), with §9 "Ask first" and §13 pointing back to it.
+> - **Side item — ASSUMPTION-004:** promoted from `[!WARNING] ... perlu dikonfirmasi` to `[!IMPORTANT] ... CONFIRMED` with the R-01 numbers.
+> - **Side item — F-05:** the extra "FULLTEXT is not available in SQLite" rationale was removed; CL-020 was not reopened.
+> - **Side item — R-06:** REQ-017b now states that the guard is a boolean released in `.finally()`, with no timeout added.
+> - **Still owed outside this skill:** F-04 (stale claim plus missing Fase 1d/1e sections in `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md`) belongs to `/sdlc-plan-tasks`; `docs/ARCHITECTURE.md` §11 still owes a paragraph for `aulia_inboxdb_perf` and the new Spark command; PRD §9.2 and the plan still cite "Spec v1.3".
+> - **Projected Readiness Score:** **96/100**
+
 **Target Document:** `spec/spec-design-m3-operational-inbox-fase1.md` v1.3 — kontrak **Fase 1e (GH-010, pencarian isi pesan)**: §1.2 (ASSUMPTION-004, CL-016..CL-021), §3 (REQ-014..REQ-017, CON-004), §4.4 (`match_snippet`), §5 (AC-014..AC-016), §6, §9, §10, §12, §13.
 
 **Reference Documents:**
