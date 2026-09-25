@@ -45,3 +45,25 @@ Keadaan percakapan yang tidak sedang dipegang staff mana pun, tanpa syarat
 sedang menunggu balasan — bisa sudah ditandai dibaca atau sedang ditunda,
 sehingga dapat tampil di tab selain Belum Diambil.
 _Avoid_: Belum diambil, Kosong
+
+### Grup
+
+**Grup**:
+Percakapan WhatsApp yang diikuti lebih dari dua pihak, sehingga tidak terikat
+pada satu nomor telepon maupun satu pelanggan. Berbeda dari percakapan pribadi,
+setiap pesan di dalamnya berasal dari pengirim yang berbeda-beda.
+_Avoid_: Group chat, Group, Grup WhatsApp, Group chat WhatsApp
+
+### Tindakan Pesan
+
+**Balas Pesan**:
+Balasan yang secara eksplisit menunjuk satu pesan tertentu di dalam percakapan,
+sehingga pesan yang ditunjuk ikut tampil sebagai kutipan. Berlaku untuk pesan
+teks maupun pesan media.
+_Avoid_: Reply, Quote, Kutipan, Mengutip
+
+**Teruskan**:
+Tindakan mengirimkan kembali sebuah pesan yang sudah ada ke percakapan lain,
+dengan penanda bahwa pesan itu bukan pesan asli dari pengirimnya. Tidak membuat
+percakapan baru bila percakapan tujuan belum ada.
+_Avoid_: Forward, Meneruskan, Kirim ulang
