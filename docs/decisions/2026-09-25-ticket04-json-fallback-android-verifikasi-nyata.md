@@ -118,3 +118,56 @@ berulang, TAPI **di luar scope Ticket 04** dan **tidak diperbaiki** dalam sesi i
 perubahan apa pun pada `.env` device). Direkomendasikan sebagai bug report terpisah
 (`/sdlc-bug-report`) di sesi berikutnya.
 
+### Update — Konfirmasi Perbaikan oleh Operator (2026-09-25, sesi berikutnya)
+
+Operator toko memperbaiki `CI4_BASE_URL` di `.env` device (alamat IP yang sebelumnya terpotong
+diganti dengan alamat LAN AuliaPos yang benar) dan me-restart Gateway. **Dikonfirmasi via audit
+read-only `aulia_inboxdb.messages`:** seluruh backlog berhasil mendarat, bukan hanya 22 baris yang
+tercatat di `gateway.json` saat inspeksi — total **62 baris** (`id` 204–265, 10 percakapan:
+`11745`–`11754`, 56 incoming + 6 outgoing) muncul di `aulia_inboxdb` dalam satu jendela flush
+2026-09-25 13:56:06–13:58:03, dengan jeda `message_timestamp` → `created_at` antara 9 dan 326 menit
+per baris. Sebuah batch flush serupa yang lebih besar (51 baris, 19 percakapan, jeda hingga 2880
+menit/2 hari) juga tercatat sehari sebelumnya (`id` 153–203, `created_at` 2026-09-24 04:13–05:07),
+menunjukkan pola berulang: setiap kali koneksi ke CI4 gagal, backlog pesan menumpuk dan baru
+ter-flush sekaligus saat koneksi/Gateway pulih — bukan insiden tunggal.
+
+**Status akhir: RESOLVED oleh operator, dikonfirmasi via data DB** (bukan lagi hipotesis
+"kemungkinan besar akar masalah"). Tidak ada perubahan kode yang diperlukan — perbaikan murni
+konfigurasi `.env` di sisi device Gateway. `/sdlc-bug-report` terpisah untuk item ini **tidak
+diperlukan lagi**.
+
+**Catatan silang penting untuk `plan/plan-bugfix-inbox-message-ordering-v1.0.md`:** proses flush
+backlog di atas adalah bukti nyata tambahan (bukan hanya simulasi) bahwa pesan yang tertunda lama
+bisa masuk ke `messages` dengan urutan `id` (kedatangan) yang **tidak selaras** dengan urutan
+`message_timestamp` aslinya — mis. percakapan `11745` baris `id=260` (`message_timestamp
+2026-09-25 08:31:32`) mendarat SETELAH baris `id=243` (`message_timestamp 2026-09-25 09:48:37`)
+yang sudah lebih dulu ada. Pola yang sama terjadi di percakapan `11746`, `11747`, `11748`, `11749`,
+`11750` (7 inversi total). Temuan ini memperkuat urgensi bugfix `orderBy('id', 'ASC')` pada plan
+tersebut — kondisi backlog-flush pasca-gangguan jaringan/koneksi CI4 adalah pemicu realistis, bukan
+skenario edge-case teoretis.
+
+### Temuan Baru (Terpisah, Belum Ada Plan) — `conversations.last_message_at` Bisa Mundur
+
+Audit read-only yang sama menemukan cacat kedua, **belum tercakup** oleh
+`plan-bugfix-inbox-message-ordering-v1.0.md` (plan itu hanya memperbaiki urutan baca
+`MessageModel::getByConversation()`, bukan kolom denormalized `conversations`):
+
+- **Kode:** `app/Controllers/InboxGatewayApi.php:260-276`. Setiap insert pesan (termasuk incoming)
+  menulis `conversations.last_message_at = $messageTimestamp` **tanpa guard** "hanya jika lebih baru
+  dari nilai saat ini".
+- **Dampak nyata teramati:** **7 percakapan** kini punya `last_message_at` yang LEBIH LAMA daripada
+  pesan terbaru yang sungguh ada di `messages` — 4 di antaranya akibat flush hari ini (`11745`
+  `last_message_at=08:31:35` vs pesan terbaru `09:48:37`; `11747` `12:31:18` vs `13:47:15`; `11748`
+  `11:23:51` vs `11:47:54`; `11750` `10:16:36` vs `13:16:17`) dan 3 akibat flush sehari sebelumnya
+  (`11730`, `11739`, `11740`). Di semua kasus, baris yang terakhir di-insert bukan pesan dengan
+  timestamp terbaru, sehingga nilai `last_message_at` tergantikan ke belakang.
+- **Kenapa penting:** `last_message_at` adalah sumber SLA Timer (REQ-010,
+  `spec-design-m3-operational-inbox-fase1.md:133`, threshold Hijau/Kuning/Merah) dan urutan daftar
+  percakapan (`ORDER BY last_message_at DESC`, RISK-002 di plan ordering). Nilai yang mundur bisa
+  membuat SLA badge/urutan daftar salah setiap kali backlog pesan tertunda ter-flush tidak berurutan
+  — skenario yang sama persis dengan yang memicu bugfix ordering di atas, dan sudah terjadi dua kali
+  (24 dan 25 Sep) sehingga bukan insiden sekali saja.
+- **Status:** dilaporkan di sini sebagai bukti diagnostik (`/sdlc-bug-report`-style), **belum ada
+  plan perbaikan**. Direkomendasikan sesi `/sdlc-bug-report` terpisah untuk merancang guard
+  "`last_message_at` hanya maju, tidak pernah mundur" di titik insert `InboxGatewayApi.php`.
+
