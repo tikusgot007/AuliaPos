@@ -42,6 +42,8 @@
 - **Branch topology (as of 2026-09-24):** active branch is **`v2.3`** (local and `origin` in sync). Branches: `v2.1`, `v2.2`, `v2.3` (local + origin) and `v2.x` (origin only); `origin/HEAD` still points to `v2.1`. The M3 working branch `feature/m3-operational-inbox-fase1a-task001` was merged via PR #41 (`ce94660`) and **deleted locally and on GitHub on 2026-09-24** (0 unmerged commits) — start new work on a fresh branch off `v2.3`. The older `claude/m1-wave1-plan-clarify-y1km3u` is archived. WA-Gateway: `C:\projects\WA-Gateway` `master` = `origin/master` @ `21a4cb6`; the `WA-Gateway-m1` worktree no longer exists.
 - **Sort-tie reality (MySQL/MariaDB, 2026-09-25):** a query whose `ORDER BY` names only a non-unique column leaves tie order to the execution plan — when `EXPLAIN` reports **no** `Using filesort`, an index serves the sort and InnoDB appends the PK to secondary-index entries, so ties come out in PK order **by accident, not by contract**. Make ordering contractual by appending the PK as an explicit tie-breaker (`ORDER BY ts ASC, id ASC`) and guard it with a **white-box** test that asserts the executed SQL (`db_connect('inbox')->getLastQuery()`), because a purely behavioral test still passes on the buggy code.
 
+- **Inbox test database is MariaDB, not SQLite:** `Config\Database` redirects only the **`default`** group (AuliaPos) to SQLite when `ENVIRONMENT === 'testing'`; the **`inbox`** group is force-pinned to the real MariaDB database **`aulia_inboxdb_test`** (same engine and collation `utf8mb4_general_ci` as live `aulia_inboxdb`). Never document Inbox tests as SQLite `:memory:`, and never use "SQLite limitation" as the rationale for an Inbox behavior decision - that error was the root cause of audit finding F-01. [Verified 2026-09-25 against `app/Config/Database.php` + the live DB]
+
 ### Dead-Ends (Do NOT Repeat)
 
 | # | Attempted | Why It Failed | Correct Solution |
@@ -2948,5 +2950,37 @@
   - Housekeeping observation (deliberately untouched): a second, divergent copy of the memory file exists at the repo root (`memory.instructions.md`), while `AGENTS.md` locks the active path to `.claude/instructions/memory.instructions.md`.
 
 <!-- checkpoint-tail: M3 Fase 1e (GH-010) clarification is CLOSED at 87/100 — R-01..R-06 lock the AC-016 dataset (200k rows), the Match Snippet Service, the `aulia:seed-fase1e-perf` Spark command, the dedicated `aulia_inboxdb_perf` DB reached via a temporary `.env` override, and a `.finally()`-only polling guard; report F-01..F-05 hand off two Spec fact-corrections (test DB is MariaDB, not SQLite), one CON-004/§6 contradiction and the missing AC-016 procedure to a new `/sdlc-define-specs` session, and the Fase 1d/1e plan sections to `/sdlc-plan-tasks`. -->
+
+## 📝 Session Checkpoint: 2026-09-25 (M3 Fase 1e — `/sdlc-define-specs` remediation: Spec v1.3 → v1.4)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`) on M3 Fase 1e (GH-010 message-text search) — **CLOSED**: findings F-01..F-03 of the Fase 1e clarification report are applied to Spec **v1.4** and the report carries the remediation banner. Next phase is `/sdlc-plan-tasks` (Fase 1d + Fase 1e tracer-bullet tickets).
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — v1.4 ✅ Finalized (surgical rev from v1.3: +25 / −15 lines). Projected Readiness **96/100**.
+  - `docs/audit/clarification-report-m3-fase1e-message-search-2026-09-25.md` — ✅ Finalized (87/100) with a `REMEDIATION STATUS: RESOLVED` banner inserted immediately after the H1 (+13 lines).
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — ⏳ Stale (covers Fase 1a–1c only; F-04 still owed: drop the obsolete line-21 claim, add the Fase 1d/1e sections).
+- **Achieved Milestones:**
+  - Applied F-01 (test-database facts), F-02 (CON-004 exception: exactly one pure Match Snippet Service + its `tests/unit/` test), F-03 (the binding AC-016 measurement procedure is now written into §6), plus F-05 wording and the R-06 `.finally()` clause; promoted `ASSUMPTION-004` from `[!WARNING] perlu dikonfirmasi` to `[!IMPORTANT] CONFIRMED` carrying the R-01 numbers.
+  - §6 now owns the six-step operational procedure: dedicated `aulia_inboxdb_perf`; schema-only provisioning per `docs/ARCHITECTURE.md` §11 (never `php spark migrate`); guarded `aulia:seed-fase1e-perf`; temporary `.env` override of `database.inbox.database`; 3 keywords × 3 runs → median; record → clean → restore `.env`; never touch live/test DBs or CI. §9 "Ask first" and the §13 AC-016 gate both point back to it.
+  - Verified before writing: lint histogram diff against the committed baseline, CRLF endings preserved, and zero residual wrong-"SQLite" claims in the spec.
+- **Dead-Ends (Do NOT Repeat):** (all three pre-existing in the KB — re-confirmed this session so the next session does not re-derive them)
+  - **Attempted:** running `npx --no-install markdownlint-cli <file> > "$env:TEMP\x.txt" 2>&1` directly in this harness. **Reason:** the CLI's stderr surfaced as a terminating `NativeCommandError`, so the summary lines never printed (see KB DE-05). **Note:** wrap as `cmd /c "npx ... > %TEMP%\x.txt 2>&1"`, then parse the file.
+  - **Attempted:** judging spec lint noise from raw finding counts. **Reason:** almost all findings are pre-existing (MD013/MD060). **Note:** histogram-diff against `git show HEAD:<file>`; the v1.4 revision note adds only the already-present classes (+8 MD013, +1 MD028).
+  - **Attempted:** appending the remediation banner followed by a blank line before the report body. **Reason:** created a new `MD012` (two consecutive blank lines). **Note:** keep exactly one blank line after the banner block.
+
+- **Updated Files:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — v1.3 → v1.4 (front matter, "Revisi 1.4" note, ASSUMPTION-004, CON-004, §1.2, §6, §7, §9, §10, §12, §13).
+  - `docs/audit/clarification-report-m3-fase1e-message-search-2026-09-25.md` — remediation banner appended after the H1.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint plus one promoted Knowledge Base bullet (the Inbox test database is MariaDB `aulia_inboxdb_test`).
+- **Decisions Made:**
+  - Spec v1.4 is the binding Fase 1e contract: the AC-016 dataset (2,000 conversations × 100 messages = 200,000 rows; 3 keywords × 3 runs, median ≤ 3 s on the development machine) and the §6 procedure are contractual, so AC-016 may only be declared passing after that procedure has been executed in full.
+  - The approved CON-004 exception is exactly one pure Match Snippet Service plus its unit test; Fase 1e may touch no other file, endpoint, query parameter, or migration.
+  - Routing: PROCEED to `/sdlc-plan-tasks` (the 96/100 revision applied its own audit's fixes, so a re-audit was judged redundant); the user may still elect REFINE via `/sdlc-clarify-reqs`.
+- **Next Action / Pending:**
+  - `/sdlc-plan-tasks` in a NEW session with Spec v1.4 + the report + the PRD attached: produce the tracer-bullet tickets for Fase 1d + Fase 1e **and** fix F-04 in `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (stale line-21 claim, missing Fase 1d/1e sections); then `/sdlc-write-code`.
+  - Uncommitted at checkpoint time: Spec v1.4 + the amended report (suggested commit message `docs(spec): apply F-01..F-03 to M3 Fase 1e (v1.4)`).
+  - Carried forward, unchanged: `docs/ARCHITECTURE.md` §11 still owes the `aulia_inboxdb_perf` + `aulia:seed-fase1e-perf` paragraph; PRD §9.2 and the plan still cite "Spec v1.3"; ESC-001..004 Gateway-owner escalation OPEN; `ASSUMPTION-007` OPEN (Wave-2 APK); the Fase 2a spec text debts; the divergent root copy `memory.instructions.md` (2026-09-22, stale) was again deliberately left untouched.
+
+<!-- checkpoint-tail: M3 Fase 1e — Spec v1.4 is CLOSED: F-01 (Inbox tests really run on MariaDB `aulia_inboxdb_test`, not SQLite), F-02 (CON-004 now permits exactly one pure Match Snippet Service + unit test) and F-03 (the binding `aulia_inboxdb_perf` 200k-row / 3×3-median AC-016 procedure lives in §6) are applied, `ASSUMPTION-004` is CONFIRMED, the clarification report carries `REMEDIATION STATUS: RESOLVED` at 96/100, and `/sdlc-plan-tasks` is next to derive Fase 1d + Fase 1e tickets and clear plan finding F-04. -->
 
 ---
