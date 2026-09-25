@@ -168,9 +168,9 @@ Two layers are required by the project Testing Policy: micro (the new suite) and
 
 | Step | Command / action | Observed result | Date |
 | ---- | ---------------- | --------------- | ---- |
-| TASK-00X (Phase 1) | `vendor\bin\phpunit --no-coverage tests/database/MessageModelOrderingTest.php` | _pending — must show TASK-003 red_ | |
-| TASK-00X (Phase 2) | same command after the fix | _pending — must be green_ | |
-| Macro gate | `vendor\bin\phpunit --no-coverage` | _pending — must be green, zero regressions_ | |
+| TASK-00X (Phase 1) | `vendor\bin\phpunit --no-coverage tests/database/MessageModelOrderingTest.php` | *pending — must show TASK-003 red* | |
+| TASK-00X (Phase 2) | same command after the fix | *pending — must be green* | |
+| Macro gate | `vendor\bin\phpunit --no-coverage` | *pending — must be green, zero regressions* | |
 
 ## 7. Risks & Assumptions
 
