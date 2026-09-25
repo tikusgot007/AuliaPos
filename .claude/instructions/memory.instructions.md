@@ -40,6 +40,7 @@
 - **PRD bypass synergy (heavy lifting):** when the PRD is bypassed, the Spec guesses missing technical details and flags them with `[WARNING] [ASSUMPTION-00N]`; downstream agents must NOT block, only extract to "Risks & Assumptions"; the Clarification agent targets those assumptions first.
 - **Dokumen hilang permanen:** `Panduan_Layar_AuliaPos_M3.md` and `status-proyek-master.md` were **never committed in any branch or tag** although the blueprint/spec cite them as basis. Fase 2 behavior must come from recorded decisions, never from those files.
 - **Branch topology (as of 2026-09-24):** active branch is **`v2.3`** (local and `origin` in sync). Branches: `v2.1`, `v2.2`, `v2.3` (local + origin) and `v2.x` (origin only); `origin/HEAD` still points to `v2.1`. The M3 working branch `feature/m3-operational-inbox-fase1a-task001` was merged via PR #41 (`ce94660`) and **deleted locally and on GitHub on 2026-09-24** (0 unmerged commits) — start new work on a fresh branch off `v2.3`. The older `claude/m1-wave1-plan-clarify-y1km3u` is archived. WA-Gateway: `C:\projects\WA-Gateway` `master` = `origin/master` @ `21a4cb6`; the `WA-Gateway-m1` worktree no longer exists.
+- **Sort-tie reality (MySQL/MariaDB, 2026-09-25):** a query whose `ORDER BY` names only a non-unique column leaves tie order to the execution plan — when `EXPLAIN` reports **no** `Using filesort`, an index serves the sort and InnoDB appends the PK to secondary-index entries, so ties come out in PK order **by accident, not by contract**. Make ordering contractual by appending the PK as an explicit tie-breaker (`ORDER BY ts ASC, id ASC`) and guard it with a **white-box** test that asserts the executed SQL (`db_connect('inbox')->getLastQuery()`), because a purely behavioral test still passes on the buggy code.
 
 ### Dead-Ends (Do NOT Repeat)
 
@@ -80,6 +81,9 @@
 | DE-33 | Claiming the decrypt errors came from session contamination from `/send`, and that the buffer preserves the original message time | The first was retracted then partly reinstated by correlation (unproven); the second is wrong because the timestamp Gateway receives is already shifted | Label proven vs hypothesis; a discriminating test needs a second, never-contacted test number |
 | DE-34 | Reading `build/md-clarify-refactor.txt` being **0 bytes** as "clean lint" | 0 bytes was an empty redirect, not a clean lint run | The real baseline for these audit reports is MD013-only; never read "0 bytes" as "0 findings" |
 | DE-35 | Replacing a whole PRD/Spec section by passing one large multi-line `old_text` block | The block did not match exactly once; the edit failed with "text not found" although the text looked identical | Anchor on one line / short unique substring, or use `insert_line`, then a follow-up targeted edit |
+| DE-36 | Assuming that a same-second `message_timestamp` tie meant the thread query returned rows in an arbitrary order (and therefore that the tie was the likely cause of a reported display symptom) | `EXPLAIN` proved the composite index `conversation_id_message_timestamp` serves that sort (no `Using filesort`) and InnoDB appends the PK to secondary-index entries, so ties already came back `id ASC` — the defect was **latent**, never active | Run `EXPLAIN` + count `COUNT(DISTINCT sort_key)` vs `COUNT(*)` before blaming a query for a symptom; state explicitly whether the defect is latent or the active cause |
+| DE-37 | Presenting the latent AuliaPos ordering defect as the root cause of the reported post-reconnect permutation | The render path is order-preserving end to end (single caller `Inbox::apiMessages()`, `attachSenderNames()` decorates only, `renderPesan()` maps as-is, Gateway drains in `id` order) → the permutation must already sit inside the `message_timestamp` values forwarded by the Gateway (GW-11/GW-25) | Separate latent defect (AuliaPos, planned fix) from incident cause (Gateway, escalation); never claim, or let the plan imply, that the AuliaPos fix resolves the incident |
+| DE-38 | `[char]0x1F6D1` to count an astral-plane emoji (🛑) in a markdown doc from PowerShell | `Cannot convert value "128721" to type "System.Char"` — `[char]` only holds BMP code points | Use `[char]::ConvertFromUtf32(0x1F6D1)` for astral-plane emoji (BMP glyphs like the em dash still work as `[char]0x2014`) |
 
 ### Key Metrics & Baselines
 
@@ -89,7 +93,7 @@
 - **M3 Fase 2a boundary delta:** `app/Controllers/Inbox.php` **+312 / −0** (the 7 protected methods byte-identical); `app/Views/inbox/index.php` +325 / −1; zero diff on `ConversationModel.php`, `InboxSlaService.php`, `InboxGatewayApi.php`.
 - **markdownlint baseline:** audit reports are **MD013-only**; plan/architecture docs effectively tolerate MD013 up to 400 chars (default limit 80). `docs/ARCHITECTURE.md` carries ~32 × MD013.
 - **WA-Gateway M1:** 17 `test/simulate-*.js` scripts + 1 static guard `test/check-register-before-send.js`, all passing; branch `feature/stage-1-reliability`, 13 commits above `091fe19`.
-- **AuliaPos PHPUnit suite (current):** **328 tests / 1102 assertions** OK (2026-09-24, branch `v2.3`, after the inbox test-DB isolation fix `aad7720`/`f1268af`). Historical: 324/1097 (after M3 Fase 1d `db7f301`) and 298/948 (after Fase 2a). **The suite count drifts every session** — gate M1 Wave 2 TASK-020 on "≥ the count measured immediately before the change + new tests", not on a frozen number.
+- **AuliaPos PHPUnit suite (current):** **349 tests / 1209 assertions** OK (2026-09-25, branch `v2.3`, after the F-1/F-2 outgoing-idempotency bugfix; the previous measurement was 328/1102 on 2026-09-24, after the inbox test-DB isolation fix `aad7720`/`f1268af`). Historical: 324/1097 (after M3 Fase 1d `db7f301`) and 298/948 (after Fase 2a). **The suite count drifts every session** — gate M1 Wave 2 TASK-020 on "≥ the count measured immediately before the change + new tests", not on a frozen number.
 - **WA-Gateway repo state (2026-09-24):** live folder `C:\projects\WA-Gateway` is at `21a4cb6` on `master` with a single worktree; the Wave 2 worktree `C:\projects\WA-Gateway-m1w2` and branch `feature/m1-wave2-outgoing-idempotency` did **not** exist (they are created by M1 Wave 2 plan TASK-001).
 
 ---
@@ -2644,4 +2648,69 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-25 (Bug report: Inbox message ordering — plan written, incident escalated to Gateway)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Supplementary `/sdlc-bug-report` — **completed** at plan level (owner approved the plan).
+  Implementation is NOT started; it belongs to a NEW `/sdlc-write-code` session because the plan carries its own
+  APPROVAL gate.
+- **Active Artifacts:**
+  - `plan/plan-bugfix-inbox-message-ordering-v1.0.md` — new; front matter `status: "Planned"`; Sections 1..8
+    (REQ-001..004 / CON-001..008, Phase 1 tests TASK-001..005, Phase 2 fix TASK-006..007, RISK-001..006,
+    ASSUMPTION-001..003, ESC-001..004). Committed and pushed on branch `v2.3`.
+- **Scope decision (owner-locked):** **AuliaPos only** — fix the tie-breaker + tests, plus a Risk & Escalation
+  section naming the WA Gateway repo as the owner of the real incident. No Gateway work in this repo.
+- **Diagnosis (read-only evidence):**
+  - Live DB `aulia_inboxdb.messages`: **113 rows but only 109 distinct `(conversation_id, message_timestamp)`
+    pairs → 4 real same-second ties** (conv 11745: ids 261/262 @08:31:33 and 264/265 @08:31:35; conv 11746:
+    ids 207/256 @11:33:00; conv 11753: ids 240/241 @09:29:03).
+  - `EXPLAIN ... ORDER BY message_timestamp ASC LIMIT 500` → served by the composite index
+    `conversation_id_message_timestamp` with **no `Using filesort`**; because InnoDB appends the PK to
+    secondary-index entries, those ties currently return `id ASC` **by accident, not by contract** (new KB
+    "Sort-tie reality" bullet, DE-36).
+  - Render path is order-preserving (audit trail): `Inbox::apiMessages()` (`app/Controllers/Inbox.php:173-200`)
+    is the ONLY caller of `getByConversation()`, served by `GET /inbox/api/conversations/(:num)/messages`
+    (`app/Config/Routes.php:40`); `attachSenderNames()` (`:496-524`) decorates only; `renderPesan()`
+    (`app/Views/inbox/index.php:1720-1740`) maps as-is (no client sort or reverse); the Gateway drains its
+    buffer in `id` order (`incomingBuffer.js:658-664`, one event at a time in `incomingDelivery.js:113-114`).
+  - **Conclusion:** the reported post-reconnect permutation (`Sjjs, Hhaaa, Hhhah, Hss, Hhsj` displayed as
+    `Hhaaa, Hhhah, Sjjs, Hhsj, Hss`; `docs/GATEWAY-REQUIREMENTS.md:42`) must already exist inside the
+    `message_timestamp` values forwarded by the Gateway = **GW-11**, with **GW-25** as the suspected
+    contributor (`docs/GATEWAY-REQUIREMENTS.md:38-42`, `:55-60`). It is NOT an AuliaPos defect (DE-37), so the
+    planned fix is **latent hardening** and MUST NOT be described as resolving that incident (CON-008/RISK-001).
+- **Planned fix (not yet applied):** one added `->orderBy('id', 'ASC')` immediately after the existing
+  `->orderBy('message_timestamp', 'ASC')` in `MessageModel::getByConversation()`
+  (`app/Models/MessageModel.php:93-99`) + a doc-comment update. New `tests/database/MessageModelOrderingTest.php`
+  with (a) behavioral `testTiedTimestampsKeepInsertionOrder()` and (b) the decisive **white-box guard**
+  `testQueryOrdersByTimestampThenId()` asserting the executed SQL via `db_connect('inbox')->getLastQuery()`
+  (`BaseConnection::query()` is the single place that records it, `system/Database/BaseConnection.php:811`).
+  Both types are needed because the behavioral test alone still PASSES on the buggy code (index side effect).
+- **Decisions Made:**
+  - Out of scope: `ConversationModel` (`last_message_at DESC`) carries the same class of tie defect → ESC-003
+    follow-up, untouched for now (CON-007).
+  - The `inbox` DB-group isolation guard (`tests/_support/bootstrap.php` +
+    `tests/database/InboxTestDatabaseIsolationTest.php`) stays a hard dependency: the new test seeds
+    `aulia_inboxdb_test` and calls `emptyTable()` in `setUp()`, comparing ids with `array_map('intval', ...)` (DE-16).
+- **Corrected references:** the plan first cited "CON-005" for "no test covers `getByConversation()`" — wrong ID,
+  corrected to TEST-005 before commit (worth checking a plan's internal cross-references line by line).
+- **Verified tooling facts:** the green/red signal is `vendor/bin/phpunit --no-coverage`, NOT bare `composer test`
+  (DE-17); there is **no `@group inbox`** annotation in this repo (inbox is a DB group, not a PHPUnit group);
+  `docs/GATEWAY-REQUIREMENTS.md` DOES exist on `v2.3` and its line citations resolve; the Gateway JS files cited
+  (`incomingBuffer.js`, `incomingDelivery.js`) live in the WA-Gateway repo, not in AuliaPos.
+- **Dead-Ends (Do NOT Repeat):** DE-36 (assuming the tie order was arbitrary — `EXPLAIN` showed the index + PK
+  arrangement already ordered it), DE-37 (did not claim the latent defect resolved the reported incident),
+  DE-38 (PowerShell `[char]0x1F6D1` cast for astral-plane emoji).
+- **Updated Files:** `plan/plan-bugfix-inbox-message-ordering-v1.0.md` (new),
+  `.claude/instructions/memory.instructions.md`.
+- **Next Action / Pending:**
+  - NEW session: `/sdlc-write-code` on this plan → Phase 1 (`tests/database/MessageModelOrderingTest.php`; the
+    guard test MUST be RED first, and its red output belongs in the plan's Evidence Log) → owner approval →
+    Phase 2 (apply `orderBy('id','ASC')`) → focused run green → full `vendor/bin/phpunit --no-coverage` with
+    zero regressions.
+  - Then settle the ESC-001..004 escalation with the WA Gateway owner; **GW-11/GW-25 must stay OPEN** until the
+    Gateway fixes the timestamp source.
+
+<!-- checkpoint-tail: 2026-09-25 /sdlc-bug-report for the Inbox message-ordering defect closed at plan level (owner approved): plan/plan-bugfix-inbox-message-ordering-v1.0.md written, committed and pushed on v2.3, status 'Planned'. Live evidence: 113 messages rows but only 109 distinct (conversation_id, message_timestamp) pairs -> 4 real same-second ties; EXPLAIN shows the composite index serves the sort with no filesort, and InnoDB's PK-appended secondary entries already return those ties id ASC BY ACCIDENT (latent defect, not the active cause). The render path is order-preserving end to end, so the reported post-reconnect permutation must already be inside the Gateway-forwarded message_timestamp values = GW-11/GW-25 (WA Gateway repo, escalation ESC-001..004) -- the AuliaPos fix must NOT be described as resolving that incident. Planned fix: add ->orderBy('id','ASC') to MessageModel::getByConversation() plus tests/database/MessageModelOrderingTest.php with a behavioral test AND a white-box guard asserting the executed SQL via db_connect('inbox')->getLastQuery() (the only test guaranteed red pre-fix). Next: NEW /sdlc-write-code session, Phase 1 tests first. -->
+
+---
 
