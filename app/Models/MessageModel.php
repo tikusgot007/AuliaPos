@@ -89,11 +89,19 @@ class MessageModel extends Model
     /**
      * Ambil pesan-pesan milik satu conversation, urut lama -> baru
      * (urutan wajar untuk ditampilkan di UI chat).
+     *
+     * Tie-breaker WAJIB: `message_timestamp` berpresisi detik, jadi dua
+     * pesan yang dikirim dalam detik yang sama punya sort key identik.
+     * `id` ASC (= urutan insert = urutan pengiriman Gateway) membuat
+     * urutannya deterministik dan menjadi kontrak query, bukan efek
+     * samping dari execution plan index komposit
+     * (bugfix plan: plan/plan-bugfix-inbox-message-ordering-v1.0.md).
      */
     public function getByConversation(int $conversationId, int $limit = 200): array
     {
         return $this->where('conversation_id', $conversationId)
             ->orderBy('message_timestamp', 'ASC')
+            ->orderBy('id', 'ASC')
             ->limit($limit)
             ->findAll();
     }
