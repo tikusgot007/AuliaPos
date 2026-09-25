@@ -924,9 +924,12 @@ class Inbox extends BaseController
 
         $newMessageId = $messageModel->getInsertID();
 
+        // `last_message_at`/`last_message_direction` dijaga monoton di sini
+        // juga: pengiriman bisa "backdated" relatif terhadap ringkasan yang
+        // sudah lebih baru (mis. retry lambat / clock skew), jadi
+        // updateLastMessageIfNewer() yang menentukan apakah 2 kolom itu
+        // benar-benar maju; kolom lain tetap ditulis tanpa syarat.
         $conversationUpdate = [
-            'last_message_at'          => $now,
-            'last_message_direction'   => 'outgoing',
             'last_replied_by'          => $userId,
             'last_seen_by_assignee_at' => $now,
         ];
@@ -935,7 +938,7 @@ class Inbox extends BaseController
         if (empty($conversation['assigned_to'])) {
             $conversationUpdate['assigned_to'] = $userId;
         }
-        $conversationModel->update($conversationId, $conversationUpdate);
+        $conversationModel->updateLastMessageIfNewer($conversationId, $now, 'outgoing', $conversationUpdate);
 
         log_message('info', "Inbox::kirimMedia sukses. conversation_id={$conversationId}, user_id={$userId}, media_ref=" . ($mediaMetadata ? 'ada' : 'tidak ada'));
 
@@ -2012,9 +2015,9 @@ class Inbox extends BaseController
 
         $newMessageId = (int) $db->insertID();
 
+        // `last_message_at`/`last_message_direction` dijaga monoton --
+        // lihat catatan sama di Inbox::kirimMedia().
         $conversationUpdate = [
-            'last_message_at'          => $now,
-            'last_message_direction'   => 'outgoing',
             'last_replied_by'          => $userId,
             'last_seen_by_assignee_at' => $now,
         ];
@@ -2029,7 +2032,7 @@ class Inbox extends BaseController
         }
 
         $conversationModel = new ConversationModel();
-        $conversationModel->update($conversationId, $conversationUpdate);
+        $conversationModel->updateLastMessageIfNewer($conversationId, $now, 'outgoing', $conversationUpdate);
 
         log_message('info', "Inbox::kirimKeConversation sukses. conversation_id={$conversationId}, user_id={$userId}");
 

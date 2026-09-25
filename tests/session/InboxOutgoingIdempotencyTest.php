@@ -216,6 +216,73 @@ final class InboxOutgoingIdempotencyTest extends CIUnitTestCase
         return [['NOT_CONNECTED'], ['DEAD_LETTERED']];
     }
 
+    public function testBackdatedTextSendDoesNotRollLastMessageAtBackward(): void
+    {
+        $conversationId = $this->seedConversation();
+        $operationId    = 'backdated-text-operation';
+        $future         = date('Y-m-d H:i:s', time() + 3600);
+        db_connect('inbox')->table('conversations')->where('id', $conversationId)->update([
+            'last_message_at'        => $future,
+            'last_message_direction' => 'incoming',
+            'assigned_to'            => null,
+        ]);
+
+        $controller = $this->controllerWithOperationId($operationId);
+        $method     = (new ReflectionClass($controller))->getMethod('kirimKeConversation');
+        $method->setAccessible(true);
+
+        $response = $method->invoke($controller, $this->conversation($conversationId), 'Balasan terlambat');
+        $body     = json_decode($this->responseBody($controller), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('sent', $body['message']['send_status']);
+        $this->assertSame(1, $this->messageCount($operationId));
+
+        $conversation = $this->conversation($conversationId);
+
+        // REQ-001/REQ-002: the send is in the past relative to the stored
+        // summary, so the summary must NOT move backward.
+        $this->assertSame($future, $conversation['last_message_at']);
+        $this->assertSame('incoming', $conversation['last_message_direction']);
+
+        // CON-001: every other field of the same write still applies.
+        $this->assertSame(7, (int) $conversation['last_replied_by']);
+        $this->assertSame(7, (int) $conversation['assigned_to']);
+        $this->assertNotEmpty($conversation['last_seen_by_assignee_at']);
+    }
+
+    public function testBackdatedMediaSendDoesNotRollLastMessageAtBackward(): void
+    {
+        $conversationId = $this->seedConversation();
+        $operationId    = 'backdated-media-operation';
+        $future         = date('Y-m-d H:i:s', time() + 3600);
+        db_connect('inbox')->table('conversations')->where('id', $conversationId)->update([
+            'last_message_at'        => $future,
+            'last_message_direction' => 'incoming',
+            'assigned_to'            => null,
+        ]);
+
+        $controller = $this->controllerForMedia($operationId, $conversationId, $this->fakeUploadedMedia());
+        $method     = (new ReflectionClass($controller))->getMethod('kirimMedia');
+        $method->setAccessible(true);
+
+        $response = $method->invoke($controller);
+        $body     = json_decode($this->responseBody($controller), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('sent', $body['message']['send_status']);
+        $this->assertSame(1, $this->messageCount($operationId));
+
+        $conversation = $this->conversation($conversationId);
+
+        $this->assertSame($future, $conversation['last_message_at']);
+        $this->assertSame('incoming', $conversation['last_message_direction']);
+
+        $this->assertSame(7, (int) $conversation['last_replied_by']);
+        $this->assertSame(7, (int) $conversation['assigned_to']);
+        $this->assertNotEmpty($conversation['last_seen_by_assignee_at']);
+    }
+
 
     private function controllerForMedia(?string $operationId, int $conversationId, UploadedFile $file): InboxGatewayIdempotencySpy
     {

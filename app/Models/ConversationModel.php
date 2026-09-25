@@ -118,6 +118,81 @@ class ConversationModel extends Model
         'status'   => 'in_list[open,closed]',
     ];
 
+    /**
+     * Majukan ringkasan denormalized "pesan terakhir" milik satu
+     * conversation -- TAPI hanya boleh maju ke depan dalam waktu.
+     *
+     * Kenapa perlu: `last_message_at`/`last_message_direction` diisi
+     * dari `message_timestamp` payload Gateway, dan Gateway bisa
+     * mengirim backlog TERLAMBAT (flush setelah reconnect/koneksi
+     * pulih), sehingga pesan yang timestamp-nya LEBIH LAMA datang
+     * BELAKANGAN. `Model::update()` biasa akan menimpa kolom itu apa
+     * adanya, membuat SLA Timer dan urutan daftar percakapan
+     * "mundur" ke masa lalu (bugfix plan:
+     * plan/plan-bugfix-inbox-last-message-at-monotonic-v1.0.md).
+     *
+     * Guard + tulis dilakukan dalam SATU statement UPDATE supaya
+     * atomic (tidak ada read-then-write race antar request yang
+     * bersamaan menyentuh conversation yang sama). `last_message_at`
+     * dan `last_message_direction` selalu berpindah bersama --
+     * mustahil arahnya tertinggal dari timestamp-nya.
+     *
+     * Aturan tie: timestamp yang SAMA PERSIS dianggap "tidak lebih
+     * baru" (pakai `<`, bukan `<=`), jadi pesan pertama yang menang.
+     *
+     * @param int                  $conversationId   conversation yang dituju
+     * @param string               $messageTimestamp timestamp pesan (Y-m-d H:i:s, WIB)
+     * @param string               $direction        'incoming' atau 'outgoing'
+     * @param array<string, mixed> $otherFields      kolom LAIN yang tetap ditulis tanpa syarat
+     *                                               (status, snoozed_until, assigned_to,
+     *                                               last_replied_by, last_seen_by_assignee_at)
+     *
+     * @return bool TRUE kalau ringkasannya benar-benar maju, FALSE kalau ditolak
+     */
+    public function updateLastMessageIfNewer(
+        int $conversationId,
+        string $messageTimestamp,
+        string $direction,
+        array $otherFields = []
+    ): bool {
+        // Sengaja lewat $this->db->table() (BUKAN $this->builder()):
+        // builder milik model di-cache dan dipakai ulang selama satu
+        // siklus request, jadi fragmen WHERE bisa bocor antar pemanggilan
+        // -- dan soft-delete scope-nya tidak relevan di sini: semua
+        // call-site sudah memakai conversation yang aktif (lihat
+        // resolveConversationId() -> revive()).
+        $this->db->table($this->table)
+            ->where($this->primaryKey, $conversationId)
+            ->groupStart()
+                ->where('last_message_at', null)            // NULL = selalu lebih lama
+                ->orWhere('last_message_at <', $messageTimestamp)
+            ->groupEnd()
+            ->update([
+                'last_message_at'        => $messageTimestamp,
+                'last_message_direction' => $direction,
+                // UPDATE lewat builder mentah TIDAK melewati $useTimestamps
+                // milik Model, jadi updated_at diisi manual di sini.
+                'updated_at'             => date('Y-m-d H:i:s'),
+            ]);
+
+        // builder->update() mengembalikan TRUE selama statement-nya berhasil
+        // DIJALANKAN -- bukan berarti ada baris yang berubah (lihat
+        // BaseBuilder::update()). Jadi "ringkasan benar-benar maju" harus
+        // dibaca dari affectedRows(), sama seperti pola klaim ownership di
+        // Inbox::ambilConversation(). Guard-nya sendiri aman: setiap kali
+        // lolos guard, `last_message_at` SELALU berubah (naik), jadi baris
+        // yang match tidak mungkin terhitung 0 karena "nilai sama".
+        $applied = $this->db->affectedRows() > 0;
+
+        // Kolom lain yang diminta call-site tetap ditulis APA ADANYA
+        // (tanpa guard) -- guard ini hanya berlaku untuk 2 kolom di atas.
+        if ($otherFields !== []) {
+            $this->update($conversationId, $otherFields);
+        }
+
+        return (bool) $applied;
+    }
+
 
     /**
      * Compute the operational queue status from the existing response-state

@@ -258,10 +258,11 @@ class InboxGatewayApi extends BaseController
         ], $mediaColumns));
 
         // --- Update conversation ---------------------------------------------
-        $conversationUpdate = [
-            'last_message_at'        => $messageTimestamp,
-            'last_message_direction' => $direction,
-        ];
+        // `last_message_at`/`last_message_direction` TIDAK ditulis buta di
+        // sini: Gateway bisa mengirim backlog TERLAMBAT (flush setelah
+        // reconnect), jadi timestamp lama bisa menimpa ringkasan yang lebih
+        // baru. updateLastMessageIfNewer() hanya memajukannya.
+        $conversationUpdate = [];
 
         // Sesuai spec: "incoming message selalu membuat conversation
         // open" -- HANYA berlaku untuk incoming. Balasan outgoing yang
@@ -273,7 +274,7 @@ class InboxGatewayApi extends BaseController
             $conversationUpdate['snoozed_until'] = null; // BARU -- reset paksa
         }
 
-        $conversationModel->update($conversationId, $conversationUpdate);
+        $conversationModel->updateLastMessageIfNewer($conversationId, $messageTimestamp, $direction, $conversationUpdate);
 
         $db->transComplete();
 
