@@ -2914,3 +2914,39 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-25 (M3 Fase 1e message-text search — clarification)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`) on M3 Fase 1e (GH-010 message-text search) — **CLOSED** at Readiness 87/100; next phase is `/sdlc-define-specs` (Spec v1.3 → v1.4).
+- **Active Artifacts:**
+  - `spec/spec-design-m3-operational-inbox-fase1.md` — v1.3 (Fase 1e contract present); needs a surgical v1.4 revision for F-01..F-03 plus `ASSUMPTION-004` → CONFIRMED.
+  - `docs/audit/clarification-report-m3-fase1e-message-search-2026-09-25.md` — Status: ✅ Finalized (Readiness Score: 87/100); created this session.
+  - `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — Status: ⏳ Stale (covers Fase 1a–1c only; line 21's claim about Fase 1e is obsolete; no Fase 1d/1e sections yet).
+- **Achieved Milestones:**
+  - Closed the last open Fase 1e ambiguities (R-03..R-06 this session; R-01..R-02 in earlier sessions) and recorded all six as a decision table in the new report.
+  - Produced findings F-01..F-05: two factual errors in the Spec about the test database engine, one internal contradiction (CON-004 vs §6), the missing AC-016 operating procedure, and the stale plan claim.
+  - Verified by reading code and the database rather than assuming: `app/Views/inbox/index.php` (lines 940–1010 and 2493) has no in-flight guard and already sends `q` on every list load including the 6-second polling; `app/Commands/RepairTotalDibayar.php` is the only one-off utility precedent; `docs/ARCHITECTURE.md` §11 (lines 310–322) holds the canonical non-live DB provisioning recipe and explains why `php spark migrate` cannot build that database; `aulia_inboxdb_test` is a real MariaDB database (5 Inbox tables, `messages` = 0 rows).
+  - Lint on the new report: MD013 only (pre-existing repo-wide class), zero structural findings; CRLF endings preserved.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** planning the AC-016 perf seeder as `scripts/seed-fase1e-perf.php`. **Reason:** no `scripts/`, `tools/`, or `bin/` folder exists in this repo; the established home for one-off utilities is `app/Commands/` (Spark, `AULIA` group, registered in the developer docs). **Note:** R-03 was revised to `app/Commands/SeedFase1ePerf.php`.
+  - **Attempted:** reusing `aulia_inboxdb_test` as the perf measurement database. **Reason:** Inbox test files call `db_connect('inbox')->table(...)->emptyTable()` in `setUp()`, so any `composer test` run between seeding and measurement would wipe the 200k rows. **Note:** R-04 chose a dedicated `aulia_inboxdb_perf`.
+  - **Attempted:** building the perf DB schema with `php spark migrate --dbgroup inbox`. **Reason:** migration history lives in the `default` database, so the inbox migrations are already marked as run and are skipped (`docs/ARCHITECTURE.md` line 319). **Note:** use the schema-only `mysqldump` recipe from §11 instead.
+- **Updated Files:**
+  - `docs/audit/clarification-report-m3-fase1e-message-search-2026-09-25.md` (new) — clarification report with readiness score, runtime evidence table, R-01..R-06, F-01..F-05 and the handoff to three slash commands.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended.
+- **Decisions Made:**
+  - R-01: the AC-016 dataset is 2,000 conversations × 100 messages = 200,000 `messages` rows, measured with 3 keywords as the median of 3 runs.
+  - R-02: Match Snippet truncation is extracted into a pure Service following the `InboxSlaService` pattern, with a unit test.
+  - R-03: the perf seeder is the Spark command `aulia:seed-fase1e-perf` in `app/Commands/`, whose guard refuses any database whose name is not `aulia_inboxdb_perf`; it is never wired into `composer test` or CI.
+  - R-04: the measurement target is a dedicated `aulia_inboxdb_perf` database — never the live `aulia_inboxdb`, never `aulia_inboxdb_test`.
+  - R-05: both the seeder and the app reach the perf DB through a temporary `.env` override of `database.inbox.database` (`.env` is git-ignored), measured over real HTTP, after which `.env` is restored and the test data cleaned; the schema is provisioned schema-only from `aulia_inboxdb`.
+  - R-06: the REQ-017b guard is a single boolean released in `.finally()`; no AbortController or timeout. The consequence (a hung request stops the list refresh until the page is reloaded) was accepted knowingly.
+- **Next Action / Pending:**
+  - Commit + push this session's artifacts to `origin/v2.3` (the new clarification report plus this memory checkpoint).
+  - **Recommended next phase:** `/sdlc-define-specs` in a NEW session with the new report attached, to apply F-01..F-03 and mark `ASSUMPTION-004` CONFIRMED (Spec v1.3 → v1.4); then `/sdlc-plan-tasks` for Fase 1d + Fase 1e.
+  - Carried-forward items (unchanged, not addressed here): the ESC-001..004 Gateway-owner escalation remains OPEN; `ASSUMPTION-007` remains OPEN pending a Wave-2 APK install; `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` still owes its Q2 narrowing sentence and P-01..P-06 / 4096 / 409 text; `docs/ARCHITECTURE.md` §11 needs a paragraph for `aulia_inboxdb_perf` plus the new command.
+  - Housekeeping observation (deliberately untouched): a second, divergent copy of the memory file exists at the repo root (`memory.instructions.md`), while `AGENTS.md` locks the active path to `.claude/instructions/memory.instructions.md`.
+
+<!-- checkpoint-tail: M3 Fase 1e (GH-010) clarification is CLOSED at 87/100 — R-01..R-06 lock the AC-016 dataset (200k rows), the Match Snippet Service, the `aulia:seed-fase1e-perf` Spark command, the dedicated `aulia_inboxdb_perf` DB reached via a temporary `.env` override, and a `.finally()`-only polling guard; report F-01..F-05 hand off two Spec fact-corrections (test DB is MariaDB, not SQLite), one CON-004/§6 contradiction and the missing AC-016 procedure to a new `/sdlc-define-specs` session, and the Fase 1d/1e plan sections to `/sdlc-plan-tasks`. -->
+
+---
