@@ -269,9 +269,12 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
     }
 
     /**
-     * @return list<int>
+     * Call GET /inbox/api/conversations and return the conversation list as
+     * sent by the server (the 200 payload is validated here).
+     *
+     * @return list<array<string, mixed>>
      */
-    private function idsDari(string $query): array
+    private function payloadDari(string $query): array
     {
         $res = $this->withSession($this->sesi())
             ->get('inbox/api/conversations' . $query);
@@ -280,7 +283,15 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
         $data = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame('success', $data['status']);
 
-        return array_map(static fn (array $row): int => (int) $row['id'], $data['conversations']);
+        return $data['conversations'];
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function idsDari(string $query): array
+    {
+        return array_map(static fn (array $row): int => (int) $row['id'], $this->payloadDari($query));
     }
 
     /**
@@ -615,5 +626,310 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
 
         $this->assertSame([$andi], $this->idsDari('?q=andi'));
         $this->assertSame([], $this->idsDari('?q=zzz'));
+    }
+
+    /**
+     * The single result row of $conversationId inside the search result, so a
+     * test can read fields other than `id` (Fase 1e).
+     *
+     * @return array<string, mixed>
+     */
+    private function barisPencarian(string $query, int $conversationId): array
+    {
+        $baris = array_values(array_filter(
+            $this->payloadDari($query),
+            static fn (array $row): bool => (int) $row['id'] === $conversationId
+        ));
+
+        $this->assertCount(1, $baris, 'Conversation harus muncul tepat satu kali di hasil pencarian.');
+
+        return $baris[0];
+    }
+
+    /**
+     * Seed one `messages` row: the seam used by the Fase 1e message-text
+     * search. `text` defaults to NULL, like a media message without caption.
+     */
+    private function seedMessage(int $conversationId, array $override = []): int
+    {
+        $db = db_connect('inbox');
+        $now = '2026-09-22 14:00:00';
+
+        $db->table('messages')->insert(array_merge([
+            'conversation_id' => $conversationId,
+            'wa_message_id' => 'fase1e-' . bin2hex(random_bytes(6)),
+            'direction' => 'incoming',
+            'message_type' => 'text',
+            'sender_jid' => '628123450000@s.whatsapp.net',
+            'text' => null,
+            'message_timestamp' => $now,
+            'send_status' => 'received',
+            'is_internal' => false,
+            'created_at' => $now,
+        ], $override));
+
+        return (int) $db->insertID();
+    }
+
+    private function conversation(int $id): array
+    {
+        return db_connect('inbox')
+            ->table('conversations')
+            ->getWhere(['id' => $id])
+            ->getRowArray();
+    }
+
+    private function jumlahPesan(): int
+    {
+        return db_connect('inbox')->table('messages')->countAllResults();
+    }
+
+    /**
+     * AC-014 (a): a message body match alone finds the conversation and fills
+     * `match_snippet` with the keyword, `is_internal = false` and the message
+     * timestamp in the same format as the other time columns.
+     */
+    public function testQCocokIsiPesanMembawaMatchSnippet(): void
+    {
+        $jamet = $this->seedIdentitas('ac-014a-jamet@s.whatsapp.net', ['contact_name' => 'Jamet']);
+        $this->seedMessage($jamet, ['text' => 'pesan atas nama Saerah, 2 lusin kaos']);
+        $this->seedIdentitas('ac-014a-lain@s.whatsapp.net', ['contact_name' => 'Andi']);
+
+        $this->assertSame([$jamet], $this->idsDari('?q=saerah'));
+
+        $snippet = $this->barisPencarian('?q=saerah', $jamet)['match_snippet'];
+
+        $this->assertSame('pesan atas nama Saerah, 2 lusin kaos', $snippet['text']);
+        $this->assertFalse($snippet['is_internal']);
+        $this->assertSame('2026-09-22 14:00:00', $snippet['message_timestamp']);
+    }
+
+    /**
+     * AC-014 (b): customer message, staff reply and Internal Note are all
+     * searched, and only the Internal Note is flagged.
+     */
+    public function testQCocokPesanPelangganStaffDanInternalNote(): void
+    {
+        $masuk = $this->seedIdentitas('ac-014b-masuk@s.whatsapp.net', [
+            'contact_name' => 'Pelanggan Masuk',
+            'last_message_at' => '2026-09-22 14:00:00',
+        ]);
+        $this->seedMessage($masuk, ['direction' => 'incoming', 'text' => 'kata kunci dari pelanggan']);
+
+        $keluar = $this->seedIdentitas('ac-014b-keluar@s.whatsapp.net', [
+            'contact_name' => 'Pelanggan Keluar',
+            'last_message_at' => '2026-09-22 13:00:00',
+        ]);
+        $this->seedMessage($keluar, [
+            'direction' => 'outgoing',
+            'send_status' => 'sent',
+            'sent_by_user_id' => 7,
+            'text' => 'kata kunci dari staff',
+        ]);
+
+        $internal = $this->seedIdentitas('ac-014b-internal@s.whatsapp.net', [
+            'contact_name' => 'Pelanggan Internal',
+            'last_message_at' => '2026-09-22 12:00:00',
+        ]);
+        $this->seedMessage($internal, [
+            'direction' => 'outgoing',
+            'send_status' => 'sent',
+            'sent_by_user_id' => 7,
+            'is_internal' => true,
+            'text' => 'kata kunci catatan internal',
+        ]);
+
+        $this->assertSame([$masuk, $keluar, $internal], $this->idsDari('?q=' . rawurlencode('kata kunci')));
+
+        $this->assertFalse($this->barisPencarian('?q=' . rawurlencode('kata kunci'), $masuk)['match_snippet']['is_internal']);
+        $this->assertFalse($this->barisPencarian('?q=' . rawurlencode('kata kunci'), $keluar)['match_snippet']['is_internal']);
+        $this->assertTrue($this->barisPencarian('?q=' . rawurlencode('kata kunci'), $internal)['match_snippet']['is_internal']);
+    }
+
+    /**
+     * AC-014 (c): a closed conversation outside the newest 50 is still found by
+     * an OLD matching message, and `status` keeps applying with `q` (AND).
+     */
+    public function testQCocokIsiPesanLamaDiLuarHalamanPertama(): void
+    {
+        $this->seedBerurutan(55);
+
+        $lama = $this->seedIdentitas('ac-014c-lama@s.whatsapp.net', [
+            'status' => 'closed',
+            'contact_name' => 'Pelanggan Jadul',
+            'last_message_at' => '2020-01-01 10:00:00',
+            'updated_at' => '2020-01-01 10:00:00',
+        ]);
+        $this->seedMessage($lama, [
+            'text' => 'pesanan lama dengan kata kunci khusus',
+            'message_timestamp' => '2020-01-01 09:00:00',
+            'created_at' => '2020-01-01 09:00:00',
+        ]);
+        $this->seedMessage($lama, [
+            'text' => 'pesan terakhir tanpa kata itu',
+            'message_timestamp' => '2020-01-01 10:00:00',
+            'created_at' => '2020-01-01 10:00:00',
+        ]);
+
+        $this->assertSame([$lama], $this->idsDari('?status=selesai&q=' . rawurlencode('kata kunci khusus')));
+        $this->assertSame([], $this->idsDari('?status=open&q=' . rawurlencode('kata kunci khusus')));
+    }
+
+    /**
+     * AC-014 (d) + CL-017: only the NEWEST matching message is shown, a
+     * conversation appears once, and equal timestamps fall back to the larger
+     * `id`. A newer message that does not match must not steal the snippet.
+     */
+    public function testMatchSnippetDariPesanCocokTerbaruDanTieBreakIdTerbesar(): void
+    {
+        $palingBaru = $this->seedIdentitas('ac-014d-baru@s.whatsapp.net', ['contact_name' => 'Pelanggan Baru']);
+        $this->seedMessage($palingBaru, ['text' => 'cocok pesan lama', 'message_timestamp' => '2026-09-20 08:00:00']);
+        $this->seedMessage($palingBaru, ['text' => 'cocok pesan tengah', 'message_timestamp' => '2026-09-21 08:00:00']);
+        $this->seedMessage($palingBaru, ['text' => 'cocok pesan terbaru', 'message_timestamp' => '2026-09-22 08:00:00']);
+        $this->seedMessage($palingBaru, ['text' => 'pesan paling akhir tanpa kata itu', 'message_timestamp' => '2026-09-23 08:00:00']);
+
+        $snippet = $this->barisPencarian('?q=cocok', $palingBaru)['match_snippet'];
+        $this->assertSame('cocok pesan terbaru', $snippet['text']);
+        $this->assertSame('2026-09-22 08:00:00', $snippet['message_timestamp']);
+
+        $tie = $this->seedIdentitas('ac-014d-tie@s.whatsapp.net', ['contact_name' => 'Pelanggan Tie']);
+        $this->seedMessage($tie, ['text' => 'cocok tie id kecil', 'message_timestamp' => '2026-09-22 09:00:00']);
+        $this->seedMessage($tie, ['text' => 'cocok tie id besar', 'message_timestamp' => '2026-09-22 09:00:00']);
+
+        $this->assertSame('cocok tie id besar', $this->barisPencarian('?q=cocok', $tie)['match_snippet']['text']);
+    }
+
+    /**
+     * AC-014 (e) / CL-018: an identity match wins, so `match_snippet` stays
+     * null even when the messages also hold the keyword; without `q` the key
+     * is present and null on every conversation.
+     */
+    public function testMatchSnippetNullSaatCocokLewatIdentitasDanTanpaQ(): void
+    {
+        $saerah = $this->seedIdentitas('ac-014e-saerah@s.whatsapp.net', ['contact_name' => 'Saerah Cetak']);
+        $this->seedMessage($saerah, ['text' => 'pesan ini juga memuat saerah']);
+
+        $this->assertNull($this->barisPencarian('?q=saerah', $saerah)['match_snippet']);
+
+        $tanpaQ = $this->payloadDari('');
+
+        $this->assertCount(1, $tanpaQ);
+        $this->assertArrayHasKey('match_snippet', $tanpaQ[0]);
+        $this->assertNull($tanpaQ[0]['match_snippet']);
+    }
+
+    /**
+     * AC-014 (f): a soft-deleted matching message is invisible, and a NULL
+     * `text` (media without caption) raises no error.
+     */
+    public function testPesanSoftDeleteDanTeksNullTidakCocok(): void
+    {
+        $hapus = $this->seedIdentitas('ac-014f-hapus@s.whatsapp.net', ['contact_name' => 'Pelanggan Hapus']);
+        $this->seedMessage($hapus, [
+            'text' => 'kata kunci yang sudah dihapus',
+            'deleted_at' => '2026-09-22 15:00:00',
+        ]);
+
+        $media = $this->seedIdentitas('ac-014f-media@s.whatsapp.net', ['contact_name' => 'Pelanggan Media']);
+        $this->seedMessage($media, ['message_type' => 'image', 'text' => null]);
+
+        $cocok = $this->seedIdentitas('ac-014f-cocok@s.whatsapp.net', ['contact_name' => 'Pelanggan Cocok']);
+        $this->seedMessage($cocok, ['text' => 'isi pesan yang dicari']);
+
+        $this->assertSame([], $this->idsDari('?q=' . rawurlencode('kata kunci yang sudah dihapus')));
+        $this->assertSame([], $this->idsDari('?q=zzz'));
+        $this->assertSame([$cocok], $this->idsDari('?q=' . rawurlencode('isi pesan yang dicari')));
+    }
+
+    /**
+     * AC-014 (h): CL-008 also holds inside message text, so `%` and `_` are
+     * literal characters, not wildcards.
+     */
+    public function testPersenDanUnderscoreLiteralDiIsiPesan(): void
+    {
+        $diskon = $this->seedIdentitas('ac-014h-diskon@s.whatsapp.net', ['contact_name' => 'Pelanggan Diskon']);
+        $this->seedMessage($diskon, ['text' => 'ada diskon 50% bulan ini']);
+
+        $lain = $this->seedIdentitas('ac-014h-lain@s.whatsapp.net', ['contact_name' => 'Pelanggan Lain']);
+        $this->seedMessage($lain, ['text' => 'harga 500 ribu saja']);
+
+        $garisBawah = $this->seedIdentitas('ac-014h-garis@s.whatsapp.net', ['contact_name' => 'Pelanggan Garis']);
+        $this->seedMessage($garisBawah, ['text' => 'kirim ke toko_budi dulu']);
+
+        $spasi = $this->seedIdentitas('ac-014h-spasi@s.whatsapp.net', ['contact_name' => 'Pelanggan Spasi']);
+        $this->seedMessage($spasi, ['text' => 'kirim ke toko budi dulu']);
+
+        // Kalau % jadi wildcard, "50%" akan ikut cocok ke pesan "500".
+        $this->assertSame([$diskon], $this->idsDari('?q=' . rawurlencode('50%')));
+
+        // Kalau _ jadi wildcard (1 karakter apa saja), pesan "toko budi" ikut cocok.
+        $this->assertSame([$garisBawah], $this->idsDari('?q=' . rawurlencode('toko_')));
+    }
+
+    /**
+     * AC-014 (i) / CON-004: the search only reads -- no status, owner, snooze,
+     * last-message or "seen" column changes, and no new `messages` row.
+     */
+    public function testPencarianIsiPesanHanyaMembaca(): void
+    {
+        $id = $this->seedIdentitas('ac-014i@s.whatsapp.net', [
+            'contact_name' => 'Pelanggan Baca',
+            'snoozed_until' => '2099-01-01 00:00:00',
+            'last_seen_by_assignee_at' => '2026-09-22 13:00:00',
+        ]);
+        $this->seedMessage($id, ['text' => 'kata kunci untuk dibaca saja']);
+
+        $sebelum = $this->conversation($id);
+        $jumlahPesanSebelum = $this->jumlahPesan();
+
+        $this->assertSame([$id], $this->idsDari('?q=' . rawurlencode('kata kunci untuk dibaca')));
+
+        $sesudah = $this->conversation($id);
+
+        foreach (['assigned_to', 'status', 'snoozed_until', 'last_message_at', 'last_message_direction', 'last_seen_by_assignee_at'] as $kolom) {
+            $this->assertSame($sebelum[$kolom], $sesudah[$kolom], 'Kolom ' . $kolom . ' tidak boleh berubah karena pencarian.');
+        }
+
+        $this->assertSame($jumlahPesanSebelum, $this->jumlahPesan());
+    }
+
+    /**
+     * AC-014 (g) at API level: the snippet is never longer than 120 characters
+     * plus the two ellipses, keeps the keyword, loses new lines and is marked
+     * as cut on both sides.
+     */
+    public function testMatchSnippetApiTidakMelebihi122Karakter(): void
+    {
+        $elipsis = "\u{2026}";
+        $id = $this->seedIdentitas('ac-014g@s.whatsapp.net', ['contact_name' => 'Pelanggan Panjang']);
+        $this->seedMessage($id, [
+            'text' => str_repeat('x', 200) . "\n" . 'Saerah' . "\n" . str_repeat('y', 200),
+        ]);
+
+        $snippet = $this->barisPencarian('?q=saerah', $id)['match_snippet'];
+
+        $this->assertLessThanOrEqual(122, mb_strlen($snippet['text']));
+        $this->assertStringContainsString('Saerah', $snippet['text']);
+        $this->assertStringNotContainsString("\n", $snippet['text']);
+        $this->assertStringStartsWith($elipsis, $snippet['text']);
+        $this->assertStringEndsWith($elipsis, $snippet['text']);
+    }
+
+    /**
+     * REQ-016 (c): without `q` the endpoint must not touch `messages` at all,
+     * and the single aggregate query runs only when a keyword is sent.
+     */
+    public function testTanpaQTidakMenyentuhTabelPesan(): void
+    {
+        $id = $this->seedIdentitas('ac-016c@s.whatsapp.net', ['contact_name' => 'Pelanggan Tanpa Q']);
+        $this->seedMessage($id, ['text' => 'isi pesan apa saja']);
+
+        $this->assertSame([$id], $this->idsDari(''));
+
+        $db = db_connect('inbox');
+        $this->assertStringNotContainsString('messages', (string) $db->getLastQuery());
+
+        $this->assertSame([$id], $this->idsDari('?q=' . rawurlencode('isi pesan apa saja')));
+        $this->assertStringContainsString('messages', (string) $db->getLastQuery());
     }
 }

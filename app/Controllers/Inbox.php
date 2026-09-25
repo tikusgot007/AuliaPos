@@ -10,6 +10,7 @@ use App\Models\UserModel;
 use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
 use App\Services\InboxSlaService;
+use App\Services\InboxMatchSnippetService;
 use Config\Inbox as InboxConfig;
 
 /**
@@ -84,7 +85,10 @@ class Inbox extends BaseController
      *
      * `q` cocok bila terkandung (tanpa beda huruf besar/kecil, tanpa
      * normalisasi nomor) di minimal satu dari contact_name, whatsapp_name,
-     * phone, manual_phone, chat_id (Fase 1d, REQ-013).
+     * phone, manual_phone, chat_id (Fase 1d, REQ-013), ATAU terkandung di
+     * isi pesan mana pun di seluruh riwayat (Fase 1e, REQ-014). Bila
+     * conversation cuma cocok lewat isi pesan, response membawa
+     * `match_snippet` (REQ-015, CL-017/CL-018).
      */
     public function apiConversations()
     {
@@ -130,23 +134,54 @@ class Inbox extends BaseController
             ));
         }
 
+        // Fase 1e (Spec 4.4, REQ-014..REQ-016): `q` juga mencocokkan ISI
+        // PESAN di seluruh riwayat, bukan cuma kolom identitas. Satu query
+        // agregat di database untuk semua conversation (bukan satu query
+        // per conversation) -- hasilnya dipakai dua kali: sebagai predikat
+        // tambahan (OR dengan SEARCH_COLUMNS) dan sebagai sumber
+        // `match_snippet`.
+        $cocokPesan = [];
+        $cocokIdentitas = [];
+
         if ($q !== '') {
+            $cocokPesan = $this->cariPesanCocok($q);
+
             $conversations = array_values(array_filter(
                 $conversations,
-                static function (array $conversation) use ($q): bool {
+                static function (array $conversation) use ($q, $cocokPesan, &$cocokIdentitas): bool {
+                    $id = (int) $conversation['id'];
+
                     foreach (self::SEARCH_COLUMNS as $column) {
                         if (mb_stripos((string) ($conversation[$column] ?? ''), $q) !== false) {
+                            // Ditandai supaya `match_snippet` tetap null
+                            // walau pesannya kebetulan juga memuat `q`
+                            // (CL-018).
+                            $cocokIdentitas[$id] = true;
+
                             return true;
                         }
                     }
 
-                    return false;
+                    return isset($cocokPesan[$id]);
                 }
             ));
         }
 
         // Halaman di luar data terakhir = [] (CL-013), bukan 404/400.
         $conversations = array_slice($conversations, ($page - 1) * self::CONVERSATIONS_PER_PAGE, self::CONVERSATIONS_PER_PAGE);
+
+        // REQ-015: key ini SELALU ada di setiap conversation. null kalau
+        // tidak ada `q`, dan null juga kalau conversation cocok lewat kolom
+        // identitas (CL-018); objeknya cuma kalau conversation ditemukan
+        // lewat isi pesan saja.
+        foreach ($conversations as &$conversation) {
+            $id = (int) $conversation['id'];
+
+            $conversation['match_snippet'] = isset($cocokPesan[$id]) && !isset($cocokIdentitas[$id])
+                ? $cocokPesan[$id]
+                : null;
+        }
+        unset($conversation);
 
         return $this->response->setJSON([
             'status'        => 'success',
@@ -160,6 +195,65 @@ class Inbox extends BaseController
             'status'  => 'error',
             'message' => $message,
         ]);
+    }
+
+    /**
+     * Ambil pesan COCOK TERBARU per conversation untuk keyword `q`
+     * (REQ-016a, CL-017).
+     *
+     * Sengaja satu query agregat untuk SELURUH conversation, bukan satu
+     * query per conversation: `ROW_NUMBER()` memberi peringkat di dalam
+     * partisi `conversation_id` (terbaru dulu, `id` terbesar sebagai
+     * tie-break) lalu cuma baris peringkat 1 yang dipakai, jadi `q` yang
+     * cocok di pesan lama pun tetap terlihat walaupun conversation-nya
+     * punya ratusan pesan baru.
+     *
+     * `%` dan `_` di `q` diperlakukan sebagai teks biasa (CL-008): nilainya
+     * di-escape `escapeLikeString()` dan `ESCAPE '!'` dipasang eksplisit,
+     * sama dengan escape char default CodeIgniter (`likeEscapeChar`).
+     * `LIKE '%...%'` memang tidak memakai index -- itu batas yang sudah
+     * disepakati di spec (tanpa FULLTEXT/index baru).
+     *
+     * @return array<int, array{text: string, is_internal: bool, message_timestamp: string|null}>
+     *         Dipetakan per `conversation_id`; conversation tanpa pesan
+     *         cocok tidak ada di array ini.
+     */
+    private function cariPesanCocok(string $q): array
+    {
+        $db = db_connect('inbox');
+
+        $rows = $db->query(
+            'SELECT `conversation_id`, `text`, `is_internal`, `message_timestamp` FROM ('
+            . 'SELECT `conversation_id`, `text`, `is_internal`, `message_timestamp`, '
+            . 'ROW_NUMBER() OVER (PARTITION BY `conversation_id` ORDER BY `message_timestamp` DESC, `id` DESC) AS `peringkat` '
+            . 'FROM `messages` '
+            . 'WHERE `deleted_at` IS NULL AND `text` IS NOT NULL AND `text` <> \'\' '
+            . 'AND `text` LIKE ? ESCAPE \'!\''
+            . ') AS `pesan_cocok` WHERE `peringkat` = 1',
+            ['%' . $db->escapeLikeString($q) . '%']
+        )->getResultArray();
+
+        $snippetService = new InboxMatchSnippetService();
+        $hasil = [];
+
+        foreach ($rows as $row) {
+            $snippet = $snippetService->potong($row['text'] ?? null, $q);
+
+            // `potong()` cuma null untuk teks kosong/berisi spasi, dan teks
+            // seperti itu tidak mungkin memuat `q` -- guard ini murni
+            // menjaga bentuk payload tetap sesuai CL-018.
+            if ($snippet === null) {
+                continue;
+            }
+
+            $hasil[(int) $row['conversation_id']] = [
+                'text' => $snippet,
+                'is_internal' => (bool) $row['is_internal'],
+                'message_timestamp' => $row['message_timestamp'],
+            ];
+        }
+
+        return $hasil;
     }
 
     /**
