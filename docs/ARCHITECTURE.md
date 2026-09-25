@@ -101,6 +101,7 @@ Reusable application/domain logic lives under `app/Services/`.
 Examples:
 
 - `InboxSlaService` — deterministic SLA presentation calculation for the Inbox.
+- `InboxMatchSnippetService` — pure Match Snippet cutting for Inbox conversation search (no DB, session, or request access).
 - `EffectiveShiftLeaderService` — effective shift-leader resolution.
 - `EvaluasiJendelaKerjaShift` — shift work-window evaluation.
 - `TransaksiArchiveService` — SQLite transaction archive operations.
@@ -228,6 +229,8 @@ Current Inbox routes include:
 | `POST /inbox/mulai-percakapan` | Start conversation |
 | `GET /inbox/api/perlu-dibalas-count` | Sidebar reply-needed count |
 
+`GET /inbox/api/conversations` accepts `page`, `status` and `q`. `q` matches the identity columns (`contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id`) after fetch and — since M3 Fase 1e — the message text as well, through one aggregate `messages` query per request (`ROW_NUMBER()` over `message_timestamp DESC, id DESC`, `LIKE` with an explicit `ESCAPE`), so no `messages` query runs when `q` is empty. Every conversation element carries `match_snippet`: `null` when there is no `q` or when the hit came through an identity column, otherwise `{ text, is_internal, message_timestamp }` cut by `InboxMatchSnippetService::potong()`.
+
 ## 8. Current Operational Inbox Architecture
 
 The current implementation establishes these architectural seams:
@@ -350,6 +353,7 @@ The following constraints are important for subsequent Handoff and Collision Det
 | User persistence | `app/Models/UserModel.php` (its `daftarKasirAktif()` is the single source of the active-kasir list for Handoff) |
 | Schedule persistence | `app/Models/JadwalModel.php` |
 | Inbox SLA | `app/Services/InboxSlaService.php` |
+| Inbox match snippet | `app/Services/InboxMatchSnippetService.php` |
 | Inbox media | `app/Libraries/InboxMediaStorage.php` |
 | Inbox UI | `app/Views/inbox/index.php` |
 | Production migrations | `app/Database/Migrations/` |
