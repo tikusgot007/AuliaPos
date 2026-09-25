@@ -2828,3 +2828,89 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-25 (Bugfix Write-Code: both inbox plans executed + closure)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — **completed and CLOSED** for both sibling bugfix
+  plans in `plan/`. Both plan documents are now `status: "Completed"` with every checkbox ticked. Branch `v2.3`.
+- **Active Artifacts:**
+  - `plan/plan-bugfix-inbox-message-ordering-v1.0.md` — ✅ Completed 2026-09-25 (sibling plan #1: display ordering
+    tie-breaker; both `TASK-00Y` approval gates now ticked).
+  - `plan/plan-bugfix-inbox-last-message-at-monotonic-v1.0.md` — ✅ Completed 2026-09-25 (plan #2:
+    `conversations.last_message_at` non-monotonic writes; status flipped from `Planned`, `TASK-005` ticked, evidence
+    rows for TASK-012 drift re-check / TASK-013 live correction / TASK-013 post-fix re-check / TASK-014 approval added).
+  - Mentioned but NOT touched this session: `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md`
+    (still owes the Q2 narrowing sentence + P-01..P-06 / 4096 / 409 text).
+- **Achieved Milestones:**
+  - **Plan #2 code fix landed** (session-shared with plan #1): `ConversationModel::updateLastMessageIfNewer()` added;
+    all 3 write sites rewired (`InboxGatewayApi::messages()`, `Inbox::kirimMedia()`, `Inbox::kirimKeConversation()`).
+  - **Targeted run GREEN:** `OK (21 tests, 132 assertions)`; **full suite GREEN:** `OK (367 tests, 1295 assertions)`,
+    zero regressions, no suppressions (Floor-Guard respected — RED was proven first, then fixed).
+  - **TASK-012 verified (read-only):** canonical drift query re-run *before* the data fix still returned exactly the 4
+    known rows (11745, 11747, 11748, 11750) with byte-identical values — proves the code fix stops NEW drift without
+    mutating pre-existing bad rows.
+  - **TASK-013 executed only after explicit user approval** ("Jalankan TASK-013 sekarang, lalu tutup fase"): 4 guarded
+    `UPDATE conversations ... WHERE id = ? AND last_message_at = <previous stored value>` via `mysql.exe` against
+    `aulia_inboxdb`; `ROW_COUNT()` = 1 for each (no silent no-op, no accidental multi-row write). 11745
+    `08:31:35→09:48:37`; 11747 `12:31:18→13:47:15`; 11748 `11:23:51→11:47:54` (direction `incoming→outgoing`);
+    11750 `10:16:36→13:16:17`.
+  - **Post-fix re-check:** the same canonical drift query now returns **`drift_row_count = 0`**; the 4 rows hold the
+    exact true-latest values. Reversible per RBCK-002 (previous values preserved inside the plan's evidence log).
+  - **Closure metadata finalised:** plan #2 `status: "Completed"` + brightgreen badge; plan #1's two `TASK-00Y`
+    approval rows ticked `2026-09-25`; repo-wide check confirms **zero remaining `[ ]`** checkboxes in either plan.
+
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** inserting a new evidence-log row into a plan table with the `editor` tool by supplying
+    `old_text` = a row that already had trailing content. **Reason:** the "replace" semantics consumed the anchored
+    row and spliced the new text into the middle of it, producing one corrupted line (`... | 2026-09-25 |: still
+    exactly 4 rows ...`) — the edited row was silently destroyed rather than extended. **Correct solution:** for
+    *insertions* (adding a row to an existing table/ledger) always use `insert_line` with the boundary line number,
+    and reserve `old_text` replacements for genuine same-shape substitutions. Always re-read the edited region
+    immediately afterwards to confirm no splicing occurred.
+  - **Attempted:** relying on this memory file being tail-readable with a line-range `read_files` request after a
+    long session. **Reason:** the tool answered `[outdated - see the latest file content]` for those ranges. **Correct
+    solution:** fall back to `Get-Content <path> -Tail N` / `Select-Object -Skip/-First` for inspecting the tail of
+    very large memory/plan files, then continue editing normally.
+  - Carried-forward dead-ends still in force: DE-11 (never trust the default PowerShell console/string encoding for
+    non-ASCII content) and the earlier note that a whole checkpoint must be written in several small `editor` calls
+    rather than one payload > ~6000 characters.
+- **Updated Files:**
+  - `app/Models/ConversationModel.php` — added `updateLastMessageIfNewer()` (guarded, single-statement monotonic
+    UPDATE; sets `updated_at` manually because the raw builder bypasses CI4 `$useTimestamps`).
+  - `app/Controllers/InboxGatewayApi.php` — `messages()` now delegates `last_message_at`/`last_message_direction` to
+    the new model method; `status`/`snoozed_until` remain in `$otherFields`.
+  - `app/Controllers/Inbox.php` — `kirimMedia()` and `kirimKeConversation()` rewired to the same method.
+  - `app/Models/MessageModel.php` — sibling plan #1: explicit `->orderBy('id', 'ASC')` tie-breaker + doc comment.
+  - `tests/database/ConversationModelLastMessageAtTest.php` (new), `tests/session/InboxGatewayLastMessageAtTest.php`
+    (new), `tests/database/MessageModelOrderingTest.php` (new), `tests/session/InboxOutgoingIdempotencyTest.php`
+    (extended with the backdated-send regression).
+  - `plan/plan-bugfix-inbox-last-message-at-monotonic-v1.0.md`, `plan/plan-bugfix-inbox-message-ordering-v1.0.md` —
+    all task rows, approval gates, status front matter and evidence logs closed for both plans.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended.
+- **Decisions Made:**
+  - The live data correction (TASK-013) is an **operational action, not a code change**: it stays OUT of the commit,
+    its before/after values live only in the plan's evidence log, and it was executed with per-row guards on the
+    pre-observed stale value so any concurrent write would have made it a no-op.
+  - Guard semantics locked in the implemented method: `WHERE id = ? AND (last_message_at IS NULL OR
+    last_message_at < ?)` — a tie is **ignored** (first message wins), and the guard+write stay in ONE statement to
+    avoid a read-then-write race between concurrent Gateway requests for the same conversation.
+  - The `last_message_at` `NULL` case is real (1 of 30 live rows), so the guard is NULL-safe by requirement, not by
+    defensive habit.
+
+- **Next Action / Pending:**
+  - Commit + push this session's change set to `origin/v2.3` (code + tests + both plan files + this memory
+    checkpoint). The live DB correction is deliberately excluded from the commit.
+  - **Recommended next phase:** `/sdlc-code-review` for the two bugfixes (the plans are already closed, so the two
+    bugfix plans are the review's upstream artifacts per the Mandatory Context Injection Protocol), then
+    `/sdlc-generate-docs` if user-facing release notes are wanted.
+  - Carried-forward cross-session items (unchanged, NOT addressed here): the ESC-001..004 Gateway-owner escalation
+    (GW-11/GW-25) remains OPEN; `ASSUMPTION-007` (Wave 2 `outgoing_operations`) remains OPEN pending a Wave-2 APK
+    install on the physical device; `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` still owes its
+    Q2 narrowing sentence + P-01..P-06 / 4096 / 409 text.
+  - No `AGENTS.md` change was needed this session: the recorded `Active Memory Path` matched the file found, so the
+    consent-gated fast-path offer was skipped silently per the skill's rules.
+
+<!-- checkpoint-tail: 2026-09-25 both sibling bugfix plans are DONE and CLOSED — `plan/plan-bugfix-inbox-message-ordering-v1.0.md` (id ASC tie-breaker in MessageModel::getByConversation) and `plan/plan-bugfix-inbox-last-message-at-monotonic-v1.0.md` (new ConversationModel::updateLastMessageIfNewer() guarding the single-statement monotonic UPDATE, rewired at InboxGatewayApi::messages(), Inbox::kirimMedia() and Inbox::kirimKeConversation()). Full suite is GREEN (367 tests / 1295 assertions) with no regressions and no suppressions; the 4 pre-existing drifted conversations (11745, 11747, 11748, 11750) were corrected ONLY after explicit user approval with per-row guards on the pre-observed stale value (ROW_COUNT()=1 each), and the canonical drift query now returns drift_row_count = 0 — that live data correction is an operational action intentionally excluded from the commit. Both plan files are status "Completed" with zero unchecked boxes, and the remaining work is commit+push plus a recommended /sdlc-code-review session. -->
+
+---
+
