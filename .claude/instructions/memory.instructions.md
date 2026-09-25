@@ -2748,3 +2748,83 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-25 (Bug report: `last_message_at` non-monotonic regression — plan written, user-approved)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Supplementary `/sdlc-bug-report` — **completed** at plan level (owner approved with "setuju").
+  Implementation is NOT started; it belongs to a NEW `/sdlc-write-code` session because the plan carries its own
+  APPROVAL gate, per the AGENTS.md boundary rules.
+- **Active Artifacts:**
+  - `plan/plan-bugfix-inbox-last-message-at-monotonic-v1.0.md` — Status: ✅ Finalized (256 lines); mirrors the sibling
+    ordering plan's heading structure (Sections 1–8 plus Assumptions, Rollback, Dependencies, Files Affected).
+    Still **untracked** in git (not committed/pushed) on branch `v2.3`.
+- **Scope decision (owner-approved):** fix the write-path guard only — a new `ConversationModel::updateLastMessageIfNewer()`
+  applied at the exactly-3 confirmed write sites (`InboxGatewayApi.php:262`, `Inbox.php:928`, `Inbox.php:2016`). No change
+  to migrations, to `app/Config/Inbox.php` thresholds, or to the sibling ordering plan's scope (DEP-001).
+- **Key technical decisions baked into the plan:**
+  - **CON-010 (new this session):** `conversations.updated_at` is `DATETIME NOT NULL` with **no `ON UPDATE
+    CURRENT_TIMESTAMP`**; the fix's raw query-builder `UPDATE` bypasses `Model::update()`'s `$useTimestamps`, so
+    `updated_at` must be set explicitly in the same statement — precedent already exists at `Inbox.php:1251-1256`.
+    A prior audit (`docs/audit/clarification-report-m3-fase2a-assumptions-008-011-2026-09-23.md:75`) had already
+    rejected "stop writing `updated_at`", so this is a hard constraint, not a new debate.
+  - **NULL-safety is evidence-backed, not hypothetical:** a live query against `aulia_inboxdb.conversations` found
+    **1 of 30** rows with `last_message_at IS NULL`, so the guard needs
+    `groupStart()->where('last_message_at', null)->orWhere('last_message_at <', $ts)->groupEnd()`.
+  - **Timezone:** implement with an explicit `new \DateTime('now', new \DateTimeZone('Asia/Jakarta'))`, matching the
+    existing `Inbox.php` convention. Verified that `CodeIgniter.php:192` calls
+    `date_default_timezone_set($this->config->appTimezone)` on every bootstrap (including the test bootstrap via
+    `system/Test/bootstrap.php` → `Boot::bootTest()`), so in-app and TestSuite code is reliably `Asia/Jakarta` even
+    though ad-hoc PHP CLI on this box defaults to `Europe/Berlin` — do **not** trust bare CLI `date()` output as
+    representative of application behavior.
+  - **ID namespace disambiguation:** every citation of the parent spec's `REQ-009`/`REQ-010` was qualified into
+    `spec REQ-009`/`spec REQ-010` to avoid collision with this plan's own local `REQ-001..005`, and a `[!NOTE]` near
+    the top of the plan now declares both ID namespaces explicitly.
+- **Achieved Milestones:**
+  - Full plan authored end-to-end (Sections 1–8 plus Assumptions/Rollback/Dependencies/Files Affected), mirroring the
+    sibling plan's heading structure as required by DEP-001.
+  - Terminology audit: zero bare `REQ-009`/`REQ-010` occurrences remain (verified via repo-wide regex; 10 qualified
+    `spec REQ-*` citations remain).
+  - Markdown hygiene audited twice — once mid-session and again as a final pass **after** the CON-010 and new test-case
+    additions: zero MD009 (trailing whitespace), zero MD012 (consecutive blank lines), zero unclosed code fences, table
+    column counts consistent, file ends with a newline, zero tabs, and zero mojibake (UTF-8 confirmed at byte level).
+  - Cross-reference ID audit: all IDs (`REQ`, `CON`, `TASK`, `TEST`, `FILE`, `RBCK`, `DEP`, `RISK`, `ASSUMPTION`,
+    `ESC`, `GOAL`) are contiguous and unique — no gaps, no duplicates.
+  - User reviewed the finalized plan and approved it, so the plan is locked as complete.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** a PowerShell one-liner that piped string interpolation of a non-ASCII character (an em-dash inside a
+    `-Pattern` argument) through the shell layer to detect mojibake. **Reason:** `Get-Content -Raw` on a UTF-8 file
+    without a BOM re-decodes the bytes as cp1252 in PowerShell 5.1, so every legitimate em-dash matched the
+    mojibake pattern and produced 48 false positives on a perfectly clean file. **Correct solution:** verify encoding
+    explicitly with `[System.IO.File]::ReadAllText($p, [System.Text.UTF8Encoding]::new($false))` before running any
+    character-class regex check — same class of lesson as DE-11 and the adb/UTF-16 redirect dead-end (never trust the
+    default PowerShell console/string encoding for non-ASCII content).
+  - **Attempted:** writing this checkpoint as a single `editor` call. **Reason:** rejected — the payload exceeded the
+    editor's 6000-character recommendation and would risk truncation. **Correct solution:** split the checkpoint into
+    3 sequential edits (one `insert_line` at EOF, then two anchored replacements), which matches the project's
+    incremental-writing mandate.
+- **Updated Files:**
+  - `plan/plan-bugfix-inbox-last-message-at-monotonic-v1.0.md` — created and finalized this session: terminology
+    qualification (`spec REQ-009`/`spec REQ-010`) plus a namespace `[!NOTE]`, new CON-010 constraint, reference code
+    block updated to set `updated_at` explicitly, two new TEST-001 sub-cases
+    (`testBumpsUpdatedAtOnAppliedBranch()`, `testFullyRejectedCallTouchesNoRow()`), an expanded Edge Cases section,
+    and an expanded ASSUMPTION-001 (spec-name mapping `Inbox::kirim()` → `kirimKeConversation()` via `Inbox.php:1921`).
+    TASK-002 and TASK-007 "Refs" columns now include CON-010.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint appended.
+- **Next Action / Pending:**
+  - Commit and push `plan/plan-bugfix-inbox-last-message-at-monotonic-v1.0.md` plus this memory checkpoint to
+    `origin/v2.3`; both are still uncommitted locally (the plan file is untracked).
+  - Open a NEW `/sdlc-write-code` session to implement the plan: **Phase 1** writes the 3 test files first
+    (TASK-001..004) and MUST confirm TASK-002/TASK-003 are RED before any fix code exists; **Phase 2** (TASK-006/007)
+    applies `updateLastMessageIfNewer()` at the 3 call sites and MUST confirm the full suite is green plus the
+    canonical drift SQL query returns zero rows.
+  - Carried-forward cross-session items: the sibling ordering plan
+    (`plan/plan-bugfix-inbox-message-ordering-v1.0.md`) is still only "Planned" and not implemented; the ESC-001..004
+    Gateway-owner escalation (GW-11/GW-25) remains OPEN; `ASSUMPTION-007` (Wave 2 `outgoing_operations`) remains OPEN
+    pending a Wave-2 APK install on the physical device.
+  - No `AGENTS.md` change was needed this session: the recorded `Active Memory Path` matched the file found, so the
+    consent-gated fast-path update was skipped silently per the skill's rules.
+
+<!-- checkpoint-tail: 2026-09-25 finalized and user-approved plan/plan-bugfix-inbox-last-message-at-monotonic-v1.0.md, the fix plan for the `conversations.last_message_at` non-monotonic-write regression first reported (unplanned) in the previous Ticket-04 checkpoint. The plan mirrors the sibling ordering plan's structure, adds CON-010 (the raw-builder UPDATE bypasses CI4's auto-timestamps so `updated_at` must be set explicitly per the Inbox.php:1251-1256 precedent), backs the NULL-safe guard with live evidence (1 of 30 conversations rows have `last_message_at IS NULL`), and disambiguates every `spec REQ-009`/`spec REQ-010` citation from the plan's own local `REQ-001..005` IDs. Markdown hygiene and cross-reference-ID audits both passed clean on the final version, and the owner approved the plan. Implementation is NOT started (plan-only phase): the next session should be a NEW `/sdlc-write-code` session that writes the RED tests first (TASK-001..004), then implements the fix (TASK-006/007). The plan file and this checkpoint are still uncommitted locally on branch v2.3 and need to be committed+pushed. -->
+
+---
+
