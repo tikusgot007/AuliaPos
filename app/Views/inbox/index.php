@@ -97,6 +97,18 @@
         text-overflow: ellipsis;
     }
 
+    /* Fase 1e (AC-015a): Match Snippet row, only rendered when the
+       server found the hit through the message text (CL-018). */
+    .inbox-list-item .list-snippet {
+        font-size: 0.74rem;
+        font-style: italic;
+        color: #495057;
+        margin-top: 1px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .inbox-list-item .list-time {
         font-size: 0.7rem;
         color: #9aa0a6;
@@ -870,6 +882,25 @@
             escapeHtmlInbox('SLA: ' + info.arti + ' sejak pesan terakhir') + '"></span>';
     }
 
+    // Fase 1e (Spec 4.4, REQ-015, AC-015a-c): baris Match Snippet di bawah
+    // baris nomor/preview. Server cuma mengirim `match_snippet` kalau
+    // conversation cocok lewat ISI PESAN (CL-018), jadi daftar Fase 1d
+    // tampil persis seperti sebelumnya saat snippet null (AC-015b).
+    function renderSnippetCocok(snippet) {
+        if (!snippet || !snippet.text) return '';
+
+        // Sama seperti m.is_internal di renderPesan(): nilai bisa datang
+        // sebagai true/1/"1" lewat json_encode.
+        const internal = snippet.is_internal === true || snippet.is_internal === 1 || snippet.is_internal === '1';
+        const labelInternal = internal ?
+            '<span class="inbox-internal-label"><i class="fas fa-sticky-note"></i> Internal</span> ' :
+            '';
+
+        // Teksnya pesan pelanggan/staff -- SELALU lewat escapeHtmlInbox(),
+        // tidak pernah sebagai HTML mentah (AC-015c).
+        return '<div class="list-snippet">' + labelInternal + escapeHtmlInbox(snippet.text) + '</div>';
+    }
+
     function renderDaftarConversation() {
         renderFilterButtons();
         renderTabCounts();
@@ -909,6 +940,7 @@
                 '<span class="badge bg-light text-muted border" style="font-size:0.6rem;">Belum diambil</span>';
 
             const nomorAtauLid = c.manual_phone || c.phone || (c.jid_type === 'lid' ? 'LID' : c.jid_type);
+            const barisSnippet = renderSnippetCocok(c.match_snippet);
 
             return '<a href="#" class="inbox-list-item' + activeClass + '" onclick="return pilihConversation(' + c.id + ')">' +
                 '<div class="d-flex justify-content-between align-items-start">' +
@@ -920,6 +952,7 @@
                 '</span>' +
                 '</div>' +
                 '<div class="list-preview">' + panah + escapeHtmlInbox(nomorAtauLid) + ' ' + closedBadge + ' ' + responseStateBadge + ' ' + assignBadge + '</div>' +
+                barisSnippet +
                 '</a>';
         }).join('');
     }
@@ -936,6 +969,15 @@
     // Every list load, including the 6-second polling, sends it as `q`,
     // so the list does not jump back to all conversations.
     let kataKunciAktif = '';
+
+    // REQ-017b (Fase 1e): satu putaran pemuatan daftar pada satu waktu.
+    // Ditandai saat putaran mulai dan dilepas di `.finally()` -- jadi
+    // selalu bersih setelah putaran selesai, berhasil maupun gagal. Yang
+    // dilewati cuma tick polling 6 detik dan pencarian dengan kata kunci
+    // yang SAMA; pencarian kata kunci baru tetap dikirim (REQ-017c).
+    // Pengaman ini per layar, bukan per server -- dua tab tidak
+    // terlindungi (RISK-009, diterima).
+    let putaranDaftarBerjalan = false;
 
     function ambilSemuaConversation(kataKunci) {
         const hasil = [];
@@ -965,6 +1007,7 @@
     // errors stay silent.
     function muatUlangDaftarConversation(saatGagal) {
         const kataKunci = kataKunciAktif;
+        putaranDaftarBerjalan = true;
 
         ambilSemuaConversation(kataKunci)
             .then(function(semua) {
@@ -984,6 +1027,11 @@
                 }
                 // Diamkan -- polling berikutnya akan coba lagi. Tidak
                 // perlu toast tiap gagal 1 siklus, cukup mengganggu.
+            })
+            .finally(function() {
+                // REQ-017b: dilepas di sini supaya putaran berikutnya
+                // boleh mulai lagi, termasuk setelah putaran yang gagal.
+                putaranDaftarBerjalan = false;
             });
     }
 
@@ -992,7 +1040,16 @@
     // the error is shown once (AC-012g).
     function jalankanPencarianConversation(kataKunciBaru) {
         const kataKunciSebelumnya = kataKunciAktif;
-        kataKunciAktif = kataKunciBaru.trim();
+        const baru = kataKunciBaru.trim();
+
+        // REQ-017b/AC-015d: mengulang kata kunci yang sedang aktif saat
+        // satu putaran masih berjalan tidak memulai putaran kedua (tidak
+        // ada penumpukan request). Kata kunci BARU tetap dikirim, dan
+        // hasil kata kunci lama tetap dibuang oleh pemeriksa di
+        // muatUlangDaftarConversation (REQ-017c).
+        if (putaranDaftarBerjalan && baru === kataKunciSebelumnya) return;
+
+        kataKunciAktif = baru;
 
         muatUlangDaftarConversation(function(err) {
             kataKunciAktif = kataKunciSebelumnya;
@@ -2490,7 +2547,13 @@
     // menduplikasi template di PHP.
     renderDaftarConversation();
 
-    setInterval(muatUlangDaftarConversation, 6000);
+    // REQ-017b: tick 6 detik tidak menumpuk putaran kedua. Kalau putaran
+    // sebelumnya masih jalan, tick ini dilewati -- putaran berikutnya
+    // tetap datang 6 detik kemudian.
+    setInterval(function() {
+        if (putaranDaftarBerjalan) return;
+        muatUlangDaftarConversation();
+    }, 6000);
     setInterval(function() {
         muatUlangPesan(false);
     }, 4000);

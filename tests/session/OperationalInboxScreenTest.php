@@ -88,4 +88,57 @@ final class OperationalInboxScreenTest extends CIUnitTestCase
         $this->assertMatchesRegularExpression('/<input[^>]*id="inputCariConversation"[^>]*maxlength="255"/', $body);
         $this->assertStringContainsString("'&q=' + encodeURIComponent(kataKunci)", $body);
     }
+
+    public function testHalamanInboxMerenderBarisMatchSnippetYangDiEscape(): void
+    {
+        // AC-015a/c (Fase 1e): the list reads `c.match_snippet` and puts
+        // the text through escapeHtmlInbox() only -- the snippet is
+        // untrusted customer text, never raw HTML.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString('renderSnippetCocok(c.match_snippet)', $body);
+        $this->assertStringContainsString('class="list-snippet"', $body);
+        $this->assertStringContainsString('escapeHtmlInbox(snippet.text)', $body);
+        $this->assertStringContainsString('.inbox-list-item .list-snippet {', $body);
+    }
+
+    public function testHalamanInboxMemberiLabelInternalPadaSnippet(): void
+    {
+        // AC-015a: is_internal = true is preceded by an "Internal" label
+        // that reuses the thread Internal Note label style (AC-010a).
+        // is_internal may arrive as true/1/"1" through json_encode, the
+        // same handling as renderPesan() uses for m.is_internal.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString('snippet.is_internal === true || snippet.is_internal === 1', $body);
+        $this->assertStringContainsString("'<span class=\"inbox-internal-label\">", $body);
+    }
+
+    public function testHalamanInboxTanpaSnippetTidakMenambahBaris(): void
+    {
+        // AC-015b: a null snippet (no `q`, or an identity-column hit per
+        // CL-018) renders nothing extra, so the Fase 1d list markup
+        // stays exactly as it was.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString("if (!snippet || !snippet.text) return '';", $body);
+    }
+
+    public function testHalamanInboxMengunciPutaranDaftarSampaiSelesai(): void
+    {
+        // AC-015d / REQ-017: one list round at a time. The flag is set
+        // when a round starts and released in .finally(), so it clears on
+        // success and on failure alike.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString('let putaranDaftarBerjalan = false;', $body);
+        $this->assertStringContainsString('putaranDaftarBerjalan = true;', $body);
+        $this->assertStringContainsString('.finally(function() {', $body);
+        $this->assertStringContainsString('putaranDaftarBerjalan = false;', $body);
+        // The 6-second polling tick skips a round while one is running,
+        // and so does a search that repeats the active keyword, while a
+        // NEW keyword is still sent (REQ-017c).
+        $this->assertStringContainsString('if (putaranDaftarBerjalan) return;', $body);
+        $this->assertStringContainsString('if (putaranDaftarBerjalan && baru === kataKunciSebelumnya) return;', $body);
+    }
 }
