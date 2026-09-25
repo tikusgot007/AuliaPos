@@ -4,7 +4,7 @@ version: 1.0
 date_created: 2026-09-25
 last_updated: 2026-09-25
 owner: AuliaPos Inbox module
-status: "Planned"
+status: "Completed"
 tags: ["refactor", "correctness", "sql-escaping", "frontend", "security"]
 ---
 
@@ -118,10 +118,10 @@ Normative upstream documents: `spec/spec-design-m3-operational-inbox-fase1.md` (
 
 | Task ID | Description (Include Exact File Paths & Micro-Testing) | Ref ID | Completed | Date |
 | --- | --- | --- | --- | --- |
-| TASK-101 | `app/Controllers/Inbox.php` (`cariPesanCocok()`, ~line 230-234): replace `['%' . $db->escapeLikeString($q) . '%']` with a value built by `strtr()` and bound once — full detail in the **TASK-101 detail block** below. Keep the SQL text, the `ESCAPE '!'` clause and the `ROW_NUMBER()` subquery byte-identical. Add a short `why` comment naming the double-escape trap. | REQ-001, PRN-002, CON-003 | | |
-| TASK-102 | `tests/session/OperationalInboxConversationTest.php`: extend the AC-014 matrix with cases (j)-(n) per the **TASK-102 detail block**: apostrophe, double quote, backslash, and literal `!`, each with a negative control. Do not edit or weaken any existing assertion. | REQ-002 | | |
-| TASK-103 | **VERIFY**: `cmd /c 'vendor\bin\phpunit --no-coverage > build\phase1-refactor.txt 2>&1'` → exit 0, **>= 395 tests / >= 1443 assertions**, zero skips; then re-run the original AC-014 cases (a)-(i) individually to prove AC-014h still holds; and re-run the read-only escape check against the live database to confirm the apostrophe keyword now reaches the real rows. | CON-004, REQ-001 | | |
-| TASK-104 | **APPROVAL**: 🛑 Report the VERIFY evidence and wait for explicit user confirmation before Phase 2. | - | | |
+| TASK-101 | `app/Controllers/Inbox.php` (`cariPesanCocok()`, ~line 230-234): replace `['%' . $db->escapeLikeString($q) . '%']` with a value built by `strtr()` and bound once — full detail in the **TASK-101 detail block** below. Keep the SQL text, the `ESCAPE '!'` clause and the `ROW_NUMBER()` subquery byte-identical. Add a short `why` comment naming the double-escape trap. | REQ-001, PRN-002, CON-003 | [x] | 2026-09-25 |
+| TASK-102 | `tests/session/OperationalInboxConversationTest.php`: extend the AC-014 matrix with cases (j)-(n) per the **TASK-102 detail block**: apostrophe, double quote, backslash, and literal `!`, each with a negative control. Do not edit or weaken any existing assertion. | REQ-002 | [x] | 2026-09-25 |
+| TASK-103 | **VERIFY**: `cmd /c 'vendor\bin\phpunit --no-coverage > build\phase1-refactor.txt 2>&1'` → exit 0, **>= 395 tests / >= 1443 assertions**, zero skips; then re-run the original AC-014 cases (a)-(i) individually to prove AC-014h still holds; and re-run the read-only escape check against the live database to confirm the apostrophe keyword now reaches the real rows. | CON-004, REQ-001 | [x] | 2026-09-25 |
+| TASK-104 | **APPROVAL**: 🛑 Report the VERIFY evidence and wait for explicit user confirmation before Phase 2. | - | [x] | 2026-09-25 |
 
 **TASK-101 detail — the escape-once bind (normative).**
 File: `app/Controllers/Inbox.php`, function `cariPesanCocok(string $q): array`.
@@ -179,11 +179,11 @@ correct". If a seeded text makes a case ambiguous, change the seed text, never t
 
 | Task ID | Description (Include Exact File Paths & Micro-Testing) | Ref ID | Completed | Date |
 | --- | --- | --- | --- | --- |
-| TASK-201 | `app/Views/inbox/index.php` (`muatUlangDaftarConversation()`, ~1008-1036): add one module-scope counter and make `.finally()` release the guard **only** when the finishing round is the newest — full detail in the **TASK-201 detail block**. Keep `jalankanPencarianConversation()`'s same-keyword check as it is (it already encodes REQ-017b's parenthetical). | REQ-003, CON-002 | | |
-| TASK-202 | `app/Views/inbox/index.php` (same function, ~1008-1012): make the synchronous prelude throw-safe so the guard cannot stay `true` forever — detail in the **TASK-201 detail block**, item (c). Same commit as TASK-201 (one function, one edit region). | REQ-004 | | |
-| TASK-203 | Add the **superseded-round scenario** to the AC-015d browser checklist and record its result: (1) polling running on keyword K while the network is slowed in DevTools, (2) type a new keyword K2 and press Enter, (3) confirm in the Network panel that K2 round and K round overlap, no second polling round starts while K2 is in flight, and the DOM shows only K2 results. Evidence goes to the Fase 1e walkthrough §6 (`docs/walkthrough-m3-fase1e-message-search-2026-09-25.md`) or to a new remediation walkthrough. Documentation only, no code. | REQ-005 | | |
-| TASK-204 | **VERIFY**: `vendor/bin/phpunit --no-coverage` exit 0, >= 395 tests / >= 1443 assertions, zero skips; `OperationalInboxScreenTest` still green; the TASK-203 checklist recorded with its outcome; `git diff --numstat` shows zero changes to `app/Controllers/Inbox.php`, `app/Services/`, models and tests in this phase. | CON-004, CON-001 | | |
-| TASK-205 | **APPROVAL**: 🛑 Report the VERIFY evidence and wait for explicit user confirmation before Phase 3. | - | | |
+| TASK-201 | `app/Views/inbox/index.php` (`muatUlangDaftarConversation()`, ~1008-1036): add one module-scope counter and make `.finally()` release the guard **only** when the finishing round is the newest — full detail in the **TASK-201 detail block**. Keep `jalankanPencarianConversation()`'s same-keyword check as it is (it already encodes REQ-017b's parenthetical). | REQ-003, CON-002 | [x] | 2026-09-25 |
+| TASK-202 | `app/Views/inbox/index.php` (same function, ~1008-1012): make the synchronous prelude throw-safe so the guard cannot stay `true` forever — detail in the **TASK-201 detail block**, item (c). Same commit as TASK-201 (one function, one edit region). | REQ-004 | [x] | 2026-09-25 |
+| TASK-203 | Add the **superseded-round scenario** to the AC-015d browser checklist and record its result: (1) polling running on keyword K while the network is slowed in DevTools, (2) type a new keyword K2 and press Enter, (3) confirm in the Network panel that K2 round and K round overlap, no second polling round starts while K2 is in flight, and the DOM shows only K2 results. Evidence goes to the Fase 1e walkthrough §6 (`docs/walkthrough-m3-fase1e-message-search-2026-09-25.md`) or to a new remediation walkthrough. Documentation only, no code. | REQ-005 | [x] | 2026-09-25 |
+| TASK-204 | **VERIFY**: `vendor/bin/phpunit --no-coverage` exit 0, >= 395 tests / >= 1443 assertions, zero skips; `OperationalInboxScreenTest` still green; the TASK-203 checklist recorded with its outcome; `git diff --numstat` shows zero changes to `app/Controllers/Inbox.php`, `app/Services/`, models and tests in this phase. | CON-004, CON-001 | [x] | 2026-09-25 |
+| TASK-205 | **APPROVAL**: 🛑 Report the VERIFY evidence and wait for explicit user confirmation before Phase 3. | - | [x] | 2026-09-25 |
 
 **TASK-201 detail — guard ownership (normative).**
 File: `app/Views/inbox/index.php`, function `muatUlangDaftarConversation(saatGagal)`.
@@ -248,6 +248,16 @@ REQ-017b's parenthetical and of REQ-017c's new-keyword allowance.
 - **GOAL-003:** close the non-blocking `[OPTIONAL]` findings that have a real failure mode. This phase
   is **skippable**; if the user declines it, close the plan after Phase 2 and carry these items as
   standing TODOs.
+
+> [!NOTE]
+> **DECLINED 2026-09-25 by the product owner.** The plan is closed after Phase 2 and TASK-301..TASK-304
+> are carried as standing TODOs rather than executed. Reason, per `[GOAL-003]`'s own wording: none of
+> the three items fixes a **measured** problem today. TASK-301 converts an existing 500 into a 400 for
+> malformed input (no data at risk either way); TASK-302 is a performance refactor whose target is
+> already met by a wide margin (AC-016 medians 436 ms / 523 ms / 1010 ms against a 3000 ms target);
+> TASK-303 hardens an internal measurement command whose "silent partial write" scenario the review
+> already proved unreachable. Adding changes to a search path that was just repaired would enlarge the
+> blast radius for no measurable gain, against PRN-002's surgical-edit mandate.
 
 | Task ID | Description (Include Exact File Paths & Micro-Testing) | Ref ID | Completed | Date |
 | --- | --- | --- | --- | --- |
@@ -397,8 +407,33 @@ REQ-017b's parenthetical and of REQ-017c's new-keyword allowance.
 
 ---
 
-> **Handoff:** Phase 1 (TASK-101..TASK-104) may start now via `/sdlc-write-code` in a new session with
-> the four upstream attachments listed in the execution directive. Phase 2 (TASK-201..TASK-205) needs
-> Phase 1 approved first, because both phases report against one shared green baseline. Phase 3
-> (TASK-301..TASK-305) is optional and requires an explicit decision from the product owner.
-> Implementation MUST go through `/sdlc-write-code`; the reviewer/planner does not write source code.
+> **Handoff (superseded — kept for the record):** Phase 1 (TASK-101..TASK-104) may start now via
+> `/sdlc-write-code` in a new session with the four upstream attachments listed in the execution
+> directive. Phase 2 (TASK-201..TASK-205) needs Phase 1 approved first, because both phases report
+> against one shared green baseline. Phase 3 (TASK-301..TASK-305) is optional and requires an explicit
+> decision from the product owner. Implementation MUST go through `/sdlc-write-code`; the
+> reviewer/planner does not write source code.
+
+## 8. Closure
+
+**Status: Completed 2026-09-25.** Both blocking findings are closed and verified; Phase 3 was declined
+by the product owner (see the note under `[GOAL-003]`).
+
+| Item | Result |
+| --- | --- |
+| Phase 1 — `[SPEC-01]` escape-once predicate | `2a538af` — 2 files, +109 / -4 |
+| Phase 2 — `[CORR-01]` + `[CORR-03]` guard ownership | `0919960` — 1 file, +40 / -3 |
+| `[SPEC-02]` (repeated keyword) | closed with `[CORR-01]`, as this plan predicted |
+| Macro gate (CON-004) | `OK (400 tests, 1462 assertions)`, exit 0, zero skips — baseline 395 / 1443, so +5 / +19, never a decrease |
+| Boundary (CON-001) | 2 production files, 1 test file, 3 docs. No migration, index, FULLTEXT, route, query parameter, endpoint or Gateway call. No write path. |
+| Round-guard harness | 13/13 on the real extracted view code; 2 mutation runs prove the harness can fail |
+| AC-015d row (f) browser checklist | **PASS**, confirmed by the product owner 2026-09-25 |
+| Phase 3 (TASK-301..TASK-304) | **DECLINED** — carried as standing TODOs |
+
+Full evidence, including the live read-only check, the mutation results and the limits of each claim:
+`docs/walkthrough-m3-fase1e-remediation-2026-09-25.md`.
+
+Two claims this closure does **not** make. First, the round-guard regression is not locked by CI: the
+project has no JS test runner, so a future regression would be caught by the browser checklist only.
+Second, the live read-only check reproduced the defect with `Jum'at`, not with the review's `it's`
+example, because no live message contains `it's`; the substitution is recorded in the walkthrough.

@@ -157,10 +157,10 @@ Fokus:
 
 ---
 
-### M3 — Operational Inbox 🚦 FASE 1 (1a–1d) + FASE 2a SELESAI & TER-MERGE (PR #41, `v2.3`)
+### M3 — Operational Inbox 🚦 FASE 1 (1a–1d) + FASE 2a SELESAI & TER-MERGE (PR #41, `v2.3`); FASE 1e SELESAI + DIREMEDIASI (25 Sep)
 
 > [!WARNING]
-> **Seksi ini belum disinkronkan (potret 21–23 Sep, sebelum eksekusi M3).** Status nyata per 24 Sep 2026: Fase 1 (1a–1d) dan Fase 2a (Handoff + Collision Detection) sudah dieksekusi dan ter-merge ke `v2.3` lewat PR #41 (`ce94660`); plan terkait berstatus `Completed` (`plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2, `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` rev 1.1, `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` rev 1.1). Audit konsistensi Fase 1 (24 Sep) = Readiness 95/100. Fase 1e (GH-010) dan sisa pekerjaan M3 belum. Jangan baca checklist "0 dari 14 task" di bawah sebagai status terkini.
+> **Seksi ini belum disinkronkan (potret 21–23 Sep, sebelum eksekusi M3).** Status nyata per 24 Sep 2026: Fase 1 (1a–1d) dan Fase 2a (Handoff + Collision Detection) sudah dieksekusi dan ter-merge ke `v2.3` lewat PR #41 (`ce94660`); plan terkait berstatus `Completed` (`plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2, `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` rev 1.1, `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` rev 1.1). Audit konsistensi Fase 1 (24 Sep) = Readiness 95/100. Fase 1e (GH-010) sudah dieksekusi (25 Sep) dan **diremediasi** atas 2 temuan `[REQUIRED]` dari code review-nya — lihat `docs/walkthrough-m3-fase1e-message-search-2026-09-25.md` dan `docs/walkthrough-m3-fase1e-remediation-2026-09-25.md`; rencana remediasi `plan/plan-refactor-m3-fase1e-message-search-v1.0.md` berstatus `Completed` (Fase 3 ditolak, jadi 3 TODO — lihat "Yang Menggantung" butir 11–13). Sisa pekerjaan M3 belum. Jangan baca checklist "0 dari 14 task" di bawah sebagai status terkini.
 
 **Update penting (21 Sep)**: sesi Claude Code sudah menghasilkan spec + plan formal yang jauh melampaui blueprint awal kita, lewat proses SDLC terstruktur (spec → clarification report → remediasi → plan → clarification report kedua → resolusi). Semua 5 keputusan desain 🔶 yang saya tandai sebelumnya **sudah diresolusikan** (jadi "7 resolusi klarifikasi").
 
@@ -258,6 +258,11 @@ Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau And
 - [ ] 8. **Fase 2 M3** (Handoff, Collision detection) — **wajib** tunggu M2 selesai, ini sudah tertulis eksplisit di RISK-003 plan resmi, bukan lagi cuma catatan blueprint.
 - ~~9. (baru) Tes reboot sungguhan untuk auto-start PM2 di Aan-PC~~ — **dicoret 21 Sep: di luar scope pengembangan.**
 - [ ] 10. (baru) Perbaiki 2 ERROR test session Tahap 0 (`db_closing_kas`) dan putuskan apakah folder `G:\arsip-gateway\` sudah boleh dihapus.
+- [ ] 11. (baru 25 Sep) **Tolak `q` non-UTF-8 dengan HTTP 400** di batas input `app/Controllers/Inbox.php` — sekarang byte rusak menjadi 500 di bawah `DBDebug = true`. Asal: `plan/plan-refactor-m3-fase1e-message-search-v1.0.md` TASK-301 (`[OPTIONAL]`, ditolak pemilik proyek 25 Sep). Test yang diminta: `?q=%FF` → 400, kata kunci multi-byte valid (`é`) tetap 200. **Tidak mendesak:** tidak ada data berisiko, pemakai sudah melihat pesan error — hanya kode statusnya yang kurang tepat.
+- [ ] 12. (baru 25 Sep) **Pindahkan `potong()` ke sesudah paginasi** supaya `match_snippet` tidak dihitung untuk baris yang dibuang paginasi. Perilaku wajib byte-identical, jadi tidak perlu test baru (seluruh suite jadi bukti regresinya). Asal: plan yang sama, TASK-302. **Tidak mendesak:** median AC-016 (436 / 523 / 1010 ms) jauh di bawah target 3000 ms, jadi tidak ada masalah terukur yang diperbaiki.
+- [ ] 13. (baru 25 Sep) **`SeedFase1ePerf` memverifikasi hitungannya sendiri** lewat `countAllResults()` dan mencatat komposisi fixture yang benar-benar dipakai (1% Internal Note, teks ~55 karakter). Asal: plan yang sama, TASK-303. **Tidak mendesak:** ini perkakas ukur internal, bukan aplikasi kasir, dan skenario "gagal senyap" sudah dibuktikan tidak mungkin terjadi.
+
+> **Catatan 25 Sep — batas yang perlu diketahui saat membaca ini.** Regresi pada pengaman putaran daftar Inbox (`app/Views/inbox/index.php`) **tidak akan menggagalkan test otomatis**, karena proyek ini tidak punya test runner JavaScript. Yang menjaganya: harness `build/check-round-guard.php` (di luar repo, gitignored — jalankan manual) dan checklist browser. Kalau bikin perubahan pada `muatUlangDaftarConversation()`, jalankan keduanya.
 
 ---
 
