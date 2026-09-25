@@ -867,6 +867,92 @@ final class OperationalInboxConversationTest extends CIUnitTestCase
     }
 
     /**
+     * AC-014 (j) / SPEC-01: keyword bertanda petik menemukan pesan yang
+     * memuatnya.
+     *
+     * Ini regresi yang ditimbulkan escape ganda: nilai yang di-bind sudah
+     * lewat `escapeLikeString()` lalu di-escape LAGI oleh bind engine, jadi
+     * pola yang sampai ke SQL masih membawa backslash dan menuntut adanya
+     * backslash literal di dalam `messages.text` -- tidak ada pesan nyata
+     * yang seperti itu.
+     */
+    public function testQApostrofMenemukanPesanYangMemuatApostrof(): void
+    {
+        $id = $this->seedIdentitas('ac-014j@s.whatsapp.net', ['contact_name' => 'Pelanggan Remediasi']);
+        $this->seedMessage($id, ['text' => "Pesan it's buat kakak, ukuran L"]);
+
+        $this->assertSame([$id], $this->idsDari('?q=' . rawurlencode("it's")));
+
+        // Snippet terisi = conversation cocok lewat ISI PESAN (bukan identitas,
+        // yang akan membuat `match_snippet` null menurut CL-018).
+        $snippet = $this->barisPencarian('?q=' . rawurlencode("it's"), $id)['match_snippet'];
+        $this->assertSame("Pesan it's buat kakak, ukuran L", $snippet['text']);
+    }
+
+    /**
+     * AC-014 (k): kontrol negatif untuk (j) -- tanda petik tidak boleh
+     * sekadar DIABAIKAN. Kalau `q = "its"` ikut menemukan pesan "it's",
+     * berarti perbaikannya menghapus tanda petik, bukan meng-escape-nya
+     * dengan benar.
+     */
+    public function testQApostrofTidakSamaDenganKataTanpaApostrof(): void
+    {
+        $id = $this->seedIdentitas('ac-014k@s.whatsapp.net', ['contact_name' => 'Pelanggan Remediasi']);
+        $this->seedMessage($id, ['text' => "Pesan it's buat kakak, ukuran L"]);
+
+        $this->assertSame([], $this->idsDari('?q=its'));
+    }
+
+    /**
+     * AC-014 (l) / CL-008: `%` tetap teks biasa di isi pesan, jadi "50%"
+     * hanya cocok ke "diskon 50%" dan TIDAK ikut cocok ke "diskon 500".
+     */
+    public function testQPersenTetapLiteralDiIsiPesan(): void
+    {
+        $diskon = $this->seedIdentitas('ac-014l-diskon@s.whatsapp.net', ['contact_name' => 'Pelanggan Diskon']);
+        $this->seedMessage($diskon, ['text' => 'ada diskon 50% bulan ini']);
+
+        $lain = $this->seedIdentitas('ac-014l-lain@s.whatsapp.net', ['contact_name' => 'Pelanggan Lain']);
+        $this->seedMessage($lain, ['text' => 'harga 500 ribu saja']);
+
+        $this->assertSame([$diskon], $this->idsDari('?q=' . rawurlencode('50%')));
+    }
+
+    /**
+     * AC-014 (m): `!` adalah escape char LIKE, jadi ia harus DIGANDA oleh
+     * `strtr()` sekali jalan. Kalau implementasinya memakai tiga
+     * `str_replace()` berurutan, `!` -> `!!` -> `!!!!` -> `!!!!!!!!` dan
+     * keyword "lumayan!" tidak akan menemukan apa pun.
+     *
+     * Kontrol negatifnya: "lumayan" tanpa `!` tidak boleh ikut cocok.
+     */
+    public function testQTandaSeruTetapLiteralDiIsiPesan(): void
+    {
+        $seru = $this->seedIdentitas('ac-014m-seru@s.whatsapp.net', ['contact_name' => 'Pelanggan Seru']);
+        $this->seedMessage($seru, ['text' => 'lumayan! sekali rasanya']);
+
+        $biasa = $this->seedIdentitas('ac-014m-biasa@s.whatsapp.net', ['contact_name' => 'Pelanggan Biasa']);
+        $this->seedMessage($biasa, ['text' => 'lumayan sekali rasanya']);
+
+        $this->assertSame([$seru], $this->idsDari('?q=' . rawurlencode('lumayan!')));
+    }
+
+    /**
+     * AC-014 (n): backslash tetap karakter biasa, bukan awalan escape.
+     *
+     * Ini kelas keyword yang paling berbahaya: kalau escape ganda masih
+     * tersisa, polanya cuma "hampir benar" -- tidak error, hanya tidak
+     * menemukan apa pun.
+     */
+    public function testQBackslashTetapLiteralDiIsiPesan(): void
+    {
+        $id = $this->seedIdentitas('ac-014n@s.whatsapp.net', ['contact_name' => 'Pelanggan Foto']);
+        $this->seedMessage($id, ['text' => 'simpan di C:\foto ya']);
+
+        $this->assertSame([$id], $this->idsDari('?q=' . rawurlencode('C:\foto')));
+    }
+
+    /**
      * AC-014 (i) / CON-004: the search only reads -- no status, owner, snooze,
      * last-message or "seen" column changes, and no new `messages` row.
      */

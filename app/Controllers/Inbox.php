@@ -208,9 +208,23 @@ class Inbox extends BaseController
      * cocok di pesan lama pun tetap terlihat walaupun conversation-nya
      * punya ratusan pesan baru.
      *
-     * `%` dan `_` di `q` diperlakukan sebagai teks biasa (CL-008): nilainya
-     * di-escape `escapeLikeString()` dan `ESCAPE '!'` dipasang eksplisit,
-     * sama dengan escape char default CodeIgniter (`likeEscapeChar`).
+     * `%` dan `_` di `q` diperlakukan sebagai teks biasa (CL-008). Dua
+     * urusan escaping di sini ditangani masing-masing TEPAT SEKALI:
+     * metakarakter LIKE di-escape di baris `$pola`, sedangkan kutip string
+     * SQL diserahkan sepenuhnya ke bind engine.
+     *
+     * JANGAN memakai `escapeLikeString()` untuk nilai ini. Fungsi itu
+     * sudah meng-escape string SQL sekali, lalu bind engine meng-escape
+     * hasilnya sekali lagi di `Query::matchSimpleBinds()`, sehingga keyword
+     * yang memuat tanda petik atau backslash berubah menjadi pola yang
+     * menuntut backslash literal di dalam `messages.text` -- tidak ada
+     * pesan nyata yang seperti itu, jadi hasilnya selalu kosong tanpa error.
+     *
+     * `strtr()` dengan map adalah satu kali jalan dan tidak memindai ulang
+     * hasilnya sendiri, jadi `!` -> `!!` tidak berlanjut menjadi `!!!!`.
+     * Tiga `str_replace()` berurutan justru salah karena alasan itu.
+     * `ESCAPE '!'` di SQL yang membuat `!%`, `!_`, dan `!!` jadi literal.
+     *
      * `LIKE '%...%'` memang tidak memakai index -- itu batas yang sudah
      * disepakati di spec (tanpa FULLTEXT/index baru).
      *
@@ -222,6 +236,11 @@ class Inbox extends BaseController
     {
         $db = db_connect('inbox');
 
+        // Escape metakarakter LIKE di sini; kutip string SQL dikerjakan
+        // tepat sekali oleh bind engine. Lihat docblock: memakai
+        // `escapeLikeString()` pada nilai ini akan meng-escape dua kali.
+        $pola = '%' . strtr($q, ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
+
         $rows = $db->query(
             'SELECT `conversation_id`, `text`, `is_internal`, `message_timestamp` FROM ('
             . 'SELECT `conversation_id`, `text`, `is_internal`, `message_timestamp`, '
@@ -230,7 +249,7 @@ class Inbox extends BaseController
             . 'WHERE `deleted_at` IS NULL AND `text` IS NOT NULL AND `text` <> \'\' '
             . 'AND `text` LIKE ? ESCAPE \'!\''
             . ') AS `pesan_cocok` WHERE `peringkat` = 1',
-            ['%' . $db->escapeLikeString($q) . '%']
+            [$pola]
         )->getResultArray();
 
         $snippetService = new InboxMatchSnippetService();
