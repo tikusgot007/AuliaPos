@@ -1,16 +1,16 @@
 ---
 goal: M3 Operational Inbox — Fase 1 (Queue View, Conversation Detail, Snooze, Internal Note, SLA, Filter)
-version: 1.2
+version: 1.3
 date_created: 2026-09-21
-last_updated: 2026-09-24
+last_updated: 2026-09-25
 owner: AuliaPos Inbox module
-status: 'Completed'
+status: 'In progress'
 tags: [feature, inbox, chat, whatsapp, m3, operational-inbox]
 ---
 
 # Introduction
 
-![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
+![Status: In progress](https://img.shields.io/badge/status-In%20progress-yellow)
 
 > [!NOTE]
 > **Revision 1.1 (2026-09-24), per `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md`:** Status changed back from `Completed` to `In progress`. The backend for Internal Note, `sla_color` and search is merged, but no task covered the screen part of these features (MC-01..03). Phase 3 (TASK-015..019) adds that screen work. TASK-001..011 are now ticked with evidence from the code (CT-01). The text `findAll(500)` is replaced with the real behavior: no row limit, 50 per page (CL-001/CL-010, CT-02).
@@ -18,7 +18,10 @@ tags: [feature, inbox, chat, whatsapp, m3, operational-inbox]
 Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readiness Score 96/100, remediasi via `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md`) untuk mengubah Inbox AuliaPos dari viewer chat menjadi *operational customer workspace*: Queue View 5 tab, Conversation Detail dasar, Snooze, Internal Note, SLA Timer, dan Filter & Pencarian. Dieksekusi dalam 2 fase mergeable-independen: Fase 1a (tanpa migration, murni memanfaatkan endpoint existing) dan Fase 1b (migration additive `is_internal` + endpoint baru). Rev 1.1 adds Phase 3 (Fase 1c), which covers only the screen part of Internal Note, SLA Timer and search on top of the Fase 1b backend.
 
 > [!NOTE]
-> **Revision 1.2 (2026-09-24), per Spec rev 1.2 (REQ-013, CON-003, CL-015, AC-013) and PRD v1.3 (GH-009):** adds Phase 4 (Fase 1d, TASK-020..022): the search `q` matches all five name/number columns that the list can show. This closes TODO-SEARCH-01 (TASK-018) and audit finding NG-01 at plan level. Status changes from `Completed` to `In progress` until TASK-022 is approved. Phases 1–3 are unchanged. Fase 1e (GH-010, message-text search) is not in this plan; the Spec does not cover it yet.
+> **Revision 1.2 (2026-09-24), per Spec rev 1.2 (REQ-013, CON-003, CL-015, AC-013) and PRD v1.3 (GH-009):** adds Phase 4 (Fase 1d, TASK-020..022): the search `q` matches all five name/number columns that the list can show. This closes TODO-SEARCH-01 (TASK-018) and audit finding NG-01 at plan level. Status changes from `Completed` to `In progress` until TASK-022 is approved. Phases 1–3 are unchanged. Fase 1e (GH-010, message-text search) was not covered by the Spec at the time of this revision; see the Revision 1.3 note below, which adds Phase 5 once Spec rev 1.3/1.4 covered it.
+
+> [!NOTE]
+> **Revision 1.3 (2026-09-25), per `docs/audit/clarification-report-m3-fase1e-message-search-2026-09-25.md` (Readiness 87/100, F-04) and `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.4:** the stale claim in the Revision 1.2 note is removed — the Spec now covers Fase 1e (GH-010), so this plan adds **Phase 5 (Fase 1e, TASK-023..TASK-029)**: a pure Match Snippet Service with unit tests, message-text search inside `apiConversations()` through one aggregate query, the Match Snippet line plus a load guard on the screen, a guarded one-off Spark Command, and the AC-016 measurement on a separate perf database. Fase 1d **already had its section** (Phase 4, rev 1.2, TASK-020..TASK-022, evidence complete), so F-04 only needed the stale sentence removed plus the missing Fase 1e section; F-04 is now closed at plan level. Status changes from `Completed` to `In progress` until TASK-029 is approved. The stale `Status: Completed` badge in the Introduction is corrected to match the frontmatter as part of the same F-04 cleanup. Phases 1–4 are unchanged.
 
 ## 1. Requirements & Constraints
 
@@ -39,6 +42,11 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **GUD-001**: Semua migration Fase 1b additive-only.
 - **REQ-013 (Fase 1d, rev 1.2)**: `q` on `GET /inbox/api/conversations` matches when it is contained in **at least one** of `contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id` — always all five, whichever one the list shows (CL-015). Each column is checked on its own, never a join of columns. All other `q` rules stay (trim, case-insensitive, `%`/`_` as plain text, max 255, AND with `status`, whole dataset, 50 per page).
 - **CON-003 (Fase 1d, rev 1.2)**: no migration, no new parameter, no screen change. The Fase 1c search box already sends `q` (AC-012), so the wider match shows on screen without a view change.
+- **REQ-014 (Fase 1e, rev 1.3)**: `q` juga mencocokkan `messages.text` di seluruh riwayat conversation (pesan `incoming`, balasan `outgoing`, dan Internal Note): conversation masuk hasil bila cocok lewat identitas (REQ-013) **atau** lewat isi pesan. Aturan `q` lain tidak berubah: trim, maks. 255 karakter, tidak membedakan huruf besar/kecil, `%`/`_` sebagai teks biasa, tanpa normalisasi, AND dengan `status`, seluruh dataset tanpa batas baris (CL-001), 50 per halaman, urutan `last_message_at` terbaru. Pesan dengan `deleted_at` terisi, `text` `NULL`, atau kosong tidak pernah cocok dan tidak boleh menimbulkan error.
+- **REQ-015 (Fase 1e, rev 1.3)**: Setiap elemen `conversations` membawa key `match_snippet` — objek `{ text, is_internal, message_timestamp }` dari pesan cocok terbaru, atau `null` bila tidak ada `q` atau bila conversation cocok lewat kolom identitas (CL-018). Satu conversation tetap satu elemen (tidak ada duplikasi hasil).
+- **REQ-016 (Fase 1e, rev 1.3 — kecepatan)**: Pencarian isi pesan dijalankan di database, bukan di PHP: satu query agregat ke `messages` per request (tanpa N+1), PHP hanya menerima conversation_id yang cocok dan paling banyak satu pesan per conversation, query itu tidak dijalankan sama sekali bila `q` kosong, dan target ≤ 3 detik (median 3 percobaan) pada data uji ASSUMPTION-004.
+- **REQ-017 (Fase 1e, rev 1.3 — layar)**: (a) Match Snippet dirender di bawah nama dengan `escapeHtmlInbox()` dan label "Internal" bila `is_internal = true`; (b) putaran pemuatan daftar baru tidak dimulai selama putaran sebelumnya masih berjalan, dengan penanda yang **dilepas di `.finally()`** (berhasil maupun gagal; tanpa `AbortController`/timeout); (c) daftar sebelumnya tetap tampil dan tetap bisa diklik selama menunggu, dan kata kunci baru tetap boleh dicari sementara hasil kata kunci lama dibuang (perilaku Fase 1c yang sudah ada).
+- **CON-004 (Fase 1e, rev 1.3)**: Fase 1e tidak menambah migration, index, parameter query, maupun endpoint. Perubahan terbatas pada `apiConversations()` (predikat + `match_snippet`) dan daftar di `app/Views/inbox/index.php`, **kecuali satu pengecualian yang sudah disetujui pemilik produk (R-02)**: logika pemotongan Match Snippet diekstrak ke **satu Service murni** bergaya `InboxSlaService` beserta unit test-nya di `tests/unit/` (tanpa akses DB/HTTP, tanpa kontrak publik baru). Alat ukur AC-016 hidup di luar `composer test` dan CI (TASK-026/TASK-027). Pencarian hanya membaca — tidak ada penulisan data dan tidak ada panggilan Gateway.
 - **SEC-002 (derived, ADR-0001 Consequences)**: `withComputedStatus()` dan agregasi `last_message_at`/`last_message_direction` HARUS meng-exclude baris `is_internal=TRUE` dari asumsi input mereka agar tidak mencemari badge Tahap A maupun tab Queue View — dijamin secara struktural oleh REQ-009 (Internal Note tidak pernah menulis kolom itu), bukan oleh filter query tambahan.
 
 ## 2. Implementation Steps
@@ -102,6 +110,75 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 | TASK-021 | **VERIFY** (Spec AC-013): (a) Run the full suite with `cmd /c 'vendor\bin\phpunit --no-coverage > build\fase1d.txt 2>&1'` (exit 0, at least 317 tests + the new ones, zero skips). The AC-009 tests and `tests/session/OperationalInboxScreenTest.php` must stay green without edits. (b) Boundary check: `git diff --stat` for the TASK-020 commit touches only `app/Controllers/Inbox.php` and `tests/session/OperationalInboxConversationTest.php`; no change to `app/Views/`, `app/Config/Routes.php` or `app/Database/Migrations/` (CON-003). (c) Manual browser check of AC-013 (h), recording the result per line: a conversation with no saved contact name that shows "Budi Cetak" (its WhatsApp profile name) in the list is found by typing "budi cetak" in the search box and pressing Enter; it appears under its tab and the tab count follows. The same search on a conversation saved as "Jamet" with WhatsApp name "Budi Cetak" also finds it. | - | - | - | - | Partial. (a) ✅ `vendor\bin\phpunit --no-coverage` exit 0, **324 tests / 1097 assertions**, no skips; AC-009 and `OperationalInboxScreenTest.php` green without edits. (b) ✅ `db7f301` touches only `app/Controllers/Inbox.php` and `tests/session/OperationalInboxConversationTest.php`. (c) ✅ Manual browser check of AC-013 (h) by the user on 2026-09-24, using dummy conversations in the local `aulia_inboxdb` (ids 24575-24584). Typing "budi cetak" + Enter found "Budi Cetak" (no saved name, under Belum Diambil) and "Jamet" (WhatsApp name "Budi Cetak", under Open); tab counts followed the search; near-miss names and the soft-deleted row did not appear. | 2026-09-24 |
 | TASK-022 | **APPROVAL**: Wait for explicit user confirmation that Phase 4 is done. Then set the frontmatter `status` back to `Completed`, mark TODO-SEARCH-01 closed in TASK-018, and hand off to `/sdlc-code-review` of the TASK-020 commit. | - | - | - | - | ✅ Approved by the user 2026-09-24 after TASK-021 (a)–(c) passed. Frontmatter `status` set back to `Completed`; TODO-SEARCH-01 marked closed in TASK-018. Next: `/sdlc-code-review` of `db7f301` (plus `88cc7e0` test fix and `7f2d82b` "4096 byte" wording fix). Code review done 2026-09-24: verdict Merge, no CRITICAL/REQUIRED findings, no refactoring plan (NIT: AC-013 (d) negative check could be `assertSame([])`). | 2026-09-24 |
 
+### Implementation Phase 5 — Fase 1e: message-text search + Match Snippet (Spec rev 1.4, plan rev 1.3)
+
+- **GOAL-005**: Kasir dapat menemukan satu conversation lewat **isi pesan** mana pun di riwayatnya (pesan customer, balasan staf, maupun Internal Note); `apiConversations()` mengembalikan `match_snippet` untuk conversation yang cocok lewat isi pesan saja; dan pencarian tetap ≤ 3 detik pada data uji ASSUMPTION-004 (2.000 conversation × 100 pesan). **Tanpa migration, tanpa index, tanpa parameter baru, tanpa endpoint baru** (CON-004), dengan satu pengecualian yang sudah disetujui: satu Service murni pemotong Match Snippet + unit test-nya (R-02).
+
+> [!NOTE]
+> **Mengapa pemicu pencarian lama tetap utuh:** Fase 1d sudah membuat lima kolom identitas dicocokkan di PHP setelah fetch (CON-003). Fase 1e **tidak** memindahkan pemicu itu ke SQL, karena tujuan GH-010 adalah "cari pakai isi pesan", bukan "percarian ulang identitas". Perubahan pada `apiConversations()` hanya dua hal: (1) satu query agregat ke `messages` yang menjadi sumber tambahan `conversation_id` yang cocok, dan (2) key `match_snippet` pada setiap elemen payload.
+
+| Task | Deliverable | AC | Depends | Status |
+| --- | --- | --- | --- | --- |
+| **TASK-023** | Pure Match Snippet Service + unit tests (Red → Green) | AC-014g | DEP-006 | Pending |
+| **TASK-024** | `apiConversations()` message-text predicate + `match_snippet` + session tests | AC-014a–f, h, i | TASK-023 | Pending |
+| **TASK-025** | List renders Match Snippet + "Internal" label + load guard | AC-015a–d | TASK-024 | Pending |
+| **TASK-026** | `aulia:seed-fase1e-perf` seeder with DB-name guard | ASSUMPTION-004 | DEP-007 | Pending |
+| **TASK-027** | Provision `aulia_inboxdb_perf`, seed, measure AC-016, clean up | AC-016 | TASK-024, TASK-025, TASK-026 | Pending |
+| **TASK-028** | VERIFY: full suite + boundary check + browser checklist + macro gate | AC-014..AC-016 | TASK-023..TASK-027 | Pending |
+| **TASK-029** | APPROVAL: user confirmation, status `Completed`, hand off to `/sdlc-code-review` | — | TASK-028 | Pending |
+
+**TASK-023 — A pure Match Snippet cutter exists and is unit tested** (Spec §4.4, AC-014g).
+
+1. **Red first:** add `tests/unit/InboxMatchSnippetServiceTest.php` (plain `PHPUnit\Framework\TestCase`, following the style of `tests/unit/InboxSlaServiceTest.php`, Indonesian test method names). Run it — it fails because the class does not exist yet.
+2. **Green:** add `app/Services/InboxMatchSnippetService.php` (`namespace App\Services`, no DB/session/request access, no constructor dependencies), one public method `potong(?string $teks, string $q): ?string`.
+3. **Rules:** (a) collapse every run of whitespace, including new lines, into one space, then `trim()`; `null` or empty after trim returns `null`. (b) text of at most 120 characters (`mb_strlen`) is returned as is, without `…`. (c) longer text takes a window of 120 `mb_substr` characters starting 40 characters before the first case-insensitive (`mb_stripos`) occurrence of `q`, clamped at 0, with `…` added only on the side(s) actually cut. (d) when `q` is not found in PHP (e.g. the database matched `é` as `e`), the window starts at 0. (e) every length/cut uses `mb_*`, never `strlen`/`substr`, so multi-byte letters and emoji are never split.
+4. **Checks:** a 500-character text holding `Saerah` in the middle plus several new lines → at most 122 characters (120 + two `…`), contains `Saerah`, contains no new line, starts **and** ends with `…` (AC-014g); text of exactly 120 characters → unchanged, no `…`; whitespace-only text → `null`; `q` absent from the text → window from the start.
+5. Touches no file outside `app/Services/` and `tests/unit/` (CON-004 exception).
+
+**TASK-024 — The API finds conversations by message content and returns `match_snippet`** (Spec §4.4, REQ-014..REQ-016, AC-014 a–f, h, i).
+
+1. **Red first:** add the AC-014 tests to `tests/session/OperationalInboxConversationTest.php` (same seam as AC-009/AC-013, Spec §6) with a readable helper `seedMessage(int $conversationId, array $override = [])` filling `conversation_id`, `direction`, `message_type`, `text`, `is_internal`, `message_timestamp`, `created_at`. Run and confirm they fail before the change.
+2. **Green:** in `Inbox::apiConversations()` (`app/Controllers/Inbox.php`), when `q !== ''`, run **one** aggregate query on the `inbox` connection that returns at most one row per conversation — the newest matching message by `message_timestamp DESC, id DESC` (e.g. `ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY message_timestamp DESC, id DESC)` filtered to `rn = 1`, or an equivalent single query; never one query per conversation).
+3. **Rules:** (a) only rows with `deleted_at IS NULL`, `text IS NOT NULL` and `text <> ''` may match (AC-014f). (b) the predicate is equivalent to `LIKE '%q%'` for every `q`, so `%` and `_` stay literal — use the driver's `escapeLikeString()` together with `like(..., 'both', false)`, or an equivalent explicit escape, so CL-008 also holds for message text (AC-014h: `q = "50%"` must match a message holding `diskon 50%` and must not match one holding `diskon 500`). (c) Internal Notes are searched and flagged, never skipped: `messages.is_internal` is carried into the snippet as a boolean (AC-014b). (d) a conversation matching through message text joins the result set even when no identity column matches; `status` and paging are applied afterwards exactly as today (AND, whole dataset, 50 per page — AC-014a, AC-014c). (e) `match_snippet` is present on **every** conversation element: `null` when `q` is empty, and `null` when the conversation matched through an identity column (CL-018, AC-014e); otherwise `{ text, is_internal, message_timestamp }` where `text` comes from `InboxMatchSnippetService::potong()` (AC-014g) and `message_timestamp` uses the same format as the other time columns. (f) when `q` is empty the `messages` query must not run at all (REQ-016c). (g) the request is read-only: no `update()`, no Gateway call, and no change to `assigned_to`, `status`, `snoozed_until`, `last_message_at`, `last_message_direction`, `last_seen_by_assignee_at`, or to the number of `messages` rows (AC-014i).
+4. **Checks:** AC-014 (a)–(f), (h), (i) as automated tests, including the tie-break (two matching messages with equal `message_timestamp` → snippet from the larger `id`) and a boundary assert that the API never returns more than 122 characters; AC-014 (g) is covered by TASK-023.
+
+**TASK-025 — The list shows the Match Snippet and a polling tick cannot stack a second load** (REQ-017, AC-015 a–d).
+
+1. **Match Snippet line:** inside the `renderDaftarConversation()` render loop of `app/Views/inbox/index.php`, add a `.list-snippet` element under the existing preview line that prints `escapeHtmlInbox(c.match_snippet.text)` exactly as the server sent it (the `…` included), and, when `c.match_snippet.is_internal === true`, an "Internal" label in front of the text reusing the same badge style as the thread Internal Note label (AC-010a). When `match_snippet` is `null` or missing, render **nothing extra**, so the Fase 1d list looks unchanged (AC-015b).
+2. **Escaping:** the snippet text is untrusted customer text; insert it via `escapeHtmlInbox()` only — never as raw HTML, never via `innerHTML` with a concatenated string (AC-015c, Spec §9 "Never do").
+3. **Load guard:** add one `let putaranDaftarBerjalan = false;` beside the other module-level state, set it to `true` at the start of `muatUlangDaftarConversation()` and release it in `.finally()` so it clears on success and on failure alike. While the flag is set, the 6-second interval tick and `jalankanPencarianConversation()` skip the new round when the keyword is unchanged; a **new** keyword is still sent and the stale keyword's result is still dropped (AC-015d, REQ-017c).
+4. **Deliberately not in scope:** no `AbortController`, no timeout, no request queue, no spinner redesign (CL-020 style "ask first" applies).
+5. **Checks:** manual browser checklist per AC-015 line in TASK-028 (c). Automated part: extend `tests/session/OperationalInboxScreenTest.php` to assert the served page contains the `match_snippet` read, the `.list-snippet` markup, and the `.finally(` release; the click/poll behaviour cannot be asserted automatically because the project has no JS test runner (Spec §6).
+
+**TASK-026 — A guarded one-off seeder for the measurement database** (R-03, Spec §6, ASSUMPTION-004 which is CONFIRMED in Spec rev 1.4).
+
+1. Add `app/Commands/SeedFase1ePerf.php`: `namespace App\Commands`, `extends BaseCommand`, `protected $group = 'AULIA';`, `protected $name = 'aulia:seed-fase1e-perf';`, `protected $usage = 'aulia:seed-fase1e-perf --dbgroup=inbox';`, output through `CLI::write()` and `EXIT_SUCCESS`/`EXIT_ERROR`, exactly in the style of `app/Commands/RepairTotalDibayar.php` (DEP-007).
+2. **Guard first:** read the active database name of the `inbox` group (`Config\Database::connect('inbox')`) and refuse with `EXIT_ERROR` and a clear message when it is not `aulia_inboxdb_perf`. The tool must be impossible to point at `aulia_inboxdb` (live) or `aulia_inboxdb_test`.
+3. **Fixture:** insert the ASSUMPTION-004 CONFIRMED dataset — 2.000 conversations × 100 messages = 200.000 rows — with batched inserts, containing the three AC-016 keywords (a rare word present in exactly one message, a common word present in roughly 10% of the messages, and the single letter `a`), and print the inserted counts so the measurement can be recorded.
+4. **Isolation:** never wired into `composer test`, PHPUnit, or CI, and never invoked by any other task.
+5. **Checks:** with `.env` still pointing at `aulia_inboxdb`, run the command and record the evidence: it refuses, prints the database name it saw, writes nothing, and the `messages` row count in `aulia_inboxdb` is unchanged.
+
+**TASK-027 — Provision the perf database and measure AC-016** (R-04, R-05, Spec §6 and §9). Depends on TASK-024, TASK-025, TASK-026.
+
+1. Create `aulia_inboxdb_perf` schema-only with the recipe already recorded in `docs/ARCHITECTURE.md` §11: `CREATE DATABASE aulia_inboxdb_perf CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`, then `mysqldump --no-data --routines --triggers aulia_inboxdb | mysql ... aulia_inboxdb_perf`. Do **not** use `php spark migrate` — the migration history lives in the `default` database (DEP-005).
+2. Override `database.inbox.database = aulia_inboxdb_perf` in `.env` (gitignored) **only** for the seeding and the measurement, and restore it to `aulia_inboxdb` afterwards; the restore is part of the task, not an afterthought.
+3. Seed with TASK-026's command.
+4. Measure the real HTTP endpoint `GET /inbox/api/conversations?page=1&q=<kata>` for the three AC-016 keywords (a rare word present in exactly one message, a common word present in roughly 10% of the messages, and the single letter `a`) × 3 attempts each using the server response time, and take the median per keyword (ASSUMPTION-004 target: median ≤ 3 seconds). Also measure one request without `q` to show REQ-016c held, i.e. the no-search path did not get slower.
+5. Record every raw number (each attempt plus the median) in the TASK-027 evidence cell and in the Fase 1e section of the walkthrough.
+6. Clean up: drop the fixture data (or the whole `aulia_inboxdb_perf` database) and confirm `.env` points at `aulia_inboxdb` again.
+7. **Stop rule:** if any median exceeds 3 seconds, **stop and report the measurement** before adding any index, FULLTEXT, search table, or migration — that requires explicit approval (CL-020, Spec §9 "Ask first").
+8. **Never:** touch `aulia_inboxdb`, modify `aulia_inboxdb_test`, or add a migration/index in this task.
+
+**TASK-028 — VERIFY** (Spec AC-014..AC-016, AGENTS.md two-layer testing mandate).
+
+1. Run `vendor\bin\phpunit --no-coverage` and require exit code 0 with zero failures, errors, or skips, including every Phase 1–4 test unchanged (macro gate).
+2. Boundary check with `git diff --stat`: only `app/Services/InboxMatchSnippetService.php`, `app/Controllers/Inbox.php`, `app/Views/inbox/index.php`, `app/Commands/SeedFase1ePerf.php`, `tests/unit/InboxMatchSnippetServiceTest.php`, `tests/unit/InboxSlaServiceTest.php` (untouched, listed for contrast), `tests/session/OperationalInboxConversationTest.php`, and `tests/session/OperationalInboxScreenTest.php` are touched. No `app/Database/Migrations/`, no `app/Config/Routes.php`, no new query parameter or endpoint (CON-004).
+3. Manual browser checklist per AC-015 line: (a) a message-text hit shows the snippet under the name; (b) an Internal Note hit shows the "Internal" label; (c) `match_snippet = null` adds no extra line; (d) a snippet holding `<b>`/`<script>` shows as plain text; (e) a polling tick during a running round starts no new request, a new keyword still searches, and the previous list stays visible and clickable while waiting.
+4. Confirm TASK-027's evidence holds the raw AC-016 numbers and that `.env` is back to `aulia_inboxdb`, and that the perf fixture data is gone.
+5. Report the result (failures and numbers, if any) before TASK-029.
+
+**TASK-029 — APPROVAL.** Wait for explicit user confirmation, set the plan frontmatter back to `status: 'Completed'`, record the AC-016 medians in the Fase 1e walkthrough, and hand off to `/sdlc-code-review`.
+
 ## 3. Alternatives
 
 - **ALT-001**: Membuat endpoint filter terpisah (`GET /inbox/api/conversations/filter`) alih-alih memperluas `apiConversations()` — ditolak karena menduplikasi query dasar dan melanggar REQ-002 (single source computed status).
@@ -111,6 +188,9 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **ALT-005 (rev 1.1)**: Add `sla_color` to `Inbox::index()` so the SLA dot shows on first paint. Deferred because it is a backend change outside the audit scope, and the gap is at most one 6-second refresh (TASK-016 "Accepted limitation").
 - **ALT-006 (rev 1.2)**: Move the `q` match into a SQL `WHERE ... LIKE` over the five columns. Rejected for Fase 1d: `status` is filtered after compute (ASSUMPTION-001, ADR-0001), so `q` in SQL would split one filter pass into two paths. Spec §4.4 item 4 leaves the technique open, and the smallest change is to keep the existing PHP filter. Speed work belongs with Fase 1e (message-text search), where the Spec will design it.
 - **ALT-007 (rev 1.2)**: Search only the column the list is showing (e.g. skip `whatsapp_name` when `contact_name` is set). Rejected by CL-015: all five columns are always searched, so a WhatsApp name stays findable after staff save a different contact name (AC-013 e).
+- **ALT-008 (rev 1.3)**: Search message text with an `EXISTS`/correlated subquery per conversation (or one query per conversation) instead of one aggregate query. Rejected by REQ-016a/b: it multiplies queries over a 200.000-row dataset and would hand PHP more than one row per conversation. Task: TASK-024.
+- **ALT-009 (rev 1.3)**: Load the matching `messages` rows into PHP and filter the conversations there. Rejected by REQ-016b (PHP must not receive unmatched or extra rows) on the ASSUMPTION-004 dataset; the `LIKE` has to be evaluated by the database. Task: TASK-024.
+- **ALT-010 (rev 1.3)**: Add a FULLTEXT index (or a dedicated search table/migration) now. Rejected for Fase 1e by CL-020 and by user-visible behaviour: FULLTEXT matches whole words only and ignores short words and stopwords, so `aerah` would not find `Saerah` — different from the "contained" search users already know. Revisit only if AC-016 fails, and then report the measurement first (Spec §9 "Ask first").
 
 ## 4. Dependencies
 
@@ -118,6 +198,10 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **DEP-002**: Migration `2026-09-19-000001_AddResponseStateFoundation.php` sebagai pola referensi migration Fase 1b.
 - **DEP-003**: Koneksi DB `inbox` (`aulia_inboxdb`) — migration TASK-007 wajib `$DBGroup = 'inbox'`.
 - **DEP-004**: `app/Config/Inbox.php` (existing) — tempat menambah properti threshold SLA (REQ-010).
+- **DEP-005 (rev 1.3)**: `docs/ARCHITECTURE.md` §11 — resep database non-live yang dipakai TASK-027 untuk membuat `aulia_inboxdb_perf` schema-only (bukan `php spark migrate`, karena riwayat migration ada di database `default`).
+- **DEP-006 (rev 1.3)**: `app/Services/InboxSlaService.php` + `tests/unit/InboxSlaServiceTest.php` — pola Service murni + unit test yang diikuti TASK-023.
+- **DEP-007 (rev 1.3)**: `app/Commands/RepairTotalDibayar.php` — pola Spark Command (base class, `CLI::write()`, exit code, opsi `--dbgroup`) yang diikuti TASK-026.
+- **DEP-008 (rev 1.3)**: `tests/session/OperationalInboxConversationTest.php` — seam test existing untuk AC-014 (TASK-024); `tests/session/OperationalInboxScreenTest.php` — seam existing untuk assertion layar (TASK-025).
 
 ## 5. Files
 
@@ -129,6 +213,9 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **FILE-006**: `app/Config/Inbox.php` — tambah properti threshold SLA (TASK-010).
 - **FILE-007**: `app/Views/inbox/*` (view existing, cek dulu sebelum menambah file baru) — render 5 tab, field Alasan Snooze (TASK-002, TASK-004, TASK-012); Internal Note button + `#modalCatatanInternal` (TASK-015), SLA Timer dot (TASK-016), search box `#inputCariConversation` (TASK-017).
 - **FILE-008**: `tests/database/`, `tests/session/`, `tests/unit/` — test baru per TASK-005, TASK-009, TASK-013; `tests/session/OperationalInboxScreenTest.php` (TASK-018); AC-013 tests in `tests/session/OperationalInboxConversationTest.php` (TASK-020).
+- **FILE-009 (rev 1.3)**: `app/Services/InboxMatchSnippetService.php` (baru) — satu-satunya Service baru, murni `potong()`, tanpa DB (TASK-023, CON-004 exception).
+- **FILE-010 (rev 1.3)**: `app/Commands/SeedFase1ePerf.php` (baru) — seeder sekali pakai dengan guard nama database, tidak pernah di-wiring ke CI (TASK-026).
+- **FILE-011 (rev 1.3)**: `tests/unit/InboxMatchSnippetServiceTest.php` (baru, TASK-023) plus tambahan di `tests/session/OperationalInboxConversationTest.php` (TASK-024) dan `tests/session/OperationalInboxScreenTest.php` (TASK-025).
 
 ## 6. Testing
 
@@ -137,9 +224,12 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **TEST-003**: `tests/session/` — `GET /inbox/api/conversations` dengan parameter `status`/`q` baru, termasuk kasus conversation lama tetap ditemukan (tidak ada batas "N terbaru", CL-001) dan pagination 50 per halaman.
 - **TEST-004**: `tests/unit/` — `InboxSlaService` sebagai pure function (semua kombinasi threshold × `queue_status`).
 - **TEST-005**: Regresi — jalankan test existing Tahap A (`apiPerluDibalasCount()`, badge sidebar) sebelum & sesudah Phase 1 dan Phase 2, pastikan tidak ada perubahan hasil.
-- **TEST-006 (Macro Gate)**: `composer test` 100% lolos sebelum tiap APPROVAL checkpoint (TASK-006, TASK-014, TASK-019, TASK-022), sesuai `AGENTS.md` Testing Policy. The exit-0 signal is `vendor/bin/phpunit --no-coverage`, because `composer test` exits 1 only on the existing coverage-driver warning.
+- **TEST-006 (Macro Gate)**: `composer test` 100% lolos sebelum tiap APPROVAL checkpoint (TASK-006, TASK-014, TASK-019, TASK-022, TASK-029), sesuai `AGENTS.md` Testing Policy. The exit-0 signal is `vendor/bin/phpunit --no-coverage`, because `composer test` exits 1 only on the existing coverage-driver warning.
 - **TEST-007 (rev 1.1)**: `tests/session/OperationalInboxScreenTest.php`: the Inbox page renders the Internal Note modal, the search input and the JS that reads `sla_color`/`q`. Plus a manual browser checklist for the behavior built by JS (TASK-018). There is no JS test runner in this project, so browser behavior is checked by hand.
 - **TEST-008 (rev 1.2)**: `tests/session/OperationalInboxConversationTest.php` — `q` against the five identity columns, Spec AC-013 (a)–(g), written Red before TASK-020's code change. AC-013 (h) is a manual browser check (TASK-021 c). The macro gate (TEST-006) also applies to TASK-022.
+- **TEST-009 (rev 1.3)**: `tests/unit/InboxMatchSnippetServiceTest.php` — whitespace collapse (including new lines), the 120/121-character boundary, the window starting 40 characters before the match, `…` on both cut sides, multi-byte and emoji safety, and `null` for empty text. Written Red before TASK-023.
+- **TEST-010 (rev 1.3)**: `tests/session/OperationalInboxConversationTest.php` — message-text `q`, Spec AC-014 (a)–(f), (h), (i), plus the tie-break and a ≤ 122-character boundary assert, written Red before TASK-024's code change. `tests/session/OperationalInboxScreenTest.php` — the served page reads `match_snippet`, renders `.list-snippet`, and releases the load guard in `.finally()`. AC-015 (e) stays a manual browser check (TASK-028 c).
+- **TEST-011 (rev 1.3)**: AC-016 is **not** a PHPUnit test: it is measured by hand exactly as Spec §6/§9 require (separate schema-only perf database, guard-refusing seeder outside `composer test`/CI, temporary `.env` override restored afterwards, 3 keywords × 3 attempts, median recorded per keyword, fixture data cleaned up). TASK-027 owns the numbers and the stop rule if any median exceeds 3 seconds. The macro gate (TEST-006) also applies to TASK-028 and TASK-029.
 
 ## 7. Risks & Assumptions
 
@@ -150,6 +240,11 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - **RISK-002**: `apiConversations()` dan `index()` memuat **seluruh** conversation (`findAll()` tanpa limit, CL-001) lalu menghitung status/SLA di PHP sebelum memotong 50 per halaman; layar Inbox mengambil halaman 1..N tiap refresh (TASK-013). Pada dataset besar ini bisa memperlambat endpoint — dicatat sebagai risiko yang diterima (CL-001 mengizinkan optimasi teknis nanti), perlu dipantau pasca-deploy. (rev 1.1, CT-02: teks lama `findAll(500)` dihapus.)
 - **RISK-004 (rev 1.2)**: Matching `chat_id` means a very common keyword such as "lid" or "whatsapp" can match many conversations. Accepted by Spec §12 (the "contained" rule), no special filtering. Related: after a customer changes their WhatsApp profile name, the old name is no longer found, because Gateway overwrites `whatsapp_name` (Spec §12, accepted). Task: TASK-020. Low risk.
 - **RISK-005 (rev 1.2)**: Five `mb_stripos()` calls per row instead of two add a little PHP work on each search request, on top of RISK-002. Accepted: it is small next to loading all rows, and speed design is planned for Fase 1e. Task: TASK-020. Low risk.
+- **ASSUMPTION-004 (dari spec rev 1.4, CONFIRMED)**: data uji performa adalah 2.000 conversation × 100 pesan (200.000 baris `messages`), 3 kata kunci, dan median dari 3 percobaan dengan target ≤ 3 detik. Task terkait: TASK-026, TASK-027. Risiko menengah — hanya menyentuh database perf terpisah, bukan database live.
+- **RISK-006 (rev 1.3)**: Bagian paling berbahaya di Fase 1e adalah alat ukur: seeder yang salah arah akan menulis 200.000 baris ke `aulia_inboxdb` (live). Mitigasi: TASK-026 menolak jalan kecuali nama database `inbox` yang aktif adalah `aulia_inboxdb_perf`, command tidak pernah di-wiring ke `composer test`/CI, dan TASK-027 mencatat bukti penolakan tersebut plus langkah pengembalian `.env`. Dampak tinggi, probabilitas rendah.
+- **RISK-007 (rev 1.3)**: `LIKE '%q%'` tidak bisa memakai index yang ada `(conversation_id, message_timestamp)`, jadi kata kunci yang sangat umum bisa melewati 3 detik. Diterima untuk saat ini: AC-016 adalah gerbangnya — bila gagal, berhenti dan laporkan hasil ukur sebelum mengusulkan index/migration apa pun (CL-020). Task: TASK-027. Risiko menengah, dipantau.
+- **RISK-008 (rev 1.3)**: `ROW_NUMBER()` butuh MariaDB 10.2+; produksi memakai 10.4 dan database test memakai engine yang sama. Bila engine lokal ternyata lebih lama, TASK-024 memakai query agregat tunggal yang setara (max `message_timestamp`, lalu max `id` sebagai tie-break) — bukan query per conversation. Task: TASK-024. Risiko rendah.
+- **RISK-009 (rev 1.3)**: Pengaman putaran hanya menjaga satu layar: dua tab atau dua halaman lama masih bisa mengirim dua pencarian sekaligus. Diterima (REQ-017b); tidak ada timeout/`AbortController` di Fase 1e. Task: TASK-025. Risiko rendah.
 - **RISK-003**: Fase 2 (Handoff, atomic `cekOwnership()`) terkunci menunggu M2 — plan ini tidak menyentuh area itu sama sekali (Out of Scope, spec Bagian 1.1), tidak ada task yang boleh diperluas ke sana.
 
 ## 8. Related Specifications / Further Reading
@@ -159,8 +254,11 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
 - `docs/audit/clarification-report-m3-fase1-operational-inbox-plan-2026-09-21.md` (Readiness Score 97/100 — 7 resolusi sudah dituliskan ulang ke TASK-002, TASK-008, TASK-011, TASK-012 di plan ini)
 - `docs/adr/0001-reuse-response-state-for-queue-view-status.md`
 - `docs/audit/consistency-audit-m3-fase1-operational-inbox-2026-09-24.md` (66/100 — source of rev 1.1: MC-01..03, CT-01, CT-02)
-- `prd-20260922-0141-chat-whatsapp-inbox.md` (GH-002, GH-004, Layar 7; v1.3 GH-009 for Phase 4)
+- `prd-20260922-0141-chat-whatsapp-inbox.md` (GH-002, GH-004, Layar 7; v1.3 GH-009 for Phase 4 and GH-010 for Phase 5)
 - `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.2 (REQ-013, CON-003, CL-015, §4.4, AC-013 — source of Phase 4)
+- `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.4 (REQ-014..REQ-017, CON-004, CL-016..CL-021, §4.4 `match_snippet`, AC-014..AC-016, §6/§9 AC-016 procedure — source of Phase 5)
+- `docs/audit/clarification-report-m3-fase1e-message-search-2026-09-25.md` (Readiness 87/100 — F-01..F-05; source of rev 1.3: F-04 remediation plus the Fase 1e tracer-bullet split)
+- `docs/ARCHITECTURE.md` §11 — non-live database recipe reused by TASK-027 for `aulia_inboxdb_perf`
 - `docs/CHAT.md`, `docs/TODO-CHAT.md`
 
 ## 9. Rollback / Recovery Plan
@@ -171,4 +269,5 @@ Plan ini mengeksekusi `spec/spec-design-m3-operational-inbox-fase1.md` (Readines
   - Jika endpoint Internal Note (TASK-008) bermasalah di produksi (mis. ternyata memicu perubahan `response_state` akibat bug REQ-009): nonaktifkan route di `app/Config/Routes.php` (comment out) sebagai mitigasi cepat sebelum `git revert` penuh, karena data `messages.is_internal=TRUE` yang sudah terlanjur tersimpan tidak perlu dihapus (tidak destruktif, hanya perlu diperbaiki logikanya).
   - **Phase 3 (Fase 1c, rev 1.1)**: Screen-only changes in `app/Views/inbox/index.php` + one test file. No migration and no data change. Roll back with `git revert` of the TASK-015/016/017 commits. The backend endpoints stay and keep working without the screen.
   - **Phase 4 (Fase 1d, rev 1.2)**: One predicate in `app/Controllers/Inbox.php` + tests. No migration, no data change, no screen change. Roll back with `git revert` of the TASK-020 commit; search goes back to `contact_name`/`phone` only and everything else keeps working.
+  - **Phase 5 (Fase 1e, rev 1.3)**: `git revert` of the TASK-023/024/025 commits removes the snippet Service, the `messages` predicate and the list line; no migration and no data change, so search falls back to Fase 1d (identity columns only) and the rest keeps working. The seeder command (TASK-026) is guarded and inert on its own; the perf database and its fixture data are dropped in TASK-027, which also restores `.env` to `aulia_inboxdb`.
   - `git revert` per-task-commit direkomendasikan (bukan `reset --hard`) agar histori tetap bisa diaudit sesuai `CLAUDE.md` konvensi git commit yang deskriptif.
