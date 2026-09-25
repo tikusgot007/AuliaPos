@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-09-25
 last_updated: 2026-09-25
 owner: AuliaPos Inbox module
-status: "Planned"
+status: "Completed"
 tags: ["bug-fix", "remediation", "patch", "inbox", "ordering", "gw-11"]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-yellow)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 After the WA Gateway reconnects from an outage, the messages that were buffered during the outage do arrive in the Inbox, but they can be displayed in an order that differs from the order in which the customer sent them. This is the user-visible symptom that was previously noted, but not explained, as gap **GW-11** in `docs/GATEWAY-REQUIREMENTS.md:38-42`.
 
@@ -82,13 +82,13 @@ There is **no secondary sort key**. `message_timestamp` is a `datetime` column w
 
 | Task     | Description                                                                                                      | Ref ID  | Completed | Date |
 | -------- | ------------------------------------------------------------------------------------------------------------------ | ------- | :-------: | :--: |
-| TASK-001 | Create `tests/database/MessageModelOrderingTest.php`, `inbox` group, following `ConversationHandoffModelTest.php` conventions (`seedConversation()` helper, `emptyTable()` in `setUp()`). | REQ-001 | [ ] | |
-| TASK-002 | Add `testTiedTimestampsKeepInsertionOrder()`: insert 5 rows in one conversation with an identical `message_timestamp`, call `getByConversation()`, assert the returned `id` sequence equals the insertion order. | REQ-002 | [ ] | |
-| TASK-003 | Add `testQueryOrdersByTimestampThenId()`: call `getByConversation()`, then read the SQL actually executed via `db_connect('inbox')->getLastQuery()`, and assert (with whitespace/case-insensitive matching) that the `ORDER BY` clause is `message_timestamp` ASC followed by `id` ASC. This is the guard that fails on today's code (see Introduction: the composite index currently returns `id ASC` for ties by accident, not by contract — TASK-002 alone could pass without the fix). | REQ-001, REQ-002 | [ ] | |
-| TASK-004 | Add `testMixedTiedAndDistinctTimestampsOrderCorrectly()`: 2 rows tied at `T`, then 1 row at `T+1s`, assert the non-tied row still sorts last and the tied pair keeps insertion order. | REQ-002 | [ ] | |
-| TASK-005 | Add `testDoesNotLeakRowsFromOtherConversations()` and `testHonoursExistingLimit()` reusing the existing `getByConversation($id, $limit)` contract, to lock REQ-004 (no row lost/duplicated by the sort change). | REQ-004 | [ ] | |
-| TASK-00X | **VERIFY**: Run `vendor\bin\phpunit --no-coverage tests/database/MessageModelOrderingTest.php`. TASK-003 MUST FAIL on the current code (TASK-002 MAY pass, because today's execution plan happens to return `id ASC` for ties — see Introduction). Record the exact red output in the plan's evidence log before continuing. | - | [ ] | |
-| TASK-00Y | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2 | - | [ ] | |
+| TASK-001 | Create `tests/database/MessageModelOrderingTest.php`, `inbox` group, following `ConversationHandoffModelTest.php` conventions (`seedConversation()` helper, `emptyTable()` in `setUp()`). | REQ-001 | [x] | 2026-09-25 |
+| TASK-002 | Add `testTiedTimestampsKeepInsertionOrder()`: insert 5 rows in one conversation with an identical `message_timestamp`, call `getByConversation()`, assert the returned `id` sequence equals the insertion order. | REQ-002 | [x] | 2026-09-25 |
+| TASK-003 | Add `testQueryOrdersByTimestampThenId()`: call `getByConversation()`, then read the SQL actually executed via `db_connect('inbox')->getLastQuery()`, and assert (with whitespace/case-insensitive matching) that the `ORDER BY` clause is `message_timestamp` ASC followed by `id` ASC. This is the guard that fails on today's code (see Introduction: the composite index currently returns `id ASC` for ties by accident, not by contract — TASK-002 alone could pass without the fix). | REQ-001, REQ-002 | [x] | 2026-09-25 |
+| TASK-004 | Add `testMixedTiedAndDistinctTimestampsOrderCorrectly()`: 2 rows tied at `T`, then 1 row at `T+1s`, assert the non-tied row still sorts last and the tied pair keeps insertion order. | REQ-002 | [x] | 2026-09-25 |
+| TASK-005 | Add `testDoesNotLeakRowsFromOtherConversations()` and `testHonoursExistingLimit()` reusing the existing `getByConversation($id, $limit)` contract, to lock REQ-004 (no row lost/duplicated by the sort change). | REQ-004 | [x] | 2026-09-25 |
+| TASK-00X | **VERIFY**: Run `vendor\bin\phpunit --no-coverage tests/database/MessageModelOrderingTest.php`. TASK-003 MUST FAIL on the current code (TASK-002 MAY pass, because today's execution plan happens to return `id ASC` for ties — see Introduction). Record the exact red output in the plan's evidence log before continuing. | - | [x] | 2026-09-25 |
+| TASK-00Y | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2 | - | [x] | 2026-09-25 |
 
 ### Implementation Phase 2: Minimal Root Cause Remediation
 
@@ -96,10 +96,10 @@ There is **no secondary sort key**. `message_timestamp` is a `datetime` column w
 
 | Task     | Description                                                                                                       | Ref ID  | Completed | Date |
 | -------- | ------------------------------------------------------------------------------------------------------------------- | ------- | :-------: | :--: |
-| TASK-006 | In `app/Models/MessageModel.php:93-99`, add `->orderBy('id', 'ASC')` immediately after `->orderBy('message_timestamp', 'ASC')` in `getByConversation()`. | CON-002, CON-004 | [ ] | |
-| TASK-007 | Update the doc comment directly above `getByConversation()` (`:89-91`) to state the tie-breaker explicitly, so the next reader does not have to rediscover it from the index plan. | CON-004 | [ ] | |
-| TASK-00X | **VERIFY**: Run `vendor\bin\phpunit --no-coverage tests/database/MessageModelOrderingTest.php`. All tests MUST PASS. Then run the full suite `vendor\bin\phpunit --no-coverage` (macro-level gate per AGENTS.md Testing Policy) and confirm zero regressions. | - | [ ] | |
-| TASK-00Y | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed | - | [ ] | |
+| TASK-006 | In `app/Models/MessageModel.php:93-99`, add `->orderBy('id', 'ASC')` immediately after `->orderBy('message_timestamp', 'ASC')` in `getByConversation()`. | CON-002, CON-004 | [x] | 2026-09-25 |
+| TASK-007 | Update the doc comment directly above `getByConversation()` (`:89-91`) to state the tie-breaker explicitly, so the next reader does not have to rediscover it from the index plan. | CON-004 | [x] | 2026-09-25 |
+| TASK-00X | **VERIFY**: Run `vendor\bin\phpunit --no-coverage tests/database/MessageModelOrderingTest.php`. All tests MUST PASS. Then run the full suite `vendor\bin\phpunit --no-coverage` (macro-level gate per AGENTS.md Testing Policy) and confirm zero regressions. | - | [x] | 2026-09-25 |
+| TASK-00Y | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed | - | [x] | 2026-09-25 |
 
 ## 3. Rollback Strategy
 
@@ -170,9 +170,23 @@ Two layers are required by the project Testing Policy: micro (the new suite) and
 
 | Step | Command / action | Observed result | Date |
 | ---- | ---------------- | --------------- | ---- |
-| TASK-00X (Phase 1) | `vendor\bin\phpunit --no-coverage tests/database/MessageModelOrderingTest.php` | *pending — must show TASK-003 red* | |
-| TASK-00X (Phase 2) | same command after the fix | *pending — must be green* | |
-| Macro gate | `vendor\bin\phpunit --no-coverage` | *pending — must be green, zero regressions* | |
+| TASK-00X (Phase 1) | `php vendor\bin\phpunit --no-coverage tests/database/MessageModelOrderingTest.php` | ❌ RED as required: `Tests: 5, Assertions: 12, Failures: 1` — only `testQueryOrdersByTimestampThenId` failed. Executed SQL was `... ORDER BY ``message_timestamp`` ASC LIMIT 200` (no `id` tie-break). `testTiedTimestampsKeepInsertionOrder` **passed** against the buggy code, confirming the Introduction's claim that today's composite index returns `id ASC` for ties by accident, which is exactly why the SQL guard test exists. | 2026-09-25 |
+| TASK-00X (Phase 2) | same command after the fix | ✅ GREEN: `OK (5 tests, 12 assertions)`. Executed SQL now `ORDER BY ``message_timestamp`` ASC, ``id`` ASC`. | 2026-09-25 |
+| Macro gate | `php vendor\bin\phpunit --no-coverage` | ✅ GREEN: `OK (354 tests, 1221 assertions)` — zero failures, zero regressions, no suppressions added. | 2026-09-25 |
+| Red/green rigour check | `git checkout -- app/Models/MessageModel.php`, re-run the suite, then restore the fixed file | ✅ The final test artifact is RED against pre-fix code (`Tests: 5, Assertions: 12, Failures: 1`, same single guard failure) and GREEN against the fix. The guard therefore provably pins the change instead of passing by accident. | 2026-09-25 |
+
+#### Amendment A-001 (TEST-002 regex: table qualifier is optional, not mandatory)
+
+The regex published in TEST-002 required a `messages.` qualifier (`` `?messages`?\.? ``). That group is not optional in the snippet, but CodeIgniter's query builder emits this `ORDER BY` **unqualified**:
+
+```sql
+SELECT * FROM `messages` WHERE `conversation_id` = ? AND `messages`.`deleted_at` IS NULL
+ORDER BY `message_timestamp` ASC, `id` ASC LIMIT 200
+```
+
+So the published snippet can never match, with or without the fix. This plan's own **RISK-003** states the intended semantics — the regex should *tolerate* a `messages.` prefix — so the implementation was corrected to make that group optional (`(?:`?messages`?\.)?`) and the discrepancy is recorded here rather than silently applied.
+
+The assertion's strength is unchanged: both sort keys are still required, both `ASC`, in that order, and the executed SQL is printed on failure. Verified RED against pre-fix code and GREEN against the fix (rigour check row above). The alternative — qualifying the columns in the model to satisfy the literal snippet — was rejected because FILE-001 scopes the change to "one added `orderBy('id', 'ASC')`" and a doc comment.
 
 ## 7. Risks & Assumptions
 
