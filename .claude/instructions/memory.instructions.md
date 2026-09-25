@@ -2504,3 +2504,144 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-25 (WA-Gateway pairing-code bug — diagnosed, reproduced, plan created)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Bug Remediation Planning (`/sdlc-bug-report`) — diagnosis + reproduction done, plan created at `Planned` status; execution (`/sdlc-write-code`) not yet started.
+- **Achieved Milestones:**
+  - Root cause found for "pairing code null": on the physical Android device, `status` becomes `logged_out` (Baileys `DisconnectReason.loggedOut`, `lastDisconnectReason: "401: Connection Failure"`). `src/whatsapp/connectionManager.js`'s `isLoggedOut` branch (lines 249-256) correctly stops auto-reconnect (by design) but never clears `this.sock`, unlike `logout()` (lines 356-370). `requestPairingCode()` (lines 324-340) only guards on `!this.sock` and `registered`, both of which pass on the zombie socket, so `pairingCode` stays `null` forever. Android UI (`MonitorScreen.kt`) has no "Reset Session" action for `logged_out`, even though `GatewayApiClient.logout()` already exists and works.
+  - **Reproduced on physical device `RR8N201VC9T`** (repo checked out at `C:\home\wa-gateway-review`, `master` @ `4010cc1`): confirmed `auth/creds.json` had a stale half-registered state (`registered:false`, leftover `pairingCode`, populated `me`); `POST /api/logout` via `adb forward tcp:3000 tcp:3000` + `Invoke-RestMethod` cleared `auth/` and returned status to `connecting`/`hasQr:true`; a fresh `POST /api/pairing-code` then returned a real code (`HHXRAY2Q`), proving the fix hypothesis.
+  - Wrote `plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md` (status `Planned`, 3 phases: Phase 1 test-first repro script `test/simulate-logged-out-cleanup.js`, Phase 2 Node/Baileys fix — null out `this.sock` on `logged_out` + fast-fail guard in `requestPairingCode()`, Phase 3 Android "Reset Session" button in `MonitorScreen.kt`). No production code touched (bug-report skill boundary respected).
+- **Repo topology note (new):** the WA-Gateway working copy used for this diagnosis is `C:\home\wa-gateway-review` (`master` @ `4010cc1`), separate from the `C:\projects\WA-Gateway` / `C:\projects\WA-Gateway-m1w2` paths referenced in the M1 Wave 2 checkpoints below — `/sdlc-write-code` must confirm which copy is authoritative before committing (recorded as ASSUMPTION-001 in the plan).
+- **Updated Files:** `plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md` (new).
+- **Next Action / Pending:**
+  - Open a **new session** and invoke `/sdlc-write-code` on `plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md`, attaching `src/whatsapp/connectionManager.js` and `android/app/src/main/java/com/auliapos/wagateway/ui/MonitorScreen.kt`.
+  - After the pairing-code bug is closed: resume the originally planned TASK-015/M1 Wave 2 verification work — reproduce the 8 corruption scenarios and verify JSON-fallback parity (ASSUMPTION-007) on the physical Android device.
+
+<!-- checkpoint-tail: WA-Gateway "pairing code null" bug root-caused to a zombie `this.sock` left after a `logged_out` (401) disconnect plus a missing Android "Reset Session" UI action; reproduced live on device RR8N201VC9T (POST /api/logout cleared auth/ and a fresh pairing code was issued); plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md written (Planned, 3 phases); next step is a new /sdlc-write-code session, then resume TASK-015/M1 Wave 2 Android verification (8 corruption scenarios + JSON fallback parity). -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-25 (WA-Gateway pairing-code bug — Phase 1-3 executed, committed, pushed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Bug Remediation Execution (`/sdlc-write-code` on `plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md`) — all 3 code phases done; only the manual on-device verification task (TASK-013) remains outstanding.
+- **Active Artifacts:**
+  - `plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md` — Status: 🔄 Tasks 1-12/14 executed and verified by automated tests; TASK-013 (manual physical-device check) and TASK-014 (final sign-off) still open pending user action.
+- **Achieved Milestones:**
+  - **Phase 1 (test-first):** Wrote `test/simulate-logged-out-cleanup.js`, a TDD repro script using a temp `SQLITE_PATH` (`fs.mkdtempSync`) and the real `DisconnectReason.loggedOut` value from `getBaileys()`. Confirmed it FAILS against the original `connectionManager.js` (proving both gaps: zombie socket not cleaned up, `requestPairingCode()` doesn't fast-fail).
+  - **Phase 2 (Node/Baileys fix, `src/whatsapp/connectionManager.js`):** (a) `isLoggedOut` branch inside `_onConnectionUpdate()` now calls `removeAllListeners()`, `end(undefined)`, and sets `this.sock = null` — mirroring the cleanup already done in `logout()`; (b) `requestPairingCode()` now checks `this.status === 'logged_out'` first and throws an explicit, actionable error instead of silently passing its `!this.sock`/`registered` guards on a zombie socket. New test now passes; re-ran all 4 pre-existing regression scripts (`simulate-outgoing-idempotency.js`, `simulate-outgoing-recovery.js`, `check-register-before-send.js`, `check-outgoing-begin-before-send.js`) — all still green, zero regressions.
+  - **Phase 3 (Android UI, `MonitorScreen.kt`):** Added a "Reset Session" button + `isResettingSession`/`resetError`/`resetTrigger` state, visible only when `status == "logged_out"`, wired to the already-existing `GatewayApiClient.logout(port)` (no new API surface). The pairing-code input form remains visible in `logged_out` so the user can retry pairing immediately after reset. `gradlew compileDebugKotlin` → BUILD SUCCESSFUL.
+  - **Committed and pushed to `origin/master`** on the correct working copy `C:\home\wa-gateway-review` (confirmed via `git remote -v` → `tikusgot007/WA-Gateway.git`): commit `3e356cd` (`4010cc1..3e356cd`), message `fix(whatsapp): clean up zombie socket on logged_out and fast-fail pairing code request`. Files committed: `src/whatsapp/connectionManager.js`, `android/app/src/main/java/com/auliapos/wagateway/ui/MonitorScreen.kt`, `test/simulate-logged-out-cleanup.js`. Left `android/_tmp-build-*.txt`/`_tmp-logcat-full.txt` untracked (build/log scratch artifacts, not part of the fix).
+- **Dead-Ends (Do NOT Repeat):** none new this session.
+- **Updated Files:**
+  - `src/whatsapp/connectionManager.js` — zombie socket cleanup in `isLoggedOut` branch + fast-fail guard in `requestPairingCode()`.
+  - `android/app/src/main/java/com/auliapos/wagateway/ui/MonitorScreen.kt` — Reset Session button/state for `logged_out` status.
+  - `test/simulate-logged-out-cleanup.js` — new TDD repro test (passing).
+- **Decisions Made:**
+  - Reused the existing `GatewayApiClient.logout()` endpoint for the Android "Reset Session" button rather than adding a new API — no backend contract change needed since `/api/logout` already clears `auth/` and resets status to `connecting`.
+  - Left `requestPairingCode()`'s error path as a thrown exception (consistent with the function's existing error-handling convention) rather than introducing a new return-value shape.
+- **Next Action / Pending:**
+  - **TASK-013 (blocked on user, cannot be done by agent):** manually trigger a `logged_out` state on physical device `RR8N201VC9T`, confirm the "Reset Session" button appears, tap it, and confirm `/api/status` recovers to `connecting`/`hasQr:true` with a new pairing code succeeding end-to-end.
+  - Once TASK-013 is confirmed by the user: mark all remaining plan tasks `[x]` in `plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md`, flip front-matter `status: 'Planned'` → `'Completed'`, and close TASK-014.
+  - After this bug is fully closed: resume the previously deferred TASK-015/M1 Wave 2 Android verification work (8 corruption scenarios + JSON-fallback parity, ASSUMPTION-007).
+
+<!-- checkpoint-tail: WA-Gateway pairing-code-null fix is code-complete and pushed (commit 3e356cd on origin/master, C:\home\wa-gateway-review): zombie-socket cleanup + requestPairingCode() fast-fail in connectionManager.js, new TDD test simulate-logged-out-cleanup.js (passing, zero regressions in 4 existing scripts), and an Android "Reset Session" button in MonitorScreen.kt (compiles clean). Only TASK-013 (manual physical-device verification on RR8N201VC9T) and TASK-014 (final plan sign-off) remain, both blocked on the user; after that, resume TASK-015/M1 Wave 2 Android verification (8 corruption scenarios + JSON fallback parity). -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-25 (WA-Gateway pairing-code bug — TASK-013 verified, plan closed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Bug Remediation (`/sdlc-bug-report` → `/sdlc-write-code`) — **CLOSED**. `plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md` front-matter status flipped `Planned` → `Completed`; all TASK-001..TASK-014 checked `[x]` dated 2026-09-25.
+- **Active Artifacts:**
+  - `plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md` — Status: ✅ Completed (all 14 tasks checked, no remaining `[ ]`).
+- **Achieved Milestones:**
+  - Re-verified commit `3e356cd` correctly implements REQ-001/002/003 in `connectionManager.js` (zombie-socket cleanup on `logged_out` + `requestPairingCode()` fast-fail) and `MonitorScreen.kt` (Reset Session button).
+  - Re-ran full automated suite: `simulate-logged-out-cleanup.js` (Phase 1 + Phase 2) plus the 4 pre-existing regression scripts (idempotency, recovery, register-before-send, outgoing-begin-before-send) — all green, zero regressions.
+  - Android `assembleDebug` build succeeded.
+  - **Discovered a deployment gap during manual verification:** the installed APK on the physical Samsung SM-G975F was stale (built before the fix commit existed). Rebuilt and reinstalled via `adb install -r`; confirmed via `adb dumpsys package` → updated `lastUpdateTime` matching the new build.
+  - **TASK-013 confirmed PASS by the user** on the physical device after reinstall: Reset Session button appears/works on `logged_out`, and pairing-code renewal succeeds end-to-end.
+  - Closed TASK-014 (final plan sign-off): plan doc status header and all checkboxes updated.
+- **Dead-Ends (Do NOT Repeat):** none new this session (see Knowledge Base candidate below for the deployment-gap lesson).
+- **Updated Files:**
+  - `plan/plan-bugfix-wa-gateway-pairing-code-logged-out-v1.0.md` — status header `Planned` → `Completed`; all 14 task checkboxes marked `[x]` 2026-09-25.
+- **Decisions Made:**
+  - Treat "build succeeded" and "deployed on device" as two separate verification gates from now on; always cross-check `adb dumpsys package <pkg> | Select-String lastUpdateTime` (or `firstInstallTime`) against the fix commit's timestamp before trusting a manual on-device test result. **Candidate for Knowledge Base promotion at next compaction** (generalizable lesson, not session-specific).
+- **Next Action / Pending:**
+  - No further code changes required for this bug; it is fully closed.
+  - Optional housekeeping: the untracked scratch files `android/_tmp-build-err.txt`, `android/_tmp-build-log.txt`, `android/_tmp-logcat-full.txt` are still present and not gitignored — clean up or add to `.gitignore` in a future session if desired.
+  - Resume the previously deferred TASK-015/M1 Wave 2 Android verification work (8 corruption scenarios + JSON-fallback parity, ASSUMPTION-007) in a new session.
+
+<!-- checkpoint-tail: WA-Gateway pairing-code-null bug (commit 3e356cd) is FULLY CLOSED as of 2026-09-25 — TASK-013 manually verified PASS on physical Samsung SM-G975F after fixing a stale-APK deployment gap (rebuilt + adb install -r, confirmed via lastUpdateTime), plan doc status flipped to Completed with all 14 tasks checked. Lesson learned: always verify device lastUpdateTime against fix commit timestamp before trusting manual verification — candidate for Knowledge Base promotion. Next: optional cleanup of untracked android/_tmp-*.txt scratch files, then resume TASK-015/M1 Wave 2 Android verification in a new session. -->
+
+---
+## 📝 Session Checkpoint: 2026-09-25 (Ticket 04 — JSON fallback recovery verified on real Android device)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Supplementary VERIFY (ad-hoc, no code changes) — closes the previously deferred
+  TASK-015 / M1 Wave 1 Android verification gap noted in the prior checkpoint. `docs/TODO-CHAT.md` items
+  04 and risk P0 #2 flipped `[ ]` → `[x]`.
+- **Active Artifacts:**
+  - `docs/decisions/2026-09-25-ticket04-json-fallback-android-verifikasi-nyata.md` — ✅ new decision log,
+    full write-up of procedure, results, incident, and honest limits.
+  - `docs/TODO-CHAT.md` — updated (item 04, risk P0 #2).
+- **Achieved Milestones:**
+  - Confirmed device `RR8N201VC9T` (Samsung SM-G975F) runs the live `com.auliapos.wagateway` production
+    app with `better-sqlite3` genuinely absent from bundled `node_modules` (proves the JSON fallback,
+    `IncomingBufferJsonFile`, is the real active code path — not a simulation), holding 22 real customer
+    messages (`failed` status, `last_error: "Timeout menghubungi CI4"`).
+  - Backed up original `gateway.json`/`.bak`/`.env` before any mutation.
+  - Reproduced 2 of the 8 `simulate-json-recovery.js` scenarios directly on the physical device via file
+    corruption + `am force-stop` + relaunch + `adb logcat` on the real nodejs-mobile ARM process:
+    - **Scenario A** (main truncated, `.bak` valid): real `warn` log "dipulihkan dari cadangan (.bak)",
+      quarantine file created, `pendingSetelahPemulihan: 22`, app booted `pendingSaatStartup: 22`, no crash.
+    - **Scenario B** (main AND `.bak` both invalid JSON): real `[CRITICAL]` error log, empty-queue start
+      (`pendingSaatStartup: 0`), original file preserved under `.corrupt-<timestamp>`, no crash.
+  - Restored the original 22-message queue; final restore verified via clean startup log (no warn/error),
+    on-device MD5 match, and full content check (all 22 `wa_message_id`s + `nextId: 23` intact).
+  - Cleaned all temp/corrupt artifacts from the device (`/data/local/tmp` and app `data/` back to baseline:
+    only `gateway.json` + `gateway.json.bak`) and deleted the local `_tmp-android-verify/` scratch folder
+    (contained real customer PII).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `adb shell run-as ... cat file > local-file` through PowerShell redirection to
+    back up/restore a device file.
+    **Reason:** PowerShell's default redirection silently re-encodes UTF-8 output as UTF-16 with BOM;
+    pushing that "backup" back corrupted BOTH files (main + `.bak`), accidentally re-triggering the
+    both-corrupt fatal path on the first restore attempt (no data lost — the quarantined file was still
+    valid UTF-16-decodable, just needed re-encoding to UTF-8 before re-push).
+    **Note:** Candidate for Knowledge Base promotion (generalizable). Always use `adb pull`/`adb push`
+    (binary-safe) for device file transfer, and verify with `md5sum` run **on both sides** (device AND
+    local file) before trusting any "restore" as successful — never trust a PowerShell `>` redirect for
+    binary/UTF-8-sensitive `adb shell` output.
+- **Honest limits (explicitly documented, do NOT overclaim):**
+  - Only 2 of 8 `simulate-json-recovery.js` scenarios were reproduced manually on real hardware (chosen
+    because they cover the two highest-risk `_load()` branches: single-file-recoverable and both-fatal).
+    The other 6 (malformed-but-parseable JSON like `{}`, `.bak`-only corrupt, non-fatal backup-copy
+    failure, silent first-boot, normal round-trip) were NOT reproduced on-device — coverage relies on
+    identical code (no Android-specific branching in `incomingBuffer.js`) plus the 8/8 green desktop
+    suite, but "8/8 tested on Android" is NOT a valid claim.
+  - `ASSUMPTION-007` (`spec-process-m1-wave2-outgoing-idempotency.md`, for `outgoing_operations`, a
+    **different** module/class) remains OPEN — this session only closes the gap for `incomingBuffer`
+    (Ticket 04). The device's installed APK is still `master` @ `3e356cd` (pre-Wave-2), so
+    `outgoing_operations` fallback behavior was not and could not be exercised here.
+- **Separate unrelated finding (reported, not fixed):** device `.env` shows
+  `CI4_BASE_URL=http://192.168.10/aulia` — the IP appears to be missing its final octet, likely the root
+  cause of all 22 queued messages repeatedly failing (6–53 attempts each) with "Timeout menghubungi CI4".
+  User has not yet decided whether/when to address this; recommended as a separate `/sdlc-bug-report` in
+  a future session.
+- **Updated Files:**
+  - `docs/decisions/2026-09-25-ticket04-json-fallback-android-verifikasi-nyata.md` — new (full report).
+  - `docs/TODO-CHAT.md` — item 04 and risk P0 #2 marked `[x]` with links to the new decision log.
+- **Next Action / Pending:**
+  - Decide whether to pursue on-device verification of the 6 remaining `simulate-json-recovery.js`
+    scenarios, or accept the 2 already covered as sufficient (Ticket 04 is otherwise CLOSED).
+  - Report/decide on the `CI4_BASE_URL` incomplete-IP production bug (separate from Ticket 04).
+  - When ready, open a new session with the Wave-2 APK installed to close `ASSUMPTION-007` for
+    `outgoing_operations`.
+
+<!-- checkpoint-tail: Ticket 04 (M1 Wave 1) is CLOSED as of 2026-09-25 — JSON fallback corruption recovery (IncomingBufferJsonFile) verified for real on physical Android device RR8N201VC9T (2 of 8 key scenarios: single-recoverable + both-fatal, both passed via real adb logcat, 22 real customer messages fully restored with MD5 confirmation). Lesson learned: never redirect `adb shell cat > file` through PowerShell (silently corrupts UTF-8 to UTF-16) — use adb pull/push + dual-side md5sum instead (KB promotion candidate). ASSUMPTION-007 (outgoing_operations, Wave 2) remains separately open. Unrelated CI4_BASE_URL incomplete-IP production bug reported but not fixed. -->
+
+---
+
+
