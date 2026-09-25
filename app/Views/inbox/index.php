@@ -979,6 +979,14 @@
     // terlindungi (RISK-009, diterima).
     let putaranDaftarBerjalan = false;
 
+    // Nomor putaran terakhir yang dimulai. Pengaman di atas hanya boleh
+    // dilepas oleh putaran yang nomornya masih ini; putaran yang sudah
+    // dikalahkan kata kunci baru justru harus membiarkannya (CORR-01).
+    // Tanpa ini pengaman jadi milik bersama, dan sebuah putaran lama yang
+    // selesai lebih dulu bisa melepasnya sementara putaran baru masih
+    // berjalan -- tick 6 detik berikutnya lalu memulai putaran ketiga.
+    let putaranDaftarTerakhir = 0;
+
     function ambilSemuaConversation(kataKunci) {
         const hasil = [];
         const sudahAda = new Set();
@@ -1007,9 +1015,33 @@
     // errors stay silent.
     function muatUlangDaftarConversation(saatGagal) {
         const kataKunci = kataKunciAktif;
+
+        // Nomor diambil SEBELUM putaran mulai (RISK-003). Kalau diambil
+        // sesudah promise-nya dipasang, putaran yang sudah kalah bisa
+        // keburu memakai nomor yang sama dengan putaran terbaru dan
+        // perbandingan di `.finally()` jadi tidak berguna.
+        const giliran = ++putaranDaftarTerakhir;
         putaranDaftarBerjalan = true;
 
-        ambilSemuaConversation(kataKunci)
+        // `ambilSemuaConversation()` bisa melempar SINKRON lewat
+        // `encodeURIComponent()` -- URIError pada lone surrogate. Kalau itu
+        // terjadi, promise-nya belum ada sehingga `.finally()` tidak pernah
+        // terpasang dan pengaman tertinggal `true` selamanya; daftar
+        // berhenti menyegarkan sampai halaman dimuat ulang (CORR-03).
+        let janji;
+        try {
+            janji = ambilSemuaConversation(kataKunci);
+        } catch (err) {
+            // Tidak ada `await` antara klaim pengaman dan titik ini, jadi
+            // putaran ini pasti masih pemiliknya -- aman dilepas langsung.
+            putaranDaftarBerjalan = false;
+            if (typeof saatGagal === 'function') {
+                saatGagal(err);
+            }
+            return;
+        }
+
+        janji
             .then(function(semua) {
                 // The keyword changed while the pages were loading: this
                 // result belongs to the old keyword, drop it.
@@ -1030,8 +1062,13 @@
             })
             .finally(function() {
                 // REQ-017b: dilepas di sini supaya putaran berikutnya
-                // boleh mulai lagi, termasuk setelah putaran yang gagal.
-                putaranDaftarBerjalan = false;
+                // boleh mulai lagi, termasuk setelah putaran yang gagal --
+                // TAPI hanya oleh putaran yang masih terbaru. Putaran yang
+                // sudah dikalahkan kata kunci baru membiarkan pengaman
+                // tetap terpasang, supaya tick 6 detik tidak memulai
+                // putaran ketiga selagi putaran terbaru masih berjalan
+                // (CORR-01).
+                if (giliran === putaranDaftarTerakhir) putaranDaftarBerjalan = false;
             });
     }
 
