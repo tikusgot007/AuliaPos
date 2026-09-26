@@ -21,7 +21,7 @@
   - [ ] PRD: {version/name or N/A}
   - [ ] Spec: {version/name or N/A}
   - [ ] Plan: {version/name or N/A}
-- **Standards Compliance:** {PASS / FAIL} (Checked against `.agents/standards/`)
+- **Standards Compliance:** {PASS / FAIL} (Checked against `.claude/standards/`)
 
 ## 2. 🔍 Traceability Findings
 
@@ -52,7 +52,7 @@ _Minor inconsistencies or trivial missing details that are acceptable under the 
 _Auditing adherence to project standards._
 
 - **ADR Format Compliance:** {PASS / FAIL}
-  - **Issue:** {If FAIL, specify which ADR violates `.agents/standards/ADR-FORMAT.md`}
+  - **Issue:** {If FAIL, specify which ADR violates `.claude/standards/ADR-FORMAT.md`}
 - **Context/Glossary Alignment:** {PASS / FAIL}
   - **Issue:** {If FAIL, identify terms used in documents that contradict `CONTEXT.md`}
 - **Codebase Reality Check:** {PASS / FAIL}

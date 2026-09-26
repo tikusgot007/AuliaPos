@@ -576,7 +576,7 @@ During problem-solving and execution, continuously monitor your trajectory (Pól
 
 ## 📂 Standard Document Templates (in `references/`)
 
-When generating SDLC artifacts in each phase, you **MUST** consult and follow the corresponding mandatory templates located in `.agents/skills/polya-heuristic-coder/references/`:
+When generating SDLC artifacts in each phase, you **MUST** consult and follow the corresponding mandatory templates located in `.claude/skills/polya-heuristic-coder/references/`:
 
 1. **Phase 0 (Problem Discovery & Exploration):**  
    Read [`DISCOVERY-DRAFT-TEMPLATE.md`](references/DISCOVERY-DRAFT-TEMPLATE.md) for generating `docs/discovery/{slug}-discovery.md`.
@@ -601,7 +601,7 @@ When generating SDLC artifacts in each phase, you **MUST** consult and follow th
 
 ## Architectural Documentation Standards: CONTEXT.md & ADRs
 
-When operating in Phase 1 (`spec`) or Phase 2 (`plan`), you must actively maintain the project's ubiquitous language and architectural memory in accordance with `.agents/standards/`:
+When operating in Phase 1 (`spec`) or Phase 2 (`plan`), you must actively maintain the project's ubiquitous language and architectural memory in accordance with `.claude/standards/`:
 
 ### 1. Ubiquitous Domain Glossary (`CONTEXT.md`)
 - **When to update:** Whenever a new domain entity, role, transaction type, or business rule is clarified.

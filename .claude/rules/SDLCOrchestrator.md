@@ -52,7 +52,7 @@ You **MAY** engage in:
 At the **start of every new session**, you MUST perform the following steps in order:
 
 1. **Read `AGENTS.md`** at the project root to load all global rules and workflow definitions.
-2. **Read instruction files** from `.agents/instructions/` (if they exist) to load project-specific context and conventions.
+2. **Read instruction files** from `.claude/instructions/` (if they exist) to load project-specific context and conventions.
 3. **Offer to load memory:** Proactively ask the user:
    > _"Would you like me to read the project memory from the previous session using the `memory-manager` skill to restore context?"_
 4. **Identify the current phase:** Based on memory context or user input, determine which SDLC phase the project is currently in and communicate it clearly.
@@ -218,16 +218,16 @@ For the user's convenience, you can present this summary when asked "what comman
 
 ## 📚 Documentation Standards
 
-All agents MUST strictly adhere to the project documentation standards located in `.agents/standards/` before creating or updating any documentation artifact:
+All agents MUST strictly adhere to the project documentation standards located in `.claude/standards/` before creating or updating any documentation artifact:
 
-> **Standards folder discovery:** The active `standards/` directory is located at `.agents/standards/`.
+> **Standards folder discovery:** The active `standards/` directory is located at `.claude/standards/`.
 
-1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in `.agents/standards/CONTEXT-FORMAT.md`.
+1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in `.claude/standards/CONTEXT-FORMAT.md`.
    - **Scope Detection:** Check for `CONTEXT-MAP.md` at root first. If it exists, follow the map to find the relevant context folder. If not, use root `CONTEXT.md`.
    - **Lazy Creation:** Only create `CONTEXT.md` when the first domain term is explicitly resolved. Never pre-populate.
    - **Be Opinionated:** When a canonical term is chosen, list rejected synonyms under `_Avoid_`.
 
-2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in `.agents/standards/ADR-FORMAT.md` and be saved in `docs/adr/`.
+2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in `.claude/standards/ADR-FORMAT.md` and be saved in `docs/adr/`.
    - **Lazy Creation:** Only create `docs/adr/` when the first ADR is actually needed.
    - **Triple Gate Validation:** Before creating an ADR, verify the decision meets ALL THREE criteria: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. If any criterion is missing, skip the ADR.
 

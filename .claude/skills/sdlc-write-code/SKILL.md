@@ -53,7 +53,7 @@ Verify that the user has provided an approved Implementation Plan (`plan-*.md`) 
 
 ### 📚 Mandatory Skill References (Orchestrator)
 
-As the orchestrator of execution, before writing any code, you MUST consult the following references located in `.agents/skills/sdlc-write-code/references/`:
+As the orchestrator of execution, before writing any code, you MUST consult the following references located in `.claude/skills/sdlc-write-code/references/`:
 
 1. **`EXECUTION-WORKFLOW.md`**: Defines the Integrated Refactoring cycle, Todo List rules, Git protocol, and Memory Delegation requirements.
 2. **`COMMUNICATION-PROTOCOL.md`**: Defines the interaction standards, Chain of Thought requirements, and Anti-Ambiguity clarification protocols.
@@ -62,18 +62,18 @@ As the orchestrator of execution, before writing any code, you MUST consult the 
 
 To ensure the code you write passes review, you **MUST** adhere strictly to the rubrics defined by the `/sdlc-code-review` skill:
 
-1. **`CLEAN-CODE-ARCHITECTURE.md`** (Path: `.agents/skills/sdlc-code-review/references/CLEAN-CODE-ARCHITECTURE.md`): Your code must strictly follow these Clean Code, SOLID, and Clean Architecture principles.
-2. **`SECURITY-HARDENING.md`** (Path: `.agents/skills/sdlc-code-review/references/SECURITY-HARDENING.md`): Ensure your implementation guards against the documented OWASP and STRIDE vulnerabilities.
+1. **`CLEAN-CODE-ARCHITECTURE.md`** (Path: `.claude/skills/sdlc-code-review/references/CLEAN-CODE-ARCHITECTURE.md`): Your code must strictly follow these Clean Code, SOLID, and Clean Architecture principles.
+2. **`SECURITY-HARDENING.md`** (Path: `.claude/skills/sdlc-code-review/references/SECURITY-HARDENING.md`): Ensure your implementation guards against the documented OWASP and STRIDE vulnerabilities.
 
 ### Skill Mapping (Supplementary)
-You may consult and align with the following complementary skills located in `.agents/skills/` based on your current context:
+You may consult and align with the following complementary skills located in `.claude/skills/` based on your current context:
 
-- **`karpathy-guidelines` (Recommended):** Read `.agents/skills/karpathy-guidelines/SKILL.md`. **Purpose:** To prevent AI coding hallucinations and over-engineering. Always apply maximum simplicity, state assumptions explicitly, and make targeted, surgical code changes instead of rewriting entire files.
-- **`tdd-implement` (Supplementary):** Read `.agents/skills/tdd-implement/SKILL.md`. **Purpose:** To enforce strict Test-Driven Development (TDD) loops, atomic commits, and vertical slicing. **When to use:** Consult this when the user explicitly requests TDD, mentions "test-first", or when implementing complex logic/bug fixes where proving correctness is critical.
-- **`omni-dev` (Supplementary):** Read `.agents/skills/omni-dev/SKILL.md`. **Purpose:** To govern principal software architecture decisions. Consult this when you need deep reasoning for structuring complex systems, ensuring rigorous typing, and maintaining strict separation of concerns.
-- **`ponytail-lazy-senior-dev` (Supplementary):** Read `.agents/skills/ponytail-lazy-senior-dev/SKILL.md`. **Purpose:** To enforce the "lazy senior developer" mindset. Consult this to prioritize code reuse, minimalism, YAGNI (You Aren't Gonna Need It) principles, and to implement root-cause fixes rather than temporary band-aids.
-- **`ui-designer` (Supplementary):** Read `.agents/skills/ui-designer/SKILL.md`. **Purpose:** To guide frontend development. Consult this when working on frontend layouts, CSS styling, or UI/UX tasks to ensure opinionated aesthetics and deliberate user experience copy.
-- **`fable-protocol` (Supplementary):** Read `.agents/skills/fable-protocol/SKILL.md`. **Purpose:** To structure multi-step execution workflows for large, complex implementation tasks while keeping the user informed of progress.
+- **`karpathy-guidelines` (Recommended):** Read `.claude/skills/karpathy-guidelines/SKILL.md`. **Purpose:** To prevent AI coding hallucinations and over-engineering. Always apply maximum simplicity, state assumptions explicitly, and make targeted, surgical code changes instead of rewriting entire files.
+- **`tdd-implement` (Supplementary):** Read `.claude/skills/tdd-implement/SKILL.md`. **Purpose:** To enforce strict Test-Driven Development (TDD) loops, atomic commits, and vertical slicing. **When to use:** Consult this when the user explicitly requests TDD, mentions "test-first", or when implementing complex logic/bug fixes where proving correctness is critical.
+- **`omni-dev` (Supplementary):** Read `.claude/skills/omni-dev/SKILL.md`. **Purpose:** To govern principal software architecture decisions. Consult this when you need deep reasoning for structuring complex systems, ensuring rigorous typing, and maintaining strict separation of concerns.
+- **`ponytail-lazy-senior-dev` (Supplementary):** Read `.claude/skills/ponytail-lazy-senior-dev/SKILL.md`. **Purpose:** To enforce the "lazy senior developer" mindset. Consult this to prioritize code reuse, minimalism, YAGNI (You Aren't Gonna Need It) principles, and to implement root-cause fixes rather than temporary band-aids.
+- **`ui-designer` (Supplementary):** Read `.claude/skills/ui-designer/SKILL.md`. **Purpose:** To guide frontend development. Consult this when working on frontend layouts, CSS styling, or UI/UX tasks to ensure opinionated aesthetics and deliberate user experience copy.
+- **`fable-protocol` (Supplementary):** Read `.claude/skills/fable-protocol/SKILL.md`. **Purpose:** To structure multi-step execution workflows for large, complex implementation tasks while keeping the user informed of progress.
 
 ---
 
@@ -88,7 +88,7 @@ You execute code **strictly based on the approved `/spec/` and `/plan/` document
 ## ⚙️ Operational Workflow
 
 1. **Verify Context:** Confirm presence of `/spec/` and `/plan/` files.
-2. **Read Mandatory References:** Before writing any code, you MUST read `.agents/skills/sdlc-write-code/references/EXECUTION-WORKFLOW.md` and `.agents/skills/sdlc-write-code/references/COMMUNICATION-PROTOCOL.md`.
+2. **Read Mandatory References:** Before writing any code, you MUST read `.claude/skills/sdlc-write-code/references/EXECUTION-WORKFLOW.md` and `.claude/skills/sdlc-write-code/references/COMMUNICATION-PROTOCOL.md`.
 3. **Task Decomposition & Planning:** Break execution into step-by-step tasks based on the plan.
 4. **Incremental Execution:** Modify or write code section-by-section. Never use lazy placeholders (e.g., `// ... keep existing code ...`).
 5. **Two-Layer Testing Mandate:**
@@ -100,16 +100,16 @@ You execute code **strictly based on the approved `/spec/` and `/plan/` document
 
 ## Documentation Standards
 
-All agents MUST strictly adhere to the project documentation standards located in .agents/standards/ before creating or updating any documentation artifact:
+All agents MUST strictly adhere to the project documentation standards located in .claude/standards/ before creating or updating any documentation artifact:
 
-> **Standards folder discovery:** The active `standards/` directory is located at `.agents/standards/`.
+> **Standards folder discovery:** The active `standards/` directory is located at `.claude/standards/`.
 
-1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in .agents/standards/CONTEXT-FORMAT.md.
+1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in .claude/standards/CONTEXT-FORMAT.md.
    - **Scope Detection:** Check for CONTEXT-MAP.md at root first. If it exists, follow the map to find the relevant context folder. If not, use root CONTEXT.md.
    - **Lazy Creation:** Only create CONTEXT.md when the first domain term is explicitly resolved. Never pre-populate.
    - **Be Opinionated:** When a canonical term is chosen, list rejected synonyms under _Avoid_.
 
-2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in .agents/standards/ADR-FORMAT.md and be saved in docs/adr/.
+2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in .claude/standards/ADR-FORMAT.md and be saved in docs/adr/.
    - **Lazy Creation:** Only create docs/adr/ when the first ADR is actually needed.
    - **Triple Gate Validation:** Before creating an ADR, verify the decision meets ALL THREE criteria: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. If any criterion is missing, skip the ADR.
 

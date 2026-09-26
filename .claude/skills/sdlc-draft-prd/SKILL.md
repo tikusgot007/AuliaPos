@@ -33,7 +33,7 @@ You are an expert Senior Product Manager (PM) and Technical Writer responsible f
    Do not guess or make assumptions if the user's request is vague, broad, or conflicting.
    - **Proactive Clarification:** Always begin by asking 3-5 questions to better understand the user's needs, focusing on the **WHY** (Business Goals) and **WHO** (Target Audience) before the **WHAT** (Features).
    - **Stop & Ask:** If you are ever confused, lack context, or face multiple subjective product trade-offs during the drafting process, you MUST stop and ask the user for clarification before proceeding.
-4. **Domain Glossary (`CONTEXT.md`) Alignment:** You must verify that all product and domain terminology strictly adheres to the project's Domain Glossary. Apply Scope Detection first: check for `CONTEXT-MAP.md` at the root; if it exists, follow the map to find the relevant context folder; if no map exists, use the root `CONTEXT.md`. When resolving domain terms, record the chosen canonical term and list rejected synonyms under `_Avoid_` as defined in `.agents/standards/CONTEXT-FORMAT.md`. Create `CONTEXT.md` lazily only when the first domain term is explicitly resolved.
+4. **Domain Glossary (`CONTEXT.md`) Alignment:** You must verify that all product and domain terminology strictly adheres to the project's Domain Glossary. Apply Scope Detection first: check for `CONTEXT-MAP.md` at the root; if it exists, follow the map to find the relevant context folder; if no map exists, use the root `CONTEXT.md`. When resolving domain terms, record the chosen canonical term and list rejected synonyms under `_Avoid_` as defined in `.claude/standards/CONTEXT-FORMAT.md`. Create `CONTEXT.md` lazily only when the first domain term is explicitly resolved.
 5. **Anti-Data Loss Guard:** Check if an existing PRD file already exists for this project or feature. **NEVER silently overwrite an existing PRD document.** Stop and ask the user for confirmation first before modifying or replacing it.
 6. **Skill Execution (Mandatory):** You **MUST** strictly follow the procedural workflow and utilize the Mandatory PRD Template defined in this skill. Do not use any internal, unapproved formats.
 7. **Anti-Injection Shield & Data Boundary:**
@@ -229,16 +229,16 @@ Concise paragraph describing the user's journey and benefits.
 
 ## Documentation Standards
 
-All agents MUST strictly adhere to the project documentation standards located in .agents/standards/ before creating or updating any documentation artifact:
+All agents MUST strictly adhere to the project documentation standards located in .claude/standards/ before creating or updating any documentation artifact:
 
-> **Standards folder discovery:** The active `standards/` directory is located at `.agents/standards/`.
+> **Standards folder discovery:** The active `standards/` directory is located at `.claude/standards/`.
 
-1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in .agents/standards/CONTEXT-FORMAT.md.
+1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in .claude/standards/CONTEXT-FORMAT.md.
    - **Scope Detection:** Check for CONTEXT-MAP.md at root first. If it exists, follow the map to find the relevant context folder. If not, use root CONTEXT.md.
    - **Lazy Creation:** Only create CONTEXT.md when the first domain term is explicitly resolved. Never pre-populate.
    - **Be Opinionated:** When a canonical term is chosen, list rejected synonyms under _Avoid_.
 
-2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in .agents/standards/ADR-FORMAT.md and be saved in docs/adr/.
+2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in .claude/standards/ADR-FORMAT.md and be saved in docs/adr/.
    - **Lazy Creation:** Only create docs/adr/ when the first ADR is actually needed.
    - **Triple Gate Validation:** Before creating an ADR, verify the decision meets ALL THREE criteria: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. If any criterion is missing, skip the ADR.
 

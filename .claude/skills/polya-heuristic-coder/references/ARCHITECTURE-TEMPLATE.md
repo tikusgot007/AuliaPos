@@ -130,7 +130,7 @@ Frameworks & Drivers (DB, Web Server, UI Runtimes)
 ### 6.1 Repository Topography
 ```text
 [Project Root]
-├── .agents/          # AI agent configurations, skills, and SDLC standards
+├── .claude/          # AI agent configurations, skills, and SDLC standards
 ├── docs/             # Architecture maps, ADRs, audit reports, and reviews
 │   ├── adr/          # Architecture Decision Records
 │   └── ARCHITECTURE.md # This living architecture document

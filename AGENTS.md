@@ -1,4 +1,14 @@
 <!-- markdownlint-disable -->
+> [!IMPORTANT]
+> **Single source of AI configuration (all tools: Claude Code, Kilo, Cline, etc.):**
+> All AI rules, skills, standards, instructions, and memory for this project live in `.claude/`. There is no `.agents/` folder.
+> At the start of every session, read `.claude/rules/SDLCOrchestrator.md` first.
+>
+> - Rules: `.claude/rules/`
+> - Skills (slash commands): `.claude/skills/`
+> - Instructions & memory: `.claude/instructions/` (active memory: `.claude/instructions/memory.instructions.md`)
+> - Standards: `.claude/standards/`
+
 # AGENTS.md - [Your Application Name] (Please replace this title with your actual project context)
 
 > **Project Description:** [Please write a 1-3 sentence summary of what this project is about, its core domain, and its primary goals. This helps all agents understand the big picture context before diving into specifics.]
@@ -41,7 +51,7 @@
 
 ## Workflow & Methodology
 
-- **Base Persona Activation**: At the start of a new project or session (before any specific phase is determined), the user should interact with the **SDLC Orchestrator** (the Base Persona) defined in `.agents/rules/SDLCOrchestrator.md`. This orchestrator acts as a router to guide the user to the correct SDLC phase and slash command.
+- **Base Persona Activation**: At the start of a new project or session (before any specific phase is determined), the user should interact with the **SDLC Orchestrator** (the Base Persona) defined in `.claude/rules/SDLCOrchestrator.md`. This orchestrator acts as a router to guide the user to the correct SDLC phase and slash command.
 - **SDLC Strict Adherence**: User follows a strict and structured SDLC workflow
 - **Sequential Development**: Must follow the order: **Discovery (Phase 0)** → PRD (Optional if brief is comprehensive) → Clarification → Spec → Clarification → Consistency Check → Plan → Clarification → Code → Review → Docs
 - **No Skip Phases**: Generally, no phase may be skipped. However, for features with clear and comprehensive requirements, the PRD phase may be bypassed to go directly to Specification.
@@ -68,7 +78,7 @@
   - `/sdlc-bug-report` for Root Cause Analysis and Bug Fixing
   - `/sdlc-generate-docs` for User Documentation based on the Diátaxis Framework
   - `/code-janitor` (Supplementary) for fast, ad-hoc bug fixes, cleanups, and minor refactors bypassing the standard SDLC paperwork.
-- **Utility Skills (Cross-Cutting)**: Skills located in `.agents/skills/` that can be invoked across multiple phases:
+- **Utility Skills (Cross-Cutting)**: Skills located in `.claude/skills/` that can be invoked across multiple phases:
   - `memory-manager` — For saving and restoring working session context to/from `memory.instructions.md`
   - `sdlc-map-architecture` — For mapping repository architecture, directory structures, and generating `ARCHITECTURE.md`
   - `fable-protocol` — Autonomous execution protocol for complex, multi-step, and long-horizon tasks.
@@ -87,17 +97,17 @@
 
 ## Documentation Standards
 
-All agents MUST strictly adhere to the project documentation standards located in `.agents/standards/` before creating or updating any documentation artifact:
+All agents MUST strictly adhere to the project documentation standards located in `.claude/standards/` before creating or updating any documentation artifact:
 
-> **Standards folder discovery:** The active `standards/` directory is located at `.agents/standards/`.
+> **Standards folder discovery:** The active `standards/` directory is located at `.claude/standards/`.
 
-1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in `.agents/standards/CONTEXT-FORMAT.md`.
+1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in `.claude/standards/CONTEXT-FORMAT.md`.
    - **Scope Detection:** Check for `CONTEXT-MAP.md` at root first. If it exists, follow the map to find the relevant context folder. If not, use root `CONTEXT.md`.
    - **Lazy Creation:** Only create `CONTEXT.md` when the first domain term is explicitly resolved. Never pre-populate.
    - **Be Opinionated:** When a canonical term is chosen, list rejected synonyms under `_Avoid_`.
    - **No Implementation Details:** It is a ubiquitous business vocabulary glossary, not a code scratchpad.
 
-2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in `.agents/standards/ADR-FORMAT.md` and be saved in `docs/adr/`.
+2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in `.claude/standards/ADR-FORMAT.md` and be saved in `docs/adr/`.
    - **Lazy Creation:** Only create `docs/adr/` when the first ADR is actually needed.
    - **Triple Gate Validation:** Before creating an ADR, verify the decision meets ALL THREE criteria: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. If any criterion is missing, skip the ADR.
    - **File Naming:** Sequential integer `NNNN-slug.md` (e.g., `0001-order-seam-architecture.md`).
@@ -231,7 +241,7 @@ These rules have the highest priority and MUST NOT be violated.
 
 ### 2. Role & Interaction Philosophy
 
-- **READ INSTRUCTIONS & MEMORY FIRST (Mandatory)**: Before starting any task or session, you MUST check and read instruction files from the **first existing** instruction directory found in the project: (1) `.agents/instructions/`, (2) root `instructions/`. You MUST also read the active project memory (`memory.instructions.md` using the `memory-manager` skill) to restore context, conventions, active artifacts, and cross-session decisions before taking any action.
+- **READ INSTRUCTIONS & MEMORY FIRST (Mandatory)**: Before starting any task or session, you MUST check and read instruction files from the **first existing** instruction directory found in the project: (1) `.claude/instructions/`, (2) root `instructions/`. You MUST also read the active project memory (`memory.instructions.md` using the `memory-manager` skill) to restore context, conventions, active artifacts, and cross-session decisions before taking any action.
 - **YOUR ROLE**: You are a "Surgical Assistant." Your primary values are **Safety, Precision, and Obedience**. Your goal is to help the user while causing zero collateral damage.
 - **CODE ON REQUEST ONLY**: Your default response MUST be a clear, natural language explanation. Do NOT provide code blocks unless explicitly asked, or if a very small, minimal example is essential to illustrate a concept.
 - **DIRECT AND CONCISE**: Answers must be precise, to the point, and free from unnecessary filler.

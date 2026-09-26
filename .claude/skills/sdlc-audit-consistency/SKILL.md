@@ -39,8 +39,8 @@ You are an expert **Artifact Consistency Checker**. Your role is to act as an in
 6. **Full Traceability:** Every point in the Implementation Plan must trace back to the Technical Spec, and every point in the Spec must trace back to the PRD. If any thread is broken, it is a consistency violation.
 7. **Absolute Objectivity:** You are not evaluating the *quality* of the idea, UI design, or code architecture. You ONLY evaluate the *consistency* and completeness of documentation across phases.
 8. **Codebase Realism Check:** You must check if the Implementation Plan is consistent not only with the PRD/Spec but also with the existing codebase. If the Plan suggests a database schema change that contradicts the existing active database connection (or hardcoded limits), flag this as a critical contradiction.
-9. **Domain Alignment:** You must verify that all terminology used in the Plan and Spec adheres to the project's Domain Glossary. **Apply Scope Detection first:** check for `CONTEXT-MAP.md` at the root; if it exists, follow the map to find the relevant context folder; if no map exists, use the root `CONTEXT.md`. Additionally, audit that resolved canonical terms correctly list rejected synonyms under `_Avoid_` as defined in `.agents/standards/CONTEXT-FORMAT.md`. If the Plan uses a term that contradicts the Glossary, flag it as a consistency violation.
-10. **ADR Validation (Triple Gate):** When auditing ADRs in `docs/adr/`, verify each ADR meets **all three** validation criteria from `.agents/standards/ADR-FORMAT.md`: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. Flag any ADR that fails these criteria as unnecessary. Conversely, if you discover a decision in the Spec or Plan that meets all three criteria but has **no** corresponding ADR, flag it as a missing ADR.
+9. **Domain Alignment:** You must verify that all terminology used in the Plan and Spec adheres to the project's Domain Glossary. **Apply Scope Detection first:** check for `CONTEXT-MAP.md` at the root; if it exists, follow the map to find the relevant context folder; if no map exists, use the root `CONTEXT.md`. Additionally, audit that resolved canonical terms correctly list rejected synonyms under `_Avoid_` as defined in `.claude/standards/CONTEXT-FORMAT.md`. If the Plan uses a term that contradicts the Glossary, flag it as a consistency violation.
+10. **ADR Validation (Triple Gate):** When auditing ADRs in `docs/adr/`, verify each ADR meets **all three** validation criteria from `.claude/standards/ADR-FORMAT.md`: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. Flag any ADR that fails these criteria as unnecessary. Conversely, if you discover a decision in the Spec or Plan that meets all three criteria but has **no** corresponding ADR, flag it as a missing ADR.
 11. **Lazy Creation Awareness:** When auditing, do NOT flag the absence of `CONTEXT.md` or `docs/adr/` as a failure if no domain terms have been resolved or no architectural decisions have been made. These files are created **lazily** per project standards.
 12. **Quality Gate Rubrics & Scoring (0-100):** As an Auditor, you must strictly calculate and output the Readiness Score (0-100) based on Completeness (40%), Clarity (30%), and Alignment (30%) as defined in `AGENTS.md`. Apply the Critical Flaw Veto (cap score at 79 if blocking defects exist), enforce the 80-point threshold for proceeding, and trigger the 3-iteration Deadlock Breaker when applicable.
 13. **Skill Execution (Mandatory):** You **MUST** strictly follow the procedural workflow and utilize the Mandatory Audit Template defined in this skill.
@@ -105,7 +105,7 @@ Then, collect all documents related to the current feature. You **must** read an
 3. `plan-*.md` (If available in this phase)
 4. The relevant Domain Glossary. **Apply Scope Detection:** check for `CONTEXT-MAP.md` at root first; if it exists, follow the map to find the relevant context folder; if no map, use root `CONTEXT.md`.
 5. Existing ADRs in `docs/adr/`.
-6. **Project Standards:** The formatting templates in `.agents/standards/`.
+6. **Project Standards:** The formatting templates in `.claude/standards/`.
 7. The codebase.
 
 ### Phase 2: Adaptive Traceability Audit (Phase-Aware)
@@ -115,9 +115,9 @@ Perform a rigorous point-by-point mapping based on the available documents:
 - **Upstream to Downstream (Missing Coverage):** Take requirement X in the PRD, check if requirement X has an architectural design in the Spec (if Spec Phase), and has an explicit execution _task_ in the Plan (if Plan Phase).
 - **Downstream to Upstream (Orphaned Items):** Take _task_ Y in the Plan (or design in the Spec), trace upwards (to Spec/PRD) to see who requested it. If no one requested it, this is _scope creep_.
 - **Lateral (Contradictions):** Look for specific parameters (file size limits, time limits, SLAs, frameworks) and ensure the numbers are consistent and do not contradict each other across all available documents.
-- **Compliance Audit (Standards Check):** Verify if the PRD, Spec, and Plan follow the naming conventions and structure defined in `.agents/standards/`. If the documents deviate from the defined ADR or Context formats, flag this as a consistency violation.
-- **ADR Triple Gate Audit:** Verify each existing ADR in `docs/adr/` meets **all three** criteria from `.agents/standards/ADR-FORMAT.md`: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. Flag any ADR that fails these criteria as unnecessary. Conversely, flag decisions in Spec/Plan that meet all three criteria but lack a corresponding ADR.
-- **`_Avoid_` Synonym Audit:** Verify that the Domain Glossary entries include `_Avoid_` lists for rejected synonyms as required by `.agents/standards/CONTEXT-FORMAT.md`. If documents use a synonym listed under `_Avoid_` instead of the canonical term, flag it as a domain language violation.
+- **Compliance Audit (Standards Check):** Verify if the PRD, Spec, and Plan follow the naming conventions and structure defined in `.claude/standards/`. If the documents deviate from the defined ADR or Context formats, flag this as a consistency violation.
+- **ADR Triple Gate Audit:** Verify each existing ADR in `docs/adr/` meets **all three** criteria from `.claude/standards/ADR-FORMAT.md`: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. Flag any ADR that fails these criteria as unnecessary. Conversely, flag decisions in Spec/Plan that meet all three criteria but lack a corresponding ADR.
+- **`_Avoid_` Synonym Audit:** Verify that the Domain Glossary entries include `_Avoid_` lists for rejected synonyms as required by `.claude/standards/CONTEXT-FORMAT.md`. If documents use a synonym listed under `_Avoid_` instead of the canonical term, flag it as a domain language violation.
 
 ### Phase 3: Reporting (Quality Gate)
 
@@ -190,7 +190,7 @@ Look for sweet promises in the PRD that are never technically executed in the _p
 - **Enforce Traceability:** Whenever you validate an upstream or downstream document, ensure you can point exactly to the sentence or ID that justifies the task.
 - **Block (Halt) the Process:** Apply a _halt_ status (score < 80) if the documents are still fundamentally contradictory.
 - **Enforce Domain Language:** If the Plan uses terminology that differs from the Domain Glossary (via `CONTEXT.md` or `CONTEXT-MAP.md`), or uses a synonym listed under `_Avoid_`, it is a consistency failure. Treat it as a documentation bug.
-- **Enforce Documentation Standards:** Always compare the generated documents against `.agents/standards/ADR-FORMAT.md` and `.agents/standards/CONTEXT-FORMAT.md`. If a document structure is "broken" or does not match the mandatory template, list it as a "Consistency Failure" in the Audit Report.
+- **Enforce Documentation Standards:** Always compare the generated documents against `.claude/standards/ADR-FORMAT.md` and `.claude/standards/CONTEXT-FORMAT.md`. If a document structure is "broken" or does not match the mandatory template, list it as a "Consistency Failure" in the Audit Report.
 - **Respect Lazy Creation:** Do NOT flag the absence of `CONTEXT.md` or `docs/adr/` as a failure if no domain terms have been resolved or no architectural decisions have been made. These files are created lazily per project standards.
 
 ### DON'T (Avoid)
@@ -202,22 +202,22 @@ Look for sweet promises in the PRD that are never technically executed in the _p
 
 ## Consistency Audit Report (Mandatory Template)
 
-You **MUST** use the mandatory audit report template format when generating the report. Read the template from: `.agents/skills/sdlc-audit-consistency/references/AUDIT-REPORT-TEMPLATE.md`
+You **MUST** use the mandatory audit report template format when generating the report. Read the template from: `.claude/skills/sdlc-audit-consistency/references/AUDIT-REPORT-TEMPLATE.md`
 
 ---
 
 ## Documentation Standards
 
-All agents MUST strictly adhere to the project documentation standards located in .agents/standards/ before creating or updating any documentation artifact:
+All agents MUST strictly adhere to the project documentation standards located in .claude/standards/ before creating or updating any documentation artifact:
 
-> **Standards folder discovery:** The active `standards/` directory is located at `.agents/standards/`.
+> **Standards folder discovery:** The active `standards/` directory is located at `.claude/standards/`.
 
-1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in .agents/standards/CONTEXT-FORMAT.md.
+1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in .claude/standards/CONTEXT-FORMAT.md.
    - **Scope Detection:** Check for CONTEXT-MAP.md at root first. If it exists, follow the map to find the relevant context folder. If not, use root CONTEXT.md.
    - **Lazy Creation:** Only create CONTEXT.md when the first domain term is explicitly resolved. Never pre-populate.
    - **Be Opinionated:** When a canonical term is chosen, list rejected synonyms under _Avoid_.
 
-2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in .agents/standards/ADR-FORMAT.md and be saved in docs/adr/.
+2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in .claude/standards/ADR-FORMAT.md and be saved in docs/adr/.
    - **Lazy Creation:** Only create docs/adr/ when the first ADR is actually needed.
    - **Triple Gate Validation:** Before creating an ADR, verify the decision meets ALL THREE criteria: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. If any criterion is missing, skip the ADR.
 

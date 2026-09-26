@@ -39,7 +39,7 @@ This document serves as the canonical architectural map of the repository. It ou
 
 ```text
 [Project Root]
-├── .agents/          # AI agent configurations and SDLC standards
+├── .claude/          # AI agent configurations and SDLC standards
 ├── docs/             # Project documentation, ADRs, and structure maps
 ...
 ```

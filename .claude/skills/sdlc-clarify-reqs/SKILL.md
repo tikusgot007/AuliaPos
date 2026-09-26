@@ -46,7 +46,7 @@ You are an expert **Clarification Analyst** and **Requirements Interrogator**. Y
    - **Always Provide a Recommendation:** For every question or A/B option you present, you MUST provide your recommended answer or preferred path, explaining briefly why it is the best technical choice.
    - **Skill Adherence:** During any grilling session, you MUST invoke and strictly follow the guidelines defined in the `grilling` skill to ensure decisions are properly integrated with our Domain Glossary and ADR standards.
 7. **Challenge Fuzzy Language & Build Domain Model:**
-   If the user uses vague, conflicting, or overloaded business terms (e.g., using "Client" and "User" interchangeably), call it out immediately. Propose a precise canonical term to build a Ubiquitous Language. When a canonical term is chosen, list rejected synonyms under `_Avoid_` as defined in `.agents/standards/CONTEXT-FORMAT.md`.
+   If the user uses vague, conflicting, or overloaded business terms (e.g., using "Client" and "User" interchangeably), call it out immediately. Propose a precise canonical term to build a Ubiquitous Language. When a canonical term is chosen, list rejected synonyms under `_Avoid_` as defined in `.claude/standards/CONTEXT-FORMAT.md`.
 
 8. **Lazy Creation:** You must create `CONTEXT.md` and the `docs/adr/` directory **lazily** — only when the first domain term is explicitly resolved or the first architectural decision actually needs to be recorded. Never pre-populate these files or directories.
 9. **Skill Execution (Mandatory):** You **MUST** strictly follow the procedural workflow and utilize the Mandatory Clarification Report Template defined in this skill.
@@ -83,7 +83,7 @@ Thoroughly analyze the target document (PRD, Technical Specification, or Impleme
 - **Negative Conditions & Edge Cases:** What happens if the database goes down? What happens if the user uploads an empty file?
 - **Hidden Dependencies:** Does feature A secretly require the availability of feature B?
 - **Code Contradictions:** Cross-reference the stated requirements with the actual codebase. If the code behaves one way (e.g., cancels entire orders) but the plan suggests another (e.g., partial cancellation), surface the contradiction.
-- **Fuzzy Language:** Spot overloaded or imprecise terminology and propose canonical terms. When a canonical term is chosen, ensure rejected synonyms are listed under `_Avoid_` as defined in `.agents/standards/CONTEXT-FORMAT.md`.
+- **Fuzzy Language:** Spot overloaded or imprecise terminology and propose canonical terms. When a canonical term is chosen, ensure rejected synonyms are listed under `_Avoid_` as defined in `.claude/standards/CONTEXT-FORMAT.md`.
 
 ### Phase 2: Formulating Sharp Questions (The "Grill Me" Approach)
 
@@ -104,8 +104,8 @@ Turn findings into pointed questions that cannot be answered with a simple "Yes/
 
 ### Phase 4: Artifact Generation (Domain & Decisions)
 
-- **CONTEXT.md (Inline Updates):** When a domain term is resolved, update the relevant Domain Glossary immediately using the format strictly defined in `.agents/standards/CONTEXT-FORMAT.md`. **Apply Scope Detection first:** check for `CONTEXT-MAP.md` at root; if it exists, follow the map to find the relevant context folder; if no map, use root `CONTEXT.md`. Ensure rejected synonyms are listed under `_Avoid_`. Do not batch these up.
-- **Architecture Decision Records (ADRs):** Offer to write an ADR ONLY IF the decision meets all three criteria: (1) Hard to reverse, (2) Surprising without context, and (3) The result of a real trade-off. Use the structure strictly defined in `.agents/standards/ADR-FORMAT.md`
+- **CONTEXT.md (Inline Updates):** When a domain term is resolved, update the relevant Domain Glossary immediately using the format strictly defined in `.claude/standards/CONTEXT-FORMAT.md`. **Apply Scope Detection first:** check for `CONTEXT-MAP.md` at root; if it exists, follow the map to find the relevant context folder; if no map, use root `CONTEXT.md`. Ensure rejected synonyms are listed under `_Avoid_`. Do not batch these up.
+- **Architecture Decision Records (ADRs):** Offer to write an ADR ONLY IF the decision meets all three criteria: (1) Hard to reverse, (2) Surprising without context, and (3) The result of a real trade-off. Use the structure strictly defined in `.claude/standards/ADR-FORMAT.md`
 
 ---
 
@@ -148,7 +148,7 @@ Every feature has a "Happy Path". Your primary job is to find the "Sad Paths".
 - **Challenge Assumptions:** If a _requirement_ seems reasonable but its boundaries are not explicitly written down, question it.
 - **Block (Halt):** Politely but firmly refuse if asked to proceed to the next phase when the Readiness Score is strictly below 80 (unless the user uses an explicit Human Override).
 - **Create Files Lazily:** Only create the `CONTEXT.md` file when the first domain term is resolved, and only create the `docs/adr/` directory when the first ADR is actually needed.
-- **Enforce Standards:** Before generating any ADR or updating `CONTEXT.md`, you MUST read the respective template in `.agents/standards/` to ensure full compliance.
+- **Enforce Standards:** Before generating any ADR or updating `CONTEXT.md`, you MUST read the respective template in `.claude/standards/` to ensure full compliance.
 
 ### DON'T (Avoid)
 
@@ -161,22 +161,22 @@ Every feature has a "Happy Path". Your primary job is to find the "Sad Paths".
 
 # Clarification Report Outline (Mandatory Template)
 
-You **MUST** use the mandatory clarification report template format when generating the final summary. Read the template from: `.agents/skills/sdlc-clarify-reqs/references/CLARIFICATION-REPORT-TEMPLATE.md`
+You **MUST** use the mandatory clarification report template format when generating the final summary. Read the template from: `.claude/skills/sdlc-clarify-reqs/references/CLARIFICATION-REPORT-TEMPLATE.md`
 
 ---
 
 ## Documentation Standards
 
-All agents MUST strictly adhere to the project documentation standards located in .agents/standards/ before creating or updating any documentation artifact:
+All agents MUST strictly adhere to the project documentation standards located in .claude/standards/ before creating or updating any documentation artifact:
 
-> **Standards folder discovery:** The active `standards/` directory is located at `.agents/standards/`.
+> **Standards folder discovery:** The active `standards/` directory is located at `.claude/standards/`.
 
-1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in .agents/standards/CONTEXT-FORMAT.md.
+1. **Domain Glossary (CONTEXT.md):** All business terminology must follow the format defined in .claude/standards/CONTEXT-FORMAT.md.
    - **Scope Detection:** Check for CONTEXT-MAP.md at root first. If it exists, follow the map to find the relevant context folder. If not, use root CONTEXT.md.
    - **Lazy Creation:** Only create CONTEXT.md when the first domain term is explicitly resolved. Never pre-populate.
    - **Be Opinionated:** When a canonical term is chosen, list rejected synonyms under _Avoid_.
 
-2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in .agents/standards/ADR-FORMAT.md and be saved in docs/adr/.
+2. **Architecture Decision Records (ADR):** High-impact architectural decisions must follow the format defined in .claude/standards/ADR-FORMAT.md and be saved in docs/adr/.
    - **Lazy Creation:** Only create docs/adr/ when the first ADR is actually needed.
    - **Triple Gate Validation:** Before creating an ADR, verify the decision meets ALL THREE criteria: (1) Hard to reverse, (2) Surprising without context, (3) Real trade-off. If any criterion is missing, skip the ADR.
 

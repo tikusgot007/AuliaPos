@@ -52,7 +52,7 @@ Before performing a recursive search, check if the active memory path is already
 ### Step 1: Recursive Search (Fallback)
 
 1. **Search recursively for `memory.instructions.md`** across ALL subdirectories within the project, prioritizing the following instruction roots and their subfolders:
-   - `.agents/instructions/` (and subfolders)
+   - `.claude/instructions/` (and subfolders)
    - `instructions/` (and subfolders at the project root)
 2. **Use recursive search tools** (such as `grep_search` searching for filename `memory.instructions.md` or glob patterns like `**/memory.instructions.md`) to scan across subfolders, ignoring build/vendor folders (`node_modules`, `.git`, `dist`).
 3. **Resolution:**
@@ -249,7 +249,7 @@ Add a `## Memory Configuration` section to `AGENTS.md`. Place it after the `## C
 ```md
 ## Memory Configuration
 
-- **Active Memory Path:** `.agents/instructions/memory.instructions.md`
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
 - **Managed by:** `memory-manager` skill
 - **Last Recorded:** [YYYY-MM-DD]
 ```
