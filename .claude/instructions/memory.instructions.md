@@ -1209,3 +1209,79 @@
 <!-- checkpoint-tail: 2026-09-27 Phase 6h `/sdlc-audit-consistency` Iteration 2 re-audited PRD v1.1 ↔ `spec-design-balas-pesan.md` v1.2 + `spec-design-teruskan.md` v1.1, scored 79/100 BELOW THRESHOLD (Critical Flaw Veto YES, so `/sdlc-plan-tasks` still blocked): BOTH Phase 6g blockers verified FIXED with no traceability regression (the `/send-media` contract for `quoted`/`forward` is complete in both specs; `REQ-006`/`CON-002`/`REQ-006a` now delineate the three reply-failure reactions), but TWO NEW blockers surfaced — (KB-01/Contradiction) `spec-design-teruskan.md` `REQ-004`+`AC-002` hide the Teruskan action entirely for audio/video (`tidak dirender sama sekali (bukan disabled)`), directly contradicting Clarification Report Resolved Item #7 (disabled-with-reason, `clarification-report-whatsapp-grup-balas-teruskan-spec-2026-09-26.md` line 51; its own line 28 had flagged `REQ-004` as an unrewritten decision) and failing PRD GH-016 line 379 ("kasir menerima penjelasan yang bisa dipahami"); and (KB-02/Partial Missing Coverage) PRD GH-015 AC lines 362/364 ("ditawarkan pilihan mengirim tanpa kutipan"; "batal ⇒ tidak ada pesan terkirim") cannot be satisfied by `REQ-006`'s auto-send+label or `CON-002`'s fail+retry, because Clarification Item #8 chose the auto-send semantics without amending the PRD. Saved as `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27-reaudit.md` (new file, uncommitted). Next two actions in NEW sessions: `/sdlc-define-specs` to rewrite Teruskan `REQ-004`/`AC-002` as disabled+reason, and `/sdlc-draft-prd` to amend GH-015 AC; then re-run `/sdlc-audit-consistency` (Iteration 3 triggers the Deadlock Breaker). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6i — `/sdlc-define-specs` remediation Critical Blocker Teruskan audio/video)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`) — remediasi **spec-only** atas Critical Blocker dari `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27-reaudit.md` (Iteration 2, 79/100, Critical Flaw Veto YES). Persona-locked as Specification Architect; **tidak ada** kode aplikasi/plan/ADR/`CONTEXT.md`/PRD yang disentuh.
+- **Active Artifacts:**
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — v1.1 (input, **tidak diubah**; GH-015 lines 362/364 masih pending di `/sdlc-draft-prd`).
+  - `spec/spec-design-teruskan.md` — ✅ **v1.1 → v1.2**; Critical Blocker `REQ-004`/`AC-002` RESOLVED.
+  - `spec/spec-design-balas-pesan.md` — v1.2 (tidak disentuh; dua blocker lamanya sudah FIXED).
+  - `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27-reaudit.md` — banner `REMEDIATION STATUS: RESOLVED` (spec-side) + projected 90/100.
+- **Achieved Milestones:**
+  - **Critical Blocker KB-01 (Phase 6h) RESOLVED.** `REQ-004` ditulis ulang: aksi "Teruskan" pada audio/video **tetap di menu, disabled**, label alasan `"Teruskan — audio/video tidak dapat diteruskan"` — mengikuti pola **`CON-002`** di `spec-design-grup-tahap1-tab-inbox.md` (bukan pola sembunyikan `CON-001`), memenuhi PRD GH-016 line 379 "penjelasan yang bisa dipahami".
+  - `AC-002` diselaraskan (opsi tetap tampil disabled + label; server tetap menolak pada bypass UI via GUD-001); Section 7 (Project Structure) dan Section 13 (Validation Criteria, manual check) diubah dari "sembunyikan" → "disabled".
+  - Minor Gap opportunistik: rujukan `file:line` `cekOwnership()` di `REQ-007`/Section 8 diperbarui `Inbox.php:693` → `app/Controllers/Inbox.php:727` (diverifikasi via grep: fungsi ada di baris 727).
+  - Catatan revisi `v1.2` ditambahkan di Section 1.2 (pola Grup specs), memuat tautan audit + daftar perubahan.
+- **Dead-Ends (Do NOT Repeat):**
+  - Tidak ada dead-end baru. Edit dilakukan **sekuensial** (bukan batch paralel ke file yang sama) — patuh KB DE-19/DE-35/DE-47.
+  - **`spec-design-teruskan.md` `REQ-004` "pola CON-001" adalah rasional selektif yang salah** — CON-001 memang "tidak dirender", tapi itu untuk aksi yang PRD-nya memang tidak menjanjikan penjelasan; CON-002 adalah pola yang benar untuk aksi yang harus tetap terlihat + dijelaskan. Jangan lagi mengutip CON-001 untuk kasus yang butuh penjelasan.
+- **Updated Files:**
+  - `spec/spec-design-teruskan.md` — v1.1→v1.2: `REQ-004` (ditulis ulang), `AC-002`, Section 7, Section 13, `REQ-007`/Section 8 (`file:line`), catatan revisi baru di Section 1.2; `last_updated` dipertahankan 2026-09-27.
+  - `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27-reaudit.md` — blok `[!SUCCESS]` `REMEDIATION STATUS: RESOLVED` (spec-side) tepat SETELAH H1 (patuh KB DE-06) + projected 90/100 + catatan blocker PRD yang tersisa.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Memakai pola **disabled** `CON-002` (bukan sembunyikan `CON-001`) untuk aksi Teruskan audio/video — label alasan wajib mendampingi keadaan disabled.
+  - **Projected Readiness Score: 90/100** (Completeness 35/40, Clarity 30/30, Alignment 25/30) dengan **Critical Flaw Veto `REQ-004` dicabut**. Namun **skor audit keseluruhan tetap gated** oleh Critical Blocker kedua di sisi PRD (GH-015).
+  - Tidak ada ADR baru (keputusan turunan invarian yang sudah ada; gagal *Triple Gate*) dan `CONTEXT.md` tidak diubah.
+- **Next Action / Pending:**
+  - **`/sdlc-draft-prd` (sesi baru):** amandemen GH-015 AC line 362/364 (masih terbuka; di luar lingkup sesi spec ini).
+  - Setelah PRD diamandemen → **`/sdlc-audit-consistency` Iteration 3** (Deadlock Breaker aktif: paksa User Decision Prompt walau <80). Jangan `/sdlc-plan-tasks` selama GH-015 live.
+  - File sesi ini **belum di-commit** (spec + audit + memory) — commit/push menunggu perintah owner.
+  - Carried forward (tetap, non-blocking): `CONTEXT.md:68` "Kutipan" wording; PRD Section 4 note lines 158–165 & GH-012 AC phase mismatch; sisa `file:line` drift di `spec-design-balas-pesan.md` (`index.php:2308` → `:2362`); `[OPTIONAL] SEC-01`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004 OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat dan cocok (fast path), jadi tawaran update di-skip senyap.
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6i `/sdlc-define-specs` REMEDIATED the Phase 6h Critical Blocker KB-01 in `spec-design-teruskan.md` v1.1→v1.2 (spec-only; no code/plan/ADR/CONTEXT/PRD touched): `REQ-004`+`AC-002` now render the Teruskan action for audio/video as VISIBLE-but-DISABLED with reason label "Teruskan — audio/video tidak dapat diteruskan" (Clarification Report Resolved Item #7), following Grup `CON-002` instead of the wrongly-cited `CON-001` hide pattern; Section 7 + Section 13 realigned from "sembunyikan" to "disabled"; `cekOwnership()` file:line refreshed 693→727; v1.2 revision note added. The reaudit report now carries a `REMEDIATION STATUS: RESOLVED` banner after the H1 with projected 90/100 (Completeness 35/40, Clarity 30/30, Alignment 25/30; REQ-004 veto lifted). Remaining gate: Critical Blocker KB-02 is PRD-side (GH-015 AC lines 362/364) and still open → next in NEW sessions: `/sdlc-draft-prd`, then `/sdlc-audit-consistency` Iteration 3 (Deadlock Breaker). Files uncommitted. -->
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6j — `/sdlc-clarify-reqs` on the AuliaPos Balas Pesan PLAN)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Recurring Checkpoint — `/sdlc-clarify-reqs` against `plan/plan-feature-balas-pesan-auliapos-v1.0.md` (first clarification of this plan), with `spec/spec-design-balas-pesan.md` v1.2 as reference. Persona-locked as Clarification Analyst; **no code/app/plan/spec edited** (report-only output). **Readiness 89/100 — Good Enough; user chose PROCEED.**
+- **Active Artifacts:**
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — v1.1 (input, unchanged; GH-015 AC lines 362/364 still open for `/sdlc-draft-prd`).
+  - `spec/spec-design-balas-pesan.md` — v1.2 (input, unchanged; **3 upstream corrections identified**, see Next Action).
+  - `plan/plan-feature-balas-pesan-auliapos-v1.0.md` — v1.0 (input; 10 findings).
+  - `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md` — v1.0 (input; impacted by the new `fromMe` field).
+  - `docs/audit/clarification-report-balas-pesan-plan-2026-09-27.md` — ✅ **NEW** (Iteration 1, 89/100 Good Enough, PROCEED).
+- **Achieved Milestones:**
+  - Grounded verification of the plan's cited seams against code: route `POST /inbox/kirim` (`app/Config/Routes.php:44`), `kirim()` `:872`, `kirimMedia()` `:932`, `findMessageByOperationId()` `:2292`, `callGatewaySend()` `:2332`, `callGatewaySendMedia()` `:2408`, `cekOwnership()` `:727` (invoked `:984`/`:2157`), `MessageModel` soft-deletes `:38`.
+  - 6 decisions (F1–F6) + 3 auto-resolved (F7/F8/F10) recorded in the clarification report.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Do NOT trust the spec's `media_status` column name** — it does **not exist** in the schema; the real media-availability seams are `media_local_filename`, `media_download_attempted_at`, `media_confirmed_gone_at` (`app/Models/MessageModel.php:54-56`; `app/Controllers/Inbox.php:418-499`). Same class as "audit findings are not self-verifying".
+  - **Do NOT use `MessageModel::find()` for the quoted-source lookup without deciding soft-delete behavior** — `useSoftDeletes = true` makes it return `null` for a soft-deleted source; the plan's `TASK-002` silently assumed otherwise. Use the no-`deleted_at` pattern of `findMessageByOperationId()` (`Inbox.php:2285`) for quote snapshots.
+  - **`quoted_message_id` needs an intra-conversation ownership guard** — `cekOwnership()` only authorizes the target conversation; without the check, cross-conversation quoting is an IDOR and the back-door of Teruskan (Out of Scope).
+  - Minor line drift confirmed: `gatewayFailureResponse()` cited at `:2501-2510`, actual function at `:2497`.
+- **Updated Files:**
+  - `docs/audit/clarification-report-balas-pesan-plan-2026-09-27.md` — **NEW** (the only authored artifact this session).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint.
+- **Decisions Made (F1–F6, all `[Disepakati]`):**
+  - **F1 (critical):** reject `400/403` when `quoted_message_id` is not a message of the target conversation (closes IDOR + Teruskan boundary).
+  - **F2/F9:** source lookup MUST include soft-deleted rows; reject `400` only when truly absent; same for `findByWaMessageId()` (incoming quotes).
+  - **F3:** `quoted_media_available` = `0` only when `media_confirmed_gone_at` set; `1` when media & not confirmed-gone; `NULL` when source is text.
+  - **F6:** add optional `fromMe` to the `quoted` object (outgoing `true`, incoming `false`); additive contract change.
+  - **F5:** not-found discriminator via `quoted_sender_label === NULL` (found label always non-NULL), not string matching.
+  - **F4:** "Terkirim tanpa kutipan" marker is **ephemeral** (no new column; survives only the send response).
+  - **F7/F8/F10 (auto-resolved):** `mb_substr` 200 + `…`; absent `quote_applied` ⇒ `false`; server-side DB fetch is authoritative over the spec Section 12 "client snapshot" wording.
+  - No ADR (Triple Gate fails) and no `CONTEXT.md` change.
+- **Next Action / Pending:**
+  - **Update the plan** `plan/plan-feature-balas-pesan-auliapos-v1.0.md`: F1 conversation-boundary guard, F2 soft-deleted-inclusive lookup, F3 media-availability mapping (fix the `media_status` reference), F5 `quoted_sender_label`-based not-found discriminator, F4 ephemeral-marker note.
+  - **Update the spec** `spec/spec-design-balas-pesan.md`: correct `REQ-008` to the real media columns; add optional `fromMe` to Section 4.1/4.1.1 (`REQ-001`/`REQ-001a`); fix Section 12 snapshot wording. Route to `/sdlc-define-specs`.
+  - **Align** `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md` to consume `fromMe`.
+  - Still gated: PRD GH-015 AC lines 362/364 remain open → `/sdlc-draft-prd`, then `/sdlc-audit-consistency` Iteration 3 (Deadlock Breaker).
+  - Session files **uncommitted** — commit/push awaits the owner.
+  - No `AGENTS.md` change: recorded `Active Memory Path` matched (fast path), offer skipped silently.
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6j `/sdlc-clarify-reqs` interrogated the new `plan/plan-feature-balas-pesan-auliapos-v1.0.md` (first pass) against `spec-design-balas-pesan.md` v1.2 and scored 89/100 GOOD ENOUGH (Completeness 37/40, Clarity 27/30, Alignment 25/30, no veto); the one critical finding F1 (missing intra-conversation ownership guard on `quoted_message_id` ⇒ IDOR + Teruskan back-door) plus F2/F9 (source lookup must include soft-deleted rows), F3 (`quoted_media_available` = 0 only on `media_confirmed_gone_at`; the spec's `media_status` column does not exist), F6 (add optional `fromMe` to the `quoted` payload), F5 (`quoted_sender_label === NULL` as the not-found discriminator) and F4 (ephemeral "Terkirim tanpa kutipan" marker, no new column) were all agreed; F7/F8/F10 auto-resolved on PROCEED. Report saved as `docs/audit/clarification-report-balas-pesan-plan-2026-09-27.md`. Next: update the plan + spec (fromMe, REQ-008 columns, Section 12 wording), align the Gateway plan, then `/sdlc-write-code`; PRD GH-015 AC 362/364 still routes to `/sdlc-draft-prd`. Uncommitted. -->
+
+---
