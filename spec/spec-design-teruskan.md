@@ -1,7 +1,8 @@
 ---
 title: Teruskan (Forward) — Lintas Repo
-version: 1.0
+version: 1.1
 date_created: 2026-09-26
+last_updated: 2026-09-27
 owner: AuliaPos Inbox module
 tags: [inbox, chat, whatsapp, teruskan, tahap4, wa-gateway]
 ---
@@ -58,9 +59,10 @@ Istilah tambahan:
 ### Sisi WA-Gateway (kontrak baru)
 
 - **REQ-001**: `POST {gatewayBaseUrl}/send` menerima field opsional baru `forward` (boolean, default `false`). Saat `true`, Gateway mencoba menandai pesan sebagai forwarded native lewat Baileys.
-- **REQ-002**: Jika native-forward berhasil dibentuk, Gateway **tidak** menambah teks apa pun ke isi pesan (marker murni dari metadata WhatsApp). Jika gagal/tidak tersedia (ASSUMPTION-005), Gateway menyisipkan prefix teks **"↪️ Diteruskan: "** ke `text` sebelum dikirim (untuk pesan teks); untuk pesan media, prefix disisipkan ke `caption`.
-- **REQ-003**: Response menyertakan field `forward_marker_applied: "native" | "text_fallback"` — supaya AuliaPos tahu cara apa yang dipakai (untuk keperluan log/debug, tidak memengaruhi UI kasir yang tetap menampilkan penanda "Diteruskan" sendiri di AuliaPos terlepas dari metode Gateway — lihat REQ-007).
-- **CON-001**: Field `forward` **tidak pernah** dikombinasikan dengan field `quoted` (`spec-design-balas-pesan.md` Section 4.1) dalam satu request — meneruskan dan membalas-dengan-kutip adalah dua aksi terpisah yang tidak bisa digabung dalam satu kirim (konsisten dengan resolusi Clarification Report: kutipan tidak ikut terbawa saat Teruskan).
+- **REQ-001a (Teruskan pada jalur media — Resolved Item #6 Clarification Report Spec)**: `POST {gatewayBaseUrl}/send-media` menerima field opsional `forward` (boolean, default `false`) dengan struktur & aturan **identik** REQ-001. Ini adalah jalur yang dipakai untuk **meneruskan lampiran** (gambar/dokumen/stiker, REQ-006) — AuliaPos mengambil berkas dari penyimpanan lokalnya dan mengirimkannya lewat mekanisme base64 yang sudah ada, tanpa menyalin berkas menjadi salinan baru (PRD Section 8.2). Lihat Section 4.1.1 untuk contoh payload.
+- **REQ-002**: Jika native-forward berhasil dibentuk, Gateway **tidak** menambah teks apa pun ke isi pesan (marker murni dari metadata WhatsApp). Jika gagal/tidak tersedia (ASSUMPTION-005), Gateway menyisipkan prefix teks **"↪️ Diteruskan: "** ke `text` sebelum dikirim (untuk pesan teks); untuk pesan media, prefix disisipkan ke `caption`. Berlaku sama di jalur `/send` maupun `/send-media` (REQ-001a).
+- **REQ-003**: Response **kedua** endpoint (`/send` dan `/send-media`) menyertakan field `forward_marker_applied: "native" | "text_fallback"` — supaya AuliaPos tahu cara apa yang dipakai (untuk keperluan log/debug, tidak memengaruhi UI kasir yang tetap menampilkan penanda "Diteruskan" sendiri di AuliaPos terlepas dari metode Gateway — lihat REQ-007). `forward_marker_applied` berlaku sama di kedua endpoint (REQ-001a).
+- **CON-001**: Field `forward` **tidak pernah** dikombinasikan dengan field `quoted` (`spec-design-balas-pesan.md` Section 4.1) dalam satu request — baik di `/send` maupun `/send-media` — meneruskan dan membalas-dengan-kutip adalah dua aksi terpisah yang tidak bisa digabung dalam satu kirim (konsisten dengan resolusi Clarification Report: kutipan tidak ikut terbawa saat Teruskan). Larangan ini **tidak** menghalangi Teruskan lampiran media: pesan hasil Teruskan tetap dikirim lewat `/send-media` dengan `forward: true` dan tanpa `quoted`.
 
 ### Sisi AuliaPos (UI, aturan forwardability, ownership, non-stacking)
 
@@ -103,6 +105,28 @@ Response:
 { "sent": true, "gateway_operation_id": "...", "forward_marker_applied": "native" }
 ```
 
+### 4.1.1 `POST {gatewayBaseUrl}/send-media` — payload tambahan (REQ-001a)
+
+```json
+{
+  "operation_id": "...",
+  "chat_id": "<tujuan>",
+  "message_type": "image",
+  "media_base64": "<...>",
+  "mimetype": "image/jpeg",
+  "caption": "Kapan pesanan saya dikirim?",
+  "forward": true
+}
+```
+
+Response:
+
+```json
+{ "sent": true, "gateway_operation_id": "...", "forward_marker_applied": "native" }
+```
+
+Field `forward` di endpoint ini memakai struktur & aturan yang sama seperti Section 4.1 (`forward` opsional; `forward_marker_applied` dilaporkan sama; CON-001 tetap berlaku — `forward` tidak digabung dengan `quoted`). Nama field media (`media_base64`, `mimetype`, `caption`, dst.) mengikuti kontrak `/send-media` yang sudah ada di WA-Gateway dan tidak diubah oleh spec ini.
+
 ### 4.2 Migrasi baru: kolom pada `messages`
 
 ```php
@@ -123,11 +147,13 @@ Response:
 - **AC-006**: Given pesan sumber adalah hasil Balas Pesan (punya kutipan), When diteruskan, Then pesan hasil Teruskan **tidak membawa kutipan apa pun**.
 - **AC-007**: Given pesan sumber adalah hasil Teruskan sebelumnya, When diteruskan lagi, Then label "Diteruskan" pada pesan baru tetap tunggal (tidak menumpuk/berlapis).
 - **AC-008**: Given Gateway gagal menerapkan native-forward, When fallback teks dipakai, Then AuliaPos tetap menampilkan label "Diteruskan" yang konsisten di UI (tidak bergantung metode Gateway).
+- **AC-009**: Given pesan gambar/dokumen/stiker yang file-nya masih tersedia, When kasir meneruskannya ke percakapan tujuan, Then lampiran dikirim lewat `POST {gatewayBaseUrl}/send-media` dengan field `forward: true` (REQ-001a), Gateway mengembalikan `forward_marker_applied`, dan pesan baru tersimpan dengan `is_forwarded = true` seperti Teruskan teks.
+- **AC-010**: Given pesan sumber adalah hasil Balas Pesan yang dikutip sekaligus lampiran media, When diteruskan, Then request Teruskan memakai `/send-media` dengan `forward: true` **tanpa** field `quoted` (CON-001) — kutipan tetap tidak ikut terbawa (selaras AC-006).
 
 ## 6. Test Automation Strategy & Testing Seams
 
-- **Testing Seams**: HTTP boundary endpoint kirim (mock respons Gateway `forward_marker_applied` native/fallback), dan langsung ke logic forwardability/ownership di Controller.
-- **Test Levels**: Unit (aturan forwardability per `message_type`+`media_status`), Feature (kirim forward sukses, forward audio/video ditolak, forward dengan ownership tujuan gagal, forward pesan yang sudah punya kutipan/forward sebelumnya).
+- **Testing Seams**: HTTP boundary endpoint kirim (mock respons Gateway `forward_marker_applied` native/fallback), termasuk jalur `POST /send-media` untuk Teruskan lampiran (REQ-001a), dan langsung ke logic forwardability/ownership di Controller.
+- **Test Levels**: Unit (aturan forwardability per `message_type`+`media_status`), Feature (kirim forward teks sukses, forward gambar/dokumen/stiker lewat `/send-media` sukses, forward audio/video ditolak, forward dengan ownership tujuan gagal, forward pesan yang sudah punya kutipan/forward sebelumnya).
 - **Test Data Management**: Factory pesan dari tiap kombinasi tipe media × status file, serta pesan dengan `quoted_*`/`is_forwarded` terisi untuk kasus non-stacking.
 - **Coverage Requirements**: `vendor/bin/phpunit --no-coverage` keluar kode 0.
 
@@ -142,8 +168,8 @@ Response:
 
 ### Project Structure (WA-Gateway — repo terpisah, plan terpisah)
 
-- `src/api/ci4Routes.js` — terima field `forward` di `/send`.
-- `src/whatsapp/connectionManager.js` — terapkan native-forward Baileys dengan fallback teks, kembalikan `forward_marker_applied`.
+- `src/api/ci4Routes.js` — terima field `forward` di `/send` **dan** `/send-media` (REQ-001a).
+- `src/whatsapp/connectionManager.js` — terapkan native-forward Baileys dengan fallback teks, kembalikan `forward_marker_applied` untuk jalur `/send` maupun `/send-media`.
 
 ### Commands (AuliaPos)
 
@@ -168,7 +194,7 @@ Tidak ada ADR baru. Larangan permanen forward audio/video adalah konsekuensi lan
 
 ### External Systems
 
-- **EXT-001**: `tikusgot007/WA-Gateway` — wajib merilis dukungan `forward` di `/send` (REQ-001–003) sebelum Tahap 4 bisa dirilis penuh.
+- **EXT-001**: `tikusgot007/WA-Gateway` — wajib merilis dukungan `forward` di `/send` **dan** `/send-media` (REQ-001, REQ-001a, REQ-003) sebelum Tahap 4 bisa dirilis penuh.
 
 ### Third-Party Services
 
@@ -184,6 +210,7 @@ Tidak ada ADR baru. Larangan permanen forward audio/video adalah konsekuensi lan
 
 - `vendor/bin/phpunit --no-coverage` hijau 100%.
 - Manual check: forward pesan teks & gambar ke percakapan lain, verifikasi label & isi benar; verifikasi audio/video tidak punya opsi Teruskan sama sekali di UI.
+- Manual check: teruskan lampiran gambar/dokumen/stiker lewat `/send-media` dengan `forward: true`, verifikasi `forward_marker_applied` dilaporkan dan label "Diteruskan" tampil konsisten di AuliaPos.
 
 ## 14. Related Specifications / Further Reading
 

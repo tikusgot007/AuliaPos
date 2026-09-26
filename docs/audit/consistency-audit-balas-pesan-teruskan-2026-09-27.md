@@ -1,5 +1,15 @@
 <!-- markdownlint-disable -->
 
+> [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED**
+> This audit report has been remediated by Specification Architect (2026-09-27).
+> - **Projected Readiness Score:** 93/100
+> - **Critical Blocker #1** (`/send-media` contract for `quoted`/`forward`): fixed in both specs — new `REQ-001a`, new Section 4.1.1 payload example, updated Section 7 file list, updated Section 11 `EXT-001`, plus new ACs (`spec-design-balas-pesan.md` AC-003b; `spec-design-teruskan.md` AC-009/AC-010). Both specs bumped (`balas-pesan` v1.2, `teruskan` v1.1).
+> - **Critical Blocker #2** (`REQ-006` vs `CON-002`): contradictory parenthetical removed from `REQ-006`; the three failure reactions are now explicitly delineated as (a) `quote_applied:false` → `REQ-006`, (b) definite HTTP failure → `CON-002`, (c) ambiguous/timeout → new `REQ-006a` ("Hasil belum pasti, jangan kirim ulang dulu"). `AC-003` re-scoped and new `AC-003a` added.
+> - Minor Gap #1 (`CONTEXT.md` "Kutipan" wording) was **not** touched — explicitly non-blocking and deferred to a future clarification pass, outside this remediation's scope.
+
+---
+
 # 🔍 Consistency Audit Report [Review Iteration 1]
 
 **Readiness Score:** 62/100
