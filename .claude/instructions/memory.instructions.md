@@ -1028,3 +1028,35 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-26 (`/sdlc-code-review` — Sender Identity Hardening verdict PROCEED + merged)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review`), **completed** — Two-Axis review of `/sdlc-write-code`'s execution of `plan/plan-refactor-sender-identity-label-hardening-v1.0.md`, followed by user-directed commit ("merge").
+- **Active Artifacts:**
+  - `plan/plan-refactor-sender-identity-label-hardening-v1.0.md` — input, still `status: 'Planned'` on disk (checkbox/status update out of this skill's scope; belongs to `/sdlc-plan-tasks` closure convention — flagged again, unresolved across two sessions now).
+  - `spec/spec-design-grup-tahap2-identitas.md` (v1.4), `docs/audit/code-review-grup-tahap2-phase4-2026-09-26.md` — inputs, unchanged.
+  - Review report was produced **in-chat only**, not written to `docs/audit/` — correct per skill instructions (Phase 2 "Refactoring Plan Generation" is skipped when the review has **no CRITICAL/REQUIRED findings open**; this review found zero, so no new plan file was created).
+- **Achieved Milestones:**
+  - Two-Axis review verdict: **Proceed / Merge.** `[SEC-02]` (previously `REQUIRED` in the Phase 4 audit) confirmed **RESOLVED** by direct code trace + test verification: `preg_match('/^\d+$/', $phone) === 1` on the `s.whatsapp.net` phone part after device-suffix strip closes the raw-JID leak for crafted local parts (e.g. `120363@g.us@s.whatsapp.net` -> `'Pengirim'`).
+  - All plan tasks traced and confirmed complete: Phase 1 (TASK-101..106) and Phase 2 (TASK-201..202) — constants extracted, domain case-folded once, `g.us` precedence reordered before the empty-local guard (`@g.us` -> `null`), numeric allowlist, `assertLabelSafe()`/`assertStringNotContainsString('@', ...)` oracle at both unit and session/HTTP-boundary levels.
+  - Verification re-run this session (fresh from disk, not reused from the writer session): filtered `SenderIdentityFormatterTest` -> 6 tests/41 assertions OK; filtered `InboxGrupTahap2Phase2Test` -> 13 tests/71 assertions OK; full suite -> **OK (445 tests, 1687 assertions), exit 0** — matches the writer session's Phase 2 gate exactly (no MySQL flakiness recurrence this time).
+  - New findings (all non-blocking): `[NIT] [STD-02]` bare `'lid'` domain literal still not extracted to a constant (plan's TASK-104 scope only specified `DOMAIN_LID_SUFFIX`, not a bare `DOMAIN_LID`) — candidate for a future minor plan; `[OPTIONAL] [SEC-01]` raw `sender_jid` still serialized in the thread JSON payload — reconfirmed pre-existing/out-of-scope from the Phase 4 audit, not re-elevated.
+  - User said "merge" -> committed as `7974f45` (`fix(inbox): harden SenderIdentityFormatter to never emit raw JID (SEC-02)`), containing: `app/Services/SenderIdentityFormatter.php`, `tests/unit/SenderIdentityFormatterTest.php`, `tests/session/InboxGrupTahap2Phase2Test.php`, `.claude/instructions/memory.instructions.md` (the writer session's own checkpoint, staged together since it was the only other tracked-modified file at commit time). Untracked files (`.claude/skills/update-peta-kemajuan-workspace/`, `.claude/skills/update-peta-kemajuan/`, `jalankan_claude.bat`) were deliberately **left unstaged** — out of this review's scope (same `HYGIENE-01` carry-forward class as prior sessions).
+- **Dead-Ends (Do NOT Repeat):** None new this session.
+- **Updated Files:**
+  - No production code touched by the Reviewer persona (correct — Reviewer scope is read-only analysis + plan generation, enforced this session by generating the report in-chat and explicitly refusing to write source).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint (committed as part of `7974f45`, appended **after** the commit was made, so this specific entry itself is a follow-up uncommitted addition — see Next Action).
+- **Decisions Made:**
+  - Confirmed the skill rule "skip Phase 2 (Refactoring Plan Generation) when zero CRITICAL/REQUIRED findings remain, tell user clear to merge" — this was the first session to exercise that exact skip path for this feature (Phase 4's audit still had one `REQUIRED` open, hence it went to a plan; this session's audit had zero, hence direct merge).
+  - Interpreted the user's one-word "merge" as in-scope git commit authorization under the project's global git protocol ("only commit when explicitly asked") — did not push, since push was not requested.
+- **Next Action / Pending:**
+  - **This checkpoint itself is not yet committed** — stage and commit `.claude/instructions/memory.instructions.md` (this entry) in the next commit whenever convenient; not urgent, no code impact.
+  - The plan document's checkbox/status field (`plan-refactor-sender-identity-label-hardening-v1.0.md`, still `Planned`) remains unclosed on disk for a second consecutive session — recommend routing to `/sdlc-plan-tasks` or an explicit closure pass so the Knowledge Base stops re-flagging it.
+  - `[NIT] [STD-02]` (`DOMAIN_LID` constant) and `[OPTIONAL] [SEC-01]` (thread JSON allowlist) are both open, low-priority, and were explicitly **not** auto-fixed (Reviewer persona does not write code) — pick up via `/sdlc-write-code` only if/when the user requests a follow-up plan.
+  - Carried forward, unchanged: `CORR-01-R1` (OPTIONAL); `HYGIENE-01`; FYI-01 `simulate-identity-hint.js`; ESC-001..004 Gateway escalation OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11 -> `/sdlc-map-architecture`; `docs/TODO-CHAT.md` items 11-13; TODO group-rename sync; BACKLOG `group_name` search; Tahap 1 `SEC-01` (Handoff/Tandai-Dibaca group guard).
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found via the fast path, so the offer was skipped silently (per skill rule).
+
+<!-- checkpoint-tail: 2026-09-26 `/sdlc-code-review` reviewed `/sdlc-write-code`'s execution of `plan/plan-refactor-sender-identity-label-hardening-v1.0.md` via direct code trace (git diff + fresh phpunit re-run: 445 tests/1687 assertions exit 0, matching the writer session's own gate) rather than the skill's default two-parallel-subagent flow, since the diff was small (~100 lines) and all context was already in-hand; verdict PROCEED/MERGE with zero CRITICAL/REQUIRED findings — `[SEC-02]` (raw-JID leak via crafted `s.whatsapp.net` local part) confirmed closed by the `preg_match('/^\d+$/', ...)` numeric allowlist, `[NIT] STD-02` (bare `'lid'` still a magic string) and `[OPTIONAL] SEC-01` (raw `sender_jid` in thread JSON, pre-existing) left open as non-blocking; Phase 2 (Refactoring Plan Generation) correctly skipped per the "no CRITICAL/REQUIRED -> tell user clear to merge" rule; user said "merge" -> committed `7974f45` with formatter + both test files + the writer session's own memory checkpoint; this checkpoint itself remains uncommitted and the sender-identity plan file's on-disk status is still unclosed `Planned` for a second session running. -->
+
+---
+
