@@ -25,6 +25,7 @@ class SenderIdentityFormatter
 
     public const DOMAIN_WHATSAPP   = 's.whatsapp.net';
     public const DOMAIN_GROUP      = 'g.us';
+    public const DOMAIN_LID        = 'lid';
     public const DOMAIN_LID_SUFFIX = '.lid';
     public const DEVICE_SEPARATOR  = ':';
 
@@ -76,7 +77,7 @@ class SenderIdentityFormatter
             return preg_match('/^\d+$/', $phone) === 1 ? $phone : self::LABEL_FALLBACK;
         }
 
-        if ($domain === 'lid' || str_ends_with($domain, self::DOMAIN_LID_SUFFIX)) {
+        if ($domain === self::DOMAIN_LID || str_ends_with($domain, self::DOMAIN_LID_SUFFIX)) {
             return self::LABEL_LID;
         }
 

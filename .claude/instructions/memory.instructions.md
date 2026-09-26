@@ -1060,3 +1060,80 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-26 (`/sdlc-plan-tasks` — stale "unclosed plan" note corrected)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`) — read-only verification pass, no plan content changed.
+- **Active Artifacts:**
+  - `plan/plan-refactor-sender-identity-label-hardening-v1.0.md` — re-read from disk; already `status: "Completed"` (badge brightgreen) with **all** tasks TASK-101..107 and TASK-201..203 marked `[x]`, dated `2026-09-26`. No edit made — nothing was actually open.
+- **Achieved Milestones:**
+  - Corrected a **stale claim carried across the prior two checkpoints** ("the plan file's on-disk status is still unclosed `Planned`"): on re-read, the file is fully closed. The prior claim was never re-verified against the file itself after the first observation — a second instance of the KB principle "audit findings are not self-verifying" (see DE- entries of the same class), this time applied to a memory-checkpoint claim rather than a code-review finding.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** repeating an unclosed-plan claim from a previous checkpoint without re-reading the file. **Reason:** the underlying fact had already changed (or was mis-observed) by the time it was repeated the second time. **Correct:** before repeating any "still open/unclosed" claim about a file across sessions, re-read that specific file fresh rather than trusting the prior checkpoint's wording.
+- **Updated Files:**
+  - `.claude/instructions/memory.instructions.md` — this checkpoint only.
+- **Decisions Made:** None (verification only).
+- **Next Action / Pending:**
+  - Carried forward, unchanged: `[NIT] STD-02` (bare `'lid'` magic string, not yet extracted to `DOMAIN_LID`); `[OPTIONAL] SEC-01` (raw `sender_jid` in thread JSON payload, pre-existing, out of scope); `CORR-01-R1` (OPTIONAL); `HYGIENE-01`; FYI-01 `simulate-identity-hint.js`; `ESC-001..004` Gateway escalation OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11 -> `/sdlc-map-architecture`; `docs/TODO-CHAT.md` items 11-13; TODO group-rename sync; BACKLOG `group_name` search; Tahap 1 `SEC-01` (Handoff/Tandai-Dibaca group guard).
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found via the fast path, so the offer was skipped silently (per skill rule).
+
+<!-- checkpoint-tail: 2026-09-26 `/sdlc-plan-tasks` re-read `plan/plan-refactor-sender-identity-label-hardening-v1.0.md` and found it already fully Completed (all TASK-101..107 + TASK-201..203 checked, badge brightgreen) — the "unclosed `Planned`" claim repeated in the two prior checkpoints was stale/unverified and is now corrected; no plan content was changed; all other carried-forward items (STD-02, SEC-01 optional, ESC-001..004, ASSUMPTION-007, ARCHITECTURE.md §11, TODO-CHAT items 11-13) remain open and untouched. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-26 (`/code-janitor` — closed `[NIT] STD-02`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Ad-hoc fix (`/code-janitor`, One-Shot Workflow, Broom Rule — single-file, single-literal extraction).
+- **Active Artifacts:** None (no PRD/Spec/Plan document touched or required for this fast-track fix).
+- **Achieved Milestones:**
+  - Closed the last remaining carried-forward finding `[NIT] [STD-02]` from the sender-identity code review: the bare `'lid'` domain literal at `app/Services/SenderIdentityFormatter.php:79` is now extracted to `public const DOMAIN_LID = 'lid';` and the comparison uses `self::DOMAIN_LID`. No behavior change (constant value identical to the prior literal).
+  - Full suite re-run after the change: `composer test` -> **445 tests, 1687 assertions, all passing** (exit code 1 is the pre-existing `failOnWarning` + missing-coverage-driver artifact documented in the KB "Green/red test signal" entry, not a real failure).
+- **Dead-Ends (Do NOT Repeat):** None new this session.
+- **Updated Files:**
+  - `app/Services/SenderIdentityFormatter.php` — added `DOMAIN_LID` constant; replaced the `'lid'` literal usage at the `.lid`/`lid` domain check.
+- **Decisions Made:** None beyond the mechanical constant extraction requested.
+- **Next Action / Pending:**
+  - `[NIT] STD-02` is now **CLOSED** — remove it from future carry-forward lists.
+  - Carried forward, unchanged: `[OPTIONAL] SEC-01` (raw `sender_jid` in thread JSON payload, pre-existing, out of scope); `CORR-01-R1` (OPTIONAL); `HYGIENE-01`; FYI-01 `simulate-identity-hint.js`; `ESC-001..004` Gateway escalation OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11 -> `/sdlc-map-architecture`; `docs/TODO-CHAT.md` items 11-13; TODO group-rename sync; BACKLOG `group_name` search; Tahap 1 `SEC-01` (Handoff/Tandai-Dibaca group guard).
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found via the fast path, so the offer was skipped silently (per skill rule).
+
+<!-- checkpoint-tail: 2026-09-26 `/code-janitor` closed `[NIT] STD-02` by extracting the bare `'lid'` literal in `SenderIdentityFormatter.php:79` into `public const DOMAIN_LID = 'lid'`, no behavior change; full suite re-verified green (445 tests/1687 assertions); STD-02 is now closed and removed from carry-forward, all other previously-open items (SEC-01 optional, ESC-001..004, ASSUMPTION-007, ARCHITECTURE.md §11, TODO-CHAT items 11-13) remain untouched. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-27 (`/sdlc-audit-consistency` — PRD v1.1 ↔ Spec Tahap 3/4, Below Threshold)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Recurring Checkpoint — `/sdlc-audit-consistency` on PRD v1.1 (GH-015/GH-016) vs `spec-design-balas-pesan.md` (v1.1) + `spec-design-teruskan.md` (v1.0). **Audit COMPLETE: 62/100 Below Threshold, Critical Flaw Veto YES.** No code touched; no `/sdlc-plan-tasks` permitted yet for these two specs.
+- **Active Artifacts:**
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — v1.1 (input only, unchanged this session).
+  - `spec/spec-design-balas-pesan.md` — v1.1 (input only, unchanged this session — **2 Critical Blockers found, not yet fixed**).
+  - `spec/spec-design-teruskan.md` — v1.0 (input only, unchanged this session — **1 Critical Blocker found (shared with above), not yet fixed**).
+  - `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27.md` — ✅ **NEW** (Readiness 62/100, Below Threshold, Critical Flaw Veto Yes).
+- **Achieved Milestones:**
+  - **Critical Blocker #1 — missing `/send-media` wire contract.** GH-015 ("Balas Pesan tersedia untuk pesan teks maupun pesan media") and GH-016 ("Lampiran gambar/dokumen/stiker dapat diteruskan") both require media support, and `clarification-report-whatsapp-grup-balas-teruskan-spec-2026-09-26.md` Resolved Item #6 explicitly agreed the `quoted`/`forward` fields must also be added to `POST /send-media` (not just `/send`), including reply-with-media-while-quoting. **Neither spec's REQ-001/Section 4.1/Section 7 mentions `/send-media` at all** — the agreed decision was never written into either spec.
+  - **Critical Blocker #2 — self-contradiction in `spec-design-balas-pesan.md`.** `REQ-006` says a total Gateway request failure on `quoted` still results in "tetap terkirim" (sent); `CON-002`, two lines later, says the exact same trigger results in "pesan ditandai gagal" (marked failed). These cannot both be true. Traced to `clarification-report-whatsapp-grup-balas-teruskan-2026-09-26.md` Resolved Item #8, which explicitly agreed on **three** distinct failure reactions (quote_applied:false → sent+labeled; definite Gateway error → failed+retry; ambiguous/timeout → "Hasil belum pasti") and explicitly instructed removing the offending REQ-006 phrase — that instruction was never applied to the spec text, and the third ("ambiguous/timeout") reaction is entirely absent from REQ-006/AC-003.
+  - Score capped by Critical Flaw Veto (two blockers) — the weighted score (62) was already below the 79 cap regardless.
+  - Traceability map otherwise clean: GH-015 incoming-quote extension (REQ-010–013), GH-016 ownership/non-stacking/all-or-nothing rules all ✅ Covered with no orphaned items.
+  - Minor non-blocking gap carried forward again: `CONTEXT.md` "Kutipan" entry still says "nama pengirim asli" vs the T3 "identitas pengirim (nomor/LID)" resolution; `spec-design-balas-pesan.md:76` REQ-005 uses generic "nama pengirim" (though its own group qualifier is correct).
+  - Standards compliance: ADR PASS (Triple Gate correctly failed, no new ADR needed by either spec); Codebase Reality Check PASS for verifiable AuliaPos-side claims (operation_id/gateway_operation_id reuse, sender_jid/media_status columns exist per the Tahap 1/2 audit); WA-Gateway-side ASSUMPTION-004/005 remain openly flagged as unverified, not hidden.
+- **Dead-Ends (Do NOT Repeat):** None new this session.
+- **Updated Files:**
+  - `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27.md` — NEW audit report (committed to disk, not yet git-committed).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint.
+- **Decisions Made:**
+  - **Score is Below Threshold (62/100 < 80) → user is NOT permitted to proceed to `/sdlc-plan-tasks`** for Balas Pesan/Teruskan per the Quality Gate rule in `AGENTS.md`. Both specs must return to `/sdlc-define-specs` first.
+  - No ADR, no `CONTEXT.md` change made this session (Auditor role — read-only except the audit report itself, per skill's "Exception — Audit Report Output" permission).
+- **Next Action / Pending:**
+  - **Route to `/sdlc-define-specs` in a NEW session** to fix both Critical Blockers: (1) add `POST /send-media` contract for `quoted` (Balas Pesan) and `forward` (Teruskan) fields, mirroring Resolved Item #6; (2) remove the contradictory `(atau request gagal total karena field quoted — lihat CON-002)` parenthetical from REQ-006, add the missing third ("ambiguous/timeout") failure reaction as its own REQ/AC, and align AC-003.
+  - **After the fix: re-run `/sdlc-audit-consistency`** (or a short `/sdlc-clarify-reqs` pass if new judgment calls surface while drafting the `/send-media` contract) before any `/sdlc-plan-tasks` for Tahap 3/4.
+  - Optional, non-blocking, can defer: align `CONTEXT.md`'s "Kutipan" wording ("nama pengirim asli" → identitas pengirim nomor/LID) — carried forward unresolved since the Tahap 1/2 audit (2026-09-26).
+  - Carried forward, unchanged: `ESC-001..004` Gateway escalation OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11 → `/sdlc-map-architecture`; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search; Tahap 1 `SEC-01` (already resolved per spec v1.2, unrelated to this session); `[OPTIONAL] SEC-01` raw `sender_jid` in thread JSON (pre-existing, out of scope).
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found via the fast path, so the offer was skipped silently (per skill rule).
+  - User asked to save this checkpoint ("ya") — done.
+
+<!-- checkpoint-tail: 2026-09-27 `/sdlc-audit-consistency` audited PRD v1.1 (GH-015 Balas Pesan / GH-016 Teruskan) against `spec-design-balas-pesan.md` v1.1 and `spec-design-teruskan.md` v1.0 — scored 62/100 BELOW THRESHOLD with Critical Flaw Veto YES, so `/sdlc-plan-tasks` is NOT permitted yet for these two specs. Two Critical Blockers found: (1) both specs' PRD-mandated media support (GH-015/GH-016) has no wire contract — `clarification-report-whatsapp-grup-balas-teruskan-spec-2026-09-26.md` Resolved Item #6 agreed `quoted`/`forward` must also be added to `POST /send-media`, but neither spec's REQ-001/Section 4.1/Section 7 mentions `/send-media` at all; (2) `spec-design-balas-pesan.md` REQ-006 directly contradicts CON-002 on the same total-Gateway-failure scenario (REQ-006 says "tetap terkirim", CON-002 says "ditandai gagal") — traced to `clarification-report-whatsapp-grup-balas-teruskan-2026-09-26.md` Resolved Item #8, which agreed on three distinct failure reactions and explicitly instructed deleting the offending REQ-006 phrase, an instruction never applied. Saved as `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27.md` (new file, not yet git-committed). Everything else (incoming-quote extension REQ-010–013, Teruskan ownership/non-stacking rules) traced clean; one non-blocking minor gap (CONTEXT.md "Kutipan" wording) carried forward unresolved. Next: `/sdlc-define-specs` in a NEW session to fix both blockers, then re-run `/sdlc-audit-consistency` before Plan. -->
+
+---
+
