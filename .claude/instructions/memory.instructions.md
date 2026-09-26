@@ -445,3 +445,39 @@
 <!-- checkpoint-tail: 2026-09-26 SDLC Phase 3 (Plan) is COMPLETE for Grup Tahap 1 — created `plan/plan-feature-grup-tahap1-v1.0.md` (untracked, status Planned) with 1 Implementation Phase / 8 tasks (TASK-001 High-Risk verification of ASSUMPTION-001 jid_type='group', TASK-002..006 code changes across ConversationModel/Inbox.php/index.php, TASK-007 VERIFY, TASK-008 APPROVAL), each task Ref-ID-traced to the spec's REQ/CON/AC with zero hallucinated scope; user approved the task breakdown as presented before the file was written — next: /sdlc-clarify-reqs in a new session, then eventually Tahap 2 (needs WA-Gateway) per spec-index.md's mandatory ordering. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-26 (Clarify Plan Grup Tahap 1 — `/sdlc-clarify-reqs`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Checkpoint Klarifikasi Plan (`/sdlc-clarify-reqs` atas `plan-feature-grup-tahap1-v1.0.md` + spec Tahap 1) — **COMPLETE**, skor 82/100 PROCEED. Belum ada amandemen spec/plan — itu next phase.
+- **Active Artifacts:**
+  - `docs/audit/clarification-report-grup-tahap1-plan-2026-09-26.md` — Status: ✅ **NEW**, untracked. Readiness Score 82/100, status PROCEED.
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — unchanged this session (input only); 6 gap ditemukan yang masih perlu diamandemen di sesi `/sdlc-define-specs` berikutnya.
+  - `plan/plan-feature-grup-tahap1-v1.0.md` — unchanged this session (input only); TASK-001/006/007 perlu diperluas di sesi `/sdlc-plan-tasks` berikutnya.
+- **Achieved Milestones:**
+  - Menyilangkan plan+spec Tahap 1 terhadap kode aktual (`Inbox.php`, `ConversationModel.php`, `index.php`) dan menemukan 6 gap signifikan, semua sudah diputuskan pemilik proyek lewat Grill-Me satu pertanyaan per giliran:
+    1. **RISK-001 tanpa instruksi eksplisit:** kalau `jid_type` literal produksi ternyata bukan `'group'`, developer WAJIB STOP di TASK-001 dan amandemen spec dulu (bukan cuma perbaiki kode) sebelum lanjut TASK-002.
+    2. **CON-001/002 tidak lengkap:** badge `response_state`, titik SLA, tombol Tandai Dibaca, dan tombol Handoff harus ikut **disembunyikan** untuk grup — ini sebenarnya sudah disepakati di `clarification-report-whatsapp-grup-balas-teruskan-spec-2026-09-26.md` (Resolved Item #2/#3) tapi belum pernah masuk ke spec/plan Tahap 1 yang sedang dieksekusi.
+    3. **Bug ditemukan:** `hapusPercakapan()` (`Inbox.php:1552`) mensyaratkan `status==='closed'`, tapi grup tidak pernah bisa closed (Tutup disembunyikan + endpoint 403 + tidak ada reopen manual) — kontradiksi langsung dengan janji CON-002 "Hapus tetap berfungsi penuh". **Resolusi:** kecualikan grup dari syarat closed di `hapusPercakapan()`; gate admin-only (baris 1545) tidak berubah. Butuh test otomatis (bukan cuma manual check).
+    4. **Bug ditemukan (lebih serius):** auto-assign di `kirimKeConversation()`/`kirimMedia()` (baris 1049-1053, 2137-2144) tidak mengecek `jid_type` — begitu kasir membalas grup, `assigned_to` terisi otomatis, TAPI `lepasPercakapan()` menolak 403 untuk grup tanpa pengecualian (CON-004) → grup jadi macet permanen "dipegang" satu kasir, tidak ada jalan melepasnya. **Resolusi:** kecualikan grup dari auto-assign di kedua fungsi tersebut.
+    5. **Posisi tab belum ditentukan:** REQ-005/TASK-006(a) tidak menyebut di mana tab Grup diletakkan di antara 5 tab lama. **Resolusi:** tab Grup di **paling akhir** (setelah Selesai) — 5 tab lama tidak digeser posisinya.
+    6. **Bug tersembunyi ditemukan:** `QUEUE_STATUS_LABEL` (`index.php:790-796`) adalah sumber kebenaran terpisah untuk highlight tombol aktif + hitung badge angka tab — TASK-006(a) tidak menyebutnya. Tanpa entri `grup` baru di objek ini, tombol tab Grup tidak akan pernah menyala aktif dan badge angkanya tidak akan pernah update, walau filter DATA tetap jalan normal (bug lolos review dangkal).
+  - Satu item non-blocking ditandai `[Assumed / Out of Scope]`: redundansi teks preview literal `"group"` berdampingan dengan badge "Grup" — murni kerapian visual, bukan bug.
+  - User memilih **PROCEED** pada skor 82/100 (bukan REFINE lebih lanjut).
+- **Dead-Ends (Do NOT Repeat):** Tidak ada baru sesi ini.
+- **Updated Files:**
+  - `docs/audit/clarification-report-grup-tahap1-plan-2026-09-26.md` — NEW (untracked).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Test coverage dibagi dua kelas: bug Hapus (#3) dapat **test otomatis** (feature/HTTP test) karena mengubah kondisi endpoint yang bisa diassert; badge/tombol tersembunyi (#2) cukup **manual check** karena murni tampilan visual, sama pola dengan CON-001 empat tombol lain yang juga hanya diverifikasi manual.
+  - Tidak ada istilah domain baru untuk `CONTEXT.md`; tidak ada keputusan yang lolos Triple Gate ADR (semua penerapan langsung pola yang sudah ada).
+- **Next Action / Pending:**
+  - **Next: `/sdlc-define-specs` di sesi chat baru** (session isolation — sesi ini terkunci sebagai Clarification Analyst) untuk menuliskan 6 resolusi di atas sebagai REQ/CON/AC baru ke `spec-design-grup-tahap1-tab-inbox.md`, dengan Ref ID resmi.
+  - Setelah spec diamandemen: `/sdlc-plan-tasks` untuk mewariskan Ref ID baru ke `plan-feature-grup-tahap1-v1.0.md` (TASK-001 instruksi STOP, TASK-006 diperluas, TASK baru untuk Hapus + auto-assign, TASK-007 VERIFY diperluas).
+  - `plan/plan-feature-grup-tahap1-v1.0.md` dan `spec/spec-design-grup-tahap1-tab-inbox.md` **belum diamandemen** — masih versi lama (v1.0) sampai sesi define-specs berikutnya berjalan.
+  - Carried forward, unchanged: seluruh item "Carried forward" dari checkpoint-checkpoint sebelumnya (ESC-001..004 Gateway escalation OPEN, ASSUMPTION-007 OPEN, `docs/ARCHITECTURE.md` §11 routes to `/sdlc-map-architecture`, RISK-004/007/009, dll.) — tidak disentuh sesi ini.
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found, so the fast-path offer was skipped silently.
+
+<!-- checkpoint-tail: 2026-09-26 Clarified `plan-feature-grup-tahap1-v1.0.md` against `spec-design-grup-tahap1-tab-inbox.md` and live code, scoring 82/100 PROCEED — found and resolved 6 gaps via one-question-at-a-time Grill-Me: (1) missing STOP instruction in TASK-001 if jid_type literal differs from 'group', (2) response_state badge/SLA dot/Tandai-Dibaca/Handoff not yet hidden for groups per an earlier unintegrated spec-clarify agreement, (3) a real bug where hapusPercakapan() requires status='closed' but groups can never reach closed (Hapus would always fail 409, contradicting CON-002) — resolved by exempting groups from that gate while keeping the admin-only check, (4) a more serious bug where auto-assign in kirimKeConversation()/kirimMedia() ignores jid_type, permanently stranding a group's ownership since lepasPercakapan() always 403s for groups — resolved by exempting groups from auto-assign, (5) undecided tab position — resolved as last (after Selesai), (6) a hidden bug where QUEUE_STATUS_LABEL in index.php was never mentioned in TASK-006, which would silently break the active-tab highlight and badge count for the new Grup tab; saved as `docs/audit/clarification-report-grup-tahap1-plan-2026-09-26.md` (untracked) — next: /sdlc-define-specs in a NEW session to write these 6 resolutions into the spec with formal Ref IDs, then /sdlc-plan-tasks to inherit them into the plan. -->
+
+---
