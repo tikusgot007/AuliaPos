@@ -5,7 +5,10 @@
 ### 1.1 Document title and version
 
 - PRD: Inbox WhatsApp — Grup, Balas Pesan, Teruskan — AuliaPos
-- Version: 1.0
+- Version: 1.1
+
+> [!NOTE]
+> **Catatan revisi v1.1 (2026-09-26):** penyelarasan redaksi dengan keputusan **T3** di `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` — frasa **"nama pengirim"** diganti menjadi **"identitas pengirim (nomor telepon atau LID)"**, mengikuti `spec/spec-design-grup-tahap2-identitas.md` v1.1 (`REQ-008`/`AC-002`). Tidak ada perubahan lingkup, tujuan, user story, maupun metrik.
 
 **Hubungan dengan dokumen lain:**
 
@@ -122,7 +125,7 @@ Fitur dan perilaku yang **sengaja tidak** termasuk dalam lingkup PRD ini:
   - Aksi yang tidak berlaku tidak boleh tampil sebagai tombol yang selalu gagal — kasir tidak boleh diberi tombol yang pasti berujung error.
 
 - **Label pengirim di dalam grup** (Priority: Must-have — Grup Tahap 2, wajib ubah WA-Gateway)
-  - Setiap pesan grup menampilkan nama pengirimnya, sehingga percakapan grup tidak lagi terbaca sebagai pesan dari satu orang.
+  - Setiap pesan grup menampilkan identitas pengirimnya (nomor telepon atau LID), sehingga percakapan grup tidak lagi terbaca sebagai pesan dari satu orang.
   - Label pengirim bertahan setelah percakapan dimuat ulang, termasuk saat kasir berpindah percakapan lalu kembali.
   - Pesan yang dikirim kasir dari AuliaPos ditandai sebagai berasal dari staff yang mengirim.
   - Pesan grup yang sudah tersimpan sebelum Tahap 2 tidak menampilkan label pengirim. Ini keterbatasan yang diterima, bukan cacat yang harus ditutup (Non-goal Section 2.3).
@@ -130,7 +133,7 @@ Fitur dan perilaku yang **sengaja tidak** termasuk dalam lingkup PRD ini:
 - **Nama grup sebagai judul percakapan** (Priority: Must-have — Grup Tahap 2, wajib ubah WA-Gateway)
   - Judul percakapan grup memakai **nama grup yang sebenarnya** dari WhatsApp.
   - Judul grup **tidak berubah** ketika ada pesan masuk dari pengirim yang berbeda — inilah gejala "namanya berubah-ubah" yang dilaporkan pemilik proyek.
-  - Bila nama grup belum bisa diperoleh, judul menampilkan penanda Grup tanpa nama orang. Nama pengirim terakhir **tidak boleh** dipakai sebagai judul percakapan grup.
+  - Bila nama grup belum bisa diperoleh, judul menampilkan penanda Grup tanpa nama orang. Identitas pengirim (nomor telepon atau LID) terakhir **tidak boleh** dipakai sebagai judul percakapan grup.
   - Nama grup yang sudah benar tidak boleh ditimpa oleh pesan berikutnya.
 
 - **Balas Pesan** (Priority: Must-have — tahap setelah Grup selesai)
@@ -139,7 +142,7 @@ Fitur dan perilaku yang **sengaja tidak** termasuk dalam lingkup PRD ini:
   - Berlaku untuk pesan teks **dan** pesan media.
   - Kutipan yang terkirim ke pelanggan adalah **kutipan WhatsApp asli**, bukan teks yang disalin ulang secara manual.
   - Kutipan tetap terlihat oleh kasir setelah percakapan dimuat ulang, termasuk setelah kasir berpindah percakapan dan kembali.
-  - Di grup, kutipan menampilkan nama pengirim yang dikutip, supaya jelas siapa yang sedang dijawab.
+  - Di grup, kutipan menampilkan identitas pengirim (nomor telepon atau LID) yang dikutip, supaya jelas siapa yang sedang dijawab.
   - Kasir dapat membatalkan pilihan kutipan sebelum pesan dikirim.
   - Bila kutipan ditolak oleh Gateway, kasir **diberi tahu dengan jelas** dan ditawarkan pilihan mengirim tanpa kutipan. Pesan **tidak boleh** terkirim tanpa sepengetahuan kasir, dan tidak boleh gagal senyap.
 
@@ -180,7 +183,7 @@ Fitur dan perilaku yang **sengaja tidak** termasuk dalam lingkup PRD ini:
 ### 5.3 UI/UX highlights & Edge cases
 
 - **Grup tanpa nama (Tahap 1)**: selama Tahap 2 belum selesai, judul percakapan grup belum benar dan masih bisa berubah. Karena itu penanda **Grup** harus berdiri sendiri — kasir tidak boleh bergantung pada nama untuk mengenali grup.
-- **Pesan grup lama**: pesan yang sudah tersimpan sebelum Tahap 2 tampil tanpa nama pengirim. Kasir tidak boleh melihat label kosong, tanda tanya, atau teks pengganti yang membingungkan.
+- **Pesan grup lama**: pesan yang sudah tersimpan sebelum Tahap 2 tampil tanpa identitas pengirim. Kasir tidak boleh melihat label kosong, tanda tanya, atau teks pengganti yang membingungkan.
 - **Kutipan media yang sudah tidak tersedia**: pesan media yang dikutip bisa saja berkasnya sudah tidak ada. Kutipan tetap harus tampil sebagai rujukan tanpa membuat thread gagal dimuat.
 - **Gateway menolak kutipan**: kasir melihat penjelasan yang jelas dan pilihan mengirim tanpa kutipan. Tidak ada pengiriman diam-diam tanpa kutipan.
 - **Teruskan audio/video**: pilihan Teruskan tidak ditawarkan, dengan alasan yang bisa dipahami ("audio/video tidak dapat diteruskan"), bukan pesan teknis.
@@ -324,13 +327,13 @@ Urutan mengikuti keputusan draft §5.1 butir 9 (**Grup lebih dulu**, baru Balas 
 ### 10.3. Melihat siapa yang menulis tiap pesan di grup (Grup Tahap 2)
 
 - **ID**: GH-013
-- **Story**: Sebagai kasir, saya ingin melihat nama pengirim pada setiap pesan di dalam grup, supaya saya tahu sedang berbicara dengan siapa dan tidak membaca seluruh grup sebagai pesan satu orang.
+- **Story**: Sebagai kasir, saya ingin melihat identitas pengirim (nomor telepon atau LID) pada setiap pesan di dalam grup, supaya saya tahu sedang berbicara dengan siapa dan tidak membaca seluruh grup sebagai pesan satu orang.
 - **Acceptance criteria**:
-  - [ ] Setiap pesan grup yang baru masuk menampilkan nama pengirimnya.
-  - [ ] Nama pengirim tetap tampil setelah kasir berpindah percakapan lalu kembali, dan setelah thread dimuat ulang.
+  - [ ] Setiap pesan grup yang baru masuk menampilkan identitas pengirimnya (nomor telepon atau LID).
+  - [ ] Identitas pengirim (nomor telepon atau LID) tetap tampil setelah kasir berpindah percakapan lalu kembali, dan setelah thread dimuat ulang.
   - [ ] Pesan grup yang dikirim kasir dari AuliaPos ditandai berasal dari staff yang mengirim, bukan dari grup.
-  - [ ] Pesan grup yang tersimpan sebelum perubahan ini tampil tanpa nama pengirim, tanpa label kosong atau teks pengganti yang membingungkan.
-  - [ ] Nama pengirim tidak pernah dipakai sebagai judul percakapan grup.
+  - [ ] Pesan grup yang tersimpan sebelum perubahan ini tampil tanpa identitas pengirim, tanpa label kosong atau teks pengganti yang membingungkan.
+  - [ ] Identitas pengirim (nomor telepon atau LID) tidak pernah dipakai sebagai judul percakapan grup.
 
 ### 10.4. Melihat nama grup yang benar dan stabil (Grup Tahap 2)
 
@@ -339,7 +342,7 @@ Urutan mengikuti keputusan draft §5.1 butir 9 (**Grup lebih dulu**, baru Balas 
 - **Acceptance criteria**:
   - [ ] Judul percakapan grup menampilkan nama grup dari WhatsApp.
   - [ ] Judul grup tidak berubah ketika anggota yang berbeda bergantian mengirim pesan.
-  - [ ] Nama grup yang tersimpan tidak ditimpa oleh nama pengirim terakhir saat ada pesan masuk.
+  - [ ] Nama grup yang tersimpan tidak ditimpa oleh identitas pengirim (nomor telepon atau LID) terakhir saat ada pesan masuk.
   - [ ] Bila nama grup belum bisa diperoleh, judul menampilkan penanda Grup tanpa nama orang.
   - [ ] Grup lama yang sudah tersimpan menampilkan nama yang benar setelah pesan berikutnya masuk, tanpa perbaikan data manual.
   - [ ] Percakapan pribadi tetap memakai nama kontak seperti sebelumnya — tidak ada perubahan perilaku.
@@ -355,7 +358,7 @@ Urutan mengikuti keputusan draft §5.1 butir 9 (**Grup lebih dulu**, baru Balas 
   - [ ] Pesan yang ditunjuk tampil sebagai kutipan di kotak tulis sebelum dikirim, dan kasir dapat membatalkannya.
   - [ ] Kutipan yang terkirim ke pelanggan adalah kutipan WhatsApp asli, bukan teks yang disalin manual.
   - [ ] Kutipan tetap terlihat oleh kasir setelah berpindah percakapan lalu kembali, dan setelah thread dimuat ulang.
-  - [ ] Di grup, kutipan menampilkan nama pengirim yang dikutip.
+  - [ ] Di grup, kutipan menampilkan identitas pengirim (nomor telepon atau LID) yang dikutip.
   - [ ] Bila kutipan ditolak Gateway, kasir menerima penjelasan yang bisa dipahami dan ditawarkan pilihan mengirim tanpa kutipan.
   - [ ] Pesan tidak pernah terkirim tanpa kutipan tanpa sepengetahuan kasir.
   - [ ] Bila kutipan ditolak dan kasir memilih membatalkan, tidak ada pesan apa pun yang terkirim.

@@ -1,6 +1,6 @@
 ---
 title: Spec Index — Inbox WhatsApp Grup, Balas Pesan, Teruskan
-version: 1.0
+version: 1.1
 date_created: 2026-09-26
 owner: AuliaPos Inbox module
 tags: [inbox, chat, whatsapp, grup, balas-pesan, teruskan, index]
@@ -8,7 +8,7 @@ tags: [inbox, chat, whatsapp, grup, balas-pesan, teruskan, index]
 
 # Introduction
 
-Dokumen ini adalah **titik masuk** untuk seluruh spesifikasi teknis yang menerjemahkan `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` (v1.0, Readiness Score 88/100, status **PROCEED** per `docs/audit/clarification-report-whatsapp-grup-balas-teruskan-2026-09-26.md`). PRD ini dipecah menjadi **empat spec terpisah** karena mencakup dua domain berbeda (identitas grup vs aksi pesan) dan menyentuh **dua repo** dengan siklus rilis berbeda (AuliaPos/CI4 dan `tikusgot007/WA-Gateway`), persis mengikuti pentahapan PRD Section 9.2.
+Dokumen ini adalah **titik masuk** untuk seluruh spesifikasi teknis yang menerjemahkan `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` (v1.1, Readiness Score 88/100, status **PROCEED** per `docs/audit/clarification-report-whatsapp-grup-balas-teruskan-2026-09-26.md`). PRD ini dipecah menjadi **empat spec terpisah** karena mencakup dua domain berbeda (identitas grup vs aksi pesan) dan menyentuh **dua repo** dengan siklus rilis berbeda (AuliaPos/CI4 dan `tikusgot007/WA-Gateway`), persis mengikuti pentahapan PRD Section 9.2.
 
 > [!IMPORTANT]
 > **Akses repo WA-Gateway.** Sesi ini tidak memiliki working copy `tikusgot007/WA-Gateway` (repo di komputer lain, per catatan pemilik proyek). Seluruh fakta teknis WA-Gateway di spec ini diverifikasi langsung dari kode publik di `https://github.com/tikusgot007/WA-Gateway` (branch `master`: `src/whatsapp/jidUtils.js`, `src/whatsapp/connectionManager.js`, `src/api/ci4Routes.js`) atas izin eksplisit pemilik proyek pada sesi ini — bukan tebakan. Perubahan aktual pada repo tersebut tetap **di luar kemampuan tulis sesi ini** dan memerlukan plan/PR terpisah di repo itu sendiri.
@@ -39,7 +39,7 @@ Seluruh spec dalam set ini memakai istilah dari `CONTEXT.md`: **Grup**, **Balas 
 
 ## Dokumen Sumber
 
-- PRD: `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` v1.0
+- PRD: `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` v1.1
 - Clarification Report: `docs/audit/clarification-report-whatsapp-grup-balas-teruskan-2026-09-26.md`
 - Arsitektur & invarian modul Inbox yang sudah berjalan: `docs/CHAT.md`
 - Glosarium: `CONTEXT.md`
