@@ -1,6 +1,6 @@
 ---
 title: Balas Pesan (Reply/Quote) — Lintas Repo
-version: 1.2
+version: 1.3
 date_created: 2026-09-26
 last_updated: 2026-09-27
 owner: AuliaPos Inbox module
@@ -52,6 +52,15 @@ Audiens: developer WA-Gateway dan AuliaPos, serta agent `/sdlc-plan-tasks` (dua 
 >
 > **ASSUMPTION-007 (sumber kebenaran kutipan masuk): AuliaPos mencoba resolve `quoted.wa_message_id` dari payload Gateway ke tabel `messages` miliknya sendiri terlebih dulu** (query by `wa_message_id`, mekanisme yang sama dengan pengecekan idempotensi `existsByWaMessageId()` yang sudah ada) — **bukan** mempercayai teks/label yang dikirim Gateway begitu saja, konsisten dengan prinsip "Gateway bukan sumber kebenaran riwayat pesan" (`docs/CHAT.md` §2/§18, dikutip juga di ASSUMPTION-004 di atas). Fallback: jika pesan yang dikutip **tidak ditemukan** di DB lokal (mis. lebih tua dari retensi, atau race condition), pakai snippet apa adanya yang disertakan Gateway di payload (best-effort, ditandai sebagai tidak terverifikasi — lihat REQ-011).
 
+> [!NOTE]
+> **Catatan revisi v1.3 (2026-09-27):** spec ini diamandemen dari v1.2 sebagai tindak lanjut `docs/audit/clarification-report-balas-pesan-plan-2026-09-27.md` (Iteration 1, Readiness Score 89/100, PROCEED) — tiga koreksi hulu pada sisi AuliaPos, **tanpa mengubah requirement lain**:
+>
+> 1. `REQ-008`/Section 4.2: rujukan ke kolom `media_status` yang **tidak ada** di skema `messages` diganti ke seam ketersediaan media yang riil (`media_local_filename`, `media_download_attempted_at`, `media_confirmed_gone_at`; `app/Models/MessageModel.php:54-56`, `app/Controllers/Inbox.php:418-499`), dengan aturan tiga-nilai eksplisit untuk `quoted_media_available` (selaras Resolved Item #3).
+> 2. `REQ-001`/`REQ-001a`/Section 4.1/4.1.1: penambahan field opsional `fromMe` (boolean, additive, `absent = false`) pada objek `quoted`, karena baris **outgoing** menyimpan `sender_jid = NULL` (`app/Controllers/Inbox.php:2227` teks, `:1076` media) sehingga Gateway butuh `fromMe` eksplisit untuk membentuk `key` Baileys yang benar (selaras Resolved Item #6).
+> 3. Section 12: perbaikan wording edge case — snapshot kutipan diambil **server** dari DB saat kirim (bukan dari data client saat pemilihan), konsisten `ALT-002` (`plan/plan-feature-balas-pesan-auliapos-v1.0.md`) dan `REQ-007` (selaras F10).
+>
+> Tidak ada keputusan arsitektur baru, tidak ada ADR baru, `CONTEXT.md` tidak berubah. Divergensi AC PRD GH-015 tetap terbuka dan bukan lingkup revisi ini.
+
 ## 2. Definitions
 
 Mengikuti `CONTEXT.md`: **Balas Pesan** — membalas satu pesan spesifik dengan menyertakan kutipan (quote) dari pesan tersebut, memakai fitur reply native WhatsApp. `_Avoid_`: Reply, Quote, Kutip (lihat entri lengkap di `CONTEXT.md`).
@@ -65,8 +74,9 @@ Istilah tambahan:
 
 ### Sisi WA-Gateway (kontrak baru — implementasi ada di repo lain)
 
-- **REQ-001**: `POST {gatewayBaseUrl}/send` menerima field opsional baru `quoted` (objek), berisi seluruh data yang dibutuhkan Baileys untuk membentuk `quoted` message object: `quoted.wa_message_id`, `quoted.sender_jid`, `quoted.message_type`, `quoted.text` (untuk teks) atau `quoted.media_type` (untuk media). Field ini **tidak wajib** — request tanpa `quoted` berperilaku seperti sekarang (pesan biasa).
-- **REQ-001a (Kutipan pada jalur media — Resolved Item #6 Clarification Report Spec)**: `POST {gatewayBaseUrl}/send-media` menerima field opsional `quoted` (objek) dengan struktur **identik** REQ-001 (`quoted.wa_message_id`, `quoted.sender_jid`, `quoted.message_type`, `quoted.text`/`quoted.media_type`). Ini mencakup juga kasus **balas-dengan-media sambil mengutip** — kasir mengirim lampiran (gambar/dokumen/stiker) sebagai balasan yang menyertakan kutipan pesan lain. Field ini **tidak wajib**, mengikuti aturan yang sama seperti REQ-001. Lihat Section 4.1.1 untuk contoh payload.
+- **REQ-001**: `POST {gatewayBaseUrl}/send` menerima field opsional baru `quoted` (objek), berisi seluruh data yang dibutuhkan Baileys untuk membentuk `quoted` message object: `quoted.wa_message_id`, `quoted.sender_jid`, `quoted.message_type`, `quoted.fromMe` (opsional, lihat di bawah), `quoted.text` (untuk teks) atau `quoted.media_type` (untuk media). Field `quoted` **tidak wajib** — request tanpa `quoted` berperilaku seperti sekarang (pesan biasa).
+  - **`quoted.fromMe` (boolean, opsional, additive, `absent = false`)**: menandai apakah pesan sumber adalah pesan **keluaran** (`true`) atau **masukan** (`false`). Field ini diperlukan karena baris **outgoing** di AuliaPos menyimpan `sender_jid = NULL` (`app/Controllers/Inbox.php:2227` untuk teks, `:1076` untuk media), sehingga Gateway tidak dapat menurunkan `fromMe` hanya dari `sender_jid`. AuliaPos menurunkannya dari `direction` baris sumber: `outgoing` → `fromMe: true`, `incoming` → `fromMe: false`. Ketika `fromMe` tidak dikirim, Gateway memperlakukannya sebagai `false` (perilaku lama tidak berubah).
+- **REQ-001a (Kutipan pada jalur media — Resolved Item #6 Clarification Report Spec)**: `POST {gatewayBaseUrl}/send-media` menerima field opsional `quoted` (objek) dengan struktur **identik** REQ-001 (`quoted.wa_message_id`, `quoted.sender_jid`, `quoted.message_type`, `quoted.fromMe`, `quoted.text`/`quoted.media_type`). Ini mencakup juga kasus **balas-dengan-media sambil mengutip** — kasir mengirim lampiran (gambar/dokumen/stiker) sebagai balasan yang menyertakan kutipan pesan lain. Field ini **tidak wajib**, mengikuti aturan yang sama seperti REQ-001 (termasuk semantik `fromMe`). Lihat Section 4.1.1 untuk contoh payload.
 - **REQ-002**: Saat `quoted` ada di request (`/send` maupun `/send-media`, REQ-001a), Gateway membentuk objek pesan Baileys minimal yang cukup untuk parameter `quoted` (`key: {id, remoteJid, fromMe, participant}`, `message: {...}` sesuai `message_type`) dari data yang dikirim AuliaPos — **tanpa** perlu mencari/menyimpan pesan asli di sisi Gateway, sesuai ASSUMPTION-004.
 - **REQ-003**: Response `POST {gatewayBaseUrl}/send` **dan** `POST {gatewayBaseUrl}/send-media` mengembalikan indikator keberhasilan reply native secara eksplisit, mis. `{"sent": true, "quote_applied": true}` vs `{"sent": true, "quote_applied": false}` — supaya AuliaPos tahu pasti apakah kutipan native berhasil diterapkan atau tidak (dibutuhkan REQ-006). `quote_applied` berlaku sama di kedua endpoint (REQ-001a).
 - **CON-001**: `quoted` **tidak pernah** memengaruhi pengiriman kalau Gateway gagal membentuknya — dalam kasus itu Gateway **tetap** mengirim isi pesan (tanpa quote), bukan menggagalkan seluruh pengiriman (prinsip "gagal dengan suara, bukan senyap" PRD, tapi pesan pengguna tidak boleh hilang total). Berlaku sama untuk `/send` maupun `/send-media` (REQ-001a).
@@ -78,7 +88,11 @@ Istilah tambahan:
 - **REQ-006 (Balasan Gagal-Quote — Reaksi (a): kutipan ditolak, pesan tetap terkirim)**: Jika response Gateway menunjukkan `quote_applied: false`, AuliaPos **tidak mengirim ulang otomatis secara diam-diam**. Pesan tetap tersimpan terkirim (isi teks/media berhasil, sesuai CON-001 Gateway), namun AuliaPos menandai pesan itu di UI sebagai "Terkirim tanpa kutipan" agar kasir sadar kutipan tidak sampai ke penerima — bukan berpura-pura kutipan berhasil. Reaksi ini **hanya** berlaku saat Gateway merespons normal dengan `quote_applied: false`; kegagalan HTTP total dan hasil tak pasti ditangani terpisah (CON-002 dan REQ-006a).
 - **REQ-006a (Balasan Gagal-Quote — Reaksi (c): hasil ambigu/timeout)**: Jika request kirim bertanda `quoted` berakhir **tidak pasti** — koneksi putus, timeout, atau Gateway tidak mengembalikan respons definitif apa pun — AuliaPos **tidak** menandai pesan sebagai terkirim maupun gagal, dan **tidak** mengirim ulang otomatis. Pesan ditampilkan dengan peringatan **"Hasil belum pasti, jangan kirim ulang dulu"** (pola yang sudah ada di `app/Views/inbox/index.php:2308`), supaya kasir tidak memicu duplikat saat status sebenarnya belum diketahui. Ini reaksi **ketiga** yang melengkapi reaksi (a) `quote_applied: false` (REQ-006) dan reaksi (b) kegagalan HTTP total (CON-002).
 - **REQ-007**: `messages` menyimpan kutipan sebagai kolom baru pada baris pesan balasan itu sendiri (lihat Section 4.2) — **snapshot saat itu**, tidak pernah di-refresh ulang dari pesan asli setelahnya (mendukung resolusi "kutipan tetap tampil apa adanya walau pesan asli di-soft-delete").
-- **REQ-008**: Jika pesan yang hendak dikutip memiliki media yang sudah tidak tersedia (`media_status` gagal/expired — pola yang sudah ada untuk media biasa), UI kutipan menampilkan **"[Media tidak tersedia]"** (persis, sesuai Clarification Report) alih-alih mencoba memuat gambar.
+- **REQ-008**: Kolom `quoted_media_available` (Section 4.2) merekam ketersediaan media pesan sumber **saat balasan dibuat** (snapshot, REQ-007), memakai seam ketersediaan media yang riil di `messages` — `media_local_filename`, `media_download_attempted_at`, `media_confirmed_gone_at` (`app/Models/MessageModel.php:54-56`; `app/Controllers/Inbox.php:418-499`). Aturan nilainya:
+  - `0` — **hanya** bila `media_confirmed_gone_at` pesan sumber terisi (media sudah dipastikan gagal permanen, pola short-circuit `app/Controllers/Inbox.php:440-450`/`:497-501`). Saat bernilai `0`, UI kutipan menampilkan **"[Media tidak tersedia]"** (persis, sesuai Clarification Report) alih-alih mencoba memuat gambar.
+  - `1` — bila pesan sumber bertipe media dan **belum** confirmed-gone (file lokal masih ada via `media_local_filename`, atau masih layak di-live-fetch meskipun `media_download_attempted_at` pernah gagal sementara — `app/Controllers/Inbox.php:418-438`).
+  - `NULL` — bila pesan sumber **bukan** pesan media (teks).
+  - Catatan: **tidak ada kolom `media_status`** pada skema `messages` (`app/Models/MessageModel.php:41-63`) — rujukan lama ke `media_status` dihapus.
 - **REQ-009**: Pengiriman balasan **memakai kembali** mekanisme idempotensi yang sudah ada (`operation_id` dari frontend → `gateway_operation_id` unik, pola identik `kirim()`/`kirimKeConversation()`) — tidak ada mekanisme idempotensi baru.
 - **CON-002 (Balasan Gagal-Quote — Reaksi (b): kegagalan HTTP total)**: Kalau `POST /inbox/percakapan/{id}/kirim` (endpoint AuliaPos yang memanggil Gateway) menerima kegagalan HTTP total dari Gateway saat mengirim field `quoted` (bukan `quote_applied: false`, tapi request itu sendiri error), perilaku **sama seperti kegagalan kirim pesan biasa saat ini** — pesan ditandai gagal, kasir bisa coba lagi (tidak ada penanganan khusus tambahan di luar yang sudah ada). Ini berbeda dari reaksi (a) REQ-006 (`quote_applied: false` → tetap terkirim) dan reaksi (c) REQ-006a (hasil tak pasti → jangan kirim ulang dulu).
 - **GUD-001**: Kolom kutipan baru (Section 4.2) **nullable**, tidak memengaruhi baris pesan yang bukan balasan (`quoted_*` semuanya `NULL`) — additive terhadap skema `messages` yang ada.
@@ -87,7 +101,7 @@ Istilah tambahan:
 
 - **REQ-010**: `POST /api/inbox/gateway/messages` (`InboxGatewayApi::messages()`) menerima field opsional baru `quoted` (objek) pada payload pesan **masuk** (`direction` kosong atau `'incoming'`), berisi `quoted.wa_message_id` (wajib jika objek `quoted` ada), `quoted.sender_jid` (opsional), dan `quoted.snippet` (opsional, teks/label yang menurut Gateway mewakili pesan asli — dipakai hanya sebagai fallback, lihat REQ-011). Field ini **tidak wajib** — payload tanpa `quoted` berperilaku seperti sekarang (pesan biasa, seluruh `quoted_*` tetap `NULL`).
 - **REQ-011**: Saat `quoted.wa_message_id` ada, `InboxGatewayApi::messages()` mencari pesan tersebut di tabel `messages` milik AuliaPos sendiri (`WHERE wa_message_id = ?`, seam yang sama dengan `MessageModel::existsByWaMessageId()`) **sebelum** mengisi kolom kutipan pada baris pesan masuk yang baru:
-  - **Ditemukan** → `quoted_wa_message_id`, `quoted_sender_label` (dari `sender_jid`/identitas pengirim baris itu), `quoted_snippet` (dari `text` baris itu, dipotong sama seperti REQ-007), dan `quoted_media_available` (dari `media_status` baris itu) diisi dari data lokal AuliaPos — **bukan** dari `quoted.snippet` yang dikirim Gateway.
+  - **Ditemukan** → `quoted_wa_message_id`, `quoted_sender_label` (dari `sender_jid`/identitas pengirim baris itu), `quoted_snippet` (dari `text` baris itu, dipotong sama seperti REQ-007), dan `quoted_media_available` (dari aturan ketersediaan media REQ-008: `0`/`1`/`NULL`) diisi dari data lokal AuliaPos — **bukan** dari `quoted.snippet` yang dikirim Gateway.
   - **Tidak ditemukan** → `quoted_wa_message_id` tetap diisi (untuk keperluan Section 4.4/tampilan), `quoted_snippet` diisi dari `quoted.snippet` payload Gateway apa adanya jika ada (atau label generik **"Pesan tidak ditemukan"** jika `quoted.snippet` juga kosong), dan `quoted_media_available` diisi `NULL` (tidak diketahui) — **tidak** memblokir/menggagalkan penyimpanan pesan masuk itu sendiri (prinsip "gagal dengan suara, bukan senyap", tapi pesan pelanggan tidak boleh hilang).
 - **REQ-012**: Pencarian REQ-011 **tidak boleh** menambah query baru per pesan pada jalur normal — hanya dijalankan saat `quoted` ada di payload (kondisional), konsisten dengan `GUD-001` Section 3 di atas dan `CL-010`/`GUD-001` M3 Fase 1e (filter/lookup tambahan hanya saat benar-benar dibutuhkan).
 - **REQ-013**: UI thread pesan menampilkan kotak kutipan pada bubble pesan **masuk** yang punya `quoted_wa_message_id` terisi, memakai komponen tampilan yang **sama** dengan kotak kutipan pada bubble balasan kasir (REQ-005/REQ-008) — termasuk placeholder **"[Media tidak tersedia]"** bila `quoted_media_available = 0`, dan label generik **"Pesan tidak ditemukan"** bila kutipan tidak ter-resolve ke pesan lokal (REQ-011 kasus kedua). Tidak ada komponen UI baru.
@@ -106,6 +120,7 @@ Istilah tambahan:
     "wa_message_id": "3EB0XXXX...",
     "sender_jid": "6281234567890@s.whatsapp.net",
     "message_type": "text",
+    "fromMe": false,
     "text": "Kapan pesanan saya dikirim?"
   }
 }
@@ -116,6 +131,8 @@ Response:
 ```json
 { "sent": true, "gateway_operation_id": "...", "quote_applied": true }
 ```
+
+Field `quoted.fromMe` opsional (additive, `absent = false`): `true` bila pesan sumber adalah pesan **keluaran** AuliaPos (baris `messages` dengan `sender_jid = NULL`), `false` untuk pesan **masukan** pelanggan. AuliaPos menurunkannya dari `direction` baris sumber (Section 4.3); Gateway memakainya untuk mengisi `key.fromMe` objek Baileys (REQ-002).
 
 ### 4.1.1 `POST {gatewayBaseUrl}/send-media` — payload tambahan (REQ-001a)
 
@@ -131,6 +148,7 @@ Response:
     "wa_message_id": "3EB0XXXX...",
     "sender_jid": "6281234567890@s.whatsapp.net",
     "message_type": "text",
+    "fromMe": false,
     "text": "Kapan pesanan saya dikirim?"
   }
 }
@@ -142,7 +160,7 @@ Response:
 { "sent": true, "gateway_operation_id": "...", "quote_applied": true }
 ```
 
-Field `quoted` di endpoint ini memakai struktur & aturan yang sama seperti Section 4.1 (`quoted` opsional; `quote_applied` dilaporkan sama; CON-001 tetap berlaku). Bedanya hanya jalur pengiriman media (base64, mekanisme yang sudah ada), sehingga mencakup kasus **balas-dengan-media sambil mengutip**. Nama field media (`media_base64`, `mimetype`, `caption`, dst.) mengikuti kontrak `/send-media` yang sudah ada di WA-Gateway dan tidak diubah oleh spec ini.
+Field `quoted` di endpoint ini memakai struktur & aturan yang sama seperti Section 4.1 (`quoted` opsional termasuk `quoted.fromMe`; `quote_applied` dilaporkan sama; CON-001 tetap berlaku). Bedanya hanya jalur pengiriman media (base64, mekanisme yang sudah ada), sehingga mencakup kasus **balas-dengan-media sambil mengutip**. Nama field media (`media_base64`, `mimetype`, `caption`, dst.) mengikuti kontrak `/send-media` yang sudah ada di WA-Gateway dan tidak diubah oleh spec ini.
 
 ### 4.2 Migrasi baru: kolom kutipan pada `messages`
 
@@ -155,9 +173,11 @@ Field `quoted` di endpoint ini memakai struktur & aturan yang sama seperti Secti
 
 `quoted_snippet` diisi dari teks pesan asli (dipotong ke panjang wajar, mis. 200 karakter) **saat balasan dibuat** — bukan dihitung ulang saat ditampilkan.
 
+`quoted_media_available` juga disimpan sebagai snapshot saat balasan dibuat, diturunkan dari seam media riil pesan sumber (**bukan** kolom `media_status` — kolom itu tidak ada): `0` hanya bila `media_confirmed_gone_at` terisi; `1` bila pesan sumber bertipe media dan belum confirmed-gone (pakai `media_local_filename`, atau masih layak live-fetch meski `media_download_attempted_at` pernah gagal); `NULL` bila sumber bukan pesan media (`app/Models/MessageModel.php:54-56`; `app/Controllers/Inbox.php:418-499`; aturan lengkap di REQ-008).
+
 ### 4.3 Endpoint AuliaPos internal — parameter baru
 
-`POST /inbox/percakapan/{id}/kirim` menerima field opsional `quoted_message_id` (ID lokal `messages.id`, bukan `wa_message_id`) — AuliaPos mengambil data pesan asli dari DB sendiri untuk mengisi `quoted_snippet` dkk. dan membentuk payload Section 4.1 ke Gateway.
+`POST /inbox/percakapan/{id}/kirim` menerima field opsional `quoted_message_id` (ID lokal `messages.id`, bukan `wa_message_id`) — AuliaPos mengambil data pesan asli dari DB sendiri untuk mengisi `quoted_snippet` dkk. dan membentuk payload Section 4.1 ke Gateway. `quoted.fromMe` (REQ-001) diturunkan dari kolom `direction` baris sumber: `outgoing` → `true`, `incoming` → `false`.
 
 ### 4.4 `POST /api/inbox/gateway/messages` — payload tambahan untuk kutipan masuk (REQ-010–012)
 
@@ -248,7 +268,7 @@ Tidak ada ADR baru. Kutipan sebagai *snapshot* (bukan referensi hidup) adalah pe
 
 ## 12. Examples & Edge Cases
 
-**Edge case**: Kasir memilih "Balas" pada pesan yang lalu dihapus (soft-delete) oleh kasir lain sebelum tombol kirim ditekan — kutipan tetap terbentuk dari data yang sudah dimuat di client saat pemilihan (idem dengan REQ-007, snapshot diambil saat balasan dibuat, bukan re-fetch pesan asli).
+**Edge case**: Kasir memilih "Balas" pada pesan yang lalu dihapus (soft-delete) oleh kasir lain sebelum tombol kirim ditekan — snapshot kutipan diambil **server** dari DB (`messages`, termasuk baris yang sudah soft-deleted) saat permintaan kirim diproses, **bukan** dari data pesan yang dimuat client saat pemilihan. Client hanya mengirim `quoted_message_id` (Section 4.3), bukan isi kutipan; server yang membentuk snapshot (idem `ALT-002` di `plan/plan-feature-balas-pesan-auliapos-v1.0.md` dan `REQ-007`: snapshot dibuat sekali saat balasan dikirim, tidak pernah di-refetch dari pesan asli setelahnya).
 
 **Edge case**: Membalas pesan yang **itu sendiri** adalah pesan hasil Balas Pesan/Teruskan sebelumnya — kutipan yang ditampilkan adalah isi pesan tersebut apa adanya (termasuk teks "↪️ Diteruskan: ..." kalau ada), bukan menelusuri rantai ke pesan paling awal. Tidak ada rantai kutipan bertingkat.
 
