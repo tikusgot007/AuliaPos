@@ -243,19 +243,37 @@ final class InboxGrupTahap2Test extends CIUnitTestCase
         $this->assertStringContainsString('<span class="list-name">Pelanggan Pribadi</span>', $body, 'Percakapan pribadi tidak berubah.');
     }
 
-    public function testJsDaftarDanHeaderMemakaiGroupName(): void
+    public function testApiDaftarMembawaGroupNameUntukRenderJs(): void
     {
-        // REQ-007: jalur JS (render ulang daftar) dan formatIdentitasCustomer
-        // (header thread) sama-sama memakai group_name ?: 'Grup'.
-        $body = $this->halamanInbox();
+        // TASK-501/CC-01: jalur JS (`renderDaftarConversation` untuk baris
+        // daftar, `formatIdentitasCustomer` untuk header thread) bekerja dari
+        // data respons API. Uji KONTRAK DATA-nya -- bukan teks sumber JS --
+        // supaya tidak rapuh terhadap perubahan format kode. Perilaku
+        // fallback grup/`whatsapp_name` diuji lewat `tests/js/...check.js`.
+        $this->seedConversation([
+            'chat_id'    => '120363000000000107@g.us',
+            'group_name' => 'Grup Api',
+        ]);
+        $this->seedConversation([
+            'chat_id'      => '6281200000101@s.whatsapp.net',
+            'jid_type'     => 'pn',
+            'contact_name' => 'Pelanggan Api',
+            'group_name'   => null,
+        ]);
 
-        $this->assertStringContainsString(
-            "const nama = (c.jid_type === 'group') ? (c.group_name || 'Grup') : (c.contact_name || c.whatsapp_name || c.phone || c.chat_id);",
-            $body
-        );
-        $this->assertStringContainsString(
-            "if (conv.jid_type === 'group') return conv.group_name || 'Grup';",
-            $body
-        );
+        $response = $this->withSession($this->sesi())->get('inbox/api/conversations');
+        $response->assertOK();
+
+        $data = json_decode($response->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('success', $data['status']);
+
+        $byChatId = [];
+        foreach ($data['conversations'] as $conversation) {
+            $byChatId[$conversation['chat_id']] = $conversation;
+        }
+
+        $this->assertSame('Grup Api', $byChatId['120363000000000107@g.us']['group_name']);
+        $this->assertSame('Pelanggan Api', $byChatId['6281200000101@s.whatsapp.net']['contact_name']);
+        $this->assertNull($byChatId['6281200000101@s.whatsapp.net']['group_name']);
     }
 }

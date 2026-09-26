@@ -1,6 +1,6 @@
 ---
 title: Spec Index — Inbox WhatsApp Grup, Balas Pesan, Teruskan
-version: 1.1
+version: 1.2
 date_created: 2026-09-26
 owner: AuliaPos Inbox module
 tags: [inbox, chat, whatsapp, grup, balas-pesan, teruskan, index]
@@ -18,7 +18,7 @@ Dokumen ini adalah **titik masuk** untuk seluruh spesifikasi teknis yang menerje
 | # | File | Tahap PRD | Repo yang tersentuh | Bisa dirilis sendiri? |
 | --- | --- | --- | --- | --- |
 | 1 | [`spec-design-grup-tahap1-tab-inbox.md`](./spec-design-grup-tahap1-tab-inbox.md) | Tahap 1 — Grup di AuliaPos (GH-011, GH-012) | AuliaPos saja | **Ya** — tidak menunggu apa pun |
-| 2 | [`spec-design-grup-tahap2-identitas.md`](./spec-design-grup-tahap2-identitas.md) | Tahap 2 — Grup di WA-Gateway (GH-013, GH-014) | WA-Gateway **dan** AuliaPos | Tidak — perlu Gateway rilis dulu |
+| 2 | [`spec-design-grup-tahap2-identitas.md`](./spec-design-grup-tahap2-identitas.md) | Tahap 2 — Grup di WA-Gateway (GH-013, GH-014) | WA-Gateway **dan** AuliaPos | Tidak — Gateway rilis lebih dulu demi kebenaran identitas (`GH-013`) & judul grup (`GH-014`); pesan dari Gateway lama **tetap tersimpan** (hanya salah label), bukan hilang |
 | 3 | [`spec-design-balas-pesan.md`](./spec-design-balas-pesan.md) | Tahap 3 — Balas Pesan (GH-015) | WA-Gateway **dan** AuliaPos | Tidak — perlu Tahap 1 selesai (berlaku juga di grup) |
 | 4 | [`spec-design-teruskan.md`](./spec-design-teruskan.md) | Tahap 4 — Teruskan (GH-016) | WA-Gateway **dan** AuliaPos | Tidak — perlu Tahap 1 & 3 selesai |
 

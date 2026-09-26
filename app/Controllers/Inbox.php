@@ -11,6 +11,7 @@ use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
 use App\Services\InboxSlaService;
 use App\Services\InboxMatchSnippetService;
+use App\Services\SenderIdentityFormatter;
 use Config\Inbox as InboxConfig;
 
 /**
@@ -622,8 +623,10 @@ class Inbox extends BaseController
      * `$conversationJidType` (Grup Tahap 2 / TASK-007, REQ-008): kalau
      * 'group', pesan MASUK dengan `sender_jid` terisi diberi label
      * identitas pengirim (nomor telepon / 'LID' / 'Pengirim'), bukan
-     * nama staff. Pemanggil lama cukup mengabaikan parameter ini
-     * (default null = perilaku persis seperti sebelumnya).
+     * nama staff. JID grup (`@g.us`, warisan Gateway lama) tidak
+     * menghasilkan label -- `SenderIdentityFormatter` mengembalikan
+     * `null` (REQ-011/AC-012). Pemanggil lama cukup mengabaikan parameter
+     * ini (default null = perilaku persis seperti sebelumnya).
      */
     private function attachSenderNames(array $messages, ?string $conversationJidType = null): array
     {
@@ -636,6 +639,8 @@ class Inbox extends BaseController
                 $namesByUserId[$user['id']] = $user['nama'] ?: $user['username'];
             }
         }
+
+        $identitasFormatter = new SenderIdentityFormatter();
 
         foreach ($messages as &$message) {
             if ($message['sent_by_user_id']) {
@@ -650,49 +655,19 @@ class Inbox extends BaseController
             } elseif ($conversationJidType === 'group' && !empty($message['sender_jid'])) {
                 // Grup Tahap 2 / TASK-007 (REQ-008): pesan grup MASUK diberi
                 // label identitas pengirim dari messages.sender_jid. `sender_jid`
-                // NULL/NULL-nya pesan lama -> tanpa label (CON-003); cabang ini
+                // NULL pada pesan lama -> tanpa label (CON-003); cabang ini
                 // hanya terpicu kalau sender_jid terisi.
-                $message['sender_name'] = $this->labelIdentitasPengirimGrup((string) $message['sender_jid']);
+                // JID grup `@g.us` (warisan Gateway lama) juga berakhir tanpa
+                // label: formatter mengembalikan null (REQ-011/AC-012).
+                // Aturan label tinggal di SenderIdentityFormatter (ARCH-01)
+                // supaya dapat dipakai ulang Tahap 3.
+                $message['sender_name'] = $identitasFormatter->labelFor((string) $message['sender_jid']);
             } else {
                 $message['sender_name'] = null;
             }
         }
 
         return $messages;
-    }
-
-    /**
-     * Grup Tahap 2 / TASK-007 (REQ-008, CON-003): turunkan label tampilan
-     * yang AMAN dari `messages.sender_jid` pesan grup.
-     *
-     * - `@s.whatsapp.net` -> bagian nomor sebelum `@`.
-     * - `@lid` atau domain apa pun berakhiran `.lid` -> `'LID'`.
-     * - Selain itu (mis. `@g.us`, `@hosted`, atau nilai malformed) ->
-     *   `'Pengirim'`.
-     *
-     * JANGAN PERNAH mengembalikan JID mentah ke UI: hanya nomor atau label
-     * generik, sesuai kontrak REQ-008 (Keputusan A -- nama orang per peserta
-     * bukan bagian kontrak).
-     */
-    private function labelIdentitasPengirimGrup(string $senderJid): string
-    {
-        $pos = strrpos($senderJid, '@');
-        if ($pos === false || $pos === 0 || $pos === strlen($senderJid) - 1) {
-            return 'Pengirim';
-        }
-
-        $local  = substr($senderJid, 0, $pos);
-        $domain = substr($senderJid, $pos + 1);
-
-        if ($domain === 's.whatsapp.net') {
-            return $local !== '' ? $local : 'Pengirim';
-        }
-
-        if ($domain === 'lid' || str_ends_with($domain, '.lid')) {
-            return 'LID';
-        }
-
-        return 'Pengirim';
     }
 
     /**

@@ -274,7 +274,12 @@ class InboxGatewayApi extends BaseController
         // CON-001: hanya untuk `jid_type='group'`. Payload non-grup tidak
         // pernah menyentuh kolom ini, dan nilai berikutnya (termasuk nama yang
         // berubah di WhatsApp) TIDAK menimpa setelah terisi (REQ-006).
-        $groupNameFromPayload = !empty($payload['group_name']) ? (string) $payload['group_name'] : null;
+        // SEC-01: `group_name` adalah input tak tepercaya dari Gateway; batasi
+        // panjangnya di boundary (VARCHAR(255)) supaya subject > 255 karakter
+        // tidak menggagalkan transaksi (MySQL strict) / terpotong senyap.
+        $groupNameFromPayload = !empty($payload['group_name'])
+            ? mb_substr((string) $payload['group_name'], 0, 255)
+            : null;
         if ($jidType === 'group' && $groupNameFromPayload !== null && $conversation['group_name'] === null) {
             $conversationModel->update($conversationId, ['group_name' => $groupNameFromPayload]);
         }

@@ -24,6 +24,8 @@ use Psr\Log\NullLogger;
  *   untuk format lain (TIDAK PERNAH JID mentah); NULL -> tanpa label;
  *   outgoing POS -> nama staff; outgoing sinkron -> 'Staff (WA Web/HP)';
  *   percakapan pribadi tidak berubah.
+ * - TASK-401..403 (REQ-011/AC-012, spec v1.4): JID grup `@g.us` (nilai legacy
+ *   non-NULL) -> tanpa identitas/tanpa label; nilai DB tidak diubah.
  *
  * @internal
  */
@@ -200,6 +202,21 @@ final class InboxGrupTahap2Phase2Test extends CIUnitTestCase
         $this->assertSame('628111111111@s.whatsapp.net', $message['sender_jid'], 'AC-001: sender_jid tersimpan persis.');
     }
 
+    public function testGroupNameTerlaluPanjangTerpotong255TanpaError(): void
+    {
+        // SEC-01/TASK-303: `group_name` input tak tepercaya dibatasi di boundary
+        // (VARCHAR(255)) -- tidak error, tidak tersimpan lebih dari 255.
+        $chatId = '120363000000000210@g.us';
+        $panjang = str_repeat('N', 300);
+
+        $res = $this->callMessages($this->groupPayload($chatId, 'grup-panjang-1', 'incoming', true, $panjang));
+
+        $this->assertSame(200, $res['http']);
+        $stored = db_connect('inbox')->table('conversations')->where('chat_id', $chatId)->get()->getRowArray()['group_name'];
+        $this->assertSame(255, mb_strlen($stored), 'group_name harus terpotong ke 255 karakter.');
+        $this->assertSame(mb_substr($panjang, 0, 255), $stored);
+    }
+
     public function testNonGrupTanpaSenderJidTidakBerubah(): void
     {
         // CON-001/REQ-010: guard hanya untuk grup incoming.
@@ -249,6 +266,19 @@ final class InboxGrupTahap2Phase2Test extends CIUnitTestCase
         $this->assertSame('628123456789', $message['sender_name']);
     }
 
+    public function testLabelNomorMembersihkanSufiksDevice(): void
+    {
+        // TASK-301/CORR-03: key.participant dapat membawa sufiks device
+        // (`:NN`); nomor telepon yang tampil harus bersih.
+        $id = $this->seedConversation();
+        $this->seedMessage($id, [
+            'wa_message_id' => 'label-device-1',
+            'sender_jid'    => '6281234567890:12@s.whatsapp.net',
+        ]);
+
+        $this->assertSame('6281234567890', $this->threadById($id)['label-device-1']['sender_name']);
+    }
+
     public function testLabelLidDanFallbackPengirimTidakPernahJidMentah(): void
     {
         $id = $this->seedConversation();
@@ -257,7 +287,9 @@ final class InboxGrupTahap2Phase2Test extends CIUnitTestCase
             'label-lid-1'    => ['sender_jid' => '999888777666@lid', 'harapan' => 'LID'],
             'label-lid-2'    => ['sender_jid' => '123456@hosted.lid', 'harapan' => 'LID'],
             'label-unknown'  => ['sender_jid' => 'aneh@hosted.example', 'harapan' => 'Pengirim'],
-            'label-grup-jid' => ['sender_jid' => '120363@g.us', 'harapan' => 'Pengirim'],
+            // REQ-011/AC-012 (spec v1.4): `@g.us` -> tanpa identitas (null),
+            // bukan 'Pengirim'.
+            'label-grup-jid' => ['sender_jid' => '120363@g.us', 'harapan' => null],
             'label-broken'   => ['sender_jid' => 'tanpa-at', 'harapan' => 'Pengirim'],
         ];
 
@@ -280,6 +312,26 @@ final class InboxGrupTahap2Phase2Test extends CIUnitTestCase
         $this->seedMessage($id, ['wa_message_id' => 'label-null-1', 'sender_jid' => null]);
 
         $this->assertNull($this->threadById($id)['label-null-1']['sender_name']);
+    }
+
+    public function testPesanGrupLamaBerSenderJidGrupTidakBerlabelDanDbTidakBerubah(): void
+    {
+        // REQ-011/AC-012 (spec v1.4): baris legacy NYATA berisi JID grup
+        // (`@g.us`), BUKAN NULL (Gateway lama mengisi sender_jid = remoteJid).
+        // Harus tampil tanpa label, tanpa merender JID mentah, dan nilai
+        // tersimpan TIDAK diubah oleh jalur baca (tanpa UPDATE/migrasi).
+        $jid = '120363012345678901@g.us';
+
+        $id = $this->seedConversation();
+        $this->seedMessage($id, ['wa_message_id' => 'label-legacy-gus-1', 'sender_jid' => $jid]);
+
+        $message = $this->threadById($id)['label-legacy-gus-1'];
+        $this->assertNull($message['sender_name'], 'AC-012: legacy @g.us -> tanpa label.');
+        $this->assertNotSame($jid, $message['sender_name'], 'JID grup tidak pernah dirender.');
+
+        $stored = db_connect('inbox')->table('messages')
+            ->where('wa_message_id', 'label-legacy-gus-1')->get()->getRowArray()['sender_jid'];
+        $this->assertSame($jid, $stored, 'AC-012: nilai DB legacy tidak berubah.');
     }
 
     public function testOutgoingPosMenampilkanNamaStaff(): void
