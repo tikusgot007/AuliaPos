@@ -233,7 +233,7 @@
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">Status per 26 September 2026 · GitHub tikusgot007/AuliaPos · v2.3 @ b1e51f8</div>
+    <div class="eyebrow">Status per 26 September 2026 · GitHub tikusgot007/AuliaPos · v2.3 @ 9d4ac14</div>
     <h1>Peta Kemajuan M1, M2, M3</h1>
     <p class="lede">Posisi tiap milestone WhatsApp Inbox AuliaPos, disusun langsung dari repository di GitHub: plan, spec, laporan audit, commit, dan hasil test suite. Setiap blok menunjukkan satu tahap beserta buktinya.</p>
     <div class="legend" aria-label="Keterangan warna">
@@ -245,12 +245,13 @@
   </header>
 
   <div class="changes" aria-label="Perubahan sejak versi sebelumnya">
-    <b>Berubah sejak versi 3c4b59f</b>
+    <b>Berubah sejak versi b1e51f8</b>
     <ul>
-      <li><b>Tahap 1 (tab Grup) selesai total</b>: diimplementasi, diuji (415→1532 assertion), <b>code review Merge</b> (0 CRITICAL/0 REQUIRED, 1 temuan opsional ditunda ke Tahap 2 atas keputusan pemilik).</li>
-      <li><b>Tahap 2 (identitas grup) sudah diimplementasi di KEDUA repo</b> — AuliaPos (436/1623 test OK) dan WA-Gateway (25 script simulasi lolos). <b>Belum code review, plan belum ditutup</b> (status masih <code>Planned</code> di front-matter).</li>
-      <li>Temuan opsional dari Tahap 1 (guard <code>cekBukanGrup()</code> untuk <code>handoffPercakapan()</code>/<code>tandaiDibaca()</code>) sudah masuk spec Tahap 1 v1.2 (AC-013), tapi <b>belum ada di plan maupun kode Tahap 2</b> — celah nyata, bukan sengaja ditunda dengan rencana konkret.</li>
-      <li>Terpisah: bug nyata di build Android WA-Gateway diperbaiki — update APK selama ini menghapus sesi WhatsApp &amp; antrean retry setiap kali di-update. Sudah diverifikasi di device fisik.</li>
+      <li>Kedua plan Tahap 2 sempat ditandai <code>Completed</code> oleh penulisnya sendiri, <b>lalu code review menemukan itu prematur</b>. Verdict resmi review: <b style="font:inherit;color:var(--partial);text-transform:none;letter-spacing:0">JANGAN merge apa adanya</b> — lanjut ke plan refactor dulu.</li>
+      <li><b>Temuan paling serius (Android):</b> kode penyelamatan sesi WhatsApp (<code>auth/</code>/<code>data/</code>) yang baru diperbaiki 2 commit lalu ternyata <b>tidak aman dari exception</b> — kalau gagal di tengah jalan (mis. disk penuh), bisa-bisa malah menghapus satu-satunya salinan sesi yang tersisa. Belum pernah terjadi, tapi risikonya nyata.</li>
+      <li><b>Temuan spec paling serius:</b> alasan "Gateway harus naik duluan, kalau tidak pesan grup hilang" yang jadi dasar urutan rilis Tahap 1→2 <b>ternyata salah</b> — dicek langsung ke kode Gateway lama, pesan grup tetap tersimpan, cuma salah label pengirim. Bukan kehilangan data seperti yang didokumentasikan.</li>
+      <li>Bug nyata lain: pesan grup lama (sebelum Tahap 2) akan tampil berlabel "Pengirim" yang membingungkan — melanggar maksud spec sendiri. Butuh keputusan pemilik, bukan sekadar patch kode.</li>
+      <li>Total: 2 REQUIRED + 4 opsional (sisi kode), 3 REQUIRED + 1 opsional (sisi spec/plan). Plan refactor sudah dibuat, status <code>Planned</code>.</li>
     </ul>
   </div>
 
@@ -602,7 +603,7 @@
       <h2 id="gh011"><span class="id">GH-011</span>Grup, Balas Pesan, Teruskan</h2>
       <span class="where">AuliaPos + WA-Gateway · PRD terpisah, di luar rantai M1-M5</span>
     </div>
-    <p class="verdict">Fitur baru yang diminta pemilik, bukan bagian M3. Tahap 1 selesai total termasuk code review. Tahap 2 sudah jalan di kedua repo tapi belum direview/ditutup. Tahap 3-4 masih menunggu.</p>
+    <p class="verdict">Fitur baru yang diminta pemilik, bukan bagian M3. Tahap 1 selesai total termasuk code review. Tahap 2 sudah jalan di kedua repo, sudah direview — tapi verdict review-nya <b>jangan merge dulu</b>, ada temuan nyata yang perlu diperbaiki. Tahap 3-4 masih menunggu.</p>
     <div class="track">
       <div class="step done">
         <span class="tag">Selesai</span>
@@ -621,13 +622,22 @@
         <span class="date">26 Sep</span>
       </div>
       <div class="step partial">
-        <span class="tag">Kode selesai · belum direview, plan belum ditutup</span>
+        <span class="tag">Direview · verdict JANGAN merge, perlu refactor</span>
         <h3>Tahap 2 · Identitas grup</h3>
         <ul>
-          <li>WA-Gateway: <code>sender_jid</code> dari <code>key.participant</code> + nama grup di-cache, dikirim ke AuliaPos. 25 script simulasi lolos</li>
-          <li>AuliaPos: kolom <code>group_name</code> baru, judul grup stabil, identitas pengirim per pesan. Suite naik ke 436/1623</li>
-          <li>SEC-01 (guard Handoff/Tandai-Dibaca yang ditunda dari Tahap 1) <b>belum ada di plan maupun kode tahap ini</b> — masih celah terbuka</li>
+          <li>WA-Gateway: <code>sender_jid</code> dari <code>key.participant</code> + nama grup di-cache. AuliaPos: kolom <code>group_name</code> baru, judul grup stabil</li>
+          <li><b>[CORR-01] Paling serius:</b> kode penyelamatan sesi WhatsApp Android tidak aman dari exception — kegagalan di tengah jalan (disk penuh dll) berisiko menghapus satu-satunya salinan sesi</li>
+          <li><b>[CORR-02]</b> cache nama grup tidak punya "negative cache" — kalau gagal ambil nama grup terus-menerus, tiap pesan berikutnya memicu panggilan jaringan baru (risiko rate-limit)</li>
+          <li><b>[SPEC-01]</b> pesan grup lama akan tampil label "Pengirim" yang membingungkan — butuh keputusan pemilik, bukan sekadar patch</li>
+          <li><b>[SPEC-02]</b> alasan dokumentasi "Gateway harus naik duluan supaya pesan tidak hilang" <b>terbukti salah</b> saat dicek ke kode — pesan grup lama tetap tersimpan, cuma salah label</li>
+          <li>SEC-01 dari Tahap 1 (guard Handoff/Tandai-Dibaca) <b>masih belum ada di kode tahap ini juga</b></li>
         </ul>
+        <span class="date">26 Sep</span>
+      </div>
+      <div class="step todo">
+        <span class="tag">Plan dibuat · belum dieksekusi</span>
+        <h3>Refactor Tahap 2 (hasil code review)</h3>
+        <p><code>plan/plan-refactor-grup-tahap2-identitas-v1.0.md</code>, status <code>Planned</code>. Menutup 2 temuan REQUIRED sisi kode (CORR-01, CORR-02) + kebersihan lain. Temuan sisi spec/plan (SPEC-01..04) diteruskan terpisah ke <code>/sdlc-define-specs</code>/<code>/sdlc-plan-tasks</code>.</p>
         <span class="date">26 Sep</span>
       </div>
       <div class="step gated">
@@ -637,23 +647,24 @@
       </div>
     </div>
     <div class="notes">
-      <div><b>Bukti</b><p>PRD <code>prd-20260926-0024-*.md</code>; klarifikasi PRD 88/100, spec 74→93/100, audit konsistensi 90/100, klarifikasi dua plan Tahap 2 89/100 — semua di <code>docs/audit/</code>. Implementasi: commit <code>ab843ed</code> (Tahap 1), <code>b1e51f8</code> (Tahap 2 AuliaPos), <code>84779c5</code> (Tahap 2 WA-Gateway, repo terpisah).</p></div>
-      <div><b>Perlu diingat</b><p>Ini PRD terpisah dari PRD M3 lama secara sengaja — PRD M3 melarang perubahan WA-Gateway, padahal Tahap 2-4 di sini butuh itu. Jangan disatukan. SEC-01 (guard Handoff/Tandai-Dibaca) wajib diselesaikan sebelum Tahap 2 dianggap tuntas.</p></div>
+      <div><b>Bukti</b><p>PRD <code>prd-20260926-0024-*.md</code>; klarifikasi PRD 88/100, spec 74→93/100, audit konsistensi 90/100, klarifikasi dua plan Tahap 2 89/100 — semua di <code>docs/audit/</code>. Implementasi: commit <code>ab843ed</code> (Tahap 1), <code>b1e51f8</code> (Tahap 2 AuliaPos), <code>84779c5</code>+<code>3e971c7</code> (Tahap 2 + bugfix Android WA-Gateway, repo terpisah). Code review Tahap 2: <code>docs/audit/code-review-grup-tahap2-2026-09-26.md</code> (commit <code>9d4ac14</code>) — 8 temuan Standards (2 REQUIRED) + 4 temuan Spec (3 REQUIRED).</p></div>
+      <div><b>Perlu diingat</b><p>Ini PRD terpisah dari PRD M3 lama secara sengaja — PRD M3 melarang perubahan WA-Gateway, padahal Tahap 2-4 di sini butuh itu. Jangan disatukan. SEC-01 (guard Handoff/Tandai-Dibaca dari Tahap 1) masih belum ditutup di kode Tahap 2 mana pun. Suite penuh 436 test AuliaPos adalah klaim penulis — review ini cuma menjalankan ulang 17 test yang baru + simulasi Gateway (mocked), bukan suite penuh.</p></div>
     </div>
   </section>
 
   <section class="next" aria-labelledby="next">
-    <h2 id="next">Langkah berikutnya: tutup Tahap 2 (code review + SEC-01)</h2>
-    <p>Tahap 2 sudah jalan di kedua repo tapi belum boleh dianggap selesai — code review belum jalan, dan satu guard keamanan (SEC-01) yang dijanjikan spec masih belum ada di kode. One Path Rule: jangan mulai Tahap 3 sebelum ini tuntas.</p>
+    <h2 id="next">Langkah berikutnya: eksekusi plan refactor Tahap 2</h2>
+    <p>Code review sudah selesai dengan verdict tegas: <b>jangan merge Tahap 2 apa adanya</b>. Ini prioritas di atas segalanya untuk GH-011 — jangan mulai Tahap 3 sebelum ini tuntas (One Path Rule).</p>
     <ol>
-      <li><span class="cmd">/sdlc-code-review</span> untuk Tahap 2 di kedua repo (AuliaPos <code>b1e51f8</code>, WA-Gateway <code>84779c5</code>) terhadap spec v1.3.</li>
-      <li>Putuskan &amp; kerjakan SEC-01: tambah <code>cekBukanGrup()</code> ke <code>handoffPercakapan()</code> dan <code>tandaiDibaca()</code> — sudah diwajibkan spec Tahap 1 v1.2 (AC-013), tapi belum masuk plan/kode mana pun.</li>
-      <li>Setelah bersih, tutup front-matter kedua plan Tahap 2 dari <code>Planned</code> → <code>Completed</code>.</li>
+      <li><span class="cmd">/sdlc-write-code</span> untuk <code>plan/plan-refactor-grup-tahap2-identitas-v1.0.md</code> — perbaiki 2 temuan REQUIRED sisi kode (CORR-01: keamanan penyelamatan sesi Android; CORR-02: negative-cache nama grup) plus kebersihan lain.</li>
+      <li>Pemilik putuskan SPEC-01: pesan grup lama diperlakukan sebagai "tanpa identitas" di kode, atau dibersihkan datanya sekali lewat query.</li>
+      <li><span class="cmd">/sdlc-define-specs</span> untuk SPEC-02/03/04 — perbaiki dokumen (bukan kode): koreksi alasan urutan rilis yang salah, lengkapi daftar berkas di plan, catat perubahan <code>NodeBridge.kt</code> yang belum tercatat di plan mana pun.</li>
+      <li>Sekalian tambahkan guard SEC-01 (Handoff/Tandai-Dibaca) yang dari Tahap 1 masih belum ada di kode — jangan biarkan menumpuk ke Tahap 3.</li>
     </ol>
-    <p>Baru setelah itu Tahap 3 (Balas Pesan) boleh mulai. Pilihan lain yang masih menunggu, tidak mendesak: Part A GW-11/GW-25 (akar masalah urutan pesan, WA-Gateway), Fase 2b M3 (auto-assignment, spec belum ada), atau mulai program M2. Item lebih kecil: konfirmasi F-01 (migrasi kolom produksi), RISK-002 (perbaikan penuh F-2), ASSUMPTION-007 (paritas <code>outgoing_operations</code>).</p>
+    <p>Baru setelah semua ini tuntas dan direview ulang, Tahap 3 (Balas Pesan) boleh mulai. Pilihan lain yang masih menunggu, tidak mendesak: Part A GW-11/GW-25 (akar masalah urutan pesan, WA-Gateway), Fase 2b M3 (auto-assignment, spec belum ada), atau mulai program M2. Item lebih kecil: konfirmasi F-01 (migrasi kolom produksi), RISK-002 (perbaikan penuh F-2), ASSUMPTION-007 (paritas <code>outgoing_operations</code>).</p>
   </section>
 
-  <footer>Sumber: PRD v1.4 (§9.2 diperbarui), spec dan plan di <code>spec/</code> dan <code>plan/</code>, laporan di <code>docs/audit/</code>, <code>docs/TODO-CHAT.md</code> (header 24 Sep), dan riwayat git branch <code>v2.3</code> di GitHub sampai <code>7864156</code>. Kode Gelombang 2 ada di repo WA-Gateway; commit-nya dibaca dari laporan eksekusi di repo AuliaPos. Status Gateway live tidak tersimpan di GitHub; yang tertulis di sini berasal dari catatan TODO-CHAT. Ringkasan code review (F-1–F-4, status PASS SEC-001/SEC-002, angka test 23 script WA-Gateway dan 349/1209 AuliaPos) diambil dari checkpoint memory <code>e49b582</code>. Isi plan bugfix F-1/F-2 dibaca dari commit <code>93dfadf</code>, <code>72f63ec</code>, <code>8a6b11e</code>. Detail Ticket 04 (uji Android nyata), temuan <code>CI4_BASE_URL</code>, dan bugfix zombie-socket WA-Gateway (<code>3e356cd</code>) dibaca langsung dari <code>docs/decisions/2026-09-25-ticket04-json-fallback-android-verifikasi-nyata.md</code> dan commit <code>308b120</code>. Diagnosis GW-11/Part A/Part B dibaca dari <code>plan/plan-bugfix-inbox-message-ordering-v1.0.md</code> (<code>cc1ed2d</code>). Penutupan insiden CI4_BASE_URL, temuan <code>last_message_at</code>, dan angka suite (367/1295) dibaca dari commit <code>c951d9b</code>, <code>9cf7e32</code>, <code>bd84fc9</code>, <code>6b87c99</code> sampai <code>bb91665</code>. Skor klarifikasi Fase 1e (87/100) dari <code>3cce9c0</code>. Penutupan Fase 1e (TASK-023..029), angka AC-016, dan suite 395/1443 dibaca dari commit <code>0f22806</code> sampai <code>bd00c84</code>. Hasil code review (2 REQUIRED, 0 CRITICAL) dan remediasinya dibaca dari <code>docs/audit/code-review-m3-fase1e-2026-09-25.md</code>, commit <code>2a538af</code>, <code>0919960</code>, dan <code>docs/walkthrough-m3-fase1e-remediation-2026-09-25.md</code> di <code>74b02d4</code>/<code>bb8d94e</code>. Discovery Draft, PRD, klarifikasi (88/100), 4 spec tahap, klarifikasi spec (74→93/100), dan plan Tahap 1 untuk GH-011 (Grup/Balas/Teruskan) dibaca dari commit <code>8fef427</code>, <code>a6de68b</code>, <code>f6b705b</code>, <code>3c4b59f</code>. Implementasi Tahap 1 + code review Merge dari <code>ab843ed</code>/<code>8d04889</code>. Implementasi Tahap 2 (kode selesai, review &amp; SEC-01 belum) dari <code>b1e51f8</code> (AuliaPos) dan <code>84779c5</code> (WA-Gateway, repo terpisah). Bugfix Android auth/data dari <code>3e971c7</code>. Ini fitur baru di luar PRD/rantai M3 lama — sengaja tidak dipaksa masuk urutan Tahap 0→M1→M5 di atas.</footer>
+  <footer>Sumber: PRD v1.4 (§9.2 diperbarui), spec dan plan di <code>spec/</code> dan <code>plan/</code>, laporan di <code>docs/audit/</code>, <code>docs/TODO-CHAT.md</code> (header 24 Sep), dan riwayat git branch <code>v2.3</code> di GitHub sampai <code>7864156</code>. Kode Gelombang 2 ada di repo WA-Gateway; commit-nya dibaca dari laporan eksekusi di repo AuliaPos. Status Gateway live tidak tersimpan di GitHub; yang tertulis di sini berasal dari catatan TODO-CHAT. Ringkasan code review (F-1–F-4, status PASS SEC-001/SEC-002, angka test 23 script WA-Gateway dan 349/1209 AuliaPos) diambil dari checkpoint memory <code>e49b582</code>. Isi plan bugfix F-1/F-2 dibaca dari commit <code>93dfadf</code>, <code>72f63ec</code>, <code>8a6b11e</code>. Detail Ticket 04 (uji Android nyata), temuan <code>CI4_BASE_URL</code>, dan bugfix zombie-socket WA-Gateway (<code>3e356cd</code>) dibaca langsung dari <code>docs/decisions/2026-09-25-ticket04-json-fallback-android-verifikasi-nyata.md</code> dan commit <code>308b120</code>. Diagnosis GW-11/Part A/Part B dibaca dari <code>plan/plan-bugfix-inbox-message-ordering-v1.0.md</code> (<code>cc1ed2d</code>). Penutupan insiden CI4_BASE_URL, temuan <code>last_message_at</code>, dan angka suite (367/1295) dibaca dari commit <code>c951d9b</code>, <code>9cf7e32</code>, <code>bd84fc9</code>, <code>6b87c99</code> sampai <code>bb91665</code>. Skor klarifikasi Fase 1e (87/100) dari <code>3cce9c0</code>. Penutupan Fase 1e (TASK-023..029), angka AC-016, dan suite 395/1443 dibaca dari commit <code>0f22806</code> sampai <code>bd00c84</code>. Hasil code review (2 REQUIRED, 0 CRITICAL) dan remediasinya dibaca dari <code>docs/audit/code-review-m3-fase1e-2026-09-25.md</code>, commit <code>2a538af</code>, <code>0919960</code>, dan <code>docs/walkthrough-m3-fase1e-remediation-2026-09-25.md</code> di <code>74b02d4</code>/<code>bb8d94e</code>. Discovery Draft, PRD, klarifikasi (88/100), 4 spec tahap, klarifikasi spec (74→93/100), dan plan Tahap 1 untuk GH-011 (Grup/Balas/Teruskan) dibaca dari commit <code>8fef427</code>, <code>a6de68b</code>, <code>f6b705b</code>, <code>3c4b59f</code>. Implementasi Tahap 1 + code review Merge dari <code>ab843ed</code>/<code>8d04889</code>. Implementasi Tahap 2 dari <code>b1e51f8</code> (AuliaPos) dan <code>84779c5</code>/<code>3e971c7</code> (WA-Gateway, repo terpisah). Code review Tahap 2 dengan verdict "jangan merge" dan seluruh temuan CORR-01/02, SPEC-01..04 dibaca langsung dari <code>docs/audit/code-review-grup-tahap2-2026-09-26.md</code> di commit <code>9d4ac14</code> — termasuk batasan verifikasinya sendiri (suite penuh 436 test tidak dijalankan ulang, cuma 17 test baru + simulasi Gateway yang di-mock). Ini fitur baru di luar PRD/rantai M3 lama — sengaja tidak dipaksa masuk urutan Tahap 0→M1→M5 di atas.</footer>
 </div>
 
 </body></html>
