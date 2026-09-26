@@ -417,3 +417,31 @@
 <!-- checkpoint-tail: 2026-09-26 Remediated all 5 Critical Findings from the Spec clarification report (74/100 REFINE -> projected 93/100 RESOLVED): fixed 3 code-vs-spec contradictions in spec-design-grup-tahap1-tab-inbox.md (queue_status assignment order, missing jid_type in select(), wrong CON-002 code reference), unified the inconsistent Gateway endpoint name (POST /api/inbox/gateway/send -> POST {gatewayBaseUrl}/send) across spec-design-balas-pesan.md and spec-design-teruskan.md, and closed the incoming-quote gap with new REQ-010-013 + Section 4.4 in spec-design-balas-pesan.md (reusing existing quoted_* columns, local wa_message_id lookup with Gateway-snippet fallback); all files still uncommitted — next: /sdlc-plan-tasks for Tahap 1 in a new session. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-26 (Phase 3 — Implementation Plan Tahap 1 Grup)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Phase 3 — Plan (`/sdlc-plan-tasks`), **COMPLETE** untuk Tahap 1 Grup. Belum ada `/sdlc-clarify-reqs` independen atas plan ini.
+- **Active Artifacts:**
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — Status: ✅ Finalized (v1.0, dipakai sebagai basis plan)
+  - `plan/plan-feature-grup-tahap1-v1.0.md` — Status: ⏳ **NEW**, `status: 'Planned'`, **untracked**. 1 Implementation Phase, 8 task (TASK-001..TASK-008: 1 High Risk verification + 5 task kode + 1 VERIFY + 1 APPROVAL).
+- **Achieved Milestones:**
+  - Tidak ada `[ASSUMPTION]` tag baru yang memblokir — ASSUMPTION-001 dari spec (nilai literal `jid_type='group'` belum diverifikasi ke produksi) diekstrak ke Section 7 Risks & Assumptions plan dan TASK-001 ditandai **High Risk**.
+  - Dependency graph ditulis bottom-up: `ConversationModel::withComputedStatus()` → (`apiConversations()` filter, `apiPerluDibalasCount()` badge, endpoint aksi 403) → UI `index.php`.
+  - Breakdown task didemonstrasikan ke user (title, blocked-by, hasil dari sudut pandang kasir) dan disetujui tanpa perubahan ("lanjut").
+  - Plan mengikuti Mandatory Implementation Plan Template penuh (9 section), Ref ID setiap task terhubung langsung ke REQ/CON/AC di spec (traceability penuh, tidak ada fitur baru yang tidak ada di spec).
+- **Dead-Ends (Do NOT Repeat):** Tidak ada baru sesi ini.
+- **Updated Files:**
+  - `plan/plan-feature-grup-tahap1-v1.0.md` — NEW (untracked).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Tahap 1 dijadikan **1 Implementation Phase tunggal** (bukan dipecah 4 phase MVP/Core/Edge/Polish) — dampak file sudah kecil (3 file, tidak ada skema baru), jadi struktur MVP-besar tidak diperlukan; task tetap dipecah vertikal kecil (Size S) sesuai Task Sizing Guidelines.
+  - TASK-001 (verifikasi nilai literal `jid_type`) sengaja ditaruh sebagai task pertama dan bersifat blocking untuk TASK-002 dst., karena ini prasyarat yang diwajibkan spec sebelum kode filter ditulis.
+- **Next Action / Pending:**
+  - `plan/plan-feature-grup-tahap1-v1.0.md` masih **belum di-commit ke git** (untracked).
+  - **Next: `/sdlc-clarify-reqs` di sesi chat baru**, prompt: `/sdlc-clarify-reqs Analyze the newly created implementation plan in @plan/plan-feature-grup-tahap1-v1.0.md for ambiguities and hidden assumptions. Reference spec: @spec/spec-design-grup-tahap1-tab-inbox.md`
+  - Setelah Tahap 1 selesai penuh (code + review), lanjut ke `spec-design-grup-tahap2-identitas.md` (Tahap 2, butuh WA-Gateway) sesuai urutan wajib di `spec-index.md`.
+
+<!-- checkpoint-tail: 2026-09-26 SDLC Phase 3 (Plan) is COMPLETE for Grup Tahap 1 — created `plan/plan-feature-grup-tahap1-v1.0.md` (untracked, status Planned) with 1 Implementation Phase / 8 tasks (TASK-001 High-Risk verification of ASSUMPTION-001 jid_type='group', TASK-002..006 code changes across ConversationModel/Inbox.php/index.php, TASK-007 VERIFY, TASK-008 APPROVAL), each task Ref-ID-traced to the spec's REQ/CON/AC with zero hallucinated scope; user approved the task breakdown as presented before the file was written — next: /sdlc-clarify-reqs in a new session, then eventually Tahap 2 (needs WA-Gateway) per spec-index.md's mandatory ordering. -->
+
+---
