@@ -809,3 +809,45 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-26 (Phase 6 Code — Grup Tahap 2 Gateway + AuliaPos, deployed & verified)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (Phase 6 `/sdlc-write-code`) + deploy & verifikasi end-to-end — **SELESAI**. `/sdlc-code-review` belum dijalankan.
+- **Active Artifacts:**
+  - `plan/plan-feature-grup-tahap2-wa-gateway-v1.0.md` — ✅ **Completed** (TASK-001..004 ✅; commit `763787c`)
+  - `plan/plan-feature-grup-tahap2-auliapos-v1.0.md` — ✅ **Completed** (TASK-001..009 ✅; commit `763787c`)
+  - `spec/spec-design-grup-tahap2-identitas.md` — v1.3 (tidak diubah sesi ini)
+- **Achieved Milestones:**
+  - **WA-Gateway** (`C:\home\wa-gateway-review`, `master`): `sender_jid` grup dari `key.participant` + `group_name` dari cache `groupMetadata()` (fire-and-forget saat cache miss); plumbing `group_name` lewat `incomingBuffer.js` (kolom + ALTER + 2 jalur enqueue) dan `incomingDelivery.js`; config `groupNameCacheTtlMs`. Commit **`84779c5`**. `node test/simulate-group-identity.js` baru + 25 skrip `simulate-*`/`check-*` exit 0.
+  - **AuliaPos** (`v2.3`): migrasi `2026-09-26-000001_AddGroupNameToConversations.php`, write-once `group_name`, guard `400` grup incoming tanpa `sender_jid`, label `sender_name` aman (nomor/`LID`/`Pengirim`), judul grup `group_name ?: 'Grup'`. Commit **`b1e51f8`**; docs plan **`763787c`**. Suite penuh **436 tes / 1623 assertion exit 0** (21 tes baru di 3 file).
+  - **Deploy Gateway (Android)**: `npm run android:prepare-assets` → `gradlew assembleDebug` → `adb install -r` ke device `RR8N201VC9T` (`com.auliapos.wagateway`); tersambung WhatsApp `628563324637`.
+  - **Env dua arah**: AuliaPos `.env` `inbox.gatewayBaseUrl='http://192.168.1.12:3000'` (HP); prefs HP `ci4_base_url='http://192.168.1.120/aulia'` (PC). Token sama `aulia-wa-local-20260912`.
+  - **`CON-004` terverifikasi end-to-end**: grup masuk → Gateway kirim `sender_jid=255490491736112@lid` + `group_name="Ts"` (antrean `attempts:0`, `completed`) → AuliaPos simpan `conversations.group_name="Ts"` → judul "Ts" + label "LID" tampil.
+  - Kedua repo **sudah di-push**: WA-Gateway `master` → `3e971c7`; AuliaPos `v2.3` → `763787c`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** menandai sel tabel plan dengan `edit` per baris memakai anchor tail panjang.
+  - **Reason:** baris plan sangat panjang (deskripsi penuh) → rawan salah kutip & boros token.
+  - **Correct:** skrip Node kecil dengan regex ber-anchor `^(\| TASK-XXX \|.*?)\| *\| *\|$` + verifikasi kemunculan unik, lalu `writeFileSync` UTF-8 (pola KB DE-09/DE-10).
+  - **Attempted:** `cmd /c "mysql ... -e \"...\""` dengan kutip bersarang di PowerShell.
+  - **Reason:** parsing kutip gagal (`'\' is not recognized`).
+  - **Correct:** hindari kutip bersarang — satu pernyataan SQL, atau taruh skrip di file.
+- **Updated Files:**
+  - `C:\home\wa-gateway-review\src\whatsapp\connectionManager.js`, `src\store\incomingBuffer.js`, `src\delivery\incomingDelivery.js`, `src\config\index.js`, `test\simulate-group-identity.js`
+  - `C:\home\wa-gateway-review\android\app\src\main\java\com\auliapos\wagateway\NodeBridge.kt` — **fix blocker** (commit `3e971c7`)
+  - AuliaPos: `app/Database/Migrations/2026-09-26-000001_AddGroupNameToConversations.php`, `app/Models/ConversationModel.php`, `app/Controllers/InboxGatewayApi.php`, `app/Controllers/Inbox.php`, `app/Views/inbox/index.php`, `tests/database/ConversationModelGroupNameTest.php`, `tests/session/InboxGrupTahap2Test.php`, `tests/session/InboxGrupTahap2Phase2Test.php`
+  - `.env` AuliaPos (gitignored) + prefs app di HP
+- **Decisions Made:**
+  - Perluasan scope plan Gateway (disetujui user): `group_name` menuntut `incomingBuffer.js` + `incomingDelivery.js`; FILE list plan semula kurang.
+  - `sender_jid` grup **keluar** = `null` (JID grup tidak lagi dipakai sebagai `sender_jid`); non-grup tidak berubah.
+  - **Temuan premis `CON-004`:** Gateway lama ternyata sudah mengirim `sender_jid` = JID grup, sehingga skenario "`400` + hilang" tidak terbukti; gate rilis tetap valid sebagai bukti positif (perlu ditindaklanjuti ke dokumen rilis).
+  - `NodeBridge.ensureProjectFilesInstalled()` menghapus `auth/` + `data/` tiap update APK → diperbaiki dengan menyelamatkan keduanya (`renameTo` + fallback salin), terverifikasi via probe di device.
+- **Next Action / Pending:**
+  - `/sdlc-code-review` atas perubahan Grup Tahap 2 (belum dijalankan).
+  - Rilis AuliaPos `v2.3` ke server toko (migrasi `group_name` sudah dijalankan di `aulia_inboxdb` + `aulia_inboxdb_test` lokal).
+  - Klarifikasi klaim premis `CON-004` di dokumen rilis; catat perilaku "pesan grup pertama setelah restart tanpa `group_name`" (`ASSUMPTION-003`, self-healing karena write-once).
+  - Carried forward: ESC-001..004; `ASSUMPTION-007`; `docs/ARCHITECTURE.md` §11; `docs/TODO-CHAT.md` 11–13; TODO sinkronisasi ganti-nama-grup; BACKLOG pencarian `group_name`.
+
+<!-- checkpoint-tail: 2026-09-26 Phase 6 completed: Grup Tahap 2 (Gateway `84779c5` + Android fix `3e971c7`; AuliaPos `b1e51f8` + plan docs `763787c`) implemented, committed and pushed; Android Gateway deployed to device RR8N201VC9T, connected as 628563324637, bidirectional env configured (AuliaPos->Gateway 192.168.1.12:3000, Gateway->AuliaPos 192.168.1.120/aulia), and CON-004 verified end-to-end (sender_jid + group_name persisted; group title "Ts" and "LID" label shown). -->
+
+---
+
