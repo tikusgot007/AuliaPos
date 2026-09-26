@@ -595,3 +595,36 @@
 <!-- checkpoint-tail: 2026-09-26 Grup Tahap 1 implementation is COMPLETE and CLOSED via `/sdlc-write-code` — TASK-001's production verification (direct `mysql.exe` query against `aulia_inboxdb`, not log inspection) confirmed the `jid_type` literal is exactly `'group'` (HEX 67726F7570, 5 lowercase chars), so the mandatory STOP did not fire; implemented REQ-001..009/CON-001..006 across `ConversationModel::withComputedStatus()`, `Inbox.php` (new `cekBukanGrup()` 403 guard on 6 endpoints, `hapusPercakapan()` closed-gate exemption, auto-assign exemption in both send paths), and `index.php` (Grup tab last + `QUEUE_STATUS_LABEL['grup']`, hide-vs-disable split per CON-001/002/005/006); added `InboxGrupTahap1Test.php` (14 tests with negative controls) + 1 model test + 1 adjusted pre-existing screen-test assertion, taking the macro gate from 400/1462 to `OK (415 tests, 1532 assertions)`; manual Playwright verification was fully reversible (admin password hash and conversation count restored to their exact originals); plan bumped to v1.2 `status: 'Completed'` with a full §10 Closure evidence ledger after the product owner granted TASK-008 approval in-session; nothing is committed to git yet; next is `/sdlc-code-review` in a NEW session (persona lock forbids running it here), then Tahap 2 per `spec-index.md`'s mandatory ordering. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-26 (Phase 5 — `/sdlc-code-review` Grup Tahap 1, Two-Axis)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review`) atas commit `ab843ed` (Grup Tahap 1) — **COMPLETE**. Verdict: **Merge** (0 CRITICAL, 0 REQUIRED). Belum lanjut ke Tahap 2.
+- **Active Artifacts:**
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — ✅ v1.1 (input review, unchanged).
+  - `plan/plan-feature-grup-tahap1-v1.0.md` — ✅ v1.2 `status: 'Completed'` (input review, unchanged).
+  - Tidak ada file laporan/plan review baru — Phase 2 (Refactoring Plan) sengaja dilewati workflow karena tidak ada temuan CRITICAL/REQUIRED.
+- **Achieved Milestones:**
+  - Review Two-Axis dijalankan: Axis A (Clean Code/SOLID/Security via STRIDE+OWASP+Supply-Chain) dan Axis B (Spec compliance) atas spec v1.1 + plan v1.2, memakai diff `git show ab843ed` untuk `app/Controllers/Inbox.php`, `app/Models/ConversationModel.php`, `app/Views/inbox/index.php`.
+  - **Hasil: 5 temuan Standards (0 critical / 0 required) + 0 temuan Spec.** Semua `REQ-001..009` / `CON-001..006` / `AC-001..012` terpetakan ke kode & test; tidak ada requirement hilang, tidak ada scope creep; `GUD-001` dipatuhi (filter-after-fetch, tanpa query baru).
+  - **Gerbang makro diverifikasi ulang di sesi ini:** `vendor/bin/phpunit --no-coverage` → `OK (415 tests, 1532 assertions)` — klaim closure plan terbukti.
+  - "Verify the Verification": batas otorisasi diuji nyata (403 pada 6 endpoint + state DB tak berubah), kontrol negatif ada (percakapan pribadi tetap wajib `closed` untuk Hapus; `perlu_dibalas` pribadi tetap dihitung), dan kontrol positif auto-assign sudah ada di `tests/session/InboxOutgoingIdempotencyTest.php:250`/`:282`.
+  - Temuan tunggal yang butuh keputusan: **[OPTIONAL] [SEC-01]** `handoffPercakapan()` dan `tandaiDibaca()` tidak memakai `cekBukanGrup()` padahal 6 endpoint aksi lain memakainya; grup warisan ber-`assigned_to` masih bisa di-Handoff (mengubah `assigned_to`), bertentangan dengan Section 9 spec ("Never do") — tetapi `CON-004`/`AC-006` sengaja tidak memuat Handoff, jadi ini ketegangan internal spec, bukan pelanggaran kode.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** memakai rentang diff permintaan user `ab1a8ca^..ab843ed`. **Reason:** `git merge-base ab1a8ca ab843ed` = `ab843ed` — `ab843ed` adalah **nenek moyang** `ab1a8ca`, sehingga rentang itu terbalik/kosong dan menghasilkan 0 baris diff. **Note:** untuk review commit tunggal pakai `git show <sha>` atau `git diff <sha>^..<sha>`; cek merge-base dulu, jangan percaya rentang yang diberikan.
+  - **Attempted:** membaca `git diff ab1a8ca..ab843ed | Measure-Object -Line` = 0 baris sebagai "tidak ada perubahan". **Reason:** rentang terbalik (lihat di atas). **Note:** jangan simpulkan "no diff" dari hasil tool sebelum cek `git merge-base`.
+- **Updated Files:**
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini (satu-satunya file yang berubah; review murni read-only).
+- **Decisions Made:**
+  - **SEC-01 diputuskan pemilik proyek: DITUNDA, dikerjakan bersama Tahap 2** (`spec-design-grup-tahap2-identitas.md`). Karena `CON-004` tidak memuat Handoff, amandemen spec (lewat `/sdlc-define-specs`) harus mendahului penambahan guard di kode; jangan tambal kode diam-diam.
+  - Tahap 1 **Merge-ready**: tidak ada temuan blocking, gerbang makro hijau, temuan visual terverifikasi manual sesuai pembagian kelas uji spec Section 6.
+- **Next Action / Pending:**
+  - Lanjut ke **Tahap 2** (`spec/spec-design-grup-tahap2-identitas.md`, butuh WA-Gateway) per urutan wajib `spec-index.md` — mulai dari `/sdlc-clarify-reqs` atau `/sdlc-define-specs` di **sesi chat baru** (session isolation).
+  - SEC-01 dibawa ke Tahap 2: amandemen `CON-004` (tambah Handoff + samakan `tandaiDibaca`) lalu tambah `cekBukanGrup()` di kedua method, lewat `/sdlc-define-specs` → `/sdlc-write-code`.
+  - Carried forward, unchanged: ESC-001..004 Gateway escalation OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11 (`aulia_inboxdb_perf` + `aulia:seed-fase1e-perf`) **dan** debt peta arsitektur baru (`queue_status='grup'` + `Inbox::cekBukanGrup()`) tetap menunggu `/sdlc-map-architecture`; RISK-004/007/009; `docs/TODO-CHAT.md` item 11–13; `zzztag` Internal Note conversation `11746` (`messages.id = 305`).
+  - Commit terkini (dari `git log`): `f4c5367` (docs/memory), `e468243` (fix memory-manager), `e7fa8a2` (chore gitignore), `ab1a8ca` (chore ai-config), `ab843ed` (feat Grup Tahap 1) — semua sudah ter-commit/push di `v2.3`; tidak ada file Grup Tahap 1 yang tertinggal uncommitted.
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found, so the fast-path offer was skipped silently.
+
+<!-- checkpoint-tail: 2026-09-26 Phase 5 `/sdlc-code-review` on Grup Tahap 1 (commit `ab843ed`) COMPLETE with verdict **Merge** — Two-Axis review against spec v1.1 + plan v1.2 found **0 CRITICAL / 0 REQUIRED / 0 spec mismatches** and 5 Standards items (one OPTIONAL SEC-01: `handoffPercakapan()`/`tandaiDibaca()` lack the `cekBukanGrup()` guard the other 6 action endpoints have, so a legacy-assigned group can still be handed off and mutate `assigned_to`, contradicting spec Section 9 "Never do" while CON-004/AC-006 deliberately omit Handoff — a spec-internal tension, not a code breach); macro gate re-verified in-session as `OK (415 tests, 1532 assertions)`; owner decided **SEC-01 is DEFERRED to be fixed together with Tahap 2** (spec amendment of CON-004 via `/sdlc-define-specs` must precede any code guard); review was read-only so the only changed file is this memory log; also recorded a dead-end that the user's stated diff range `ab1a8ca^..ab843ed` is inverted (ab843ed is an ancestor of ab1a8ca, merge-base = ab843ed) so it yields an empty diff — use `git show ab843ed` instead; next: Tahap 2 in a NEW session per `spec-index.md`, carrying SEC-01. -->
+
+---
