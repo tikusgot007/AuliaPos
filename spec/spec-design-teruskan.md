@@ -1,6 +1,6 @@
 ---
 title: Teruskan (Forward) — Lintas Repo
-version: 1.1
+version: 1.2
 date_created: 2026-09-26
 last_updated: 2026-09-27
 owner: AuliaPos Inbox module
@@ -45,6 +45,9 @@ Audiens: developer WA-Gateway dan AuliaPos, serta agent `/sdlc-plan-tasks`.
 
 - **CLARIFICATION NEEDED:** Tidak ada gap tersisa untuk sisi AuliaPos.
 
+> [!NOTE]
+> **Catatan revisi v1.2 (2026-09-27):** spec ini diamandemen dari v1.1 sebagai tindak lanjut `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27-reaudit.md` (Iteration 2, Readiness Score 79/100; Critical Flaw Veto **YES**). **Critical Blocker:** kontradiksi `REQ-004`/`AC-002` (audio/video: "tidak dirender sama sekali") vs Resolved Item #7 `docs/audit/clarification-report-whatsapp-grup-balas-teruskan-spec-2026-09-26.md` (opsi harus **tetap tampil disabled berlabel alasan**). Perubahan: (1) aksi "Teruskan" pada audio/video kini **tetap tampil disabled berlabel alasan** (bukan disembunyikan), mengikuti pola `CON-002` di `spec-design-grup-tahap1-tab-inbox.md`; (2) `AC-002`, Section 7, dan Section 13 diselaraskan dengan perilaku disabled tersebut; (3) `REQ-007`/Section 8 memperbarui rujukan `file:line` `cekOwnership()` ke `app/Controllers/Inbox.php:727` (Minor Gap audit: drift `file:line`, dari semula `693`). Tidak ada keputusan arsitektur baru dan tidak ada ADR baru.
+
 ## 2. Definitions
 
 Mengikuti `CONTEXT.md`: **Teruskan** — mengirim ulang isi satu pesan (teks/media) dari satu percakapan ke percakapan lain yang sudah ada, disertai penanda bahwa pesan tersebut diteruskan. `_Avoid_`: Forward, Kirim Ulang (lihat entri lengkap di `CONTEXT.md`).
@@ -66,7 +69,7 @@ Istilah tambahan:
 
 ### Sisi AuliaPos (UI, aturan forwardability, ownership, non-stacking)
 
-- **REQ-004**: UI thread pesan menyediakan aksi "Teruskan" pada bubble pesan, **kecuali** pesan bertipe audio/video — untuk kedua tipe ini, aksi "Teruskan" **tidak dirender sama sekali** (bukan disabled), sesuai pola CON-001 di `spec-design-grup-tahap1-tab-inbox.md` untuk aksi yang pasti gagal.
+- **REQ-004**: UI thread pesan menyediakan aksi "Teruskan" pada bubble pesan. Untuk pesan bertipe audio/video, aksi "Teruskan" **tetap dirender** di menu aksi dalam keadaan **disabled** (tidak dapat diklik) dan berlabel alasan **"Teruskan — audio/video tidak dapat diteruskan"** — **bukan** disembunyikan total. Ini memakai pola **disabled** yang sudah ada di `spec-design-grup-tahap1-tab-inbox.md` `CON-002` (opsi yang tetap tampil dengan penjelasan), bukan pola sembunyikan `CON-001`, dan memenuhi janji PRD GH-016 bahwa kasir menerima penjelasan yang bisa dipahami. Penonaktifan di UI **bukan** satu-satunya pengaman: server tetap menolak percobaan Teruskan audio/video bila endpoint dipanggil langsung (GUD-001).
 - **REQ-005**: Memilih "Teruskan" membuka pemilih **percakapan yang sudah ada** (pencarian/daftar percakapan, memakai UI/endpoint pencarian percakapan yang sudah ada di Inbox) — **tidak ada** opsi "buat percakapan baru" di alur ini.
 - **REQ-006 (Forwardability per jenis pesan)**:
   | Jenis pesan | Forwardable? |
@@ -76,7 +79,7 @@ Istilah tambahan:
   | Gambar / Dokumen / Stiker dengan file tidak tersedia | **Tidak** — aksi ditolak, bukan dikirim tanpa lampiran |
   | Audio / Video | **Tidak pernah** — limitasi permanen (`docs/CHAT.md` §6.2), tidak bergantung status file |
 - **CON-002 (All-or-nothing)**: Jika pesan gambar/dokumen/stiker yang dipilih ternyata filenya sudah tidak tersedia saat aksi kirim benar-benar dijalankan (race condition antara pilih dan kirim), seluruh aksi Teruskan **dibatalkan** dengan pesan error jelas ke kasir — **tidak** mengirim pesan teks kosong atau caption tanpa lampiran sebagai gantinya.
-- **REQ-007**: `cekOwnership()` (`Inbox.php:693`) diperiksa **hanya** terhadap `conversation_id` **tujuan** — percakapan sumber (tempat pesan asli berada) **tidak** melewati pengecekan kepemilikan ini sama sekali, sesuai resolusi Clarification Report.
+- **REQ-007**: `cekOwnership()` (`app/Controllers/Inbox.php:727`) diperiksa **hanya** terhadap `conversation_id` **tujuan** — percakapan sumber (tempat pesan asli berada) **tidak** melewati pengecekan kepemilikan ini sama sekali, sesuai resolusi Clarification Report.
 - **REQ-008**: Pesan hasil Teruskan disimpan sebagai baris `messages` baru pada percakapan tujuan, dengan kolom penanda baru `is_forwarded = true` (lihat Section 4.2) — AuliaPos menampilkan label "Diteruskan" di UI berdasarkan kolom ini, **independen** dari `forward_marker_applied` yang dilaporkan Gateway (REQ-003) — supaya kasir tetap melihat label konsisten di AuliaPos meskipun metode Gateway di baliknya berbeda-beda.
 - **REQ-009 (Non-stacking & no-quote-carried-over)**: Saat meneruskan pesan yang **sendiri** merupakan hasil Balas Pesan (punya `quoted_*` terisi) atau hasil Teruskan sebelumnya (`is_forwarded = true`):
   - Hanya `text`/media pesan itu sendiri yang disalin ke pesan Teruskan baru.
@@ -140,7 +143,7 @@ Field `forward` di endpoint ini memakai struktur & aturan yang sama seperti Sect
 ## 5. Acceptance Criteria
 
 - **AC-001**: Given pesan teks di percakapan A, When kasir meneruskannya ke percakapan B yang sudah ada, Then pesan baru muncul di percakapan B dengan label "Diteruskan", dan **tidak ada** percakapan baru yang terbentuk.
-- **AC-002**: Given pesan audio atau video, When kasir membuka menu aksi pesan, Then opsi "Teruskan" **tidak muncul sama sekali**.
+- **AC-002**: Given pesan audio atau video, When kasir membuka menu aksi pesan, Then opsi "Teruskan" **tetap tampil** dalam keadaan **disabled** (tidak dapat diklik) dengan label alasan **"Teruskan — audio/video tidak dapat diteruskan"** — bukan hilang — sehingga kasir menerima penjelasan yang bisa dipahami (GH-016). Given request Teruskan dikirim langsung ke endpoint untuk pesan audio/video (melewati UI), Then server menolak aksi (GUD-001).
 - **AC-003**: Given pesan gambar dengan file yang sudah tidak tersedia, When kasir mencoba meneruskannya (lewat request langsung ke endpoint, melewati UI), Then server menolak aksi dengan pesan error jelas, bukan mengirim pesan kosong.
 - **AC-004**: Given kasir tidak memiliki (bukan assignee) percakapan sumber, When meneruskan pesan dari percakapan itu ke percakapan tujuan yang **dimilikinya**, Then aksi **berhasil** (ownership sumber tidak diperiksa).
 - **AC-005**: Given kasir memiliki percakapan tujuan, When meneruskan pesan ke percakapan tujuan yang **bukan miliknya dan bukan tanpa pemilik**, Then server menolak dengan `403` (ownership tujuan tetap berlaku).
@@ -164,7 +167,7 @@ Field `forward` di endpoint ini memakai struktur & aturan yang sama seperti Sect
 - Migrasi baru: `app/Database/Migrations/<timestamp>_AddIsForwardedToMessages.php`.
 - `app/Controllers/Inbox.php` — endpoint kirim menerima `forward_from_message_id`, terapkan REQ-006/007/009, panggil `cekOwnership()` hanya untuk tujuan.
 - `app/Models/MessageModel.php` — tambah `is_forwarded` ke `$allowedFields`.
-- `app/Views/inbox/index.php` — aksi "Teruskan" per bubble (sembunyikan untuk audio/video), pemilih percakapan tujuan, label "Diteruskan".
+- `app/Views/inbox/index.php` — aksi "Teruskan" per bubble (audio/video dirender **disabled** berlabel alasan — REQ-004/AC-002), pemilih percakapan tujuan, label "Diteruskan".
 
 ### Project Structure (WA-Gateway — repo terpisah, plan terpisah)
 
@@ -178,7 +181,7 @@ Field `forward` di endpoint ini memakai struktur & aturan yang sama seperti Sect
 
 ## 8. Code Style & Conventions
 
-Penerapan `cekOwnership()` hanya di sisi tujuan mengikuti pola pemanggilan fungsi yang sudah ada (`Inbox.php:693`), dipanggil dengan `conversation_id` tujuan secara eksplisit — bukan menambah parameter baru ke `cekOwnership()` itu sendiri (fungsi tidak diubah, hanya konteks pemanggilannya di endpoint baru).
+Penerapan `cekOwnership()` hanya di sisi tujuan mengikuti pola pemanggilan fungsi yang sudah ada (`app/Controllers/Inbox.php:727`), dipanggil dengan `conversation_id` tujuan secara eksplisit — bukan menambah parameter baru ke `cekOwnership()` itu sendiri (fungsi tidak diubah, hanya konteks pemanggilannya di endpoint baru).
 
 ## 9. Implementation Boundaries
 
@@ -209,7 +212,7 @@ Tidak ada ADR baru. Larangan permanen forward audio/video adalah konsekuensi lan
 ## 13. Validation Criteria
 
 - `vendor/bin/phpunit --no-coverage` hijau 100%.
-- Manual check: forward pesan teks & gambar ke percakapan lain, verifikasi label & isi benar; verifikasi audio/video tidak punya opsi Teruskan sama sekali di UI.
+- Manual check: forward pesan teks & gambar ke percakapan lain, verifikasi label & isi benar; verifikasi pesan audio/video menampilkan opsi Teruskan dalam keadaan **disabled** dengan label alasan (bukan hilang) di UI.
 - Manual check: teruskan lampiran gambar/dokumen/stiker lewat `/send-media` dengan `forward: true`, verifikasi `forward_marker_applied` dilaporkan dan label "Diteruskan" tampil konsisten di AuliaPos.
 
 ## 14. Related Specifications / Further Reading

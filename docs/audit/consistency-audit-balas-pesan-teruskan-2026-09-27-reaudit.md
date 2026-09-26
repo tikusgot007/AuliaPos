@@ -2,6 +2,13 @@
 
 # 🔍 Consistency Audit Report [Review Iteration 2]
 
+> [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED**
+> Laporan ini telah diremediasi oleh Specification Architect (2026-09-27), khusus untuk **Critical Blocker sisi Spec**.
+> - **Critical Blocker Spec — `spec/spec-design-teruskan.md` `REQ-004`/`AC-002` (Teruskan audio/video: hidden vs disabled): RESOLVED** pada v1.1 → v1.2. Opsi "Teruskan" pada audio/video kini **tetap tampil disabled** dan berlabel alasan **"Teruskan — audio/video tidak dapat diteruskan"** (Resolved Item #7), mengikuti pola `CON-002` di `spec-design-grup-tahap1-tab-inbox.md`; `AC-002`, Section 7, dan Section 13 diselaraskan; drift `file:line` `cekOwnership()` (`693` → `app/Controllers/Inbox.php:727`) diperbaiki.
+> - **Projected Readiness Score (pasca-remediasi spec):** 90/100 — Completeness 35/40, Clarity 30/30, Alignment 25/30. **Critical Flaw Veto `REQ-004` dicabut** (kontradiksi Spec ↔ Clarification Report Resolved Item #7 hilang, GH-016 AC "penjelasan yang bisa dipahami" kini terpenuhi).
+> - **Catatan:** Critical Blocker kedua (**GH-015 PRD AC baris 362/364 ↔ semantik `spec-design-balas-pesan.md`**) **belum** diselesaikan di sesi ini karena berada di ranah `/sdlc-draft-prd` (sesi terpisah). Selama divergensi itu live, jangan lanjut ke `/sdlc-plan-tasks`.
+
 **Readiness Score:** 79/100
 **Status:** Below Threshold
 
