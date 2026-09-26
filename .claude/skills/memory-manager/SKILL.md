@@ -104,12 +104,12 @@ Before performing a recursive search, check if the active memory path is already
 Use this workflow to load context at the beginning of a new session.
 
 1. **Execute Workflow 1** to locate the memory file.
-2. **Read the entire file** using the appropriate read tool.
+2. **Read the entire file** using the appropriate read tool — all the way to the last line. If the file exceeds one read window, keep reading in chunks (offset/limit) until the end; never stop after the first chunk.
 3. **Extract and internalize from the Knowledge Base section (if present):**
    - **Architecture & Patterns** — Proven patterns that should be followed.
    - **Dead-Ends** — Approaches that failed previously with their root causes and correct solutions. Do NOT repeat these.
    - **Key Metrics & Baselines** — Reference metrics (test counts, coverage, performance) for comparison.
-4. **Extract and internalize from the most recent checkpoint entry:**
+4. **Extract and internalize from the most recent checkpoint entry.** Checkpoints are append-only and ordered oldest → newest, so the most recent one is the **LAST** `## 📝 Session Checkpoint` heading in the file (the one closest to the bottom), never the first one you encounter. Dated notes inside the Knowledge Base (e.g. a "Compaction note" listing which checkpoints were "retained") describe the file at that past date only — do NOT use them to decide which checkpoint is the latest. From that last checkpoint, extract:
    - **Current SDLC Phase** — Which phase of the development lifecycle is active.
    - **Active Artifacts** — Status of key SDLC documents (PRD, Spec, Plan).
    - **Latest Milestones** — What was accomplished in the last session(s).
