@@ -2,7 +2,7 @@
 goal: Grup Tahap 2 — Hardening Android Runtime Data, Gateway Group-Name Cache, dan Label Identitas Pengirim
 version: 1.0
 date_created: 2026-09-26
-last_updated: 2026-09-26
+last_updated: 2026-09-27
 owner: AuliaPos Inbox module + WA-Gateway (tikusgot007/WA-Gateway)
 status: "Completed"
 tags: ["refactor", "clean-code", "architecture", "security"]
@@ -86,9 +86,8 @@ diselesaikan lewat `/sdlc-plan-tasks` dan `/sdlc-define-specs`.
 > (8 test) dan **HIJAU** lewat `./gradlew :app:testDebugUnitTest --offline`.
 > Mencakup jalur gagal (`copyRecursively` melempar), pembersihan target parsial,
 > rekonsiliasi, dan install pertama.
-> Regresi manual "update APK di perangkat uji" **TERTUNDA** — tidak tersedia
-> perangkat/emulator di lingkungan ini; wajib dijalankan sebelum rilis
-> (RISK-001).
+>
+> **Regresi manual "update APK di perangkat uji" — SELESAI (2026-09-27), lihat bukti RISK-001.**
 
 ### Implementation Phase 2: Gateway Group-Name Cache Resilience
 
@@ -211,9 +210,44 @@ diselesaikan lewat `/sdlc-plan-tasks` dan `/sdlc-define-specs`.
 
 ## 7. Risks & Rollback Plan
 
-- **RISK-001 (sedang)**: Perubahan `NodeBridge.kt` menyentuh jalur update APK; kesalahan dapat
-  memaksa login WhatsApp ulang. Mitigasi: test kegagalan restore + uji manual pada perangkat uji
-  sebelum rilis; rollback = kembalikan `NodeBridge.kt` ke versi sebelumnya (perubahan murni aditif).
+- **RISK-001 (CLOSED, 2026-09-27)**: Perubahan `NodeBridge.kt` menyentuh jalur update APK; kesalahan
+  dapat memaksa login WhatsApp ulang. Mitigasi terbukti lewat dua lapis:
+  - **Unit test JVM** (`RuntimeDataPreserverTest.kt`, 8 test HIJAU) — membuktikan jalur *kegagalan
+    I/O* (mis. `copyRecursively` melempar `IOException` di tengah restore) tidak melempar keluar,
+    tidak menghapus `preservedRoot` sebelum restore sukses, dan aman pada install pertama.
+  - **Regresi manual di device fisik nyata** (Samsung Galaxy S10+ / SM-G975F, serial `RR8N201VC9T`,
+    Android via `adb`), dijalankan **2026-09-27** terhadap commit `1db79e1` (WA-Gateway
+    `tikusgot007/WA-Gateway`, push ke `origin/master`):
+    1. Backup jaring pengaman `auth/`+`data/` sesi WhatsApp aktif di device (bukan data dummy —
+       sesi produksi nyata nomor `628563324637`) ditarik ke
+       `C:\home\wa-gateway-review\_device-backup-20260927-040442\backup-authdata.tar.gz`
+       (verifikasi integritas via `tar -tzf`: 353 file, 349 di `auth/` + 4 di `data/`).
+    2. Sidik jari SEBELUM update: `creds.json` MD5 `65b1e4b1400972bfc7a314fcbd612dd7`, 348 file di
+       `auth/`, 3 file di `data/`, `gateway.outgoing.json` MD5 `806de313bafe030179e57db23902689a`.
+    3. Build APK debug terbaru (`./gradlew :app:assembleDebug --offline`, `BUILD SUCCESSFUL`)
+       membawa kode `RuntimeDataPreserver` (CORR-01) hasil commit `1db79e1`.
+    4. `adb install -r app-debug.apk` — sukses (simulasi update APK atas instalasi lama).
+    5. `am force-stop` + jalankan ulang app — logcat mengonfirmasi
+       `NodeBridge: Menyalin nodejs-project dari assets APK ke storage app...` tereksekusi (jalur
+       `ensureProjectFilesInstalled()` benar-benar terpicu, bukan cache lama).
+    6. Sidik jari SETELAH update: `creds.json` MD5 **identik** `65b1e4b1400972bfc7a314fcbd612dd7`,
+       jumlah file `auth/` **tetap 348**, `data/` **tetap 3**, `gateway.outgoing.json` MD5
+       **identik** `806de313bafe030179e57db23902689a`. Tidak ada sisa `preserved-tmp` yang nyangkut.
+    7. **Bukti fungsional tambahan** — `GET /api/status` gateway setelah update:
+       `{"status":"connected","connectedNumber":"628563324637","hasQr":false,"pairingCode":null}`
+       — sesi WhatsApp **tersambung tanpa scan/pairing ulang**, nomor sama seperti sebelum update.
+    8. Antrean retry (`gateway.outgoing.json`) diverifikasi isinya tetap berisi 2 operasi lama
+       (`operation_id` sama, `state: "sent"`) — buffer retry **tidak hilang**.
+    - **Simulasi kegagalan I/O "disk penuh" di device fisik**: **TIDAK dijalankan sebagai simulasi
+      fisik sungguhan** — device uji memakai partisi `/data` bersama 465GB (402GB tersisa, tanpa
+      kuota per-app terisolasi, tidak root); memenuhi seluruh disk tidak praktis dan berisiko
+      merusak device/mengganggu app lain milik pengguna. Jalur kegagalan I/O tengah-proses
+      (`copyRecursively` melempar `IOException` saat simpan/kembalikan) sudah dibuktikan secara
+      deterministik via **injeksi kegagalan di JVM unit test** (`RuntimeDataPreserverTest.kt`),
+      yang menutupi skenario yang sama tanpa risiko terhadap device produksi. Kombinasi test JVM
+      (jalur gagal, injeksi) + regresi device fisik (jalur normal update APK, data nyata) dinilai
+      cukup untuk menutup RISK-001.
+  - Rollback tetap: kembalikan `NodeBridge.kt` ke versi sebelumnya (perubahan murni aditif).
 - **RISK-002 (rendah)**: Negative cache menunda munculnya `group_name` yang sebelumnya gagal
   sementara. Mitigasi: cooldown pendek (30-60 detik) dan `group_name` tetap write-once/opsional;
   rollback = hapus negative cache.
