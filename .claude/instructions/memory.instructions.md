@@ -1434,7 +1434,7 @@
   - Karena projected score ≥ 80, ditawarkan **Opsi A** (`/sdlc-write-code` langsung) atau **Opsi B** (`/sdlc-clarify-reqs` ulang) di sesi baru.
 - **Next Action / Pending:**
   - Commit + push sesi ini ke `origin/v2.3`: spec v1.5, kedua plan, kedua audit report, dan memory. Push via `cmd /c "git push origin v2.3 > build\push.txt 2>&1"` lalu verifikasi `git ls-remote origin refs/heads/v2.3` = local `HEAD` (KB DE-39).
-  - **Sengaja tidak di-commit:** `.claude/skills/update-peta-kemajuan/` (untracked, sesi lain) dan `jalankan_claude.bat` (untracked, memuat `9router-local-key` — `HYGIENE-01`).
+  - **Di-commit menyusul atas permintaan owner (commit `8daea8e`):** `.claude/skills/update-peta-kemajuan/` (SKILL.md + evals + references) dan `jalankan_claude.bat`. Catatan: file `.bat` memuat `ANTHROPIC_API_KEY=9router-local-key` — kunci **lokal** untuk 9Router di `localhost:20128`, bukan kredensial cloud; nilainya kini tercatat di riwayat git (jangan dipakai ulang untuk layanan publik).
   - Langkah berikutnya: `/sdlc-write-code` (Opsi A) atau `/sdlc-clarify-reqs` (Opsi B) di **sesi baru** (session isolation — sesi ini terkunci sebagai Planner Architect).
   - Gated (di luar lingkup): PRD GH-015 AC 362/364 → `/sdlc-draft-prd`, lalu `/sdlc-audit-consistency` Iteration 3.
   - Carried forward (tetap, non-blocking): `CONTEXT.md:68` "Kutipan" wording; PRD Section 4 note lines 158–165 & GH-012 AC phase mismatch; sisa `file:line` drift `app/Views/inbox/index.php:2308` → `:2362`; `[OPTIONAL] SEC-01`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004 OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
