@@ -481,3 +481,40 @@
 <!-- checkpoint-tail: 2026-09-26 Clarified `plan-feature-grup-tahap1-v1.0.md` against `spec-design-grup-tahap1-tab-inbox.md` and live code, scoring 82/100 PROCEED — found and resolved 6 gaps via one-question-at-a-time Grill-Me: (1) missing STOP instruction in TASK-001 if jid_type literal differs from 'group', (2) response_state badge/SLA dot/Tandai-Dibaca/Handoff not yet hidden for groups per an earlier unintegrated spec-clarify agreement, (3) a real bug where hapusPercakapan() requires status='closed' but groups can never reach closed (Hapus would always fail 409, contradicting CON-002) — resolved by exempting groups from that gate while keeping the admin-only check, (4) a more serious bug where auto-assign in kirimKeConversation()/kirimMedia() ignores jid_type, permanently stranding a group's ownership since lepasPercakapan() always 403s for groups — resolved by exempting groups from auto-assign, (5) undecided tab position — resolved as last (after Selesai), (6) a hidden bug where QUEUE_STATUS_LABEL in index.php was never mentioned in TASK-006, which would silently break the active-tab highlight and badge count for the new Grup tab; saved as `docs/audit/clarification-report-grup-tahap1-plan-2026-09-26.md` (untracked) — next: /sdlc-define-specs in a NEW session to write these 6 resolutions into the spec with formal Ref IDs, then /sdlc-plan-tasks to inherit them into the plan. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-26 (Phase 2 Spec — amandemen spec Grup Tahap 1 atas temuan klarifikasi plan)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`) — **remediasi sisi spec SELESAI**; sisi plan belum.
+- **Active Artifacts:**
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — Status: ✅ **v1.1** (diamandemen; **uncommitted**).
+  - `docs/audit/clarification-report-grup-tahap1-plan-2026-09-26.md` — Status: ✅ banner `REMEDIATION STATUS: SPEC-SIDE RESOLVED` (**uncommitted**).
+  - `plan/plan-feature-grup-tahap1-v1.0.md` — Status: ⏳ belum diubah; masih perlu mewarisi Ref ID baru lewat `/sdlc-plan-tasks`.
+- **Achieved Milestones:**
+  - Enam resolusi `clarification-report-grup-tahap1-plan-2026-09-26.md` dituliskan jadi Ref ID resmi di spec v1.1: `REQ-007` (hapus grup dikecualikan dari syarat `status==='closed'`; gate admin-only tetap), `REQ-008` (auto-assign grup dikecualikan di `kirimKeConversation()` `Inbox.php:2143-2145` & `kirimMedia()` `:1051-1053`), `REQ-009` (tab Grup paling akhir + entri `QUEUE_STATUS_LABEL['grup']`), `CON-005` (badge `response_state`, titik SLA, Tandai Dibaca, Handoff tidak dirender), `CON-006` (badge kepemilikan + lifecycle tidak dirender), `AC-008`..`AC-012`; `ASSUMPTION-001` diperluas dengan **instruksi STOP wajib** bila literal `jid_type` ≠ `'group'`.
+  - Keputusan tambahan owner (2026-09-26): `CON-006` mencakup badge kepemilikan ("Belum diambil"/"Dipegang: X", `index.php:937-940` & `:1149-1157`) dan badge lifecycle OPEN/CLOSED (`:1175-1177`/`:1228`) + badge `closed` (`:931`).
+  - **Temuan mandiri (diperbaiki):** `REQ-003` v1.0 masih menulis assignment `queue_status='grup'` ditaruh **sebelum** blok if/elseif — kontradiksi lama yang luput dari remediasi spec sebelumnya (temuan kritis #1 hanya memperbaiki contoh Section 12). Dikoreksi jadi **SETELAH** (selaras Section 12).
+  - Kelas uji ditetapkan: item yang mengubah kondisi endpoint (Hapus, auto-assign) **wajib test otomatis**; item visual (badge/tombol tersembunyi) cukup **manual check** — konsisten pola CON-001.
+  - Lint markdown diverifikasi sebagai **delta**: spec MD013 55→82 tanpa kelas rule baru; laporan 24→27 MD013. Proyeksi spec: **95/100** (self-assessment, bukan audit independen).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** dua GitHub alert blockquote berurutan (`> [!WARNING]` + `> [!IMPORTANT]`) untuk ASSUMPTION-001 dan instruksi STOP. **Reason:** menambah kelas rule **MD028** pada file yang tadinya MD013-only; menghapus marker alert kedua juga memicu render literal (lihat KB DE-49). **Note:** jadikan instruksi STOP **paragraf biasa** setelah blockquote pertama.
+  - **Attempted:** daftar bullet di dalam blockquote banner tanpa baris `>` kosong. **Reason:** memicu **MD032** (lists surrounded by blank lines). **Note:** beri baris `>` kosong sebelum daftar.
+  - **Attempted:** `edit` dengan `oldString` multi-baris yang memuat baris kosong di antara dua blockquote. **Reason:** tidak match pada file CRLF. **Note:** anchor pada satu baris non-kosong.
+- **Updated Files:**
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — v1.0→v1.1; +REQ-007/008/009, +CON-005/006, +AC-008..012, ASSUMPTION-001 STOP, perbaikan REQ-003, Section 6/7/9/12/13 diperluas.
+  - `docs/audit/clarification-report-grup-tahap1-plan-2026-09-26.md` — banner SPEC-SIDE RESOLVED tepat setelah H1 (KB DE-06).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Instruksi STOP dimasukkan ke **spec**, bukan hanya plan, supaya developer yang hanya membaca spec tetap berhenti bila literal `jid_type` berbeda.
+  - Badge kepemilikan + lifecycle disembunyikan untuk grup (keputusan owner 2026-09-26) sebagai `CON-006`, konsisten dengan Section 1.1.
+  - Tidak ada ADR baru (Triple Gate gagal); tidak ada istilah `CONTEXT.md` baru.
+- **Next Action / Pending:**
+  - **Kedua file masih uncommitted.** Commit + push ke `origin/v2.3` saat owner minta; push via `cmd /c "git push origin v2.3 > build\push.txt 2>&1"` lalu verifikasi `git ls-remote` (KB DE-39).
+  - **Next: `/sdlc-plan-tasks` di sesi chat baru** untuk mewariskan Ref ID v1.1 ke `plan/plan-feature-grup-tahap1-v1.0.md` (TASK-001 + instruksi STOP, TASK-006 diperluas, task baru untuk Hapus & auto-assign, TASK-007 VERIFY diperluas). Prompt siap pakai ada di jawaban sesi ini.
+  - Opsional: ronde `/sdlc-clarify-reqs` independen atas spec v1.1 sebelum Plan, karena skor 95/100 masih self-assessment.
+  - Carried forward, unchanged: ESC-001..004 Gateway escalation OPEN; ASSUMPTION-007 OPEN; `docs/ARCHITECTURE.md` §11 → `/sdlc-map-architecture`; RISK-004/007/009; `docs/TODO-CHAT.md` item 11–13; `zzztag` Internal Note conversation `11746` (`messages.id = 305`).
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found, so the fast-path offer was skipped silently.
+
+<!-- checkpoint-tail: 2026-09-26 Phase 2 spec-SIDE remediation COMPLETE — wrote the 6 plan-clarification resolutions into `spec-design-grup-tahap1-tab-inbox.md` v1.1 as `REQ-007` (group exempt from the `status='closed'` gate in `hapusPercakapan()`, admin-only gate unchanged), `REQ-008` (no auto-assign for groups in `kirimKeConversation():2143-2145` / `kirimMedia():1051-1053`), `REQ-009` (Grup tab last + mandatory `QUEUE_STATUS_LABEL['grup']` entry), `CON-005` (hide response_state badge / SLA dot / Tandai Dibaca / Handoff), `CON-006` (hide ownership + lifecycle badges, extended by owner), and `AC-008..AC-012`, plus an explicit STOP instruction on ASSUMPTION-001 and a latent fix to `REQ-003` (assignment must go AFTER the existing if/elseif, not before) — lint verified as delta-only on both files (spec MD013 55→82, report 24→27, no new rule class), projected spec score 95/100 self-assessed, both files uncommitted; next: `/sdlc-plan-tasks` in a NEW session to inherit the Ref IDs into the plan. -->
+
+---

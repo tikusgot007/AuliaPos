@@ -10,6 +10,13 @@ status: PROCEED
 
 # 🔍 Clarification Report [Review Iteration 1]
 
+> [!SUCCESS]
+> **REMEDIATION STATUS: SPEC-SIDE RESOLVED**
+> The Specification Architect (2026-09-26) has written the spec-side resolutions of this report into `spec/spec-design-grup-tahap1-tab-inbox.md` **v1.1** as `REQ-007`, `REQ-008`, `REQ-009`, `CON-005`, `CON-006`, and `AC-008`..`AC-012`, plus explicit STOP instructions under `ASSUMPTION-001`. One additional owner decision extends `CON-006` to hide the ownership/lifecycle badges too.
+> **Projected Spec Readiness Score:** 95/100 (self-assessment by the Specification Architect, not an independent audit).
+>
+> **Still pending, deliberately out of this phase's scope:** Next Step #2 — `plan/plan-feature-grup-tahap1-v1.0.md` must still inherit the new Ref IDs via `/sdlc-plan-tasks` (TASK-001 STOP instruction, TASK-006 expansion, new tasks for Hapus + auto-assign, expanded TASK-007 VERIFY). This report's plan-side findings are therefore **not fully closed** until that plan revision lands.
+
 **Readiness Score:** 82/100
 **Status:** Good Enough (≥80)
 
