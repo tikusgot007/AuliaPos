@@ -4,7 +4,7 @@ version: 1.0
 date_created: 2026-09-26
 last_updated: 2026-09-26
 owner: AuliaPos Inbox module
-status: "Planned"
+status: "Completed"
 tags: ["refactor", "clean-code", "architecture", "security"]
 ---
 
@@ -12,7 +12,7 @@ tags: ["refactor", "clean-code", "architecture", "security"]
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 Follow-up to the Phase 4 code review of `plan-refactor-grup-tahap2-identitas-v1.0.md`
 (REQ-011/AC-012, label-safe legacy group messages). Phase 4 itself is
@@ -68,13 +68,13 @@ domain classification case and strengthens the test oracle.
 
 | Task ID  | Description (Include Exact File Paths & Micro-Testing)                                                                                                        | Ref ID  | Completed |    Date    |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | :-------: | :--------: |
-| TASK-101 | In `app/Services/SenderIdentityFormatter.php`, in the `s.whatsapp.net` branch validate the phone part with `preg_match('/^\d+$/', $phonePart) === 1` after stripping the device suffix; otherwise `return self::LABEL_FALLBACK`. Makes `120363@g.us@s.whatsapp.net` -> `'Pengirim'`. | REQ-001 |    [ ]    |            |
-| TASK-102 | Normalize `$domain = strtolower($domain);` once after extraction, then compare strictly: `s.whatsapp.net`, `lid`, `g.us`, and `str_ends_with($domain, '.lid')`. | REQ-002 |    [ ]    |            |
-| TASK-103 | Evaluate the group-domain check so any `g.us` domain -- including an empty local (`@g.us`) -- returns `null` without leaking the value; malformed non-group inputs stay `'Pengirim'`. | REQ-003 |    [ ]    |            |
-| TASK-104 | Extract constants: `DOMAIN_WHATSAPP = 's.whatsapp.net'`, `DOMAIN_GROUP = 'g.us'`, `DOMAIN_LID_SUFFIX = '.lid'`, `DEVICE_SEPARATOR = ':'`. | PRN-002 |    [ ]    |            |
-| TASK-105 | Extend `tests/unit/SenderIdentityFormatterTest.php`: crafted `120363@g.us@s.whatsapp.net` -> `'Pengirim'`; `6281234567890@S.WHATSAPP.NET` -> phone; `999@LID`/`999@hosted.LID` -> `'LID'`; `@g.us` -> `null`; and for every case assert `assertStringNotContainsString('@', $label)`. | REQ-001, REQ-002, REQ-003, SEC-001 | [ ] | |
-| TASK-106 | **VERIFY**: `vendor/bin/phpunit --no-coverage --filter SenderIdentityFormatterTest` exit 0, then full suite exit 0. | -       |    [ ]    |            |
-| TASK-107 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2. | -       |    [ ]    |            |
+| TASK-101 | In `app/Services/SenderIdentityFormatter.php`, in the `s.whatsapp.net` branch validate the phone part with `preg_match('/^\d+$/', $phonePart) === 1` after stripping the device suffix; otherwise `return self::LABEL_FALLBACK`. Makes `120363@g.us@s.whatsapp.net` -> `'Pengirim'`. | REQ-001 |    [x]    | 2026-09-26 |
+| TASK-102 | Normalize `$domain = strtolower($domain);` once after extraction, then compare strictly: `s.whatsapp.net`, `lid`, `g.us`, and `str_ends_with($domain, '.lid')`. | REQ-002 |    [x]    | 2026-09-26 |
+| TASK-103 | Evaluate the group-domain check so any `g.us` domain -- including an empty local (`@g.us`) -- returns `null` without leaking the value; malformed non-group inputs stay `'Pengirim'`. | REQ-003 |    [x]    | 2026-09-26 |
+| TASK-104 | Extract constants: `DOMAIN_WHATSAPP = 's.whatsapp.net'`, `DOMAIN_GROUP = 'g.us'`, `DOMAIN_LID_SUFFIX = '.lid'`, `DEVICE_SEPARATOR = ':'`. | PRN-002 |    [x]    | 2026-09-26 |
+| TASK-105 | Extend `tests/unit/SenderIdentityFormatterTest.php`: crafted `120363@g.us@s.whatsapp.net` -> `'Pengirim'`; `6281234567890@S.WHATSAPP.NET` -> phone; `999@LID`/`999@hosted.LID` -> `'LID'`; `@g.us` -> `null`; and for every case assert `assertStringNotContainsString('@', $label)`. | REQ-001, REQ-002, REQ-003, SEC-001 | [x] | 2026-09-26 |
+| TASK-106 | **VERIFY**: `vendor/bin/phpunit --no-coverage --filter SenderIdentityFormatterTest` exit 0, then full suite exit 0. | -       |    [x]    | 2026-09-26 |
+| TASK-107 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2. | -       |    [x]    | 2026-09-26 |
 
 ### Implementation Phase 2: Session-level Regression Lock
 
@@ -83,9 +83,9 @@ domain classification case and strengthens the test oracle.
 
 | Task ID  | Description (Include Exact File Paths & Micro-Testing)                                                                                                        | Ref ID  | Completed |    Date    |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | :-------: | :--------: |
-| TASK-201 | In `tests/session/InboxGrupTahap2Phase2Test.php`, add a crafted-JID case (`120363@g.us@s.whatsapp.net`) to the label matrix and assert the returned `sender_name` never contains `@` and is not the raw value. | SEC-001 |    [ ]    |            |
-| TASK-202 | **VERIFY**: full suite exit 0; AC-012/AC-006/AC-008/AC-011 regressions stay green. | -       |    [ ]    |            |
-| TASK-203 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing. | -       |    [ ]    |            |
+| TASK-201 | In `tests/session/InboxGrupTahap2Phase2Test.php`, add a crafted-JID case (`120363@g.us@s.whatsapp.net`) to the label matrix and assert the returned `sender_name` never contains `@` and is not the raw value. | SEC-001 |    [x]    | 2026-09-26 |
+| TASK-202 | **VERIFY**: full suite exit 0; AC-012/AC-006/AC-008/AC-011 regressions stay green. | -       |    [x]    | 2026-09-26 |
+| TASK-203 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing. | -       |    [x]    | 2026-09-26 |
 
 ## 3. Structural Remedies & Alternatives
 
