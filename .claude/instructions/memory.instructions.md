@@ -1362,3 +1362,84 @@
 <!-- checkpoint-tail: 2026-09-27 Phase 6l `/sdlc-clarify-reqs` interrogated `spec/spec-design-balas-pesan.md` v1.3 and closed 9 findings, all as option (A), at Readiness 88/100 PROCEED (report `docs/audit/clarification-report-balas-pesan-spec-v1.3-2026-09-27.md`): quoted_media_available 0 only when media_local_filename is empty AND media_confirmed_gone_at is set, 1 is a heuristic, NULL means not-media-or-unknown, plus a display-time fallback rendering "[Media tidak tersedia]" on 404/410/error without a DB write (keeps the REQ-007 frozen snapshot while satisfying AC-005); quoted.fromMe derived ONLY from direction with an explicit ban on using sender_jid (incoming rows can have NULL sender_jid), sender_jid may be null for outgoing, "fromMe": null == absent == false, and Gateway fills key.participant from its own bot JID when fromMe is true; Section 12 must mandate a soft-delete-inclusive source lookup (withDeleted()), never plain MessageModel::find(); all v1.3 file:line citations verified accurate; no ADR/CONTEXT change; next: /sdlc-define-specs to emit spec v1.4, then align both Balas Pesan plans, PRD GH-015 AC 362/364 still gated. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6m — `/sdlc-define-specs` amandemen spec Balas Pesan v1.3 → v1.4, 9 resolusi)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`) — remediasi **spec-only** atas 9 resolusi (semua opsi A) dari `docs/audit/clarification-report-balas-pesan-spec-v1.3-2026-09-27.md` (Iteration 1, 88/100, PROCEED). Persona-locked as Specification Architect; **tidak ada** kode aplikasi, plan, PRD, ADR, atau `CONTEXT.md` yang disentuh.
+- **Active Artifacts:**
+  - `spec/spec-design-balas-pesan.md` — ✅ **v1.3 → v1.4** (` M`, uncommitted); 9 resolusi diterapkan.
+  - `docs/audit/clarification-report-balas-pesan-spec-v1.3-2026-09-27.md` — ✅ ditandai `REMEDIATION STATUS: RESOLVED` (blok `[!NOTE]` + projected 96/100).
+  - `plan/plan-feature-balas-pesan-auliapos-v1.0.md` / `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md` — input only, **tidak diubah** (alignment pending; deviasi dilaporkan).
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` v1.1 — **tidak diubah** (GH-015 AC 362/364 tetap terbuka).
+- **Achieved Milestones:**
+  - **Focus 1 (F1-1..F1-4)** — `REQ-008`:102-105 & Section 4.2:186: `0` kini dua-kondisi (`media_local_filename` **kosong** **DAN** `media_confirmed_gone_at` terisi; file lokal menang atas confirmed-gone); `1` eksplisit **heuristik** (*potentially available*, bukan jaminan; dicatat risiko `500` media outgoing tanpa `media_local_filename`/`media_metadata`); `NULL` diperluas (bukan media **atau** belum/tidak teresolusi); ditambah **fallback tampilan** (muat `404`/`410`/error → "[Media tidak tersedia]" **tanpa tulis DB**, snapshot beku `REQ-007`); `AC-005`:222 mencakup kedua jalur.
+  - **Focus 2 (F2-1..F2-4)** — `REQ-001`:87, `REQ-002`:89, Section 4.1:145, 4.1.1:172, 4.3:190: `fromMe` **hanya** dari `direction` (`outgoing`→`true`, `incoming`→`false`); larangan eksplisit memakai `sender_jid` (incoming juga bisa `NULL`, `InboxGatewayApi.php:85-91`/`:293`); `quoted.sender_jid` boleh `null` untuk outgoing; `"fromMe": null` == absent == `false`; `fromMe: true` → Gateway mengisi `key.participant` dari JID akun-bot-nya.
+  - **Focus 3 (F3-1)** — `REQ-011`:113, Section 4.3:190, Section 12:281: lookup pesan sumber (dua arah) **wajib soft-delete-inclusive** (`withDeleted()`/query tanpa filter `deleted_at`, pola `findMessageByOperationId()` `Inbox.php:2285-2303`); `MessageModel::find()`/`first()` polos **dilarang** (`useSoftDeletes`, `MessageModel.php:38`).
+  - Catatan revisi **v1.4** ditambah di Section 1.2 (pola v1.3/v1.2); tidak ada ADR baru; `CONTEXT.md` tidak berubah.
+  - Lint delta: HEAD/v1.3 baseline `MD013 x92, MD025 x1, MD028 x2` → v1.4 `MD013 x101, MD025 x1, MD028 x3` — **tanpa kelas rule baru** (MD013 long-line & MD028 adjacent-blockquote sudah disanksi, KB DE-49). Bukti: `build/lint-spec-balas-pesan-v14.txt` (gitignored).
+  - Self-Assessment (rubrik AGENTS.md): Completeness 40/40, Clarity 29/30, Alignment 27/30 → **96/100 proyeksi**; Critical Flaw Veto: No.
+- **Dead-Ends (Do NOT Repeat):**
+  - Tidak ada dead-end baru. Edit dilakukan **sekuensial per file** (bukan batch paralel ke file yang sama) — patuh KB DE-19/DE-35/DE-47.
+  - **Larangan mutlak plan-side belum tersinkron:** `plan/plan-feature-balas-pesan-auliapos-v1.0.md:63` (`TASK-002`) masih menyebut `MessageModel::find()` — **kontradiksi langsung** dengan Section 12 v1.4; jangan jalankan `/sdlc-write-code` untuk plan ini sebelum di-align (kelas sama dengan DE Phase 6h "audit findings are not self-verifying").
+- **Updated Files:**
+  - `spec/spec-design-balas-pesan.md` — v1.3→v1.4: frontmatter `version: 1.4`, catatan revisi baru di Section 1.2, `REQ-001`/`REQ-001a`/`REQ-002`/`REQ-008`/`REQ-011`, Section 4.1/4.1.1/4.2/4.3/12, `AC-005`, Section 6/13 (hook uji).
+  - `docs/audit/clarification-report-balas-pesan-spec-v1.3-2026-09-27.md` — banner `REMEDIATION STATUS: RESOLVED` + projected 96/100 (tepat setelah `<!-- markdownlint-disable -->`, sebelum H1).
+  - `build/lint-spec-balas-pesan-v14.txt` — bukti lint (gitignored).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - **Tidak mengubah plan mana pun** meski diminta cross-check — alignment plan adalah kerja `/sdlc-plan-tasks` dan di luar scope Specification Architect (laporan klarifikasi juga menyatakan alignment plan dilakukan *setelah* spec v1.4 disetujui). Deviasi dilaporkan, bukan diperbaiki.
+  - Amandemen **bedah** (edit anchored, sekuensial); `version` naik ke 1.4 untuk jejak audit. Tidak ada ADR baru (gagal *Triple Gate*; turunan invarian `docs/CHAT.md`/`REQ-007`) dan `CONTEXT.md` tidak diubah.
+- **Next Action / Pending:**
+  - **`/sdlc-plan-tasks` di sesi chat baru** untuk align kedua plan ke spec v1.4: `plan-feature-balas-pesan-auliapos-v1.0.md` `TASK-002` (ganti `MessageModel::find()` → lookup soft-delete-inclusive), `TASK-006`, `TASK-010` (nyatakan inklusi soft-delete), dan referensi spec `v1.2`→`v1.4`; `plan-feature-balas-pesan-wa-gateway-v1.0.md` `TASK-001` (tambah pengisian `key.participant` dari JID bot untuk `fromMe: true`) + referensi `v1.2`→`v1.4`.
+  - Alternatif: `/sdlc-clarify-reqs` singkat atas spec v1.4 sebelum Plan.
+  - **Gated:** PRD GH-015 AC 362/364 → `/sdlc-draft-prd`, lalu `/sdlc-audit-consistency` Iteration 3 (Deadlock Breaker aktif).
+  - File sesi **belum di-commit** (`spec/spec-design-balas-pesan.md` = ` M`, audit + memory) — commit/push menunggu perintah owner (push via `cmd /c "git push origin v2.3 > build\push.txt 2>&1"` + verifikasi `git ls-remote origin refs/heads/v2.3` = local `HEAD`, KB DE-39).
+  - Carried forward (tetap, non-blocking): `CONTEXT.md:68` "Kutipan" wording; PRD Section 4 note lines 158–165 & GH-012 AC phase mismatch; sisa `file:line` drift `app/Views/inbox/index.php:2308` → `:2362`; `[OPTIONAL] SEC-01`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004 OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat dan cocok (fast path), tawaran update di-skip senyap.
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6m `/sdlc-define-specs` applied all 9 clarification resolutions (F1-1..F1-4, F2-1..F2-4, F3-1) to `spec/spec-design-balas-pesan.md` v1.3→v1.4 (spec-only; no code/plan/PRD/ADR/CONTEXT touched) and bumped `version: 1.4`: (F1) `quoted_media_available` now `0` only when `media_local_filename` is empty AND `media_confirmed_gone_at` is set (local file wins), `1` is an explicit heuristic, `NULL` broadened to not-media-or-unknown, plus a display-time fallback rendering "[Media tidak tersedia]" on 404/410/error with no DB write (REQ-007 snapshot stays frozen; AC-005 covers both paths); (F2) `quoted.fromMe` derived ONLY from `direction` with an explicit ban on `sender_jid` (incoming rows can have NULL sender_jid; `InboxGatewayApi.php:85-91/293`), `sender_jid` may be null for outgoing, `"fromMe": null` == absent == false, and Gateway fills `key.participant` from its own bot JID for `fromMe:true`; (F3) `REQ-011`/Section 4.3/Section 12 now mandate a soft-delete-inclusive source lookup (`withDeleted()`, pattern `findMessageByOperationId()` `Inbox.php:2285-2303`) and forbid plain `MessageModel::find()` (`useSoftDeletes`, `MessageModel.php:38`). The clarification report now carries a `REMEDIATION STATUS: RESOLVED` banner with projected 96/100 (Completeness 40/40, Clarity 29/30, Alignment 27/30). Cross-check found a LIVE plan deviation: `plan-feature-balas-pesan-auliapos-v1.0.md:63` TASK-002 still names `MessageModel::find()` (contradicts Section 12), TASK-006/TASK-010 do not state soft-delete inclusion, and both plans still cite spec v1.2 — reported, not fixed (out of Spec Architect scope). Lint delta clean of new rule classes (MD013 92→101, MD025 1→1, MD028 2→3). Next: `/sdlc-plan-tasks` in a NEW session to align both plans, then `/sdlc-write-code`; PRD GH-015 AC 362/364 still gated; files uncommitted. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6n — `/sdlc-plan-tasks` remediasi plan-side Balas Pesan: F-A..F-D + F-E `[Assumed]`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`) — remediasi **plan-side** atas `docs/audit/clarification-report-balas-pesan-plans-v1.4-2026-09-27.md` (Iteration 2, 89/100, PROCEED). Persona-locked as Planner Architect; **tidak ada** kode aplikasi, spec, PRD, ADR, atau `CONTEXT.md` yang diubah (spec **v1.5** sudah lebih dulu diamandemen sesi spec-side sebelumnya; plan hanya diselaraskan ke sana).
+- **Active Artifacts:**
+  - `spec/spec-design-balas-pesan.md` — **v1.5** (spec-side F-A..F-D sudah diterapkan sesi sebelumnya; ` M` uncommitted; tidak diubah sesi ini).
+  - `plan/plan-feature-balas-pesan-auliapos-v1.0.md` — ✅ direvisi (additive; `AC`/`REQ` tidak berubah).
+  - `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md` — ✅ direvisi (additive).
+  - `docs/audit/clarification-report-balas-pesan-plans-v1.4-2026-09-27.md` — ✅ banner diperbarui `RESOLVED (spec-side + plan-side)`, Next Step 1 & 3 ditandai `complete`.
+  - `docs/audit/clarification-report-balas-pesan-spec-v1.3-2026-09-27.md` — ` M` (banner RESOLVED + projected 96/100 dari Phase 6m; belum di-commit).
+- **Achieved Milestones:**
+  - **F-A (guard intra-percakapan):** `TASK-002`/`TASK-006` menerima guard `400` bila `messages.conversation_id` baris sumber ≠ percakapan tujuan (berdampingan `cekOwnership()` `Inbox.php:2157` teks / `:984` media), tanpa menulis snapshot.
+  - **F-D (taksonomi lookup sumber):** `TASK-002`/`TASK-006` — `400` untuk ID sumber tidak ada / lintas percakapan; sumber `local-…` tetap dikirim (Gateway mendegradasi `quote_applied:false`); soft-deleted tetap diterima.
+  - **F-B (diskriminator "tidak ditemukan"):** `TASK-010` menulis `quoted_sender_label` **wajib non-NULL** saat ditemukan (fallback `SenderIdentityFormatter::LABEL_FALLBACK` `"Pengirim"` bila `labelFor()` `null`) dan **tidak** menulis label saat tidak ditemukan; `TASK-011` mendeteksi "Pesan tidak ditemukan" **hanya** dari `quoted_sender_label IS NULL` (dilarang membandingkan string `quoted_snippet`).
+  - **F-C (degradasi `quoted` malformed):** plan WA-Gateway `TASK-001`/`TASK-002` — `quoted` bukan objek / `wa_message_id` kosong → pesan/media **tetap dikirim**, `sent:true, quote_applied:false`, kegagalan **di-log** (`CON-001`).
+  - **Test otomatis** ditambahkan: kutipan lintas percakapan → `400`; ID sumber tidak ada → `400`; sumber `local-…` tetap kirim; diskriminator label (ditemukan non-NULL termasuk fallback `"Pengirim"`, tidak ditemukan `NULL`).
+  - **F-E dicatat `[Assumed]`** di Section 7 plan AuliaPos: `ASSUMPTION-008` (marker "Terkirim tanpa kutipan" ephemeral), `ASSUMPTION-009` (`mb_substr` 200 + `…` hanya bila terpotong), `ASSUMPTION-010` (`quote_applied` hilang = `false`).
+  - Pointer spec di kedua plan diselaraskan `v1.4` → **v1.5**; catatan revisi ringkas ditambahkan di Introduction tiap plan.
+  - **Self-assessment (rubrik AGENTS.md):** Completeness 39/40 + Clarity 29/30 + Alignment 29/30 = **97/100**; Critical Flaw Veto: No.
+- **Dead-Ends (Do NOT Repeat):**
+  - Tidak ada dead-end shell baru. Pola berhasil: anchor `edit` pada satu frasa unik (DE-19/DE-35) untuk baris tabel plan yang sangat panjang, lalu verifikasi via `grep`/`read`.
+  - **Drift label versi spec:** kedua plan masih menulis `v1.4` padahal spec sudah `v1.5` (spec-side mendahului). Selalu cek `version:` spec sebelum menulis rujukan versi di plan — kelas sama dengan "audit findings are not self-verifying".
+- **Updated Files:**
+  - `plan/plan-feature-balas-pesan-auliapos-v1.0.md` — F-A/F-D (TASK-002/006 + test), F-B (TASK-010/011 + test), F-E `[Assumed]` (Section 7), pointer spec v1.5, catatan revisi.
+  - `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md` — F-C (TASK-001/002), pointer spec v1.5, catatan revisi.
+  - `docs/audit/clarification-report-balas-pesan-plans-v1.4-2026-09-27.md` — banner `RESOLVED (spec-side + plan-side)` + Next Step 1/3 complete.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Perubahan plan **additive**; **tidak ada** `AC`/`REQ` baru atau yang diubah (sesuai batas yang diminta owner). Tidak ada ADR baru; `CONTEXT.md` tidak berubah.
+  - Karena projected score ≥ 80, ditawarkan **Opsi A** (`/sdlc-write-code` langsung) atau **Opsi B** (`/sdlc-clarify-reqs` ulang) di sesi baru.
+- **Next Action / Pending:**
+  - Commit + push sesi ini ke `origin/v2.3`: spec v1.5, kedua plan, kedua audit report, dan memory. Push via `cmd /c "git push origin v2.3 > build\push.txt 2>&1"` lalu verifikasi `git ls-remote origin refs/heads/v2.3` = local `HEAD` (KB DE-39).
+  - **Sengaja tidak di-commit:** `.claude/skills/update-peta-kemajuan/` (untracked, sesi lain) dan `jalankan_claude.bat` (untracked, memuat `9router-local-key` — `HYGIENE-01`).
+  - Langkah berikutnya: `/sdlc-write-code` (Opsi A) atau `/sdlc-clarify-reqs` (Opsi B) di **sesi baru** (session isolation — sesi ini terkunci sebagai Planner Architect).
+  - Gated (di luar lingkup): PRD GH-015 AC 362/364 → `/sdlc-draft-prd`, lalu `/sdlc-audit-consistency` Iteration 3.
+  - Carried forward (tetap, non-blocking): `CONTEXT.md:68` "Kutipan" wording; PRD Section 4 note lines 158–165 & GH-012 AC phase mismatch; sisa `file:line` drift `app/Views/inbox/index.php:2308` → `:2362`; `[OPTIONAL] SEC-01`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004 OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat dan cocok (fast path), tawaran update di-skip senyap.
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6n `/sdlc-plan-tasks` applied the plan-side remediation from `docs/audit/clarification-report-balas-pesan-plans-v1.4-2026-09-27.md` (Iteration 2, 89/100 PROCEED), additive only with NO AC/REQ changed: AuliaPos `TASK-002`/`TASK-006` gained the F-A intra-conversation guard (`400` when the source `messages.conversation_id` differs from the target conversation, alongside `cekOwnership()`) plus the F-D lookup taxonomy (`400` for a missing/cross-conversation ID, `local-…` sources still sent, soft-deleted accepted), `TASK-010` now writes a non-NULL `quoted_sender_label` when found (fallback `"Pengirim"` when `labelFor()` returns null) and writes no label when not found, `TASK-011` detects "Pesan tidak ditemukan" ONLY from `quoted_sender_label IS NULL`, and automated tests cover cross-conversation 400 / label discriminator / `local-…`; the WA-Gateway plan `TASK-001`/`TASK-002` now state the F-C malformed-`quoted` degradation (send without quote, `quote_applied:false`, logged); F-E is recorded as `[Assumed]` (ASSUMPTION-008 ephemeral marker, ASSUMPTION-009 `mb_substr` 200 + ellipsis, ASSUMPTION-010 missing `quote_applied` = false); both plans' spec pointers were aligned v1.4→v1.5 and the clarification report banner now reads RESOLVED (spec-side + plan-side) with Next Steps 1 & 3 complete; projected 97/100; next in a NEW session: `/sdlc-write-code` (Option A) or `/sdlc-clarify-reqs` (Option B). -->
+
+---

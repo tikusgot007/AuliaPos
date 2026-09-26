@@ -1,5 +1,13 @@
 <!-- markdownlint-disable -->
 
+> [!NOTE]
+> **REMEDIATION STATUS: RESOLVED**
+> This audit report has been remediated by Specification Architect (`/sdlc-define-specs`).
+> - **Target spec:** `spec/spec-design-balas-pesan.md` bumped to **v1.4** (2026-09-27).
+> - **Resolutions applied:** all nine (F1-1..F1-4, F2-1..F2-4, F3-1) on `REQ-008`, `REQ-011`, Section 4.1, Section 4.1.1, Section 4.2, Section 4.3, Section 12, `AC-005` (+ Section 6/13 test hooks).
+> - **Projected Readiness Score:** 96/100 (Completeness 40/40, Clarity 29/30, Alignment 27/30).
+> - **Carry-forward (unchanged, out of authoring scope):** PRD GH-015 AC divergence; `plan/plan-feature-balas-pesan-auliapos-v1.0.md` `TASK-002` still names plain `MessageModel::find()` and must be updated after spec v1.4 approval.
+
 # 🔍 Clarification Report [Review Iteration 1]
 
 **Target:** `spec/spec-design-balas-pesan.md` v1.3 (amended: three-valued `quoted_media_available`, optional `quoted.fromMe`, Section 12 snapshot wording)
