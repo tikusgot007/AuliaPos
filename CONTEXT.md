@@ -57,10 +57,19 @@ _Avoid_: Group chat, Group, Grup WhatsApp, Group chat WhatsApp
 ### Tindakan Pesan
 
 **Balas Pesan**:
-Balasan yang secara eksplisit menunjuk satu pesan tertentu di dalam percakapan,
-sehingga pesan yang ditunjuk ikut tampil sebagai kutipan. Berlaku untuk pesan
-teks maupun pesan media.
-_Avoid_: Reply, Quote, Kutipan, Mengutip
+Tindakan (aksi) kasir membalas satu pesan tertentu di dalam percakapan,
+sehingga pesan yang ditunjuk ikut tampil sebagai Kutipan. Berlaku untuk pesan
+teks maupun pesan media. Istilah untuk aksinya, bukan untuk hasil tampilannya
+(lihat **Kutipan**).
+_Avoid_: Reply, Quote
+
+**Kutipan**:
+Cuplikan (snapshot) dari pesan yang ditunjuk saat Balas Pesan dilakukan —
+teks terpotong atau label jenis media, beserta nama pengirim asli — yang
+ikut tampil pada bubble pesan balasan. Disimpan sekali saat balasan dibuat,
+tidak pernah dihitung ulang dari pesan aslinya. Istilah untuk hasil/tampilannya,
+bukan untuk aksinya (lihat **Balas Pesan**).
+_Avoid_: Quote, Mengutip (sebagai nama fitur/aksi — gunakan Balas Pesan)
 
 **Teruskan**:
 Tindakan mengirimkan kembali sebuah pesan yang sudah ada ke percakapan lain,

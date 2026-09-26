@@ -349,3 +349,71 @@
 <!-- checkpoint-tail: 2026-09-26 SDLC Phase 1 (PRD) is COMPLETE for three new Inbox WhatsApp features — a NEW untracked PRD `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` (v1.0, 380 lines, 10 sections, GH-011..GH-016, 41 unchecked acceptance criteria) covering **Grup**, **Balas Pesan** and **Teruskan**, written after four owner decisions (separate PRD rather than amending `prd-20260922-0141-*.md` v1.4 — justified by quoting its Non-goal at line 76 that bans Gateway changes; **staged** group release; a **new "Grup" tab** rather than a filter; primary business outcome "everything handled from AuliaPos alone"), with the two-repo split labelled per-requirement so the Plan phase inherits it, lint verified as a delta (184 vs 157 × MD013, no new rule class), and four inferences deliberately surfaced for the clarification checkpoint (Snooze as an inapplicable group action; `cekOwnership()` governing Balas Pesan/Teruskan; the "Diteruskan" marker's scope; the fallback group title) — next: `/sdlc-clarify-reqs` in a NEW session, and the PRD is still uncommitted. -->
 
 ---
+## 📝 Session Checkpoint: 2026-09-26
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Phase 2 — Specification (`/sdlc-define-specs`), COMPLETE for all 4 stages
+- **Active Artifacts:**
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — Status: ✅ Finalized (Clarification Readiness Score 88/100, PROCEED)
+  - `docs/audit/clarification-report-whatsapp-grup-balas-teruskan-2026-09-26.md` — Status: ✅ Finalized (all resolutions consumed into specs below)
+  - `spec/spec-index.md` — Status: ✅ Created (master index, 4-spec map + mandatory sequencing)
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — Status: ✅ Created (Tahap 1, AuliaPos-only, no repo dependency)
+  - `spec/spec-design-grup-tahap2-identitas.md` — Status: ✅ Created (Tahap 2, needs WA-Gateway)
+  - `spec/spec-design-balas-pesan.md` — Status: ✅ Created (Tahap 3, needs WA-Gateway)
+  - `spec/spec-design-teruskan.md` — Status: ✅ Created (Tahap 4, needs WA-Gateway, interacts with Tahap 3)
+- **Achieved Milestones:**
+  - User explicitly authorized scoping **all 4 PRD stages at once**, and explicitly authorized using the **public GitHub repo `https://github.com/tikusgot007/WA-Gateway/` (branch `master`)** as the reference source for WA-Gateway technical facts — this satisfies the standing WA-Gateway access-permission memory rule for this specific read-only public-repo use.
+  - Verified from WA-Gateway public source (`jidUtils.js`, `connectionManager.js`, `ci4Routes.js`): `classifyJid()` already returns `'group'` for `@g.us` (supports Tahap 1 assumption); **zero** existing support for group `participant`/`groupMetadata` extraction, quote (`quoted`), or forward (`isForwarded`) contracts — Tahap 2/3/4 all define genuinely new Gateway contracts, not documentation of existing behavior.
+  - All 4 specs follow the Mandatory Specification Template fully (14 sections + Introduction), with GitHub-Alert-flagged assumptions (ASSUMPTION-001..005), REQ/CON/GUD/AC numbering, and cross-linked Section 14 references forming a valid relative-link graph across the 5 files.
+  - No new ADRs created — each spec explicitly ran the Triple Gate Validation and failed it (decisions are direct applications of existing `docs/CHAT.md` §18 invariants, not new hard-to-reverse/surprising trade-offs).
+  - New DB migrations specified (not yet implemented): `conversations.group_name` (Tahap 2), `messages.quoted_wa_message_id`/`quoted_sender_label`/`quoted_snippet`/`quoted_media_available` (Tahap 3), `messages.is_forwarded` (Tahap 4).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Verifying `jid_type='group'` literal against local dev DB (`aulia_inboxdb`) by starting local MySQL (`mysqld.exe --standalone`).
+  - **Reason:** Local dev DB is near-empty (1 row, `jid_type='pn'` only) — NOT representative of production (~4 group JIDs, ~36 group messages). Time better spent documenting it as a flagged assumption for developer verification against production data.
+  - **Note:** Captured as `ASSUMPTION-001` in `spec-design-grup-tahap1-tab-inbox.md` instead of guessed or over-investigated locally.
+- **Updated Files:**
+  - `spec/spec-index.md`, `spec/spec-design-grup-tahap1-tab-inbox.md`, `spec/spec-design-grup-tahap2-identitas.md`, `spec/spec-design-balas-pesan.md`, `spec/spec-design-teruskan.md` — all newly created, untracked (not yet committed).
+- **Decisions Made:**
+  - Adaptive File Strategy → Modular Escalation chosen (4 spec files + 1 index) over a single consolidated spec, because the PRD spans two distinct domains (group identity vs. message actions) and two repos with independent release cycles (PRD Section 9.1/9.2).
+  - Kutipan (Balas Pesan) modeled as an independent **snapshot** column set on the reply message itself, never a live FK to the original message — required by the Clarification Report's "quote survives soft-delete unchanged" resolution.
+  - Teruskan's `is_forwarded` marker and Balas Pesan's `quoted_*` are mutually exclusive per message and non-stacking across repeated forwards (Clarification Report resolution consumed as REQ-009 in `spec-design-teruskan.md`).
+- **Next Action / Pending:**
+  - Recommended next phase: `/sdlc-clarify-reqs` in a **NEW chat session** (session isolation — this session is locked as Specification Architect persona). Ready-to-paste: `` /sdlc-clarify-reqs Periksa spec-spec baru ini untuk ambiguitas dan asumsi tersembunyi. Lampirkan: @spec/spec-index.md @spec/spec-design-grup-tahap1-tab-inbox.md @spec/spec-design-grup-tahap2-identitas.md @spec/spec-design-balas-pesan.md @spec/spec-design-teruskan.md @prd-20260926-0024-whatsapp-grup-balas-teruskan.md ``
+  - None of the 5 spec files are committed to git yet — still untracked (confirmed via git status at session start).
+  - No `AGENTS.md` change this session: the recorded `Active Memory Path` matched the file found, so the fast-path offer was skipped silently (already recorded 2026-09-25).
+
+<!-- checkpoint-tail: 2026-09-26 SDLC Phase 2 (Spec) is COMPLETE for all 4 stages of the Inbox WhatsApp Grup/Balas Pesan/Teruskan PRD — created `spec/spec-index.md` plus 4 stage specs (`spec-design-grup-tahap1-tab-inbox.md` AuliaPos-only, `spec-design-grup-tahap2-identitas.md`, `spec-design-balas-pesan.md`, `spec-design-teruskan.md`, the latter three all needing new WA-Gateway contracts verified against the public GitHub repo under explicit user authorization), each following the Mandatory Template with flagged assumptions and no new ADRs (Triple Gate failed each time); all 5 files untracked/uncommitted — next: `/sdlc-clarify-reqs` in a NEW session with all 5 files + the PRD attached. -->
+
+---
+## 📝 Session Checkpoint: 2026-09-26 (lanjutan — remediasi Spec)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Checkpoint Klarifikasi Spec (`/sdlc-clarify-reqs` sudah jalan di sesi lain sebelumnya, hasil skor 74/100 REFINE) → diikuti remediasi lewat `/sdlc-define-specs`.
+- **Active Artifacts:**
+  - `docs/audit/clarification-report-whatsapp-grup-balas-teruskan-spec-2026-09-26.md` — Status: ✅ Ditandai RESOLVED (Projected Readiness Score 93/100, naik dari 74/100)
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — Status: ✅ Diperbaiki (Temuan Kritis #1–#3)
+  - `spec/spec-design-balas-pesan.md` — Status: ✅ v1.1, Temuan Kritis #4 (endpoint) + #5 (REQ-010–013 kutipan masuk pelanggan) selesai
+  - `spec/spec-design-teruskan.md` — Status: ✅ Diperbaiki (Temuan Kritis #4, endpoint diseragamkan)
+- **Achieved Milestones:**
+  - Temuan Kritis #1: urutan assignment `queue_status='grup'` di `ConversationModel::withComputedStatus()` dipindah ke SETELAH blok if/elseif yang sudah ada (sebelumnya akan tertimpa).
+  - Temuan Kritis #2: REQ-004 Tahap 1 ditambah syarat kolom `jid_type` masuk ke `select()` di `apiPerluDibalasCount()` (`Inbox.php:327`).
+  - Temuan Kritis #3: CON-002 Tahap 1 ditulis ulang — Konfirmasi Nomor disabled (pola `tombolKonfirmasiNomor` yang sudah ada), Edit Profil (baris daftar kiri, bukan header) disabled, Hapus tetap berfungsi.
+  - Temuan Kritis #4: seluruh 7 kemunculan `POST /api/inbox/gateway/send` di `spec-design-balas-pesan.md` dan `spec-design-teruskan.md` diseragamkan jadi `POST {gatewayBaseUrl}/send`, cocok dengan `Inbox.php:2226`/`Config/Inbox.php:32`.
+  - Temuan Kritis #5: REQ-010–013 baru + Section 4.4 di `spec-design-balas-pesan.md` — kutipan pada pesan **masuk** dari pelanggan memakai ulang kolom `quoted_*` yang sudah ada (bukan kolom baru), dengan resolusi lookup lokal `wa_message_id` di `InboxGatewayApi::messages()` (fallback ke snippet dari Gateway kalau tidak ditemukan).
+- **Dead-Ends (Do NOT Repeat):** Tidak ada baru sesi ini.
+- **Updated Files:**
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — 3 fix faktual.
+  - `spec/spec-design-balas-pesan.md` — 1 fix faktual (endpoint) + REQ-010–013/Section 4.4/AC-008–009 baru, version 1.0→1.1.
+  - `spec/spec-design-teruskan.md` — 1 fix faktual (endpoint).
+  - `docs/audit/clarification-report-whatsapp-grup-balas-teruskan-spec-2026-09-26.md` — ditambah blok REMEDIATION STATUS di atas frontmatter.
+- **Decisions Made:**
+  - Kutipan masuk dari pelanggan **memakai ulang** 4 kolom `quoted_*` yang sudah didesain generik/nullable (bukan menambah kolom terpisah untuk arah masuk) — konsisten prinsip minimalisme proyek.
+  - AuliaPos tidak mempercayai teks kutipan dari Gateway begitu saja — selalu coba resolve `wa_message_id` ke DB lokal dulu, fallback ke data Gateway hanya kalau tidak ketemu.
+- **Next Action / Pending:**
+  - Semua 7 file spec+audit masih **belum di-commit ke git** (untracked).
+  - Next: `/sdlc-plan-tasks` untuk Tahap 1 (`spec-design-grup-tahap1-tab-inbox.md`) di sesi chat baru — Tahap 1 dipilih dulu karena satu-satunya yang bisa dirilis sendiri tanpa menunggu WA-Gateway (One Path Rule, `CLAUDE.md`).
+  - Belum ada ronde `/sdlc-clarify-reqs` independen untuk memverifikasi skor 93/100 (ini proyeksi self-assessment Specification Architect, bukan hasil audit terpisah) — opsional sebelum Plan, sesuai keputusan user "lanjut ke Plan langsung".
+
+<!-- checkpoint-tail: 2026-09-26 Remediated all 5 Critical Findings from the Spec clarification report (74/100 REFINE -> projected 93/100 RESOLVED): fixed 3 code-vs-spec contradictions in spec-design-grup-tahap1-tab-inbox.md (queue_status assignment order, missing jid_type in select(), wrong CON-002 code reference), unified the inconsistent Gateway endpoint name (POST /api/inbox/gateway/send -> POST {gatewayBaseUrl}/send) across spec-design-balas-pesan.md and spec-design-teruskan.md, and closed the incoming-quote gap with new REQ-010-013 + Section 4.4 in spec-design-balas-pesan.md (reusing existing quoted_* columns, local wa_message_id lookup with Gateway-snippet fallback); all files still uncommitted — next: /sdlc-plan-tasks for Tahap 1 in a new session. -->
+
+---
