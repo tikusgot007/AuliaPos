@@ -1,0 +1,33 @@
+{
+  "skill_name": "update-peta-kemajuan",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "update peta kemajuan",
+      "expected_output": "Reports there is no new project progress and does NOT rewrite the page. The only commit in range is the page's own docs commit, which must be recognised as non-progress.",
+      "files": [],
+      "expectations": []
+    },
+    {
+      "id": 1,
+      "prompt": "update peta kemajuan",
+      "expected_output": "Updates docs/peta-kemajuan-inbox.html surgically: eyebrow hash bumped to the new commit, 'Berubah sejak' box updated, the GH-011 card becomes step done with the plan/evidence cited, CSS/style untouched.",
+      "files": [],
+      "expectations": []
+    },
+    {
+      "id": 2,
+      "prompt": "update peta kemajuan",
+      "expected_output": "Marks the GH-011 card as step partial (NOT done) because the commit message claims 'done' but there is no Completed plan and no test evidence; explains what is missing.",
+      "files": [],
+      "expectations": []
+    },
+    {
+      "id": 3,
+      "prompt": "update peta kemajuan",
+      "expected_output": "Updates the page surgically (as in eval-1) AND emits a ready-to-run prompt for the single most-urgent next step, in a fenced code block, quoting the exact /command, the target plan file path, the concrete acceptance criterion, the prerequisite state, the follow-on chain, and the One Path Rule gate. The prompt must not invent files or commands not present in the page.",
+      "files": [],
+      "expectations": []
+    }
+  ]
+}
