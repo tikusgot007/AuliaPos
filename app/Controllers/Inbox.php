@@ -25,8 +25,13 @@ use Config\Inbox as InboxConfig;
  */
 class Inbox extends BaseController
 {
-    /** Nilai sah parameter `status` di GET /inbox/api/conversations (CL-002). */
-    private const QUEUE_STATUSES = ['belum_diambil', 'open', 'menunggu', 'ditunda', 'selesai'];
+    /**
+     * Nilai sah parameter `status` di GET /inbox/api/conversations (CL-002).
+     * 'grup' ditambahkan Tahap 1 (REQ-001/REQ-002): mengembalikan seluruh
+     * percakapan jid_type='group', terlepas dari response_state/queue_status
+     * lima status lama.
+     */
+    private const QUEUE_STATUSES = ['belum_diambil', 'open', 'menunggu', 'ditunda', 'selesai', 'grup'];
 
     /** Ukuran halaman GET /inbox/api/conversations (CL-010). */
     private const CONVERSATIONS_PER_PAGE = 50;
@@ -324,12 +329,18 @@ class Inbox extends BaseController
     {
         $conversationModel = new ConversationModel();
         $conversations = $conversationModel
-            ->select('status, last_message_direction, last_message_at, last_seen_by_assignee_at, snoozed_until')
+            ->select('status, last_message_direction, last_message_at, last_seen_by_assignee_at, snoozed_until, jid_type')
             ->where('status', 'open')
             ->findAll();
 
         $conversations = $this->attachResponseState($conversations);
-        $count = count(array_filter($conversations, fn($c) => $c['response_state'] === 'perlu_dibalas'));
+        // REQ-004 -- percakapan grup dikecualikan dari badge perlu_dibalas,
+        // terlepas dari response_state hasil hitungnya (grup punya tab
+        // sendiri, tidak ikut antrean kerja kasir).
+        $count = count(array_filter(
+            $conversations,
+            fn($c) => $c['response_state'] === 'perlu_dibalas' && ($c['jid_type'] ?? null) !== 'group'
+        ));
 
         return $this->response->setJSON(['status' => 'success', 'count' => $count]);
     }
@@ -705,6 +716,24 @@ class Inbox extends BaseController
     }
 
     /**
+     * CON-004 (Grup Tahap 1) -- percakapan grup tidak pernah boleh
+     * Ambil/Lepas/Tutup/Snooze/Konfirmasi Nomor/Edit Profil, sekalipun
+     * request datang LANGSUNG ke endpoint (melewati UI yang sudah
+     * menyembunyikan/men-disable tombolnya per CON-001/CON-002).
+     * Defense in depth, pola yang sama dengan cekOwnership().
+     *
+     * @return string|null Pesan error kalau DITOLAK, null kalau BOLEH.
+     */
+    private function cekBukanGrup(array $conversation): ?string
+    {
+        if (($conversation['jid_type'] ?? null) === 'group') {
+            return 'Aksi ini tidak berlaku untuk percakapan grup.';
+        }
+
+        return null;
+    }
+
+    /**
      * GET /inbox/test
      *
      * Halaman TEST SEMENTARA -- bukan UI Inbox final (itu Phase 4).
@@ -1047,8 +1076,12 @@ class Inbox extends BaseController
             'last_seen_by_assignee_at' => $now,
         ];
         // Auto-assign ke pengirim pertama kalau belum ada yang menangani
-        // -- lihat catatan sama di kirimKeConversation().
-        if (empty($conversation['assigned_to'])) {
+        // -- lihat catatan sama di kirimKeConversation(). REQ-008: grup
+        // DIKECUALIKAN dari auto-assign (assigned_to tidak boleh terisi
+        // otomatis untuk grup, karena lepasPercakapan() selalu menolak
+        // 403 untuk grup -- tanpa pengecualian ini grup akan macet
+        // permanen "dipegang" satu kasir tanpa jalan melepasnya).
+        if (($conversation['jid_type'] ?? null) !== 'group' && empty($conversation['assigned_to'])) {
             $conversationUpdate['assigned_to'] = $userId;
         }
         $conversationModel->updateLastMessageIfNewer($conversationId, $now, 'outgoing', $conversationUpdate);
@@ -1549,7 +1582,13 @@ class Inbox extends BaseController
             ]);
         }
 
-        if ($conversation['status'] !== 'closed') {
+        // REQ-007 -- grup dikecualikan dari syarat "harus closed": grup
+        // tidak pernah bisa mencapai status='closed' (Tutup tidak
+        // dirender/CON-001, endpoint tutupPercakapan() menolak 403/CON-004,
+        // tidak ada reopen manual), jadi syarat ini akan membuat Hapus
+        // SELALU gagal 409 untuk grup kalau tidak dikecualikan. Gate
+        // admin-only di atas TIDAK berubah.
+        if (($conversation['jid_type'] ?? null) !== 'group' && $conversation['status'] !== 'closed') {
             return $this->response->setStatusCode(409)->setJSON([
                 'status'  => 'error',
                 'message' => 'Percakapan harus ditutup (Selesai) dulu sebelum bisa dihapus.',
@@ -1615,6 +1654,14 @@ class Inbox extends BaseController
             return $this->response->setStatusCode(404)->setJSON([
                 'status'  => 'error',
                 'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $grupError,
             ]);
         }
 
@@ -1691,6 +1738,14 @@ class Inbox extends BaseController
             ]);
         }
 
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $grupError,
+            ]);
+        }
+
         $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
         if ($ownershipError) {
             return $this->response->setStatusCode(403)->setJSON([
@@ -1755,6 +1810,11 @@ class Inbox extends BaseController
             return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Conversation tidak ditemukan.']);
         }
 
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => $grupError]);
+        }
+
         $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
         if ($ownershipError) {
             return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => $ownershipError]);
@@ -1801,6 +1861,14 @@ class Inbox extends BaseController
             return $this->response->setStatusCode(404)->setJSON([
                 'status'  => 'error',
                 'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $grupError,
             ]);
         }
 
@@ -1859,6 +1927,14 @@ class Inbox extends BaseController
             return $this->response->setStatusCode(404)->setJSON([
                 'status'  => 'error',
                 'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $grupError,
             ]);
         }
 
@@ -1950,6 +2026,14 @@ class Inbox extends BaseController
             return $this->response->setStatusCode(404)->setJSON([
                 'status'  => 'error',
                 'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $grupError,
             ]);
         }
 
@@ -2139,8 +2223,9 @@ class Inbox extends BaseController
         // duluan otomatis "memegang" percakapan itu, tanpa perlu klik
         // "Ambil" secara terpisah. Tidak menimpa assignment yang sudah
         // ada (cekOwnership() di atas sudah memastikan hanya yang
-        // berhak yang sampai ke titik ini).
-        if (empty($conversation['assigned_to'])) {
+        // berhak yang sampai ke titik ini). REQ-008: grup DIKECUALIKAN
+        // dari auto-assign -- lihat catatan sama di Inbox::kirimMedia().
+        if (($conversation['jid_type'] ?? null) !== 'group' && empty($conversation['assigned_to'])) {
             $conversationUpdate['assigned_to'] = $userId;
         }
 

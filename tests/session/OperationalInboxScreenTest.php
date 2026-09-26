@@ -71,9 +71,13 @@ final class OperationalInboxScreenTest extends CIUnitTestCase
     public function testHalamanInboxMembacaSlaColorDariServer(): void
     {
         // AC-011: the dot comes from the server value c.sla_color only.
+        // Grup Tahap 1 (CON-005) -- untuk grup, sla_color TIDAK dirender
+        // sama sekali (isGrup ? null : c.sla_color), jadi renderTitikSla()
+        // masih menerima sla_color mentah dari server apa adanya, hanya
+        // digantikan null saat baris itu adalah grup.
         $body = $this->halamanInbox();
 
-        $this->assertStringContainsString('renderTitikSla(c.sla_color)', $body);
+        $this->assertStringContainsString('renderTitikSla(isGrup ? null : c.sla_color)', $body);
         $this->assertStringContainsString('const SLA_WARNA = {', $body);
         $this->assertStringContainsString('.inbox-sla-dot {', $body);
         $this->assertStringContainsString('class="inbox-sla-dot ', $body);

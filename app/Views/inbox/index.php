@@ -351,6 +351,8 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterMenunggu" onclick="setFilterConversation('menunggu')">Menunggu <span class="badge bg-light text-dark border tab-count" data-count-for="menunggu">0</span></button>
                     <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterDitunda" onclick="setFilterConversation('ditunda')">Ditunda <span class="badge bg-light text-dark border tab-count" data-count-for="ditunda">0</span></button>
                     <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterSelesai" onclick="setFilterConversation('selesai')">Selesai <span class="badge bg-light text-dark border tab-count" data-count-for="selesai">0</span></button>
+                    <!-- Grup Tahap 1 (REQ-009) -- SENGAJA paling akhir, 5 tab lama tidak bergeser posisi. -->
+                    <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterGrup" onclick="setFilterConversation('grup')">Grup <span class="badge bg-light text-dark border tab-count" data-count-for="grup">0</span></button>
                 </div>
                 <div class="inbox-list-panel" id="inboxListPanel">
                     <?php if (empty($conversations)): ?>
@@ -793,6 +795,13 @@
         menunggu: 'Menunggu',
         ditunda: 'Ditunda',
         selesai: 'Selesai',
+        // Grup Tahap 1 (REQ-009) -- SENGAJA paling akhir. Ini
+        // satu-satunya sumber kebenaran untuk highlight tombol aktif
+        // (renderFilterButtons()) dan hitung badge angka tab
+        // (renderTabCounts()); tanpa entri ini, tombol tab Grup tidak
+        // pernah menyala aktif dan badge angkanya tidak pernah ter-update
+        // walau filter data tetap jalan normal.
+        grup: 'Grup',
     };
 
     function renderFilterButtons() {
@@ -928,30 +937,43 @@
             const nama = c.contact_name || c.whatsapp_name || c.phone || c.chat_id;
             const waktu = c.last_message_at ? formatWaktuInbox(c.last_message_at) : '';
             const panah = c.last_message_direction === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '';
-            const closedBadge = c.status === 'closed' ? '<span class="badge bg-secondary" style="font-size:0.6rem;">closed</span>' : '';
+            // Grup Tahap 1 (REQ-005, CON-005, CON-006) -- grup tidak
+            // menyentuh dimensi kepemilikan/lifecycle, jadi badge closed,
+            // response_state, titik SLA, dan badge kepemilikan TIDAK
+            // dirender sama sekali (bukan disabled). Penanda "Grup"
+            // tampil menggantikan posisi informasi tersebut.
+            const isGrup = c.jid_type === 'group';
+            const grupBadge = isGrup ? '<span class="badge bg-dark" style="font-size:0.6rem;">Grup</span>' : '';
+            const closedBadge = (!isGrup && c.status === 'closed') ? '<span class="badge bg-secondary" style="font-size:0.6rem;">closed</span>' : '';
             const rsInfo = RESPONSE_STATE_LABEL[c.response_state];
-            const responseStateBadge = rsInfo ? '<span class="badge ' + rsInfo.kelas + '" style="font-size:0.6rem;">' + rsInfo.text + '</span>' : '';
+            const responseStateBadge = (!isGrup && rsInfo) ? '<span class="badge ' + rsInfo.kelas + '" style="font-size:0.6rem;">' + rsInfo.text + '</span>' : '';
             // String() SENGAJA -- assigned_to dari MySQLi/JSON kadang
             // string ("3"), currentUserId number -- lihat catatan
             // cariConversation() di atas untuk root cause bug yang sama.
-            const assignBadge = c.assigned_to ?
+            const assignBadge = isGrup ? '' : (c.assigned_to ?
                 '<span class="badge ' + (String(c.assigned_to) === String(currentUserId) ? 'bg-info' : 'bg-light text-dark border') + '" style="font-size:0.6rem;">' +
                 '<i class="fas fa-user"></i> Dipegang: ' + escapeHtmlInbox(c.assigned_to_name || ('User #' + c.assigned_to)) + '</span>' :
-                '<span class="badge bg-light text-muted border" style="font-size:0.6rem;">Belum diambil</span>';
+                '<span class="badge bg-light text-muted border" style="font-size:0.6rem;">Belum diambil</span>');
 
             const nomorAtauLid = c.manual_phone || c.phone || (c.jid_type === 'lid' ? 'LID' : c.jid_type);
             const barisSnippet = renderSnippetCocok(c.match_snippet);
 
+            // CON-002 -- Edit Profil disabled (bukan hilang) untuk grup;
+            // Hapus percakapan tetap berfungsi penuh (REQ-007).
+            const tombolEditProfil = isGrup ?
+                '<button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil tidak berlaku untuk grup" disabled><i class="fas fa-pen"></i></button>' :
+                '<button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(' + c.id + ')"><i class="fas fa-pen"></i></button>';
+
             return '<a href="#" class="inbox-list-item' + activeClass + '" onclick="return pilihConversation(' + c.id + ')">' +
                 '<div class="d-flex justify-content-between align-items-start">' +
-                '<span class="list-name">' + renderTitikSla(c.sla_color) + escapeHtmlInbox(nama) + '</span>' +
+                '<span class="list-name">' + renderTitikSla(isGrup ? null : c.sla_color) + escapeHtmlInbox(nama) + '</span>' +
                 '<span class="d-flex align-items-center gap-1">' +
                 '<span class="list-time">' + escapeHtmlInbox(waktu) + '</span>' +
-                '<button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(' + c.id + ')"><i class="fas fa-pen"></i></button>' +
+                tombolEditProfil +
                 '<button type="button" class="btn btn-sm btn-link p-0 text-danger" style="font-size:0.75rem;" title="Hapus percakapan" onclick="event.stopPropagation(); hapusPercakapanDariList(' + c.id + ')"><i class="fas fa-trash-alt"></i></button>' +
                 '</span>' +
                 '</div>' +
-                '<div class="list-preview">' + panah + escapeHtmlInbox(nomorAtauLid) + ' ' + closedBadge + ' ' + responseStateBadge + ' ' + assignBadge + '</div>' +
+                '<div class="list-preview">' + panah + escapeHtmlInbox(nomorAtauLid) + ' ' + grupBadge + ' ' + closedBadge + ' ' + responseStateBadge + ' ' + assignBadge + '</div>' +
                 barisSnippet +
                 '</a>';
         }).join('');
@@ -1137,33 +1159,47 @@
 
         const conv = conversationAktifSaatIni();
         const identitas = formatIdentitasCustomer(conv);
+        // Grup Tahap 1 (REQ-006, CON-001, CON-002, CON-005, CON-006) --
+        // grup tidak menyentuh dimensi kepemilikan/status. Penanda ini
+        // menggantikan seluruh badge kepemilikan/lifecycle yang
+        // disembunyikan di bawah, terpisah dari judul percakapan.
+        const isGrup = conv && conv.jid_type === 'group';
+        const penandaGrup = isGrup ? ' <span class="badge bg-dark">Grup</span>' : '';
 
         let infoAssign = '';
         let tombolAssign = '';
 
-        if (conv && conv.assigned_to) {
-            // String() SENGAJA -- lihat catatan cariConversation() di atas
-            // (root cause bug: assigned_to string dari server vs
-            // currentUserId number, "3" === 3 selalu false).
-            const punyaSaya = String(conv.assigned_to) === String(currentUserId);
-            infoAssign = ' <span class="badge ' + (punyaSaya ? 'bg-info' : 'bg-light text-dark border') + '">' +
-                '<i class="fas fa-user"></i> Dipegang: ' + escapeHtmlInbox(conv.assigned_to_name || ('User #' + conv.assigned_to)) + '</span>';
+        // CON-001 -- Ambil/Lepas TIDAK dirender sama sekali untuk grup.
+        // CON-006 -- badge kepemilikan juga tidak dirender untuk grup.
+        if (!isGrup) {
+            if (conv && conv.assigned_to) {
+                // String() SENGAJA -- lihat catatan cariConversation() di atas
+                // (root cause bug: assigned_to string dari server vs
+                // currentUserId number, "3" === 3 selalu false).
+                const punyaSaya = String(conv.assigned_to) === String(currentUserId);
+                infoAssign = ' <span class="badge ' + (punyaSaya ? 'bg-info' : 'bg-light text-dark border') + '">' +
+                    '<i class="fas fa-user"></i> Dipegang: ' + escapeHtmlInbox(conv.assigned_to_name || ('User #' + conv.assigned_to)) + '</span>';
 
-            if (punyaSaya || currentUserRole === 'admin') {
-                tombolAssign = '<button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Lepas percakapan" onclick="lepasPercakapan()">' +
-                    '<i class="fas fa-user-slash"></i> Lepas</button>';
+                if (punyaSaya || currentUserRole === 'admin') {
+                    tombolAssign = '<button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Lepas percakapan" onclick="lepasPercakapan()">' +
+                        '<i class="fas fa-user-slash"></i> Lepas</button>';
+                }
+            } else {
+                infoAssign = ' <span class="badge bg-light text-muted border">Belum diambil</span>';
+                tombolAssign = '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Ambil percakapan" onclick="ambilPercakapan()">' +
+                    '<i class="fas fa-user-plus"></i> Ambil</button>';
             }
-        } else {
-            infoAssign = ' <span class="badge bg-light text-muted border">Belum diambil</span>';
-            tombolAssign = '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Ambil percakapan" onclick="ambilPercakapan()">' +
-                '<i class="fas fa-user-plus"></i> Ambil</button>';
         }
 
         // Revisi LID-FIRST -> PN-LATER: tombol konfirmasi nomor manual
         // HANYA relevan kalau conversation ini @lid DAN belum punya
         // `phone` ter-verifikasi (kalau sudah ada, reconciliation
-        // otomatis/sebelumnya sudah menanganinya).
-        const tombolKonfirmasiNomor = (conv && conv.jid_type === 'lid' && !conv.phone) ?
+        // otomatis/sebelumnya sudah menanganinya). CON-002 -- untuk
+        // grup, tombol ini tampil DISABLED (bukan hilang).
+        const tombolKonfirmasiNomor = isGrup ?
+            ' <button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Konfirmasi nomor tidak berlaku untuk grup" disabled>' +
+            '<i class="fas fa-shield-alt"></i> Konfirmasi Nomor</button>' :
+            (conv && conv.jid_type === 'lid' && !conv.phone) ?
             ' <button type="button" class="btn btn-sm btn-link p-0 text-warning" style="font-size:0.75rem;" title="Konfirmasi nomor WhatsApp customer ini" onclick="bukaModalKonfirmasiNomor()">' +
             '<i class="fas fa-shield-alt"></i> Konfirmasi Nomor</button>' :
             '';
@@ -1171,19 +1207,22 @@
         // Tahap 1 lifecycle status (Section 12): tombol "Tutup" HANYA
         // muncul kalau conversation sedang OPEN -- tidak ada tombol
         // "Open" manual (reopen cuma lewat pesan masuk baru, lihat
-        // InboxGatewayApi::messages()).
-        const badgeStatus = conv ?
+        // InboxGatewayApi::messages()). CON-006 -- badge lifecycle
+        // OPEN/CLOSED tidak dirender untuk grup. CON-001 -- tombol Tutup
+        // tidak dirender sama sekali untuk grup.
+        const badgeStatus = (conv && !isGrup) ?
             ' <span class="badge ' + (conv.status === 'closed' ? 'bg-secondary' : 'bg-success') + '">' + conv.status.toUpperCase() + '</span>' :
             '';
-        const tombolTutup = (conv && conv.status === 'open') ?
+        const tombolTutup = (!isGrup && conv && conv.status === 'open') ?
             '<button type="button" class="btn btn-sm btn-outline-danger me-1" title="Tutup percakapan" onclick="tutupPercakapan()">' +
             '<i class="fas fa-times-circle"></i> Tutup</button>' :
             '';
 
         // Response state (Langkah 9): "Tandai Dibaca" (perlu_dibalas ->
         // menunggu_customer) dan "Follow-up" (snooze sementara) -- keduanya
-        // dipanggil lewat endpoint Langkah 5 & 6.
-        const tombolTandaiDibaca = (conv && conv.response_state === 'perlu_dibalas') ?
+        // dipanggil lewat endpoint Langkah 5 & 6. CON-005 -- tombol
+        // Tandai Dibaca tidak dirender sama sekali untuk grup.
+        const tombolTandaiDibaca = (!isGrup && conv && conv.response_state === 'perlu_dibalas') ?
             '<button type="button" class="btn btn-sm btn-outline-success me-1" title="Tandai sudah dibaca" onclick="tandaiDibacaAktif()">' +
             '<i class="fas fa-check"></i> Tandai Dibaca</button>' :
             '';
@@ -1193,8 +1232,10 @@
         // Q1/P-05 dicerminkan di UI supaya tidak menawarkan aksi 403.
         // TASK-202 (CR-03 = A, LOCKED): cermin gerbang server yang sudah
         // dipersempit -- tanpa pemilik hanya boleh dari tab `belum_diambil`
-        // (queue_status), bukan sekadar assigned_to kosong.
-        const dapatHandoff = conv && conv.queue_status !== 'selesai' && (
+        // (queue_status), bukan sekadar assigned_to kosong. CON-005 --
+        // tombol Handoff tidak dirender sama sekali untuk grup (grup
+        // tidak menyentuh dimensi kepemilikan).
+        const dapatHandoff = !isGrup && conv && conv.queue_status !== 'selesai' && (
             (conv.assigned_to && String(conv.assigned_to) === String(currentUserId)) ||
             (!conv.assigned_to && conv.queue_status === 'belum_diambil' && currentUserRole === 'kasir')
         );
@@ -1203,7 +1244,9 @@
             '<i class="fas fa-share-square"></i> Handoff</button>' :
             '';
 
-        const tombolFollowUp =
+        // CON-001 -- Follow-up (pemicu Snooze) TIDAK dirender sama sekali
+        // untuk grup.
+        const tombolFollowUp = isGrup ? '' :
             '<div class="btn-group me-1">' +
             '<button type="button" class="btn btn-sm btn-outline-warning dropdown-toggle" data-bs-toggle="dropdown" title="Follow-up nanti">' +
             '<i class="fas fa-clock"></i> Follow-up</button>' +
@@ -1216,6 +1259,7 @@
 
         // TASK-015: always shown, on every status and for every staff --
         // unlike Balas/Follow-up it is not gated on ownership (SEC-001).
+        // CON-003 -- Internal Note tetap berfungsi tanpa perubahan untuk grup.
         const tombolCatatanInternal =
             '<button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Tulis catatan internal (tidak terkirim ke pelanggan)" onclick="bukaModalCatatanInternal()">' +
             '<i class="fas fa-sticky-note"></i> Catatan Internal</button>';
@@ -1225,6 +1269,7 @@
         // hapusPercakapanDariList()).
         document.getElementById('threadHeader').innerHTML =
             '<span><strong>' + escapeHtmlInbox(identitas) + '</strong>' +
+            penandaGrup +
             badgeStatus +
             tombolKonfirmasiNomor +
             infoAssign +

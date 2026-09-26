@@ -202,4 +202,60 @@ final class ConversationModelComputedStatusTest extends CIUnitTestCase
         $this->assertArrayNotHasKey('queue_status', $input[0]);
     }
 
+    /**
+     * Grup Tahap 1 (REQ-003): jid_type='group' selalu menghasilkan
+     * queue_status='grup', terlepas dari kombinasi status/assigned_to/
+     * snoozed_until/last_message_direction apa pun -- assignment ini
+     * WAJIB ditaruh setelah blok if/elseif response_state yang lama,
+     * jadi test ini juga menjadi regression guard kalau urutannya
+     * pernah tertukar lagi (temuan kritis #1 clarification report).
+     */
+    public function testWithComputedStatusSetsGrupQueueStatusForGroupJidType(): void
+    {
+        $model = new ConversationModel();
+
+        $result = $model->withComputedStatus([
+            [
+                'id' => 50,
+                'jid_type' => 'group',
+                'status' => 'open',
+                'assigned_to' => null,
+                'last_message_direction' => 'incoming',
+                'last_message_at' => '2026-01-01 10:00:00',
+                'last_seen_by_assignee_at' => null,
+                'snoozed_until' => null,
+            ],
+            [
+                'id' => 51,
+                'jid_type' => 'group',
+                'status' => 'closed',
+                'assigned_to' => 7,
+                'last_message_direction' => 'outgoing',
+                'last_message_at' => '2026-01-01 10:00:00',
+                'last_seen_by_assignee_at' => '2026-01-01 10:00:00',
+                'snoozed_until' => '2099-01-01 10:00:00',
+            ],
+            [
+                'id' => 52,
+                'jid_type' => 'pn',
+                'status' => 'open',
+                'assigned_to' => null,
+                'last_message_direction' => 'incoming',
+                'last_message_at' => '2026-01-01 10:00:00',
+                'last_seen_by_assignee_at' => null,
+                'snoozed_until' => null,
+            ],
+        ]);
+
+        $this->assertSame('grup', $result[0]['queue_status']);
+        $this->assertSame('grup', $result[1]['queue_status']);
+        // Bukan grup -- tidak boleh ikut terpengaruh (regresi nol).
+        $this->assertSame('belum_diambil', $result[2]['queue_status']);
+
+        // response_state tetap dihitung apa adanya untuk grup (REQ-003)
+        // -- tidak dipakai keputusan tab/badge manapun, hanya supaya
+        // bentuk data tidak berubah untuk consumer lain.
+        $this->assertSame('perlu_dibalas', $result[0]['response_state']);
+        $this->assertSame('selesai', $result[1]['response_state']);
+    }
 }

@@ -238,6 +238,17 @@ class ConversationModel extends Model
             } else {
                 $conversation['queue_status'] = 'selesai';
             }
+
+            // Grup Tahap 1 (REQ-003) -- HARUS diletakkan SETELAH blok
+            // if/elseif di atas: blok itu menimpa queue_status tanpa
+            // syarat, jadi assignment 'grup' yang ditaruh lebih awal akan
+            // langsung tertimpa. response_state tetap dihitung apa
+            // adanya di atas (tidak dipakai untuk keputusan tab/badge
+            // manapun, hanya supaya bentuk data tidak berubah untuk
+            // consumer lain).
+            if (($conversation['jid_type'] ?? null) === 'group') {
+                $conversation['queue_status'] = 'grup';
+            }
         }
         unset($conversation);
 

@@ -11,11 +11,14 @@ status: PROCEED
 # 🔍 Clarification Report [Review Iteration 1]
 
 > [!SUCCESS]
-> **REMEDIATION STATUS: SPEC-SIDE RESOLVED**
+> **REMEDIATION STATUS: RESOLVED (SPEC-SIDE + PLAN-SIDE)**
 > The Specification Architect (2026-09-26) has written the spec-side resolutions of this report into `spec/spec-design-grup-tahap1-tab-inbox.md` **v1.1** as `REQ-007`, `REQ-008`, `REQ-009`, `CON-005`, `CON-006`, and `AC-008`..`AC-012`, plus explicit STOP instructions under `ASSUMPTION-001`. One additional owner decision extends `CON-006` to hide the ownership/lifecycle badges too.
 > **Projected Spec Readiness Score:** 95/100 (self-assessment by the Specification Architect, not an independent audit).
 >
-> **Still pending, deliberately out of this phase's scope:** Next Step #2 — `plan/plan-feature-grup-tahap1-v1.0.md` must still inherit the new Ref IDs via `/sdlc-plan-tasks` (TASK-001 STOP instruction, TASK-006 expansion, new tasks for Hapus + auto-assign, expanded TASK-007 VERIFY). This report's plan-side findings are therefore **not fully closed** until that plan revision lands.
+> The Planner Architect (2026-09-26) has completed Next Step #2: `plan/plan-feature-grup-tahap1-v1.0.md` **v1.1** now inherits the new Ref IDs — TASK-001 carries the explicit STOP instruction, TASK-006 is expanded (tab position last + `QUEUE_STATUS_LABEL['grup']` + hidden badges/buttons per CON-005/CON-006), **TASK-006A** (REQ-007, Hapus exemption) and **TASK-006B** (REQ-008, auto-assign exemption) are new, and TASK-007 (VERIFY) is expanded with automated tests for Hapus + auto-assign plus manual checks for hidden badges/buttons and tab position. Still 1 Implementation Phase, dependency order preserved, no scope beyond Spec v1.1.
+> **Projected Plan Readiness Score:** 94/100 (self-assessment by the Planner Architect, not an independent audit).
+>
+> This report's findings are now **fully closed** on both the spec side and the plan side.
 
 **Readiness Score:** 82/100
 **Status:** Good Enough (≥80)
