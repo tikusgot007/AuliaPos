@@ -291,6 +291,10 @@ final class InboxGrupTahap2Phase2Test extends CIUnitTestCase
             // bukan 'Pengirim'.
             'label-grup-jid' => ['sender_jid' => '120363@g.us', 'harapan' => null],
             'label-broken'   => ['sender_jid' => 'tanpa-at', 'harapan' => 'Pengirim'],
+            // SEC-001/REQ-001 (plan-refactor-sender-identity-label-hardening
+            // v1.0, TASK-201): local part `s.whatsapp.net` yang dibuat khusus
+            // (mengandung `@`) tidak boleh lolos sebagai JID mentah.
+            'label-crafted'  => ['sender_jid' => '120363@g.us@s.whatsapp.net', 'harapan' => 'Pengirim'],
         ];
 
         foreach ($kasus as $waId => $info) {
@@ -300,8 +304,15 @@ final class InboxGrupTahap2Phase2Test extends CIUnitTestCase
         $thread = $this->threadById($id);
 
         foreach ($kasus as $waId => $info) {
-            $this->assertSame($info['harapan'], $thread[$waId]['sender_name'], "Label untuk {$waId}");
-            $this->assertNotSame($info['sender_jid'], $thread[$waId]['sender_name'], 'JANGAN pernah merender JID mentah.');
+            $label = $thread[$waId]['sender_name'];
+            $this->assertSame($info['harapan'], $label, "Label untuk {$waId}");
+            $this->assertNotSame($info['sender_jid'], $label, 'JANGAN pernah merender JID mentah.');
+
+            // SEC-001: oracle langsung pada properti -- label yang tampil
+            // tidak boleh mengandung `@` (JID mentah), bukan hanya != input.
+            if ($label !== null) {
+                $this->assertStringNotContainsString('@', $label, "Label untuk {$waId} tidak boleh mengandung JID mentah.");
+            }
         }
     }
 

@@ -23,10 +23,16 @@ class SenderIdentityFormatter
     public const LABEL_FALLBACK = 'Pengirim';
     public const LABEL_LID      = 'LID';
 
+    public const DOMAIN_WHATSAPP   = 's.whatsapp.net';
+    public const DOMAIN_GROUP      = 'g.us';
+    public const DOMAIN_LID_SUFFIX = '.lid';
+    public const DEVICE_SEPARATOR  = ':';
+
     /**
      * Turunkan label tampilan yang AMAN dari `messages.sender_jid`:
-     * - `@s.whatsapp.net` -> nomor telepon bersih (tanpa sufiks device `:NN`).
-     * - `@lid` atau domain berakhiran `.lid` -> `LID`.
+     * - `@s.whatsapp.net` -> nomor telepon bersih (tanpa sufiks device `:NN`),
+     *   hanya bila local part numerik murni; selain itu -> `Pengirim`.
+     * - `@lid` atau domain berakhiran `.lid` (case-insensitive) -> `LID`.
      * - domain grup `g.us` (case-insensitive) -> `null` (tanpa identitas;
      *   JID grup TIDAK PERNAH dirender -- REQ-011/AC-012). Nilai DB tidak
      *   diubah; baris legacy cukup tidak diberi label.
@@ -39,29 +45,39 @@ class SenderIdentityFormatter
         }
 
         $pos = strrpos($senderJid, '@');
-        if ($pos === false || $pos === 0 || $pos === strlen($senderJid) - 1) {
+        if ($pos === false) {
             return self::LABEL_FALLBACK;
         }
 
-        $local  = substr($senderJid, 0, $pos);
-        $domain = substr($senderJid, $pos + 1);
+        // Hostname tidak case-sensitive: normalisasi sekali, lalu bandingkan ketat.
+        $domain = strtolower(substr($senderJid, $pos + 1));
 
-        if ($domain === 's.whatsapp.net') {
-            // key.participant dapat berupa `<nomor>:<device>@s.whatsapp.net`;
-            // kontrak REQ-008/AC-002 hanya menampilkan nomor telepon bersih.
-            $phone = explode(':', $local, 2)[0];
-
-            return $phone !== '' ? $phone : self::LABEL_FALLBACK;
-        }
-
-        if ($domain === 'lid' || str_ends_with($domain, '.lid')) {
-            return self::LABEL_LID;
-        }
-
-        if (strcasecmp($domain, 'g.us') === 0) {
+        // Domain grup didahulukan agar local kosong (`@g.us`) pun tanpa
+        // identitas; JID grup TIDAK PERNAH dirender (REQ-011/AC-012).
+        if ($domain === self::DOMAIN_GROUP) {
             // JID grup: warisan Gateway lama mengisi `sender_jid` dengan JID
             // grup, yang BUKAN identitas anggota. Tampilkan tanpa identitas.
             return null;
+        }
+
+        if ($pos === 0 || $pos === strlen($senderJid) - 1) {
+            return self::LABEL_FALLBACK;
+        }
+
+        $local = substr($senderJid, 0, $pos);
+
+        if ($domain === self::DOMAIN_WHATSAPP) {
+            // key.participant dapat berupa `<nomor>:<device>@s.whatsapp.net`;
+            // kontrak REQ-008/AC-002 hanya menampilkan nomor telepon bersih.
+            // Allowlist numerik murni: local part ber-`@` (mis. `x@g.us`)
+            // tidak pernah lolos sebagai label (REQ-001).
+            $phone = explode(self::DEVICE_SEPARATOR, $local, 2)[0];
+
+            return preg_match('/^\d+$/', $phone) === 1 ? $phone : self::LABEL_FALLBACK;
+        }
+
+        if ($domain === 'lid' || str_ends_with($domain, self::DOMAIN_LID_SUFFIX)) {
+            return self::LABEL_LID;
         }
 
         return self::LABEL_FALLBACK;

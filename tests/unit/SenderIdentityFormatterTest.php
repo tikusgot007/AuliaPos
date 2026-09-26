@@ -21,6 +21,22 @@ final class SenderIdentityFormatterTest extends TestCase
         $this->formatter = new SenderIdentityFormatter();
     }
 
+    /**
+     * SEC-001: label yang dikirim ke UI tidak boleh mengandung `@` (JID
+     * mentah) dan harus sama persis dengan harapan. `null` berarti "tanpa
+     * identitas", sehingga tidak ada label untuk diperiksa.
+     */
+    private function assertLabelSafe(?string $expected, ?string $jid): void
+    {
+        $label = $this->formatter->labelFor($jid);
+
+        $this->assertSame($expected, $label, 'Label untuk ' . var_export($jid, true));
+
+        if ($label !== null) {
+            $this->assertStringNotContainsString('@', $label, 'Label tidak boleh mengandung JID mentah: ' . $label);
+        }
+    }
+
     public function testNomorBersihTanpaSufiksDevice(): void
     {
         // TASK-301/CORR-03: `:NN` adalah sufiks device, bukan bagian nomor.
@@ -33,6 +49,23 @@ final class SenderIdentityFormatterTest extends TestCase
     {
         $this->assertSame('LID', $this->formatter->labelFor('999888777666@lid'));
         $this->assertSame('LID', $this->formatter->labelFor('123456@hosted.lid'));
+    }
+
+    public function testDomainCaseInsensitiveDiklasifikasikanBenar(): void
+    {
+        // REQ-002 (TASK-102): hostname tidak case-sensitive.
+        $this->assertLabelSafe('6281234567890', '6281234567890@S.WHATSAPP.NET');
+        $this->assertLabelSafe('LID', '999@LID');
+        $this->assertLabelSafe('LID', '999@hosted.LID');
+        $this->assertLabelSafe(null, '120363@G.US');
+    }
+
+    public function testCraftedLocalPartBerAtTidakPernahJidMentah(): void
+    {
+        // REQ-001 (TASK-101): local part `s.whatsapp.net` ber-`@` tidak boleh
+        // lolos sebagai label -- dulu mengembalikan `120363@g.us` mentah.
+        $this->assertLabelSafe('Pengirim', '120363@g.us@s.whatsapp.net');
+        $this->assertLabelSafe('Pengirim', '@g.us@s.whatsapp.net');
     }
 
     public function testFallbackAmanDanTidakPernahJidMentah(): void
@@ -48,24 +81,21 @@ final class SenderIdentityFormatterTest extends TestCase
         ];
 
         foreach ($kasus as $jid) {
-            $label = $this->formatter->labelFor($jid);
-            $this->assertSame('Pengirim', $label, 'Fallback untuk ' . var_export($jid, true));
-            $this->assertNotSame($jid, $label, 'JID mentah tidak boleh dirender sebagai label.');
+            // Oracle langsung pada properti: label fallback tidak boleh
+            // mengandung `@` maupun sama dengan input mentah.
+            $this->assertLabelSafe('Pengirim', $jid);
+            $this->assertNotSame($jid, $this->formatter->labelFor($jid), 'JID mentah tidak boleh dirender sebagai label.');
         }
     }
 
     public function testGroupJidMengembalikanTanpaIdentitas(): void
     {
-        // REQ-011/AC-012 (spec v1.4): JID grup `@g.us` bukan identitas anggota
-        // -> tanpa label (null), dan JID mentah tidak pernah dikembalikan.
-        $kasus = [
-            '120363012345678901@g.us',
-            '120363@g.us',
-            '120363@G.US',
-        ];
-
-        foreach ($kasus as $jid) {
-            $this->assertNull($this->formatter->labelFor($jid), 'Tanpa identitas untuk ' . $jid);
-        }
+        // REQ-003/REQ-011/AC-012 (spec v1.4): JID grup `@g.us` bukan identitas
+        // anggota -> tanpa label (null), JID mentah tidak pernah dikembalikan.
+        // Termasuk domain case-insensitive dan local kosong (`@g.us`).
+        $this->assertLabelSafe(null, '120363012345678901@g.us');
+        $this->assertLabelSafe(null, '120363@g.us');
+        $this->assertLabelSafe(null, '120363@G.US');
+        $this->assertLabelSafe(null, '@g.us');
     }
 }
