@@ -29,3 +29,6 @@ Thumbs.db
 
 # === Test/build artifacts ===
 /build/
+
+# === AI tool local state (Kilo worktrees, agent manager) ===
+.kilo/
