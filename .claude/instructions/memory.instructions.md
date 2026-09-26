@@ -628,3 +628,74 @@
 <!-- checkpoint-tail: 2026-09-26 Phase 5 `/sdlc-code-review` on Grup Tahap 1 (commit `ab843ed`) COMPLETE with verdict **Merge** — Two-Axis review against spec v1.1 + plan v1.2 found **0 CRITICAL / 0 REQUIRED / 0 spec mismatches** and 5 Standards items (one OPTIONAL SEC-01: `handoffPercakapan()`/`tandaiDibaca()` lack the `cekBukanGrup()` guard the other 6 action endpoints have, so a legacy-assigned group can still be handed off and mutate `assigned_to`, contradicting spec Section 9 "Never do" while CON-004/AC-006 deliberately omit Handoff — a spec-internal tension, not a code breach); macro gate re-verified in-session as `OK (415 tests, 1532 assertions)`; owner decided **SEC-01 is DEFERRED to be fixed together with Tahap 2** (spec amendment of CON-004 via `/sdlc-define-specs` must precede any code guard); review was read-only so the only changed file is this memory log; also recorded a dead-end that the user's stated diff range `ab1a8ca^..ab843ed` is inverted (ab843ed is an ancestor of ab1a8ca, merge-base = ab843ed) so it yields an empty diff — use `git show ab843ed` instead; next: Tahap 2 in a NEW session per `spec-index.md`, carrying SEC-01. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-26 (Phase 6 — `/sdlc-clarify-reqs` Grup Tahap 2)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`) atas `spec/spec-design-grup-tahap2-identitas.md` v1.0 — **COMPLETE**. Readiness Score 84/100 → **PROCEED** (Laporan: `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md`). Belum ada kode disentuh.
+- **Active Artifacts:**
+  - `spec/spec-design-grup-tahap2-identitas.md` — 🔄 v1.0, butuh amandemen T1/T2/T4/T5/T6 + selaras GH-013.
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — 🔄 v1.1, butuh amandemen untuk SEC-01 (`CON-004`/`AC-006`/`Section 9`).
+  - `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` — ✅ NEW (84/100, PROCEED).
+  - `docs/handoff-grup-tahap2-define-specs-2026-09-26.md` — ✅ NEW (prompt siap pakai untuk sesi `/sdlc-define-specs`).
+- **Achieved Milestones:**
+  - **SEC-01 diverifikasi di kode:** 6 endpoint memanggil `cekBukanGrup()` (`Inbox.php` :1660 ambil, :1741 lepas, :1813 snooze, :1867 tutup, :1933 edit-profil, :2032 konfirmasi-nomor); `handoffPercakapan()` (:1196) dan `tandaiDibaca()` (:1774) **tidak**. Handoff menulis `assigned_to` (:1400-1405) + `conversation_handoffs`; grup legacy ber-`assigned_to` lolos check `!== 'selesai'` karena `queue_status='grup'` (`ConversationModel.php:249-251`) dan lolos gerbang inisiator (:1341-1361). `tandaiDibaca()` menulis `last_seen_by_assignee_at` (:1790) = dimensi Read/Unread.
+  - **Keputusan SEC-01:** perluas `CON-004`+`AC-006` Tahap 1 ke **kedua** endpoint → `403` untuk grup; guard diletakkan setelah 404 dan sebelum eligibility/ownership (agar 403, bukan 409); `Section 9` jadi invariant positif "hanya baca/kirim/Internal Note + Read-Unread disebut eksplisit".
+  - **Keputusan T3 (Opsi A pemilik proyek):** label pengirim = **nomor telepon / `LID`**, bukan nama orang; redaksi PRD GH-013 & `Section 4` diselaraskan dari "nama pengirim".
+  - **Auto-resolved:** T1 (REQ-004 no-op — `InboxGatewayApi.php:251` sudah menulis `sender_jid` tanpa syarat), T2 (validasi 400 naik jadi REQ+AC), T4 (pertahankan wajib+400; spec **wajib** nyatakan AuliaPos rilis setelah Gateway, pesan grup dari Gateway lama ditolak 400 & hilang, rollback Gateway dulu), T5 (outgoing WA Web/HP → label `CHAT.md` §7), T6 (`group_name` juga di jalur `created=true`, ganti `empty()` → `=== null`, terima last-write-wins), T7 (pencarian `group_name` out of scope).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** menaruh `title:` di YAML front matter sementara ada H1 di laporan audit baru. **Reason:** markdownlint MD025 (`single-title`) memakai default `front_matter_title`, jadi `title:` dianggap judul kedua → 1 error non-MD013 (pelanggaran aturan delta lint). **Note:** laporan audit repo ini baseline-nya **MD013-only**; jangan taruh `title:` di front matter bila memakai H1, atau hilangkan H1-nya.
+- **Updated Files:**
+  - `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` — NEW, laporan klarifikasi Tahap 2 + keputusan SEC-01 (MD013-only).
+  - `docs/handoff-grup-tahap2-define-specs-2026-09-26.md` — NEW, prompt siap pakai sesi berikutnya.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - SEC-01 = extend `CON-004`/`AC-006` ke `handoffPercakapan()` + `tandaiDibaca()`; §9 diselaraskan.
+  - T3 = nomor/`LID` (Opsi A).
+  - Tidak ada ADR baru (gagal Triple Gate) dan tidak ada istilah domain baru (`CONTEXT.md` tidak diubah).
+- **Next Action / Pending:**
+  - **Langkah berikutnya: sesi baru `/sdlc-define-specs`** — amandemen **satu sesi, dua spec**: Tahap 1 (`CON-004`/`AC-006`/`§9`) + Tahap 2 (T1/T2/T4/T5/T6 + selaras GH-013). Prompt siap pakai: `docs/handoff-grup-tahap2-define-specs-2026-09-26.md` §1.
+  - Setelah amandemen: **`/sdlc-audit-consistency`** (spec Tahap 1 **dan** PRD ikut berubah). Baru setelah itu `/sdlc-plan-tasks` (tetap dua plan terpisah: AuliaPos + WA-Gateway).
+  - Implementasi belum boleh dimulai; SEC-01 tidak boleh ditambal kode sebelum spec diamandemen.
+  - Carried forward, unchanged: ESC-001..004 Gateway escalation OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11 + debt peta arsitektur (`queue_status='grup'`, `Inbox::cekBukanGrup()`) → `/sdlc-map-architecture`; RISK-004/007/009; `docs/TODO-CHAT.md` item 11–13; `zzztag` Internal Note conversation `11746` (`messages.id = 305`).
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found, so the fast-path offer was skipped silently.
+
+<!-- checkpoint-tail: 2026-09-26 Phase 6 `/sdlc-clarify-reqs` on Grup Tahap 2 COMPLETE — report `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` scored 84/100 PROCEED; owner decided Opsi A (sender label = phone/LID, align PRD GH-013) and extended Tahap 1 SEC-01 so `CON-004`/`AC-006`/`§9` also cover `handoffPercakapan()`-style ownership/read mutations (verified in code that `handoffPercakapan()` :1196 and `tandaiDibaca()` :1774 are the only two action endpoints missing `cekBukanGrup()`); auto-resolved T1 (`InboxGatewayApi.php:251` already writes `sender_jid`), T2/T4 (keep required+400, add deployment-order constraint), T5/T6/T7; no code touched; next is `/sdlc-define-specs` (amend Tahap 1 + Tahap 2 in one session) then `/sdlc-audit-consistency`, prompt ready in `docs/handoff-grup-tahap2-define-specs-2026-09-26.md`. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-26 (Phase 6b — `/sdlc-define-specs`: amandemen DUA spec atas temuan klarifikasi Tahap 2)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`) — **remediasi sisi spec SELESAI** untuk dua spec dalam satu sesi, atas `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` (84/100 PROCEED). Tidak ada kode disentuh; belum ada `/sdlc-audit-consistency` ulang.
+- **Active Artifacts:**
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — Status: ✅ **v1.2** (diamandemen SEC-01; **uncommitted**).
+  - `spec/spec-design-grup-tahap2-identitas.md` — Status: ✅ **v1.1** (diamandemen T1/T2/T3/T4/T5/T6/T7; **uncommitted**).
+  - `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` — input only (84/100 PROCEED), **tidak diubah**.
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` v1.0 — **tidak diubah** (keputusan owner: amandemen PRD terpisah).
+- **Achieved Milestones:**
+  - **Tahap 1 → v1.2 (SEC-01):** `CON-004` diperluas ke `Inbox::handoffPercakapan()` (`Inbox.php:1196`) + `Inbox::tandaiDibaca()` (`:1774`) — guard `cekBukanGrup()` **setelah `404`, sebelum eligibility/ownership** → `403`, bukan `409`; `AC-006` diperluas + `AC-013` baru (assert `403` + tidak ada penulisan `assigned_to`/`conversation_handoffs`/`last_seen_by_assignee_at`; regresi nol percakapan pribadi); Section 9 jadi **invariant positif** ("hanya baca, kirim teks/media, Internal Note; endpoint aksi lain `403`") dengan **batas dimensi Read/Unread** disebut eksplisit; Section 6/7/13 diperbarui.
+  - **Tahap 2 → v1.1:** T1 `REQ-004` dikoreksi (`InboxGatewayApi.php:251` **sudah** menulis `sender_jid` tanpa syarat; klaim "tinggal diisi" dihapus; sisa kerja = validasi + tampilan); T2 `REQ-010` baru (grup tanpa `sender_jid` → `400`, **tidak disimpan**) + `AC-009`; T3 `REQ-008`/`AC-002` jadi "identitas pengirim (nomor telepon atau `LID`)" (bukan nama orang) + `OPEN ITEM T3`; T4 `CON-004` baru + `EXT-001` diperjelas (Gateway naik dulu → AuliaPos; pesan grup Gateway lama ditolak `400` dan **hilang**, tanpa queue — kontras `group_name` additive `GUD-002`; rollback Gateway dulu); T5 `REQ-009` + `AC-011` (outgoing sinkron WA Web/HP `sent_by_user_id = NULL` → label "Staff (WA Web/HP)", `docs/CHAT.md` §7); T6 `REQ-005` mencakup jalur `created=true` (`ConversationModel.php:394-404`), contoh §8 `empty(...)` → `$conversation['group_name'] === null`, last-write-wins diterima; T7 pencarian `group_name` → out of scope/backlog (`SEARCH_COLUMNS`).
+  - **Verifikasi kode sesi ini** (bukan klaim spec): `InboxGatewayApi.php:251`, `Inbox.php:1196`/`:1774`, `ConversationModel.php:394-404` dibaca langsung dan cocok dengan laporan klarifikasi.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** menyisipkan `REQ-010`+`CON-004` dengan `oldString` = baris `CON-003` sementara `newString` tidak memuat `CON-003`. **Reason:** semantik replace **mengonsumsi** baris anchor, jadi `CON-003` terhapus dari spec dan baru ketahuan saat re-read. **Note:** saat memakai satu baris sebagai anchor untuk **menyisipkan** baris baru, `newString` **wajib** memuat ulang baris anchor itu; re-read region sesudah setiap edit.
+  - Tidak ada dead-end shell/lint baru; lint tidak dijalankan sebagai gate di sesi ini (perubahan hanya pada spec yang sudah MD013-only — belum diverifikasi delta, jujur dicatat sebagai belum diverifikasi).
+- **Updated Files:**
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — v1.1→v1.2; CON-004/AC-006/AC-013, Section 6/7/9/13, catatan revisi v1.2.
+  - `spec/spec-design-grup-tahap2-identitas.md` — v1.0→v1.1; REQ-004/005/006/008/009, REQ-010 baru, CON-004 baru, AC-002/009/010/011, Section 1.1/1.2/4.1/6/7/8/9/11/13/14, catatan revisi v1.1.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Tidak ada ADR baru (keputusan gagal *Triple Gate Validation*) dan `CONTEXT.md` **tidak diubah** (tidak ada istilah domain baru) — sesuai batas sesi.
+  - **T3/PRD:** owner memilih **amandemen PRD terpisah** (bukan diedit sesi ini). `OPEN ITEM T3` di §1.2 dan `PENDING (amandemen terpisah / T3)` di §14 mengunci keputusan itu; PRD GT-013 (Section 10.3) + bullet PRD Section 4 "Label pengirim di dalam grup" masih berbunyi "nama pengirim" dan diselaraskan lewat `/sdlc-draft-prd`, bukan oleh Specification Architect.
+  - Spec Tahap 3 (`spec-design-balas-pesan.md`) dan Tahap 4 (`spec-design-teruskan.md`) **tidak disentuh**; tidak ada kode yang disentuh.
+- **Next Action / Pending:**
+  - **Kedua spec masih uncommitted.** Commit + push ke `origin/v2.3` saat owner minta; push via `cmd /c "git push origin v2.3 > build\push.txt 2>&1"` lalu verifikasi `git ls-remote` (KB DE-39).
+  - **Langkah disarankan:** (1) `/sdlc-draft-prd` di sesi baru untuk menyelaraskan redaksi PRD GH-013 + Section 4 ("nama pengirim" → "identitas pengirim (nomor/LID)"); (2) lalu `/sdlc-audit-consistency` (spec Tahap 1 **dan** PRD ikut berubah, jadi keterlacakan perlu dicek ulang).
+  - Setelah audit lolos: `/sdlc-plan-tasks` (tetap **dua plan terpisah**: AuliaPos + WA-Gateway).
+  - Implementasi belum boleh dimulai; SEC-01 kini sudah punya dasar spec (v1.2) sehingga kode boleh menyusul lewat `/sdlc-write-code`.
+  - Carried forward, unchanged: ESC-001..004 Gateway escalation OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11 + debt peta arsitektur (`queue_status='grup'`, `Inbox::cekBukanGrup()`) → `/sdlc-map-architecture`; RISK-004/007/009; `docs/TODO-CHAT.md` item 11–13; `zzztag` Internal Note conversation `11746` (`messages.id = 305`).
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found, so the fast-path offer was skipped silently.
+
+<!-- checkpoint-tail: 2026-09-26 Phase 6b `/sdlc-define-specs` amended TWO specs in one session from `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` (84/100 PROCEED), no code touched — Tahap 1 → v1.2 extends `CON-004`/`AC-006` to `handoffPercakapan()` (`Inbox.php:1196`) and `tandaiDibaca()` (`:1774`) with `cekBukanGrup()` placed after 404 / before eligibility→ownership so groups get 403 not 409, adds `AC-013`, and rewrites Section 9 as a positive invariant stating groups permit only read / send text-media / Internal Note while naming the Read-Unread dimension explicitly; Tahap 2 → v1.1 corrects `REQ-004` (`InboxGatewayApi.php:251` already writes `sender_jid` unconditionally, so the "tinggal diisi" claim is removed), promotes the 400 rule to `REQ-010`+`AC-009`, rewrites `REQ-008`/`AC-002` to "identitas pengirim (nomor/LID)", adds `CON-004` release-ordering (Gateway first; legacy-Gateway group messages get 400 and are lost, no queue, contrast additive `group_name`) plus clarified `EXT-001`, adds the WA-Web/HP synced-outgoing label (`REQ-009`/`AC-011`), covers the `created=true` path with `=== null` and accepted last-write-wins, and marks `group_name` search as backlog; owner chose to amend the PRD (GH-013 + Section 4 "nama pengirim" redaction) as a SEPARATE session recorded in `OPEN ITEM T3`; both specs uncommitted; next: `/sdlc-draft-prd` then `/sdlc-audit-consistency` in new sessions. -->
+
+---

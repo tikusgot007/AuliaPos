@@ -1,6 +1,6 @@
 ---
 title: Grup — Tahap 1 (Tab Inbox, Penandaan, Aksi Dinonaktifkan, Badge)
-version: 1.1
+version: 1.2
 date_created: 2026-09-26
 last_updated: 2026-09-26
 owner: AuliaPos Inbox module
@@ -43,6 +43,9 @@ Audiens: developer yang akan menjalankan `/sdlc-plan-tasks` → `/sdlc-write-cod
 > [!NOTE]
 > **Catatan revisi v1.1 (2026-09-26):** spec ini diamandemen dari v1.0 sebagai tindak lanjut wajib dari `docs/audit/clarification-report-grup-tahap1-plan-2026-09-26.md` (Readiness Score 82/100 → PROCEED). Semua perubahan bersifat **penulisan keputusan yang sudah dikunci pemilik proyek** menjadi Ref ID resmi; tidak ada keputusan arsitektur baru dan tidak ada ADR baru. Pewarisan Ref ID ini ke task plan dilakukan terpisah lewat `/sdlc-plan-tasks`.
 
+> [!NOTE]
+> **Catatan revisi v1.2 (2026-09-26):** diamandemen dari v1.1 sebagai tindak lanjut `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` (Readiness Score 84/100 → PROCEED), item **SEC-01**. Perubahan: (1) `CON-004` diperluas ke `Inbox::handoffPercakapan()` + `Inbox::tandaiDibaca()` dengan posisi guard `cekBukanGrup()` **setelah `404` dan sebelum eligibility/ownership**; (2) `AC-006` diperluas + `AC-013` baru; (3) Section 9 menjadi **invariant positif** dengan batas dimensi Read/Unread disebut eksplisit. Tidak ada keputusan arsitektur baru dan tidak ada ADR baru.
+
 ## 2. Definitions
 
 Mengikuti `CONTEXT.md`:
@@ -65,7 +68,7 @@ Mengikuti `CONTEXT.md`:
 - **CON-001**: Tombol Ambil, Lepas, Tutup, Snooze **tidak dirender sama sekali** pada percakapan grup — bukan dirender lalu di-`disabled`. Ini mencegah kasir menekan tombol yang pasti gagal (PRD Section 4, "tidak boleh tampil sebagai tombol yang selalu gagal").
 - **CON-002**: Konfirmasi Nomor dirender dalam keadaan **disabled** (bukan disembunyikan) untuk grup — memakai pola tampil/sembunyi kondisional yang sudah ada di kode (`tombolKonfirmasiNomor`, `app/Views/inbox/index.php:1166`, saat ini untuk kasus `jid_type === 'lid' && !phone`), diperluas dengan cabang disabled baru untuk grup. Edit Profil sudah **tidak lagi tampil di header** (dipindah ke baris daftar kiri per komentar kode `index.php:1223`) — untuk grup, tombol Edit Profil di baris daftar tampil **disabled**; Hapus percakapan di baris yang sama **tetap berfungsi penuh** (Resolved Item #5, Clarification Report Spec).
 - **CON-003**: Aksi yang tetap tersedia pada grup **tanpa perubahan**: kirim pesan teks/media biasa, Internal Note. (Balas Pesan dan Teruskan baru tersedia setelah Tahap 3/4 — sebelum itu, tombolnya memang belum ada sama sekali untuk siapa pun, bukan aturan khusus grup.)
-- **CON-004**: Endpoint `Inbox::ambilPercakapan()`, `lepasPercakapan()`, `tutupPercakapan()`, `snoozePercakapan()`, `konfirmasiNomor()`, dan endpoint Edit Profil **tetap menolak** request untuk `conversation.jid_type === 'group'` di sisi server dengan `403`, sekalipun UI sudah menyembunyikan tombolnya — defense in depth (pola yang sama dipakai `cekOwnership()` untuk kasus lain).
+- **CON-004**: Endpoint `Inbox::ambilPercakapan()`, `lepasPercakapan()`, `tutupPercakapan()`, `snoozePercakapan()`, `konfirmasiNomor()`, endpoint Edit Profil, **`Inbox::handoffPercakapan()`** (`app/Controllers/Inbox.php:1196`), dan **`Inbox::tandaiDibaca()`** (`:1774`) **tetap menolak** request untuk `conversation.jid_type === 'group'` di sisi server dengan `403`, sekalipun UI sudah menyembunyikan/menonaktifkan tombolnya — defense in depth (pola yang sama dipakai `cekOwnership()` untuk kasus lain). Untuk kedua endpoint baru ini, guard `cekBukanGrup()` **wajib diletakkan setelah pengecekan `404` dan sebelum pengecekan eligibility/ownership** — supaya jawabannya `403` (konsisten dengan 6 endpoint lain), bukan `409` dari cabang `queue_status === 'selesai'` (`handoffPercakapan()`) maupun `403`/`409` dari `cekOwnership()` (`tandaiDibaca()`). Keduanya endpoint yang berpotensi lolos gerbang lama: `handoffPercakapan()` menulis `assigned_to` + baris `conversation_handoffs`, dan `tandaiDibaca()` menulis `last_seen_by_assignee_at` — dua kolom di luar dimensi identitas.
 - **CON-005**: Informasi turunan yang tidak bermakna untuk grup **tidak dirender sama sekali** pada baris daftar maupun header percakapan grup — pola yang sama dengan CON-001 (tidak dirender, bukan disabled):
   - Badge `response_state` pada baris daftar (`index.php:932-933`).
   - Titik warna SLA pada baris daftar (`renderTitikSla()`, `:877-883`, dipanggil di `:947`).
@@ -109,13 +112,14 @@ Tidak ada perubahan bentuk response (`{"count": N}`). Hanya nilai `N` yang berub
 - **AC-003**: Given N percakapan grup yang sebelumnya berkontribusi ke badge `perlu_dibalas`, When Tahap 1 dirilis, Then badge berkurang tepat N pada data yang sama (selisih terukur, bukan dua kali hitung).
 - **AC-004**: Given percakapan grup dibuka, When header dirender, Then penanda "Grup" tampil terpisah dari judul percakapan, dan tombol Ambil/Lepas/Tutup/Snooze **tidak ada** di layar.
 - **AC-005**: Given percakapan grup dibuka, Then tombol Konfirmasi Nomor (di header) dan Edit Profil (di baris daftar kiri) tampil dalam keadaan disabled (bukan hilang), dan tombol Hapus percakapan pada baris yang sama tetap berfungsi penuh.
-- **AC-006**: Given request langsung ke `POST /inbox/percakapan/{id}/ambil` (atau lepas/tutup/snooze/konfirmasi-nomor/edit-profil) untuk `conversation_id` yang `jid_type='group'`, When endpoint dipanggil (melewati UI), Then server menolak dengan `403`, bukan memprosesnya.
+- **AC-006**: Given request langsung ke `POST /inbox/percakapan/{id}/ambil` (atau lepas/tutup/snooze/konfirmasi-nomor/edit-profil/handoff/tandai-dibaca) untuk `conversation_id` yang `jid_type='group'`, When endpoint dipanggil (melewati UI), Then server menolak dengan `403`, bukan memprosesnya.
 - **AC-007**: Given percakapan pribadi (`jid_type` bukan `'group'`), When Tahap 1 dirilis, Then seluruh tombol dan perilaku tab yang ada **tidak berubah** dibanding sebelum perubahan (regresi nol).
 - **AC-008**: Given percakapan grup tampil di baris daftar dan dibuka di header, When UI dirender, Then badge `response_state`, titik SLA, tombol Tandai Dibaca, tombol Handoff, badge kepemilikan, dan badge lifecycle **tidak ada** di layar — tanpa memengaruhi tombol/penanda lain yang tetap berlaku.
 - **AC-009**: Given percakapan grup dengan `status` **bukan** `'closed'`, When request `POST /inbox/percakapan/{id}/hapus` dikirim oleh **admin**, Then server memproses dan mengembalikan `200` (soft delete) — bukan `409`. Given request yang sama dikirim oleh **kasir non-admin**, Then server tetap menolak `403` (gate admin-only tidak berubah).
 - **AC-010**: Given percakapan grup yang belum punya `assigned_to`, When kasir mengirim balasan teks (`kirimKeConversation()`) atau media (`kirimMedia()`), Then pesan tetap terkirim normal **dan** `assigned_to` percakapan itu tetap kosong (tidak terisi otomatis).
 - **AC-011**: Given halaman Inbox dimuat, When baris tab dirender, Then tab **Grup** berada di posisi paling akhir (setelah Selesai) dan objek `QUEUE_STATUS_LABEL` memuat entri `grup`; saat tab Grup dipilih, tombol itu menyala `active` dan badge angka tab-nya ter-update.
 - **AC-012**: Given verifikasi langkah pertama menemukan nilai literal `jid_type` grup **berbeda** dari `'group'`, Then implementasi **berhenti** dan spec diamandemen lebih dulu lewat `/sdlc-define-specs` (lihat Section 1.2) — tidak ada kode filter yang ditulis terhadap nilai yang belum terkonfirmasi.
+- **AC-013**: Given percakapan grup (`jid_type='group'`) dengan `queue_status='grup'` dan `assigned_to` apa pun (termasuk sudah terisi warisan), When `POST /inbox/percakapan/{id}/handoff` atau `POST /inbox/percakapan/{id}/tandai-dibaca` dipanggil langsung (melewati UI), Then server menolak `403` **sebelum** menyentuh logika eligibility/ownership — bukan `409` dan bukan `200`; `assigned_to`, baris `conversation_handoffs`, dan `last_seen_by_assignee_at` **tidak berubah**. Given percakapan pribadi (`jid_type` bukan `'group'`), When kedua endpoint dipanggil, Then perilakunya **tidak berubah** dibanding sebelum perubahan (regresi nol).
 
 ## 6. Test Automation Strategy & Testing Seams
 
@@ -123,7 +127,7 @@ Tidak ada perubahan bentuk response (`{"count": N}`). Hanya nilai `N` yang berub
 - **Test Levels**: Unit (`ConversationModelTest` — kasus `jid_type='group'` → `queue_status='grup'`), Feature/HTTP (`InboxTest`):
   - Filter `status=grup` mengembalikan hanya grup; grup tidak muncul di 5 status lama (AC-001, AC-002).
   - Badge `perlu_dibalas` mengecualikan grup (AC-003).
-  - Penolakan `403` pada endpoint aksi grup (AC-006).
+  - Penolakan `403` pada endpoint aksi grup (AC-006), **termasuk `handoff` dan `tandai-dibaca`** (AC-013) — wajib test otomatis karena bisa diassert programatis; tambahkan assertion bahwa `assigned_to`, baris `conversation_handoffs`, dan `last_seen_by_assignee_at` **tidak berubah** setelah request `403`, serta assertion bahwa kedua endpoint pada percakapan pribadi berperilaku sama seperti sebelumnya.
   - **`hapusPercakapan()` grup oleh admin → `200`** walau `status` bukan `closed`, dan `403` untuk kasir non-admin (AC-009) — ini test otomatis, bukan sekadar manual check.
   - **Auto-assign tidak mengisi `assigned_to`** pada `kirimKeConversation()` dan `kirimMedia()` untuk grup (AC-010).
   - **Pembagian kelas uji:** item yang mengubah kondisi endpoint (Hapus, auto-assign) **wajib** test otomatis karena bisa diassert programatis; item yang murni tampilan visual (badge/tombol tersembunyi per CON-005/CON-006, penanda "Grup") diverifikasi lewat **manual check browser**, sama seperti pola CON-001 empat tombol lainnya.
@@ -135,7 +139,7 @@ Tidak ada perubahan bentuk response (`{"count": N}`). Hanya nilai `N` yang berub
 
 ### Project Structure
 
-- `app/Controllers/Inbox.php` — tambah `'grup'` ke `QUEUE_STATUSES`, ubah `apiConversations()`, `apiPerluDibalasCount()`, kumpulan endpoint aksi (403 grup), `hapusPercakapan()` (REQ-007), serta `kirimKeConversation()`/`kirimMedia()` (REQ-008).
+- `app/Controllers/Inbox.php` — tambah `'grup'` ke `QUEUE_STATUSES`, ubah `apiConversations()`, `apiPerluDibalasCount()`, kumpulan endpoint aksi (`403` grup — termasuk `handoffPercakapan()` dan `tandaiDibaca()`, CON-004), `hapusPercakapan()` (REQ-007), serta `kirimKeConversation()`/`kirimMedia()` (REQ-008).
 - `app/Models/ConversationModel.php` — ubah `withComputedStatus()`.
 - `app/Views/inbox/index.php` — tambah tab Grup (paling akhir) + entri `QUEUE_STATUS_LABEL['grup']`, badge penanda "Grup", sembunyikan/disable tombol & badge pada grup (CON-001, CON-002, CON-005, CON-006).
 
@@ -164,9 +168,13 @@ Penambahan `'grup'` ke `QUEUE_STATUSES` mengikuti gaya array konstanta yang suda
 
 ## 9. Implementation Boundaries
 
-- **Always do:** Jalankan `vendor/bin/phpunit --no-coverage` sebelum commit; ikuti nama variabel Bahasa Indonesia yang sudah dipakai di file yang sama (`$conversationModel`, `$queueStatus`, dst.); validasi `jid_type` grup di server (CON-004), jangan hanya di UI; tambahkan test otomatis untuk jalur Hapus grup (AC-009) dan auto-assign grup (AC-010).
+> **Invariant (positif).** Pada percakapan grup, satu-satunya operasi yang berlaku adalah **baca**, **kirim pesan (teks/media)**, dan **Internal Note**. Seluruh endpoint aksi lain — Ambil, Lepas, Tutup, Snooze, Konfirmasi Nomor, Edit Profil, **Handoff**, dan **Tandai Dibaca** — **menolak `403`** di sisi server (CON-004, AC-006, AC-013); tidak ada pengecualian berdasarkan assignee maupun role, termasuk Admin. Daftar negatif di bawah adalah konsekuensi dari invariant ini, bukan daftar terpisah.
+
+> **Batas dimensi (Read/Unread).** Penolakan `tandai-dibaca` dan `handoff` di atas adalah penegasan bahwa grup **tidak menyentuh dimensi Read/Unread maupun kepemilikan**, bukan perubahan perilaku keduanya (Section 1.1: pekerjaan ini hanya menyentuh dimensi **identitas**). Karena `tandai-dibaca` ditolak `403`, `last_seen_by_assignee_at` grup **tidak pernah** ditulis; karena `handoff` ditolak `403`, `assigned_to` dan `conversation_handoffs` grup **tidak pernah** berubah oleh aksi ini. Kedua dimensi itu tetap berlaku penuh untuk percakapan pribadi tanpa perubahan.
+
+- **Always do:** Jalankan `vendor/bin/phpunit --no-coverage` sebelum commit; ikuti nama variabel Bahasa Indonesia yang sudah dipakai di file yang sama (`$conversationModel`, `$queueStatus`, dst.); validasi `jid_type` grup di server (CON-004), jangan hanya di UI; tambahkan test otomatis untuk jalur Hapus grup (AC-009), auto-assign grup (AC-010), dan penolakan `403` `handoff`/`tandai-dibaca` grup (AC-013).
 - **Ask first:** Menambah kolom baru ke `conversations`/`messages` (Tahap 1 seharusnya **tidak perlu** ini — kalau developer merasa perlu, itu sinyal salah paham dan wajib konfirmasi ke Architect/user dulu).
-- **Never do:** Membiarkan `assigned_to` terisi otomatis untuk grup lewat jalur kirim (REQ-008); mensyaratkan `status='closed'` untuk menghapus grup (REQ-007); mengubah kolom `assigned_to`/`status`/lifecycle untuk grup; menyentuh file di repo WA-Gateway; menghapus/mengubah perilaku tab untuk percakapan pribadi.
+- **Never do:** Membiarkan `assigned_to` terisi otomatis untuk grup lewat jalur kirim (REQ-008); mensyaratkan `status='closed'` untuk menghapus grup (REQ-007); mengubah kolom `assigned_to`/`status`/lifecycle untuk grup; menulis `last_seen_by_assignee_at` atau baris `conversation_handoffs` untuk grup lewat `tandai-dibaca`/`handoff` (keduanya **wajib** `403`); menyentuh file di repo WA-Gateway; menghapus/mengubah perilaku tab atau endpoint untuk percakapan pribadi.
 
 ## 10. Rationale, Context & Architecture Decisions (ADRs)
 
@@ -227,6 +235,7 @@ if (($conversation['jid_type'] ?? null) !== 'group' && empty($conversation['assi
 
 - `vendor/bin/phpunit --no-coverage` hijau 100%.
 - Test otomatis: hapus grup oleh admin → `200` meski `status` bukan `closed`; hapus oleh kasir non-admin → `403`; balas grup tidak mengisi `assigned_to`.
+- Test otomatis: `POST .../handoff` dan `POST .../tandai-dibaca` untuk `jid_type='group'` → `403` (bukan `409`/`200`), tanpa penulisan `assigned_to`/`conversation_handoffs`/`last_seen_by_assignee_at`; kedua endpoint pada percakapan pribadi tidak berubah (AC-013).
 - Manual check: badge `perlu_dibalas` di sidebar berkurang tepat sejumlah percakapan grup yang ada di data uji.
 - Manual check: tidak ada tombol Ambil/Lepas/Tutup/Snooze yang tampak pada percakapan grup di browser.
 - Manual check: pada grup, badge `response_state`, titik SLA, Tandai Dibaca, Handoff, badge kepemilikan, dan badge lifecycle (OPEN/CLOSED) tidak tampak; tab Grup berada di posisi paling akhir dan menyala aktif saat dipilih.
