@@ -1,0 +1,659 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Peta Kemajuan AuliaPos Inbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F2F4F6;
+    --surface: #FFFFFF;
+    --ink: #17202B;
+    --ink-soft: #4A5663;
+    --line: #D5DBE1;
+    --accent: #1D5F7A;
+    --done: #2F7A4F;
+    --done-bg: #E3F1E8;
+    --partial: #A86A12;
+    --partial-bg: #FBEFD9;
+    --todo: #6B7784;
+    --todo-bg: #ECEFF2;
+    --gated: #6A4C93;
+    --gated-bg: #EFE9F6;
+    --stripe: rgba(106, 76, 147, 0.16);
+    --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #12171D;
+      --surface: #1A2129;
+      --ink: #E6EBF0;
+      --ink-soft: #A3AEB9;
+      --line: #2E3843;
+      --accent: #6FB3CF;
+      --done: #6CC28F;
+      --done-bg: #183324;
+      --partial: #E3A64A;
+      --partial-bg: #3A2C14;
+      --todo: #95A1AD;
+      --todo-bg: #232B34;
+      --gated: #B79BE0;
+      --gated-bg: #2A2238;
+      --stripe: rgba(183, 155, 224, 0.14);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #12171D;
+    --surface: #1A2129;
+    --ink: #E6EBF0;
+    --ink-soft: #A3AEB9;
+    --line: #2E3843;
+    --accent: #6FB3CF;
+    --done: #6CC28F;
+    --done-bg: #183324;
+    --partial: #E3A64A;
+    --partial-bg: #3A2C14;
+    --todo: #95A1AD;
+    --todo-bg: #232B34;
+    --gated: #B79BE0;
+    --gated-bg: #2A2238;
+    --stripe: rgba(183, 155, 224, 0.14);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 32px 56px;
+    display: grid;
+    gap: 28px;
+  }
+  header { display: grid; gap: 10px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(28px, 4.2vw, 42px);
+    line-height: 1.1;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .lede { margin: 0; max-width: 68ch; color: var(--ink-soft); }
+  code, .mono { font-family: var(--mono); font-size: 0.88em; overflow-wrap: anywhere; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--ink-soft); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .sw { width: 22px; height: 12px; border-radius: 3px; border: 1.5px solid; display: inline-block; }
+  .sw.done { background: var(--done-bg); border-color: var(--done); }
+  .sw.partial { background: var(--partial-bg); border-color: var(--partial); }
+  .sw.todo { background: var(--todo-bg); border-color: var(--todo); border-style: dashed; }
+  .sw.gated { background: repeating-linear-gradient(135deg, var(--gated-bg) 0 5px, var(--stripe) 5px 10px); border-color: var(--gated); }
+
+  .changes {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-size: 13.5px;
+    display: grid;
+    gap: 4px;
+  }
+  .changes b { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); font-weight: 500; }
+  .changes ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; color: var(--ink-soft); }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .chain .node {
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+  }
+  .chain .node.on { border-color: var(--accent); color: var(--ink); }
+  .chain .arrow { color: var(--ink-soft); font-family: var(--mono); }
+
+  .lane {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    display: grid;
+    gap: 16px;
+  }
+  .lane-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+  .lane-head h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 22px;
+    margin: 0;
+  }
+  .lane-head h2 .id { color: var(--accent); margin-right: 8px; }
+  .lane-head .where { font-size: 13px; color: var(--ink-soft); }
+  .verdict { margin: 0; font-weight: 500; }
+
+  .track {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px;
+  }
+  .step {
+    border: 1.5px solid;
+    border-radius: 8px;
+    padding: 12px 13px;
+    display: grid;
+    gap: 6px;
+    align-content: start;
+  }
+  .step.done { background: var(--done-bg); border-color: var(--done); }
+  .step.partial { background: var(--partial-bg); border-color: var(--partial); }
+  .step.todo { background: var(--todo-bg); border-color: var(--todo); border-style: dashed; }
+  .step.gated { background: repeating-linear-gradient(135deg, var(--gated-bg) 0 8px, var(--stripe) 8px 16px); border-color: var(--gated); }
+  .step .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .step.done .tag { color: var(--done); }
+  .step.partial .tag { color: var(--partial); }
+  .step.todo .tag { color: var(--todo); }
+  .step.gated .tag { color: var(--gated); }
+  .step h3 { font-family: var(--display); font-weight: 700; font-size: 16px; margin: 0; line-height: 1.25; }
+  .step p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+  .step ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--ink-soft); display: grid; gap: 2px; }
+  .step .date { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+
+  .notes {
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px 24px;
+    font-size: 13.5px;
+  }
+  .notes div b { display: block; font-size: 12px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); font-weight: 500; margin-bottom: 2px; }
+  .notes p { margin: 0; }
+  .notes ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+
+  .next {
+    border: 1.5px solid var(--accent);
+    border-radius: 10px;
+    padding: 18px 20px;
+    background: var(--surface);
+    display: grid;
+    gap: 8px;
+  }
+  .next h2 { font-family: var(--display); font-weight: 800; font-size: 18px; margin: 0; }
+  .next p { margin: 0; max-width: 72ch; }
+  .next ol { margin: 0; padding-left: 22px; display: grid; gap: 4px; max-width: 72ch; }
+  .next .cmd { font-family: var(--mono); font-weight: 500; color: var(--accent); }
+  .next .who { font-weight: 600; }
+  .next .prompt-label { font-size: 12.5px; color: var(--ink-soft); margin: 4px 0 0; }
+  .next pre.prompt {
+    margin: 0;
+    max-width: 100%;
+    background: var(--ground);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  footer { font-size: 12.5px; color: var(--ink-soft); max-width: 80ch; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Status per 26 September 2026 · GitHub tikusgot007/AuliaPos · v2.3 @ b1e51f8</div>
+    <h1>Peta Kemajuan M1, M2, M3</h1>
+    <p class="lede">Posisi tiap milestone WhatsApp Inbox AuliaPos, disusun langsung dari repository di GitHub: plan, spec, laporan audit, commit, dan hasil test suite. Setiap blok menunjukkan satu tahap beserta buktinya.</p>
+    <div class="legend" aria-label="Keterangan warna">
+      <span><i class="sw done"></i>Selesai</span>
+      <span><i class="sw partial"></i>Selesai sebagian / sedang berjalan</span>
+      <span><i class="sw todo"></i>Belum mulai</span>
+      <span><i class="sw gated"></i>Menunggu prasyarat / belum dijadwalkan</span>
+    </div>
+  </header>
+
+  <div class="changes" aria-label="Perubahan sejak versi sebelumnya">
+    <b>Berubah sejak versi 3c4b59f</b>
+    <ul>
+      <li><b>Tahap 1 (tab Grup) selesai total</b>: diimplementasi, diuji (415→1532 assertion), <b>code review Merge</b> (0 CRITICAL/0 REQUIRED, 1 temuan opsional ditunda ke Tahap 2 atas keputusan pemilik).</li>
+      <li><b>Tahap 2 (identitas grup) sudah diimplementasi di KEDUA repo</b> — AuliaPos (436/1623 test OK) dan WA-Gateway (25 script simulasi lolos). <b>Belum code review, plan belum ditutup</b> (status masih <code>Planned</code> di front-matter).</li>
+      <li>Temuan opsional dari Tahap 1 (guard <code>cekBukanGrup()</code> untuk <code>handoffPercakapan()</code>/<code>tandaiDibaca()</code>) sudah masuk spec Tahap 1 v1.2 (AC-013), tapi <b>belum ada di plan maupun kode Tahap 2</b> — celah nyata, bukan sengaja ditunda dengan rencana konkret.</li>
+      <li>Terpisah: bug nyata di build Android WA-Gateway diperbaiki — update APK selama ini menghapus sesi WhatsApp &amp; antrean retry setiap kali di-update. Sudah diverifikasi di device fisik.</li>
+    </ul>
+  </div>
+
+  <div class="chain" aria-label="Urutan roadmap">
+    <span class="node">Tahap 0</span><span class="arrow">→</span>
+    <span class="node on">M1 Reliability</span><span class="arrow">→</span>
+    <span class="node on">M2 State Consistency</span><span class="arrow">→</span>
+    <span class="node on">M3 Operational Inbox</span><span class="arrow">→</span>
+    <span class="node">M4 Customer Context</span><span class="arrow">→</span>
+    <span class="node">M5 AI</span>
+  </div>
+
+  <!-- M1 -->
+  <section class="lane" aria-labelledby="m1">
+    <div class="lane-head">
+      <h2 id="m1"><span class="id">M1</span>Reliability</h2>
+      <span class="where">Repo WA-Gateway · live di <code>4010cc1</code> (sejak 24 Sep malam)</span>
+    </div>
+    <p class="verdict">Gelombang 1 dan 2 selesai, jalan di Gateway live, dan sudah lolos code review tanpa blocker. Kirim ulang dari kasir sudah terbukti tidak menggandakan pesan, dan antrean masuk sekarang punya batas percobaan.</p>
+    <div class="track">
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Ticket 01 · Pengukuran</h3>
+        <p>Baseline 4 skenario. Pesan hilang saat Gateway offline terbukti nyata.</p>
+        <span class="date">21 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · live</span>
+        <h3>Gelombang 1 · Ticket 02–04</h3>
+        <ul>
+          <li>Audit enqueue, durable buffer, pemulihan JSON</li>
+          <li>AC-001 nyata: 3/3, 30/30 pesan, 0 hilang, 0 duplikat</li>
+          <li>Code review 0 P0 → refactor selesai</li>
+          <li>PR #4 di-merge dan di-deploy</li>
+          <li>Laporan klarifikasi Gelombang 1 dipulihkan dari riwayat git (<code>b3bb3d3</code>)</li>
+        </ul>
+        <span class="date">23 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · 2/8 nyata + kode identik</span>
+        <h3>Ticket 04 · uji lingkungan nyata</h3>
+        <ul>
+          <li>Device fisik Samsung SM-G975F, app produksi, <code>better-sqlite3</code> dikonfirmasi absen</li>
+          <li>2 skenario kunci (pulih dari <code>.bak</code>; keduanya korup) lolos via <code>adb logcat</code>, 22 pesan asli pulih utuh</li>
+          <li>6/8 skenario sisanya TIDAK diklaim teruji-Android (kode identik + suite desktop 8/8 jadi jaminannya)</li>
+          <li>ASSUMPTION-007 (paritas <code>outgoing_operations</code> Wave 2) tetap terbuka — modul beda</li>
+        </ul>
+        <span class="date">25 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · di luar M1, ditemukan saat uji</span>
+        <h3>Bugfix zombie socket (WA-Gateway)</h3>
+        <p>Socket tidak dibersihkan saat <code>logged_out</code>, bikin pairing code macet <code>null</code>. Diperbaiki &amp; diverifikasi end-to-end di device (<code>3e356cd</code>).</p>
+        <span class="date">25 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · terkait build Android</span>
+        <h3>Bugfix sesi WhatsApp hilang saat update APK</h3>
+        <p>Update APK selama ini menghapus folder <code>auth/</code> (sesi WhatsApp) dan <code>data/</code> (antrean retry) — tiap update APK memaksa login ulang &amp; membuang antrean tertunda. Diperbaiki (dipindah sementara, dikembalikan setelah copy), diverifikasi di device fisik.</p>
+        <span class="date">26 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Bugfix urutan pesan Inbox (GW-11, Part B)</h3>
+        <ul>
+          <li><code>MessageModel::getByConversation()</code> sekarang <code>ORDER BY message_timestamp ASC, id ASC</code></li>
+          <li>Test baru (<code>MessageModelOrderingTest.php</code>) merah dulu, lalu hijau setelah fix</li>
+          <li>Cuma menjamin urutan yang <i>sudah benar</i> tetap stabil — TIDAK memperbaiki <code>message_timestamp</code> yang salah dari sumbernya (Part A, tetap di WA-Gateway, belum ada perbaikan)</li>
+        </ul>
+        <span class="date">25 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · ditemukan &amp; diperbaiki hari yang sama</span>
+        <h3>Bugfix <code>last_message_at</code> mundur</h3>
+        <ul>
+          <li>Ditemukan lewat audit insiden CI4_BASE_URL: backlog Gateway yang di-flush bisa membuat waktu pesan terakhir mundur, merusak SLA Timer &amp; urutan daftar percakapan (7 percakapan kena)</li>
+          <li><code>ConversationModel::updateLastMessageIfNewer()</code> — satu UPDATE atomic dengan guard, 3 titik tulis di-rewire</li>
+          <li>Data live yang sudah telanjur salah dikoreksi dengan approval eksplisit; drift re-check akhir = 0</li>
+          <li>Suite penuh 367 test / 1295 assertion OK</li>
+        </ul>
+        <span class="date">25 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Gelombang 2 · Spec &amp; Plan</h3>
+        <ul>
+          <li>Spec v1.1 (klarifikasi 88/100): lease 35 detik, batas 5 kali kirim, <code>operation_id</code> 1–64 karakter</li>
+          <li>Plan v1.0, 24 task dalam 5 fase; klarifikasi plan 82/100</li>
+          <li>Ticket 06–08 dari gelombang 3 ikut ditarik ke sini</li>
+        </ul>
+        <span class="date">24 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · live</span>
+        <h3>G2 Fase 1 · Kirim ulang tidak dobel</h3>
+        <ul>
+          <li>Tabel <code>outgoing_operations</code> + 6 setelan baru</li>
+          <li><code>/send</code> dan <code>/send-media</code> memakai <code>operation_id</code></li>
+          <li>Commit <code>55a1ae1</code>, <code>6fe151a</code>, <code>bdbf534</code></li>
+        </ul>
+        <span class="date">24 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · live</span>
+        <h3>G2 Fase 2 · Hasil kirim tidak pasti</h3>
+        <ul>
+          <li>Lease, batas percobaan, jawaban 409/504 yang jelas</li>
+          <li>Saat Gateway start, kiriman yang menggantung dicatat</li>
+          <li>Commit <code>62e92c2</code>, <code>e0f5585</code></li>
+        </ul>
+        <span class="date">24 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · live</span>
+        <h3>G2 Fase 3 · Dead-letter antrean masuk</h3>
+        <ul>
+          <li>Pesan masuk yang gagal terus berhenti di status <code>dead</code>, bisa di-replay</li>
+          <li>HTTP 400 dari AuliaPos = ditolak permanen, tidak dicoba ulang</li>
+          <li>Commit <code>c766d6a</code>, <code>4010cc1</code>; 23/23 script test lulus</li>
+        </ul>
+        <span class="date">24 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · live</span>
+        <h3>G2 Fase 4 · Sisi AuliaPos</h3>
+        <ul>
+          <li>Kolom <code>messages.gateway_operation_id</code> (UNIQUE)</li>
+          <li>Form balas memakai ulang <code>operation_id</code> saat kirim ulang; layar menampilkan “hasil belum pasti”</li>
+          <li>Perbaikan F-03: kirim ulang media tidak lagi bentrok (<code>94845a0</code>)</li>
+          <li>Suite 349 test / 1209 assertion, 0 skip</li>
+        </ul>
+        <span class="date">24 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · diukur nyata</span>
+        <h3>G2 Fase 5 · Deploy &amp; ukur nyata</h3>
+        <ul>
+          <li>Gateway live <code>21a4cb6</code> → <code>4010cc1</code>, PM2 online, 0 kiriman menggantung</li>
+          <li>Backup lalu migration di <code>aulia_inboxdb</code></li>
+          <li>Kirim ulang dalam 35 detik → 409, hanya 1 pesan sampai</li>
+          <li>Kirim ulang setelah 47 detik → dijawab ulang (replay), tidak ada pesan kedua</li>
+        </ul>
+        <span class="date">24 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · tanpa blocker</span>
+        <h3>G2 · Code review</h3>
+        <ul>
+          <li>Cakupan: WA-Gateway <code>21a4cb6..4010cc1</code> dan AuliaPos <code>f2b4f2c..HEAD</code></li>
+          <li>0 Critical/High. Medium: F-1 (baru), F-2 (dikonfirmasi ulang). Low: F-3, F-4 (tidak perlu diubah)</li>
+          <li>SEC-001, SEC-002, state machine, siklus <code>operation_id</code> di sisi kasir: semua PASS</li>
+          <li>Laporan temuan ada di chat sesi review, belum jadi file <code>docs/</code></li>
+        </ul>
+        <span class="date">24 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Bugfix F-1/F-2</h3>
+        <ul>
+          <li>F-1 (cabang <code>OPERATION_STORE_ERROR</code>) dan mitigasi teks F-2: di <code>index.php</code></li>
+          <li>JS composer check, PHPUnit filter (8/58), dan suite penuh (349/1209): semua OK</li>
+          <li>Plan <code>plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md</code>: status <code>Completed</code>, disetujui pemilik</li>
+        </ul>
+        <span class="date">25 Sep</span>
+      </div>
+      <div class="step todo">
+        <span class="tag">Belum mulai</span>
+        <h3>Gelombang 3 · Ticket 13–14</h3>
+        <p>Structured logging dan metrik/health. Ticket 06–08 sudah pindah ke spec Gelombang 2.</p>
+      </div>
+      <div class="step todo">
+        <span class="tag">Belum dijadwalkan</span>
+        <h3>Ticket 05, 12, 15</h3>
+        <p>Crash/restart test, worker correctness, full test matrix. Belum masuk gelombang mana pun.</p>
+      </div>
+    </div>
+    <div class="notes">
+      <div><b>Bukti</b><p>Plan Gelombang 1 dan 2 berstatus Completed. Laporan Gelombang 2 di <code>docs/decisions/2026-09-24-m1-wave2-*</code>, termasuk <code>…-phase4-aulias-pos-caller.md</code> dan <code>…-phase5-deploy.md</code> (deploy + pengukuran nyata ronde S, 1–4).</p></div>
+      <div><b>Risiko terbuka</b><p>Kalau Gateway mati tepat setelah WhatsApp menerima pesan, kirim ulang tetap bisa dobel (GW-09, dikonfirmasi ulang di code review; baru bisa ditutup lewat GW-21 di M2). F-2: pesan yang sukses tapi kena jalur 409 masih tidak muncul di Inbox sampai retry berikutnya berhasil — sudah dimitigasi teksnya (F-1/F-2 Completed), perbaikan sebenarnya (RISK-002) tetap kandidat Gelombang 3. Jalur gagal definitif AC-026(b) baru terbukti lewat stub. ASSUMPTION-007 (paritas <code>outgoing_operations</code> di fallback JSON) masih terbuka. <b>GW-11 Part A/GW-25:</b> <code>message_timestamp</code> dari Gateway sendiri kadang salah urutan (Baileys gagal dekripsi lalu retry) — akar masalahnya di WA-Gateway, belum diperbaiki di repo mana pun (Part B di AuliaPos sudah selesai). <b>Pola berulang:</b> backlog Gateway yang menumpuk lalu di-flush sekaligus sudah terjadi 2× (24 &amp; 25 Sep) — penyebab spesifik (CI4_BASE_URL) sudah dibetulkan, tapi kalau konektivitas Gateway↔CI4 putus lagi karena sebab lain, pola yang sama bisa berulang.</p></div>
+    </div>
+  </section>
+
+  <!-- M2 -->
+  <section class="lane" aria-labelledby="m2">
+    <div class="lane-head">
+      <h2 id="m2"><span class="id">M2</span>State Consistency</h2>
+      <span class="where">AuliaPos · program ditunda</span>
+    </div>
+    <p class="verdict">Tidak berubah. Sebagai program, M2 belum dimulai. Hanya jalur Handoff yang sudah atomic, lewat pengecualian sempit K-01.</p>
+    <div class="track">
+      <div class="step done">
+        <span class="tag">Sudah atomic</span>
+        <h3>Ambil percakapan</h3>
+        <p><code>ambilPercakapan()</code> sudah memakai conditional UPDATE. Kalau kalah balapan, hasilnya 409.</p>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · gate K-01</span>
+        <h3>Handoff (lewat M3 Fase 2a)</h3>
+        <p>Handoff hanya berhasil kalau pemiliknya masih sama dengan yang dibaca; kalau tidak, 409. Program M2 tidak dibuka.</p>
+        <span class="date">23 Sep</span>
+      </div>
+      <div class="step todo">
+        <span class="tag">Belum mulai</span>
+        <h3>Jalur kepemilikan lain</h3>
+        <p>Lepas, selesai, snooze, tandai dibaca, hapus: masih baca-lalu-tulis, belum atomic.</p>
+      </div>
+      <div class="step todo">
+        <span class="tag">Belum mulai</span>
+        <h3>Delivery state, audit transisi, health</h3>
+        <p>Belum ada breakdown ticket. GW-20 (health) dan GW-21 (status pengiriman) secara eksplisit dilempar ke M2 oleh spec M1 Gelombang 2.</p>
+      </div>
+    </div>
+    <div class="notes">
+      <div><b>Bukti</b><p>PRD §2.3 (constraint K-01); <code>clarification-report-m3-fase2-m2-gate-2026-09-22.md</code>; bagian M2 di TODO-CHAT: “BELUM MULAI”.</p></div>
+      <div><b>Belum ada</b><p>Spec, plan, maupun ADR untuk M2. <code>docs/adr/</code> baru berisi 0001.</p></div>
+    </div>
+  </section>
+
+  <!-- M3 -->
+  <section class="lane" aria-labelledby="m3">
+    <div class="lane-head">
+      <h2 id="m3"><span class="id">M3</span>Operational Inbox</h2>
+      <span class="where">AuliaPos · di v2.3 · belum produksi</span>
+    </div>
+    <p class="verdict">Fase 1a–1e dan Fase 2a semuanya selesai, termasuk code review dan remediasinya. Tidak ada item aktif tersisa di M3 Fase 1 — sisanya murni pilihan pemilik (Fase 2b, atau M5 nanti).</p>
+    <div class="track">
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Fase 1a · Queue View</h3>
+        <ul>
+          <li>5 tab dengan jumlah per tab</li>
+          <li>Detail percakapan dan action bar</li>
+          <li>Snooze (durasi) dan Selesai</li>
+        </ul>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Fase 1b · Note, SLA, Cari (backend)</h3>
+        <ul>
+          <li>Internal Note (API) dan alasan snooze</li>
+          <li>Warna SLA dihitung di server</li>
+          <li>Filter, pencarian, 50 per halaman</li>
+        </ul>
+        <span class="date">23 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · review Merge</span>
+        <h3>Fase 1c · Layar Note, SLA, Cari</h3>
+        <ul>
+          <li>Tombol Catatan Internal untuk semua staff</li>
+          <li>Titik warna SLA di daftar</li>
+          <li>Kotak pencarian nama/nomor</li>
+          <li>Uji manual 8/8</li>
+        </ul>
+        <span class="date">24 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · review Merge</span>
+        <h3>Fase 1d · Cari semua nama/nomor</h3>
+        <ul>
+          <li>Pencarian 5 kolom, termasuk nama profil WhatsApp (GH-009)</li>
+          <li>7 test AC-013, Red dulu lalu Green (<code>db7f301</code>)</li>
+          <li>Cek manual browser lulus: “Budi Cetak” dan “Jamet” ketemu</li>
+          <li>TASK-022 disetujui; code review tanpa temuan wajib</li>
+        </ul>
+        <span class="date">24 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · code review + remediasi tuntas</span>
+        <h3>Fase 1e · Cari isi pesan</h3>
+        <ul>
+          <li>Cari juga di isi pesan: pesan pelanggan, balasan staff, Internal Note (GH-010) — via <code>InboxMatchSnippetService</code></li>
+          <li>Tiap percakapan tampil satu kali dengan potongan pesan terbaru yang cocok (120 karakter, label “Internal”)</li>
+          <li>AC-016 PASS nyata: median 436–1010 ms di 200.000 baris data uji, jauh di bawah target 3 detik</li>
+          <li>Code review: 2 temuan REQUIRED (bug pencarian tanda petik, race condition polling) — keduanya diperbaiki &amp; diverifikasi</li>
+          <li>Spec rev 1.4 Finalized, Plan Fase 1 &amp; plan refactor keduanya Completed, suite 395/1443 OK</li>
+        </ul>
+        <span class="date">25 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Fase 2a · Handoff + Collision</h3>
+        <ul>
+          <li>Spec v1.2, code review, refactor 2 fase</li>
+          <li>Audit konsistensi 87/100</li>
+          <li>Plan v1.1 dan plan refactor: Completed</li>
+        </ul>
+        <span class="date">23 Sep</span>
+      </div>
+      <div class="step gated">
+        <span class="tag">Belum dijadwalkan</span>
+        <h3>Fase 2b · Auto-assignment</h3>
+        <p>GH-008. Aturan pembagian beban kerja antar staff belum ditetapkan. Spec belum ada.</p>
+      </div>
+      <div class="step gated">
+        <span class="tag">Menunggu M5</span>
+        <h3>Fase 3 · Fitur AI</h3>
+        <p>Intent filter, ringkasan otomatis, saran balasan.</p>
+      </div>
+    </div>
+    <div class="notes">
+      <div><b>Bukti</b><p>PRD v1.4, Spec Fase 1 rev 1.2, Plan Fase 1 rev 1.2 (status Completed). Audit <code>consistency-audit-m3-fase1…-2026-09-24.md</code>: 95/100. Pesan “4096 byte” sudah dibetulkan di <code>7f2d82b</code>.</p></div>
+      <div><b>Masih terbuka (kecil)</b>
+        <ul>
+          <li>Checklist M3 di <code>docs/TODO-CHAT.md</code> masih potret 21–23 Sep; sekarang sudah diberi catatan peringatan, tapi isinya belum disinkronkan.</li>
+          <li>NIT dari code review: cek negatif AC-013 (d) bisa pakai <code>assertSame([])</code>.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lintas milestone -->
+  <section class="lane" aria-labelledby="fix">
+    <div class="lane-head">
+      <h2 id="fix"><span class="id">Fix</span>Isolasi database test</h2>
+      <span class="where">AuliaPos · plan bugfix Completed · <code>aad7720</code>, <code>f1268af</code></span>
+    </div>
+    <p class="verdict">Setiap kali PHPUnit dijalankan, isi <code>aulia_inboxdb</code> ikut terhapus karena grup <code>inbox</code> tidak dialihkan saat testing. Sudah diperbaiki; data chat lokal yang terhapus sebelumnya tidak dipulihkan.</p>
+    <div class="track">
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Database test terpisah</h3>
+        <p>Grup <code>inbox</code> dipaksa ke <code>aulia_inboxdb_test</code> saat <code>ENVIRONMENT === 'testing'</code>; DSN dan failover ikut dikosongkan (SEC-01).</p>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Pengaman sebelum test jalan</h3>
+        <p>Bootstrap baru menolak menjalankan PHPUnit kalau grup <code>inbox</code> menunjuk ke database lain. Sudah diuji: 0 test jalan.</p>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Bukti tidak merusak</h3>
+        <p>Suite penuh 327 test / 1100 assertion hijau. Jumlah baris dan <code>AUTO_INCREMENT</code> di database asli tidak berubah (selain pesan WhatsApp live yang masuk).</p>
+      </div>
+      <div class="step todo">
+        <span class="tag">Di luar scope</span>
+        <h3>Pemulihan data lama</h3>
+        <p>Chat lokal yang sudah terhapus sebelum perbaikan tidak dikembalikan (RISK-004 plan).</p>
+      </div>
+    </div>
+    <div class="notes">
+      <div><b>Perlu diingat</b><p>Skema <code>aulia_inboxdb_test</code> adalah salinan, bukan hasil migration. Setelah menambah migration inbox, salin ulang skemanya (langkah ada di <code>docs/ARCHITECTURE.md</code> §11).</p></div>
+    </div>
+  </section>
+
+  <!-- Fitur baru, di luar rantai M1-M5 -->
+  <section class="lane" aria-labelledby="gh011">
+    <div class="lane-head">
+      <h2 id="gh011"><span class="id">GH-011</span>Grup, Balas Pesan, Teruskan</h2>
+      <span class="where">AuliaPos + WA-Gateway · PRD terpisah, di luar rantai M1-M5</span>
+    </div>
+    <p class="verdict">Fitur baru yang diminta pemilik, bukan bagian M3. Tahap 1 selesai total termasuk code review. Tahap 2 sudah jalan di kedua repo tapi belum direview/ditutup. Tahap 3-4 masih menunggu.</p>
+    <div class="track">
+      <div class="step done">
+        <span class="tag">Selesai</span>
+        <h3>Discovery Draft, PRD &amp; Spec 4 Tahap</h3>
+        <p>3 gejala ternyata satu akar masalah: Gateway tidak baca <code>participant</code> pengirim grup. Klarifikasi PRD 88/100, klarifikasi spec 74→93/100 (5 Temuan Kritis diremediasi).</p>
+        <span class="date">25-26 Sep</span>
+      </div>
+      <div class="step done">
+        <span class="tag">Selesai · code review Merge</span>
+        <h3>Tahap 1 · Tab Grup</h3>
+        <ul>
+          <li>Tab Grup baru, badge <code>perlu_dibalas</code> tidak lagi terisi grup, aksi tidak relevan disembunyikan + ditolak <code>403</code> di server</li>
+          <li>Suite naik ke 415/1532. Code review Two-Axis: <b>0 CRITICAL, 0 REQUIRED</b></li>
+          <li>1 temuan opsional (SEC-01: <code>handoffPercakapan</code>/<code>tandaiDibaca</code> belum ber-guard) — pemilik memutuskan ditunda ke Tahap 2</li>
+        </ul>
+        <span class="date">26 Sep</span>
+      </div>
+      <div class="step partial">
+        <span class="tag">Kode selesai · belum direview, plan belum ditutup</span>
+        <h3>Tahap 2 · Identitas grup</h3>
+        <ul>
+          <li>WA-Gateway: <code>sender_jid</code> dari <code>key.participant</code> + nama grup di-cache, dikirim ke AuliaPos. 25 script simulasi lolos</li>
+          <li>AuliaPos: kolom <code>group_name</code> baru, judul grup stabil, identitas pengirim per pesan. Suite naik ke 436/1623</li>
+          <li>SEC-01 (guard Handoff/Tandai-Dibaca yang ditunda dari Tahap 1) <b>belum ada di plan maupun kode tahap ini</b> — masih celah terbuka</li>
+        </ul>
+        <span class="date">26 Sep</span>
+      </div>
+      <div class="step gated">
+        <span class="tag">Menunggu Tahap 1 &amp; 2 ditutup penuh</span>
+        <h3>Tahap 3-4 · Balas Pesan, Teruskan</h3>
+        <p>Spec belum ada. One Path Rule: tidak boleh dikerjakan sebelum tahap sebelumnya selesai penuh (termasuk code review).</p>
+      </div>
+    </div>
+    <div class="notes">
+      <div><b>Bukti</b><p>PRD <code>prd-20260926-0024-*.md</code>; klarifikasi PRD 88/100, spec 74→93/100, audit konsistensi 90/100, klarifikasi dua plan Tahap 2 89/100 — semua di <code>docs/audit/</code>. Implementasi: commit <code>ab843ed</code> (Tahap 1), <code>b1e51f8</code> (Tahap 2 AuliaPos), <code>84779c5</code> (Tahap 2 WA-Gateway, repo terpisah).</p></div>
+      <div><b>Perlu diingat</b><p>Ini PRD terpisah dari PRD M3 lama secara sengaja — PRD M3 melarang perubahan WA-Gateway, padahal Tahap 2-4 di sini butuh itu. Jangan disatukan. SEC-01 (guard Handoff/Tandai-Dibaca) wajib diselesaikan sebelum Tahap 2 dianggap tuntas.</p></div>
+    </div>
+  </section>
+
+  <section class="next" aria-labelledby="next">
+    <h2 id="next">Langkah berikutnya: tutup Tahap 2 (code review + SEC-01)</h2>
+    <p>Tahap 2 sudah jalan di kedua repo tapi belum boleh dianggap selesai — code review belum jalan, dan satu guard keamanan (SEC-01) yang dijanjikan spec masih belum ada di kode. One Path Rule: jangan mulai Tahap 3 sebelum ini tuntas.</p>
+    <ol>
+      <li><span class="cmd">/sdlc-code-review</span> untuk Tahap 2 di kedua repo (AuliaPos <code>b1e51f8</code>, WA-Gateway <code>84779c5</code>) terhadap spec v1.3.</li>
+      <li>Putuskan &amp; kerjakan SEC-01: tambah <code>cekBukanGrup()</code> ke <code>handoffPercakapan()</code> dan <code>tandaiDibaca()</code> — sudah diwajibkan spec Tahap 1 v1.2 (AC-013), tapi belum masuk plan/kode mana pun.</li>
+      <li>Setelah bersih, tutup front-matter kedua plan Tahap 2 dari <code>Planned</code> → <code>Completed</code>.</li>
+    </ol>
+    <p>Baru setelah itu Tahap 3 (Balas Pesan) boleh mulai. Pilihan lain yang masih menunggu, tidak mendesak: Part A GW-11/GW-25 (akar masalah urutan pesan, WA-Gateway), Fase 2b M3 (auto-assignment, spec belum ada), atau mulai program M2. Item lebih kecil: konfirmasi F-01 (migrasi kolom produksi), RISK-002 (perbaikan penuh F-2), ASSUMPTION-007 (paritas <code>outgoing_operations</code>).</p>
+  </section>
+
+  <footer>Sumber: PRD v1.4 (§9.2 diperbarui), spec dan plan di <code>spec/</code> dan <code>plan/</code>, laporan di <code>docs/audit/</code>, <code>docs/TODO-CHAT.md</code> (header 24 Sep), dan riwayat git branch <code>v2.3</code> di GitHub sampai <code>7864156</code>. Kode Gelombang 2 ada di repo WA-Gateway; commit-nya dibaca dari laporan eksekusi di repo AuliaPos. Status Gateway live tidak tersimpan di GitHub; yang tertulis di sini berasal dari catatan TODO-CHAT. Ringkasan code review (F-1–F-4, status PASS SEC-001/SEC-002, angka test 23 script WA-Gateway dan 349/1209 AuliaPos) diambil dari checkpoint memory <code>e49b582</code>. Isi plan bugfix F-1/F-2 dibaca dari commit <code>93dfadf</code>, <code>72f63ec</code>, <code>8a6b11e</code>. Detail Ticket 04 (uji Android nyata), temuan <code>CI4_BASE_URL</code>, dan bugfix zombie-socket WA-Gateway (<code>3e356cd</code>) dibaca langsung dari <code>docs/decisions/2026-09-25-ticket04-json-fallback-android-verifikasi-nyata.md</code> dan commit <code>308b120</code>. Diagnosis GW-11/Part A/Part B dibaca dari <code>plan/plan-bugfix-inbox-message-ordering-v1.0.md</code> (<code>cc1ed2d</code>). Penutupan insiden CI4_BASE_URL, temuan <code>last_message_at</code>, dan angka suite (367/1295) dibaca dari commit <code>c951d9b</code>, <code>9cf7e32</code>, <code>bd84fc9</code>, <code>6b87c99</code> sampai <code>bb91665</code>. Skor klarifikasi Fase 1e (87/100) dari <code>3cce9c0</code>. Penutupan Fase 1e (TASK-023..029), angka AC-016, dan suite 395/1443 dibaca dari commit <code>0f22806</code> sampai <code>bd00c84</code>. Hasil code review (2 REQUIRED, 0 CRITICAL) dan remediasinya dibaca dari <code>docs/audit/code-review-m3-fase1e-2026-09-25.md</code>, commit <code>2a538af</code>, <code>0919960</code>, dan <code>docs/walkthrough-m3-fase1e-remediation-2026-09-25.md</code> di <code>74b02d4</code>/<code>bb8d94e</code>. Discovery Draft, PRD, klarifikasi (88/100), 4 spec tahap, klarifikasi spec (74→93/100), dan plan Tahap 1 untuk GH-011 (Grup/Balas/Teruskan) dibaca dari commit <code>8fef427</code>, <code>a6de68b</code>, <code>f6b705b</code>, <code>3c4b59f</code>. Implementasi Tahap 1 + code review Merge dari <code>ab843ed</code>/<code>8d04889</code>. Implementasi Tahap 2 (kode selesai, review &amp; SEC-01 belum) dari <code>b1e51f8</code> (AuliaPos) dan <code>84779c5</code> (WA-Gateway, repo terpisah). Bugfix Android auth/data dari <code>3e971c7</code>. Ini fitur baru di luar PRD/rantai M3 lama — sengaja tidak dipaksa masuk urutan Tahap 0→M1→M5 di atas.</footer>
+</div>
+
+</body></html>
