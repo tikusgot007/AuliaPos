@@ -363,7 +363,8 @@
                     <?php foreach ($conversations as $c): ?>
                         <a href="#" class="inbox-list-item" data-conversation-id="<?= esc($c['id']) ?>" onclick="return pilihConversation(<?= (int) $c['id'] ?>)">
                             <div class="d-flex justify-content-between align-items-start">
-                                <span class="list-name"><?= esc($c['contact_name'] ?: $c['whatsapp_name'] ?: $c['phone'] ?: $c['chat_id']) ?></span>
+                                <?php // Grup Tahap 2 (REQ-007): judul grup = group_name (subject asli) atau teks generik "Grup" -- TIDAK PERNAH nama pengirim terakhir. ?>
+                                <span class="list-name"><?= esc($c['jid_type'] === 'group' ? (($c['group_name'] ?? null) ?: 'Grup') : ($c['contact_name'] ?: $c['whatsapp_name'] ?: $c['phone'] ?: $c['chat_id'])) ?></span>
                                 <span class="d-flex align-items-center gap-1">
                                     <span class="list-time"><?= $c['last_message_at'] ? date('d/m H:i', strtotime($c['last_message_at'])) : '' ?></span>
                                     <button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(<?= (int) $c['id'] ?>)"><i class="fas fa-pen"></i></button>
@@ -934,7 +935,9 @@
 
         panel.innerHTML = daftarTampil.map(function(c) {
             const activeClass = (String(c.id) === String(conversationAktif)) ? ' active' : '';
-            const nama = c.contact_name || c.whatsapp_name || c.phone || c.chat_id;
+            // Grup Tahap 2 (REQ-007): judul grup = group_name (subject asli)
+            // atau "Grup" -- TIDAK PERNAH nama pengirim terakhir (whatsapp_name).
+            const nama = (c.jid_type === 'group') ? (c.group_name || 'Grup') : (c.contact_name || c.whatsapp_name || c.phone || c.chat_id);
             const waktu = c.last_message_at ? formatWaktuInbox(c.last_message_at) : '';
             const panah = c.last_message_direction === 'outgoing' ? '<i class="fas fa-reply fa-xs"></i> ' : '';
             // Grup Tahap 1 (REQ-005, CON-005, CON-006) -- grup tidak
@@ -1135,6 +1138,12 @@
     // ================================================================
     function formatIdentitasCustomer(conv) {
         if (!conv) return '';
+
+        // Grup Tahap 2 (REQ-007): judul grup = nama grup asli (group_name)
+        // yang stabil, atau teks generik "Grup" bila belum diketahui.
+        // TIDAK PERNAH memakai whatsapp_name/identitas pengirim terakhir, dan
+        // TIDAK ada suffix nomor/LID untuk grup. Perilaku pribadi tidak berubah.
+        if (conv.jid_type === 'group') return conv.group_name || 'Grup';
 
         const nama = conv.contact_name || conv.whatsapp_name || null;
         const nomor = conv.manual_phone || conv.phone || null;

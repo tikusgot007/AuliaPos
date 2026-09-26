@@ -70,6 +70,26 @@ class InboxGatewayApi extends BaseController
 
         $direction = ($payload['direction'] ?? 'incoming') === 'outgoing' ? 'outgoing' : 'incoming';
 
+        // Grup Tahap 2 / TASK-006 (REQ-010, AC-009): pesan grup MASUK WAJIB
+        // membawa `sender_jid` (identitas pengirim dari key.participant yang
+        // diekstrak Gateway). Ditolak SEBELUM idempotency check dan SEBELUM
+        // transaksi -- tidak ada baris `messages`, tidak ada perubahan
+        // `conversations` (termasuk `group_name`), jadi tidak ada jejak
+        // tersimpan sama sekali.
+        //
+        // Lingkup INCOMING saja (keputusan pemilik 2026-09-26): pesan grup
+        // outgoing sinkron WA Web/HP dengan `sender_jid` NULL TETAP diproses
+        // (dibutuhkan AC-011), dan `jid_type` selain 'group' tidak berubah.
+        // Validasi sengaja longgar: cukup string non-kosong, TANPA validasi
+        // format JID.
+        if ($jidType === 'group' && $direction === 'incoming'
+            && (empty($payload['sender_jid']) || trim((string) $payload['sender_jid']) === '')) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'sender_jid' wajib diisi untuk pesan grup masuk (jid_type='group', direction='incoming').",
+            ]);
+        }
+
         if ($messageType === 'text' && ($text === null || $text === '')) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
@@ -240,6 +260,23 @@ class InboxGatewayApi extends BaseController
             if ($update) {
                 $conversationModel->update($conversationId, $update);
             }
+        }
+
+        // Grup Tahap 2 / TASK-002 (REQ-005/REQ-006, GUD-002): simpan nama grup
+        // (subject WhatsApp) sebagai judul percakapan yang STABIL -- WRITE-ONCE,
+        // hanya ditulis kalau kolomnya masih NULL (`=== null`, BUKAN `empty()`).
+        // Ditaruh DI LUAR `if (!$resolved['created'])` di atas supaya berlaku
+        // juga untuk conversation yang BARU dibuat dalam request yang sama --
+        // `$conversation` sudah di-fetch ulang di atas (baris ~219), jadi
+        // `group_name` baris yang baru dibuat terbaca NULL dan terisi pada
+        // request itu juga (tidak ditunda ke pesan berikutnya).
+        //
+        // CON-001: hanya untuk `jid_type='group'`. Payload non-grup tidak
+        // pernah menyentuh kolom ini, dan nilai berikutnya (termasuk nama yang
+        // berubah di WhatsApp) TIDAK menimpa setelah terisi (REQ-006).
+        $groupNameFromPayload = !empty($payload['group_name']) ? (string) $payload['group_name'] : null;
+        if ($jidType === 'group' && $groupNameFromPayload !== null && $conversation['group_name'] === null) {
+            $conversationModel->update($conversationId, ['group_name' => $groupNameFromPayload]);
         }
 
         // --- Insert message --------------------------------------------------

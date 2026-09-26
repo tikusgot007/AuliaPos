@@ -92,6 +92,7 @@ class ConversationModel extends Model
         'jid_type',
         'contact_name',
         'whatsapp_name',
+        'group_name',
         'phone',
         'manual_phone',
         'status',

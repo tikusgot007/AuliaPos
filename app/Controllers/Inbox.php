@@ -303,7 +303,9 @@ class Inbox extends BaseController
         }
 
         $messageModel = new MessageModel();
-        $messages = $this->attachSenderNames($messageModel->getByConversation($conversationId, 500));
+        // Grup Tahap 2 / TASK-007 (REQ-008): jid_type percakapan diteruskan
+        // supaya pesan grup masuk diberi label identitas pengirim.
+        $messages = $this->attachSenderNames($messageModel->getByConversation($conversationId, 500), $conversation['jid_type']);
 
         foreach ($messages as &$message) {
             $message['is_internal'] = (bool) ($message['is_internal'] ?? false);
@@ -616,8 +618,14 @@ class Inbox extends BaseController
      * inbox). Ini contoh nyata pola "logical reference" yang
      * didokumentasikan di ConversationModel/MessageModel: gabungkan
      * di PHP, bukan lewat JOIN SQL (tidak mungkin, beda database).
+     *
+     * `$conversationJidType` (Grup Tahap 2 / TASK-007, REQ-008): kalau
+     * 'group', pesan MASUK dengan `sender_jid` terisi diberi label
+     * identitas pengirim (nomor telepon / 'LID' / 'Pengirim'), bukan
+     * nama staff. Pemanggil lama cukup mengabaikan parameter ini
+     * (default null = perilaku persis seperti sebelumnya).
      */
-    private function attachSenderNames(array $messages): array
+    private function attachSenderNames(array $messages, ?string $conversationJidType = null): array
     {
         $userIds = array_values(array_unique(array_filter(array_column($messages, 'sent_by_user_id'))));
 
@@ -639,12 +647,52 @@ class Inbox extends BaseController
                 // kasir lain yang lihat Inbox tidak mengira ini dikirim
                 // dari POS oleh seseorang yang tidak disebutkan namanya.
                 $message['sender_name'] = 'Staff (WA Web/HP)';
+            } elseif ($conversationJidType === 'group' && !empty($message['sender_jid'])) {
+                // Grup Tahap 2 / TASK-007 (REQ-008): pesan grup MASUK diberi
+                // label identitas pengirim dari messages.sender_jid. `sender_jid`
+                // NULL/NULL-nya pesan lama -> tanpa label (CON-003); cabang ini
+                // hanya terpicu kalau sender_jid terisi.
+                $message['sender_name'] = $this->labelIdentitasPengirimGrup((string) $message['sender_jid']);
             } else {
                 $message['sender_name'] = null;
             }
         }
 
         return $messages;
+    }
+
+    /**
+     * Grup Tahap 2 / TASK-007 (REQ-008, CON-003): turunkan label tampilan
+     * yang AMAN dari `messages.sender_jid` pesan grup.
+     *
+     * - `@s.whatsapp.net` -> bagian nomor sebelum `@`.
+     * - `@lid` atau domain apa pun berakhiran `.lid` -> `'LID'`.
+     * - Selain itu (mis. `@g.us`, `@hosted`, atau nilai malformed) ->
+     *   `'Pengirim'`.
+     *
+     * JANGAN PERNAH mengembalikan JID mentah ke UI: hanya nomor atau label
+     * generik, sesuai kontrak REQ-008 (Keputusan A -- nama orang per peserta
+     * bukan bagian kontrak).
+     */
+    private function labelIdentitasPengirimGrup(string $senderJid): string
+    {
+        $pos = strrpos($senderJid, '@');
+        if ($pos === false || $pos === 0 || $pos === strlen($senderJid) - 1) {
+            return 'Pengirim';
+        }
+
+        $local  = substr($senderJid, 0, $pos);
+        $domain = substr($senderJid, $pos + 1);
+
+        if ($domain === 's.whatsapp.net') {
+            return $local !== '' ? $local : 'Pengirim';
+        }
+
+        if ($domain === 'lid' || str_ends_with($domain, '.lid')) {
+            return 'LID';
+        }
+
+        return 'Pengirim';
     }
 
     /**
