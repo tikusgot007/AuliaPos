@@ -699,3 +699,113 @@
 <!-- checkpoint-tail: 2026-09-26 Phase 6b `/sdlc-define-specs` amended TWO specs in one session from `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` (84/100 PROCEED), no code touched — Tahap 1 → v1.2 extends `CON-004`/`AC-006` to `handoffPercakapan()` (`Inbox.php:1196`) and `tandaiDibaca()` (`:1774`) with `cekBukanGrup()` placed after 404 / before eligibility→ownership so groups get 403 not 409, adds `AC-013`, and rewrites Section 9 as a positive invariant stating groups permit only read / send text-media / Internal Note while naming the Read-Unread dimension explicitly; Tahap 2 → v1.1 corrects `REQ-004` (`InboxGatewayApi.php:251` already writes `sender_jid` unconditionally, so the "tinggal diisi" claim is removed), promotes the 400 rule to `REQ-010`+`AC-009`, rewrites `REQ-008`/`AC-002` to "identitas pengirim (nomor/LID)", adds `CON-004` release-ordering (Gateway first; legacy-Gateway group messages get 400 and are lost, no queue, contrast additive `group_name`) plus clarified `EXT-001`, adds the WA-Web/HP synced-outgoing label (`REQ-009`/`AC-011`), covers the `created=true` path with `=== null` and accepted last-write-wins, and marks `group_name` search as backlog; owner chose to amend the PRD (GH-013 + Section 4 "nama pengirim" redaction) as a SEPARATE session recorded in `OPEN ITEM T3`; both specs uncommitted; next: `/sdlc-draft-prd` then `/sdlc-audit-consistency` in new sessions. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-26 (Phase 6c — `/sdlc-draft-prd`: penyelarasan redaksi PRD v1.0 → v1.1 untuk keputusan T3)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** PRD (Phase 1) via `/sdlc-draft-prd` — **remediasi PRD SELESAI**. Ini "amandemen PRD terpisah" yang dikunci oleh `OPEN ITEM T3` di `spec-design-grup-tahap2-identitas.md` §1.2 dan `PENDING (amandemen terpisah / T3)` di §14 (lihat checkpoint Phase 6b). Tidak ada kode disentuh; spec **tidak** disentuh (batas peran PM).
+- **Active Artifacts:**
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — Status: ✅ **v1.1** (redaksi T3 diselaraskan; **uncommitted**). Sebelumnya v1.0 (Readiness 88/100 PROCEED).
+  - `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` — Status: ✅ ditandai `REMEDIATION STATUS: RESOLVED` (blok `[!SUCCESS]` setelah front matter, sebelum H1 — KB DE-06), Projected Readiness Score **87/100** (dari 84/100).
+  - `spec/spec-design-grup-tahap2-identitas.md` v1.1 — **tidak diubah** sesi ini; masih memuat rujukan pra-amandemen (REQ-006/REQ-007 "nama pengirim terakhir", `OPEN ITEM T3` §1.2, `PENDING T3` §14) yang kini usang.
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` v1.2 — **tidak diubah** sesi ini.
+- **Achieved Milestones:**
+  - **11 kemunculan** frasa "nama pengirim" di PRD diganti menjadi **"identitas pengirim (nomor telepon atau LID)"** (mengikuti spec v1.1 `REQ-008`/`AC-002`). Lokasi: Section 4 (baris 128 label bullet, 136 bullet nama-grup, 145 Balas Pesan), Section 5.3 (baris 186), GH-013 (story 330 + AC 332/333/335/336), GH-014 AC (345), GH-015 AC (361). Verifikasi `grep`: frasa lama **0** di body; sisa 1 hanya di catatan revisi v1.1 (sengaja, sebagai jejak istilah lama).
+  - Scope yang diminta user = GH-013 + Section 4 (baris 128/136/145/330/332/333/335/336). Untuk **konsistensi intra-dokumen**, 3 kemunculan di luar scope juga diselaraskan (Section 5.3 baris 186, GH-014 baris 345, GH-015 baris 361) — semuanya konsep label yang sama; ketiganya dilaporkan terbuka di jawaban sesi.
+  - Ditambah **catatan revisi v1.1** di Section 1.1 (2 baris) + `Version: 1.0 → 1.1`; tidak ada perubahan lingkup/tujuan/user story/metrik.
+  - **Self-Assessment (rubrik AGENTS.md):** Completeness 33/40 (tetap), Clarity 25/30 (tetap), Alignment 26→29/30 (kontradiksi GH-013 vs REQ-008 tertutup; sisa -1 karena spec masih merujuk teks PRD lama) → **87/100** (≥80, layak lanjut).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** mengirim 5 panggilan `edit` terhadap **file yang sama** dalam satu batch paralel. **Reason:** satu panggilan (baris kutipan Section 4) mengembalikan `Unknown: FileSystem.writeFile` (race tulis) dan **tidak** diterapkan, sementara 4 lainnya sukses — batch parsial mudah disalahbaca sebagai "semua sukses". **Note:** setelah edit batch ke satu file, selalu `grep`/re-read region untuk memastikan; retry edit yang gagal. Untuk banyak suntingan kecil di satu file, pakai batch lebih kecil.
+  - Tidak ada dead-end shell/lint baru; lint **tidak** dijalankan sebagai gate sesi ini (perubahan hanya redaksi pada file yang sudah MD013-only) — dicatat jujur sebagai belum diverifikasi delta.
+- **Updated Files:**
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — v1.0→v1.1; 11 penggantian frasa + catatan revisi v1.1 (uncommitted).
+  - `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` — banner `REMEDIATION STATUS: RESOLVED` + Projected 87/100 (uncommitted).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - **Allignment seluruh dokumen** dipilih (11/11 kemunculan), bukan hanya 8 lokasi yang disebut user, karena T3 menetapkan tidak ada "nama pengirim" di model — menyisakan frasa lama akan menghasilkan kontradiksi intra-dokumen (mis. Section 4 baris 145 vs GH-015 baris 361). Keputusan ini dilaporkan terbuka kepada user.
+  - **Frasa "nama pengirim terakhir" pada aturan judul (baris 136/GH-014 baris 345) ikut diubah** ke "identitas pengirim ... terakhir"; konsekuensinya spec `REQ-006`/`REQ-007` kini beda istilah dengan PRD dan **wajib direkonsiliasi** di `/sdlc-audit-consistency` (sudah dicatat di banner laporan).
+  - **PM tidak menyunting spec** meskipun tiga rujukan spec (REQ-006/REQ-007, `OPEN ITEM T3`, `PENDING T3`) menjadi usang — batas peran & session lock; hanya dilaporkan.
+  - Tidak ada ADR baru dan `CONTEXT.md` **tidak diubah** (tidak ada istilah domain baru; catatan: definisi **Kutipan** di `CONTEXT.md:68` masih menyebut "beserta nama pengirim asli" — potensi diselaraskan di sesi lain, belum diputuskan).
+- **Next Action / Pending:**
+  - **PRD v1.1 + laporan audit masih uncommitted.** Commit + push ke `origin/v2.3` saat owner minta; push via `cmd /c "git push origin v2.3 > build\push.txt 2>&1"` lalu verifikasi `git ls-remote` (KB DE-39).
+  - **Langkah disarankan: `/sdlc-audit-consistency` di sesi chat baru** (spec Tahap 1 **dan** PRD berubah, jadi keterlacakan perlu dicek ulang). Prompt siap pakai: audit PRD v1.1 terhadap spec Tahap 2 + Tahap 1, dan tutup rujukan usang (REQ-006/REQ-007, `OPEN ITEM T3` §1.2, `PENDING T3` §14).
+  - Setelah audit lolos: `/sdlc-plan-tasks` (tetap **dua plan terpisah**: AuliaPos + WA-Gateway).
+  - Carried forward, unchanged: ESC-001..004 Gateway escalation OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11 + debt peta arsitektur (`queue_status='grup'`, `Inbox::cekBukanGrup()`) → `/sdlc-map-architecture`; RISK-004/007/009; `docs/TODO-CHAT.md` item 11–13; `zzztag` Internal Note conversation `11746` (`messages.id = 305`).
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found, so the fast-path offer was skipped silently.
+
+<!-- checkpoint-tail: 2026-09-26 Phase 6c `/sdlc-draft-prd` aligned the PRD to T3 — `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` bumped v1.0→v1.1 by replacing all 11 occurrences of "nama pengirim" with "identitas pengirim (nomor telepon atau LID)" (Section 4 lines 128/136/145, Section 5.3 line 186, GH-013 story+4 ACs, GH-014 AC, GH-015 AC — the last three beyond the requested GH-013+Section-4 scope, done for intra-document consistency and disclosed to the owner) plus a v1.1 revision note; the clarification report `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` now carries a `REMEDIATION STATUS: RESOLVED` banner with projected 87/100 (self-assessment: Completeness 33 + Clarity 25 + Alignment 29); three spec-side references to the old PRD text remain stale (spec Tahap 2 REQ-006/REQ-007, `OPEN ITEM T3` §1.2, `PENDING T3` §14) and must be reconciled by `/sdlc-audit-consistency` in a NEW session — a new dead-end was recorded that parallel `edit` calls to the SAME file can partially fail (`Unknown: FileSystem.writeFile`) and must be verified by grep/re-read, and both files stay uncommitted. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-26 (Phase 6d — `/sdlc-audit-consistency`: PRD v1.1 ↔ Spec Tahap 1/2 + penutupan rujukan T3)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Recurring Checkpoint — `/sdlc-audit-consistency` atas PRD v1.1 vs `spec-design-grup-tahap1-tab-inbox.md` (v1.2) + `spec-design-grup-tahap2-identitas.md` (v1.1). **Audit selesai: 90/100 Good Enough.** Rujukan usang **T3 CLOSED**. Tidak ada kode disentuh.
+- **Active Artifacts:**
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — Status: ✅ v1.1 (uncommitted; **tidak diubah** sesi ini)
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — v1.2 (tidak diubah sesi ini)
+  - `spec/spec-design-grup-tahap2-identitas.md` — ✅ **v1.1 → v1.2** (rujukan T3 ditutup; uncommitted)
+  - `spec/spec-index.md` — ✅ **v1.0 → v1.1** (rujukan versi PRD v1.0 → v1.1; uncommitted)
+  - `docs/audit/consistency-audit-whatsapp-grup-balas-teruskan-2026-09-26.md` — ✅ **BARU** (Readiness 90/100; uncommitted)
+  - Plan Tahap 2 — ⏳ belum dibuat
+- **Achieved Milestones:**
+  - Keterlacakan PRD↔Spec: GH-011..GH-014 terpetakan penuh ke REQ/AC; tanpa missing coverage / orphan. GH-015/016 (Balas Pesan/Teruskan) di luar cakupan berkas — punya spec Tahap 3/4 sendiri.
+  - **Codebase Reality Check PASS** (terverifikasi langsung): `sender_jid` ditulis tanpa syarat di `InboxGatewayApi.php:251` + validasi field wajib `:55-63`; kolom `sender_jid` di migrasi `2026-09-07-000001_CreateInboxTables.php:154` & `MessageModel.php:46`; `jid_type` migrasi `:46`; `queue_status='grup'` di `ConversationModel.php:249-251`; `created=true` di `:413`; **`group_name` TIDAK ada di migrasi mana pun** (konsisten `CON-002`); `Inbox.php` `QUEUE_STATUSES:34` + `cekBukanGrup():727`; `handoffPercakapan():1196` & `tandaiDibaca():1774` belum di-guard (konsisten `CON-004`/`AC-013` forward-looking).
+  - **T3 CLOSED** di spec Tahap 2: `OPEN ITEM T3` (§1.2) & `PENDING (amandemen terpisah/T3)` (§14) → CLOSED; wording "nama pengirim terakhir" → "identitas pengirim terakhir" (Purpose & Scope, `REQ-007`, `AC-003`); pointer usang di `CLARIFICATION NEEDED` + `REQ-008` dihapus; catatan revisi v1.2 ditambahkan.
+  - Temuan tambahan yang ikut ditutup: `spec-index.md` masih merujuk PRD **v1.0** → diperbaiki ke **v1.1**.
+  - Self-score: Completeness 36/40 + Clarity 26/30 + Alignment 28/30 = **90/100**; Critical Flaw Veto: No.
+- **Dead-Ends (Do NOT Repeat):**
+  - Tidak ada dead-end baru. (KB DE paralel-edit-file-sama dari Phase 6c dipatuhi: seluruh suntingan `spec-design-grup-tahap2-identitas.md` dilakukan **sekuensial** satu per satu, lalu diverifikasi `grep`.)
+- **Updated Files:**
+  - `spec/spec-design-grup-tahap2-identitas.md` — v1.1→v1.2, penutupan rujukan T3 (uncommitted)
+  - `spec/spec-index.md` — v1.0→v1.1, rujukan PRD v1.1 (uncommitted)
+  - `docs/audit/consistency-audit-whatsapp-grup-balas-teruskan-2026-09-26.md` — laporan audit baru (uncommitted)
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini
+- **Decisions Made:**
+  - Auditor **menutup** rujukan T3 di spec (bukan sekadar melaporkan) karena `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md:16` secara eksplisit menugaskan "spec-side reconciliation (for the next `/sdlc-audit-consistency`)" dan user memerintahkan "tutup rujukan usang". Perubahan **dokumentasi murni** — tanpa perubahan requirement/AC/ADR; `CONTEXT.md` tidak diubah.
+  - Minor gap `[Assumed / Backlog]` (tidak memblokir, tidak ditutup): GH-012 AC menyebut Balas Pesan/Teruskan untuk story Tahap 1 (direkonsiliasi Tahap 1 `CON-003`); Handoff & Tandai Dibaca diblokir spec tapi tak terenumerasi di GH-012 AC (diturunkan dari §2.3/§3.3); PRD §8.1 vs `REQ-004` (klaim "pengisian nilainya"); `CONTEXT.md:68` "Kutipan" masih "beserta nama pengirim asli" + `spec-design-balas-pesan.md:76` "nama pengirim" (fase Tahap 3); risiko 400-drop (`CON-004`) tak tersurat di PRD §8.3.
+  - Tidak ada ADR baru (keputusan Grup gagal *Triple Gate*; `CON-004` konsekuensi invarian `CHAT.md` §18 yang sudah ada).
+- **Next Action / Pending:**
+  - **Semua file sesi uncommitted.** Commit + push ke `origin/v2.3` saat owner minta; push via `cmd /c "git push origin v2.3 > build\push.txt 2>&1"` lalu verifikasi `git ls-remote` (KB DE-39).
+  - **User Decision Prompt DIJAWAB: PROCEED** (owner, 2026-09-26). Karena spec Tahap 2 **sudah** lewat clarify (84/100) + consistency check (90/100), gerbang berikutnya adalah **`/sdlc-plan-tasks`** di sesi chat baru (urutan AGENTS.md: Spec → Clarify → Consistency Check → **Plan** → Clarify → Code) — **wajib dua plan terpisah** (AuliaPos + WA-Gateway, `spec-index.md` §Urutan Pengerjaan).
+  - Opsional/non-blocking: `/sdlc-draft-prd` untuk anotasi editorial GH-012 (phasing Balas Pesan/Teruskan) & catat risiko 400-drop di PRD §8.3.
+  - Carried forward, unchanged: ESC-001..004 Gateway escalation OPEN; `ASSUMPTION-007` OPEN; `docs/ARCHITECTURE.md` §11 + debt peta arsitektur (`queue_status='grup'`, `Inbox::cekBukanGrup()`) → `/sdlc-map-architecture`; RISK-004/007/009; `docs/TODO-CHAT.md` item 11–13; `zzztag` Internal Note conversation `11746` (`messages.id = 305`).
+  - No `AGENTS.md` change this session: recorded `Active Memory Path` matched the file found, so the fast-path offer was skipped silently.
+
+<!-- checkpoint-tail: 2026-09-26 Phase 6d `/sdlc-audit-consistency` audited PRD v1.1 against `spec-design-grup-tahap1-tab-inbox.md` v1.2 and `spec-design-grup-tahap2-identitas.md` v1.1 (Readiness 90/100 Good Enough, Critical Flaw Veto No) and CLOSED the stale T3 references the Phase 6c PRD amendment left behind — spec Tahap 2 bumped v1.1→v1.2 (`OPEN ITEM T3` §1.2 and `PENDING amandemen terpisah/T3` §14 rewritten as CLOSED, "nama pengirim terakhir" wording aligned in Purpose & Scope/REQ-007/AC-003, stale pointers removed, v1.2 note added) and `spec-index.md` bumped v1.0→v1.1 with PRD v1.0→v1.1 corrections; the new report `docs/audit/consistency-audit-whatsapp-grup-balas-teruskan-2026-09-26.md` records verified code anchors (sender_jid write `InboxGatewayApi.php:251`, no `group_name` column anywhere so `CON-002` migration is real, `queue_status='grup'` `ConversationModel.php:249-251`) and six non-blocking `[Assumed/Backlog]` minor gaps (GH-012 AC phasing, Handoff/Tandai-Dibaca AC enumeration, PRD §8.1 vs REQ-004, `CONTEXT.md` Kutipan wording for Tahap 3, 400-drop risk not in PRD §8.3); edits were applied sequentially per KB DE, all files uncommitted, and the PROCEED/REFINE decision is still open. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-26 (Phase 6e — `/sdlc-define-specs`: amandemen dokumentasi minor spec Tahap 2 v1.2 → v1.3 atas temuan klarifikasi plan)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (amandemen minor) — tindak lanjut `/sdlc-clarify-reqs` atas **DUA plan Tahap 2** (`docs/audit/clarification-report-grup-tahap2-plans-2026-09-26.md`, Readiness 89/100 **PROCEED**). Amandemen **dokumentasi murni**: tidak ada perubahan requirement/AC/ADR; `CONTEXT.md` & `docs/adr/` tidak disentuh.
+- **Active Artifacts:**
+  - `spec/spec-design-grup-tahap2-identitas.md` — ✅ **v1.2 → v1.3** (4 amandemen minor; uncommitted sebelum commit sesi ini)
+  - `docs/audit/clarification-report-grup-tahap2-plans-2026-09-26.md` — ✅ BARU (Readiness 89/100 Good Enough) + `REMEDIATION STATUS: RESOLVED (Spec side)` (banner **setelah** H1, patuh KB DE-06)
+  - `plan/plan-feature-grup-tahap2-auliapos-v1.0.md` & `plan/plan-feature-grup-tahap2-wa-gateway-v1.0.md` — ✅ dibuat sesi `/sdlc-plan-tasks` paralel; keduanya sudah merujuk spec **v1.3**
+  - `docs/audit/consistency-audit-whatsapp-grup-balas-teruskan-2026-09-26.md` — ada (sesi 6d)
+- **Achieved Milestones:**
+  - Empat amandemen spec v1.3: (1) Section 8 contoh kode kanonik menambah penjaga `$jidType === 'group'` (selaras `CON-001` + `TASK-002`); (2) `CON-004` (§3.2) + Section 13 → bukti gate rilis **POSITIF** (pesan grup uji via Gateway ter-deploy → `200` + baris `messages` ber-`sender_jid` + label/`group_name` tampil; catat versi/commit), observasi `400` hanya bukti `AC-009` di lingkungan uji; (3) Section 12 → fallback tampilan aman non-JID (`@s.whatsapp.net`→nomor; `@lid`/`.lid`→`LID`; lainnya→`Pengirim`; JID mentah tidak pernah dirender); (4) versi minor 1.3 + catatan revisi + item terkait **CLOSED**.
+  - Menutup **3 item sisi spec** dari clarification report (Section 8 sample, inverted `CON-004` evidence, raw-JID fallback). Item plan-side tetap lingkup `/sdlc-plan-tasks`.
+  - **Verifikasi silang sesi paralel:** plan AuliaPos `TASK-002` memuat guard yang sama, `TASK-007` fallback `Pengirim`, `TASK-008`/`TEST-003` bukti positif; plan WA-Gateway `TASK-002`/`TASK-003` fire-and-forget + assertion kontrak `direction` (`fromMe`→`outgoing`). Kedua plan menyebut spec **v1.3** → spec dan plan konsisten.
+  - Self-score (spec side): Completeness 36/40 + Clarity 27/30 + Alignment 29/30 = **90/100**; Critical Flaw Veto: No. Tak ada ADR baru (gagal Triple Gate).
+- **Dead-Ends (Do NOT Repeat):**
+  - Tidak ada dead-end baru. Edit sekuensial per file lalu `read` verifikasi (patuh KB DE-35/DE-47). **Catatan koreksi mandiri:** banner REMEDIATION semula ditaruh **di atas** H1; langsung dipindah ke **setelah** H1 agar tidak memicu `MD041` (KB DE-06).
+- **Updated Files:**
+  - `spec/spec-design-grup-tahap2-identitas.md` — v1.2→v1.3
+  - `docs/audit/clarification-report-grup-tahap2-plans-2026-09-26.md` — banner remediasi (spec side)
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini
+- **Decisions Made:**
+  - Perubahan spec **tidak** mengubah requirement/AC; fallback non-JID ditempatkan di Section 12 (edge case) dan merujuk `REQ-008` agar `REQ-008`/`AC-002` tetap utuh.
+  - Gate rilis `CON-004` kini bukti positif — observasi `400` **tidak** valid sebagai bukti gate (justru menandakan Gateway belum terpasang).
+  - Tidak ada ADR/CONTEXT baru.
+- **Next Action / Pending:**
+  - Commit + push ke `origin/v2.3`: (1) docs commit (PRD/spec/audit/plan), (2) memory commit. Push via `cmd /c "git push origin v2.3 > build\push.txt 2>&1"` lalu verifikasi `git ls-remote origin refs/heads/v2.3` = local `HEAD` (KB DE-39). `jalankan_claude.bat` (untracked, tak terkait) **sengaja tidak** ikut di-commit.
+  - `/sdlc-write-code` boleh dimulai di sesi baru, urutan **Gateway dulu → AuliaPos** (`CON-004`); WA-Gateway harness = `node test/simulate-group-identity.js` (bukan PHPUnit).
+  - Carried forward, unchanged: ESC-001..004; `ASSUMPTION-007`; `docs/ARCHITECTURE.md` §11 + peta arsitektur grup → `/sdlc-map-architecture`; `docs/TODO-CHAT.md` 11–13; TODO sinkronisasi ganti-nama-grup; BACKLOG pencarian `group_name`.
+
+<!-- checkpoint-tail: 2026-09-26 Phase 6e `/sdlc-define-specs` applied four documentation-only amendments to `spec-design-grup-tahap2-identitas.md` v1.2→v1.3 (Section 8 `$jidType === 'group'` guard, `CON-004`/Section 13 positive release-gate evidence, Section 12 safe non-JID display fallback, version+CLOSED notes) as the spec-side follow-up to the two-plan clarification report 89/100 PROCEED, changed no requirement/AC, and confirmed the parallel `/sdlc-plan-tasks` plans now cite v1.3. -->
+
+---
+
