@@ -851,3 +851,41 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-26 (Phase 7 — `/sdlc-code-review` Grup Tahap 2, Two-Axis)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (Phase 7 `/sdlc-code-review`) — **COMPLETE** for Grup Tahap 2. Verdict: **Proceed to Refactoring Plan** (do not merge as-is). Persona-locked as Expert Code Reviewer; **no application source code was changed**.
+- **Active Artifacts:**
+  - `docs/audit/code-review-grup-tahap2-2026-09-26.md` — Status: ✅ **NEW, untracked** (non-normative, Indonesian, Two-Axis report).
+  - `plan/plan-refactor-grup-tahap2-identitas-v1.0.md` — Status: ⏳ **NEW, untracked**, `Planned` v1.0 (English; code-side remediation only).
+  - `spec/spec-design-grup-tahap2-identitas.md` (v1.3) and both feature plans — unchanged inputs.
+- **Achieved Milestones:**
+  - Reviewed both diffs: AuliaPos `8349e0e..b1e51f8` (**8 files, +893/−4**) and WA-Gateway `3e356cd..3e971c7` (**6 files, +409/−7**).
+  - Independently re-ran gates: `vendor/bin/phpunit --no-coverage --filter "InboxGrupTahap2"` → **OK (17 tests, 75 assertions), exit 0**; `node test/simulate-group-identity.js` → **exit 0**. The claimed full **436 tests / 1623 assertions** was NOT re-run (author's claim).
+  - Empirical probe on the **real** `Inbox::labelIdentitasPengirimGrup()` via reflection: `@g.us` → `Pengirim`, `@lid`/`*.lid` → `LID`, `6281234567890:12@s.whatsapp.net` → `6281234567890:12`, malformed → `Pengirim`.
+  - **Verdict: 8 Standards (2 REQUIRED) + 4 Spec (3 REQUIRED) + 8 FYI.** Worst Standards = `[CORR-01]` (Android `auth/`/`data/` preserve/restore not exception-safe; `preserved-tmp` cleanup can destroy the only session copy on the next start). Worst Spec = `[SPEC-01]` (legacy group messages render "Pengirim" — violates PRD GH-013/§5.3 intent).
+  - `[SPEC-02]` **confirmed with code evidence** (`git show 3e356cd` on `connectionManager.js` + `incomingBuffer.js` + `incomingDelivery.js`): the old Gateway **always** sent `sender_jid = remoteJid` (= group JID), so the `CON-004`/`EXT-001` premise "old Gateway → every group message rejected `400` and lost" is **false**; the new guard accepts and stores it. No data loss; only a wrong label. Release gate rationale must be corrected in spec/plan (docs, not code).
+  - `[SPEC-03]`/`[SPEC-04]`: Gateway plan `Section 5 Files` omits `incomingBuffer.js`, `incomingDelivery.js`, `config/index.js`; `NodeBridge.kt` is unplanned scope in the diff.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** locating the skill's reference rubric with `glob` on `.claude/skills/sdlc-code-review/references/*.md`. **Reason:** the pattern returned **no files** (the hidden `.claude/` tree is not matched the same way); the files clearly exist. **Correct:** `read` the directory (`.../sdlc-code-review/references`) to list its entries, then `read` each file directly.
+  - No generalizable code dead-end found; the two REQUIRED code items are in the plan, not new dead-ends.
+- **Updated Files:**
+  - `docs/audit/code-review-grup-tahap2-2026-09-26.md` — NEW review report (untracked).
+  - `plan/plan-refactor-grup-tahap2-identitas-v1.0.md` — NEW remediation plan (untracked).
+  - `.claude/instructions/memory.instructions.md` — this checkpoint.
+  - **Zero** application source files changed (review was read-only; `git status --short` shows only the two new docs).
+- **Decisions Made:**
+  - Reviewer writes **no production code** (skill rule); deliverables are report + plan; implementation routes to `/sdlc-write-code` in a NEW session.
+  - Phase 4 of the refactor plan (`[SPEC-01]` legacy label) is **GATED** — it cannot start until a spec decision records either (a) label-safe treatment (`@g.us` → no identity) or (b) one-time data cleanup of `messages.sender_jid LIKE '%@g.us'`.
+  - Documentation findings (`[SPEC-02]` false `CON-004` premise, `[SPEC-03]` Files list, `[SPEC-04]` NodeBridge scope, plus the `[SPEC-01]` decision) are **routed to `/sdlc-plan-tasks` + `/sdlc-define-specs`**, deliberately outside the code refactor plan.
+- **Next Action / Pending:**
+  - **Commit + push the two new artifacts + this checkpoint** to `origin/v2.3` when the owner asks; use `cmd /c "git push origin v2.3 > build\push.txt 2>&1"` and read the file (**DE-39**); verify `git ls-remote origin refs/heads/v2.3` == local `HEAD`.
+  - **Next phase (NEW session):** `/sdlc-write-code` Phase 1 of `plan/plan-refactor-grup-tahap2-identitas-v1.0.md` (Android `NodeBridge.kt` hardening). Ready-to-paste: `/sdlc-write-code Execute Phase 1 of the refactoring plan defined in @plan/plan-refactor-grup-tahap2-identitas-v1.0.md`
+  - **Doc-side follow-ups:** `/sdlc-plan-tasks` to amend both Grup Tahap 2 plans (Files list, NodeBridge scope, `CON-004` rationale) and `/sdlc-define-specs` to correct `CON-004`/`EXT-001`/`Section 13` + `spec-index.md` (line 21) and to decide the legacy-message treatment.
+  - Carried forward, unchanged: ESC-001..004; `ASSUMPTION-007`; `docs/ARCHITECTURE.md` §11; `docs/TODO-CHAT.md` items 11–13; TODO sinkronisasi ganti-nama-grup; BACKLOG pencarian `group_name`; Tahap 1 `SEC-01` (Handoff/Tandai-Dibaca group guard) deferred to Tahap 2 work; `jalankan_claude.bat` untracked at repo root.
+  - No `AGENTS.md` change this session: the recorded `Active Memory Path` matched the file found, so the consent-gated fast-path offer was skipped silently.
+
+<!-- checkpoint-tail: 2026-09-26 Phase 7 `/sdlc-code-review` on Grup Tahap 2 (AuliaPos `8349e0e..b1e51f8` 8 files +893/−4; Gateway `3e356cd..3e971c7` 6 files +409/−7) is COMPLETE with verdict **Proceed to Refactoring Plan** (0 CRITICAL, 2 REQUIRED Standards, 3 REQUIRED Spec, 8 FYI): `[CORR-01]` Android `NodeBridge.kt` preserves `auth/`/`data/` without `try/catch` and can lose the only session copy on the next start, `[CORR-02]` the group-name cache has no negative-caching so `groupMetadata()` can degenerate to per-message network calls, `[SPEC-01]` legacy group rows (`sender_jid` = group JID, NOT NULL) render "Pengirim" against PRD GH-013 intent (proven by reflection on the real label function), and `[SPEC-02]` the `CON-004` "old Gateway → 400 + lost" premise is FALSE because the old Gateway always sent `sender_jid = remoteJid` (verified via `git show 3e356cd`) — so the release gate rationale needs a docs correction, not a code fix; artifacts `docs/audit/code-review-grup-tahap2-2026-09-26.md` and `plan/plan-refactor-grup-tahap2-identitas-v1.0.md` (both untracked, no source changed), Phase 4 of the plan is GATED on a spec decision, and next is `/sdlc-write-code` Phase 1 in a NEW session plus `/sdlc-plan-tasks` + `/sdlc-define-specs` for the documentation findings. -->
+
+---
+
