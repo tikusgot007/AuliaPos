@@ -143,8 +143,16 @@ final class QuotedSourceMessageIdMigrationTest extends CIUnitTestCase
             $this->assertNull($this->columnInfo(self::COLUMN), 'down() must drop the column.');
 
             $migration->up();
-            $this->assertSame('int(10) unsigned', $this->columnInfo(self::COLUMN)['COLUMN_TYPE'], 'up() must recreate it.');
-            $this->assertSame('YES', $this->columnInfo(self::COLUMN)['IS_NULLABLE'], 'up() must keep it NULLable.');
+            $info = $this->columnInfo(self::COLUMN);
+            // DATA_TYPE (bukan COLUMN_TYPE): `int(10) unsigned` adalah detail
+            // display yang berbeda antar versi MySQL/MariaDB; tipe dasarnya `int`.
+            $this->assertSame('int', $info['DATA_TYPE'], 'up() must recreate it as INT, portable across MySQL/MariaDB.');
+            $this->assertSame('YES', $info['IS_NULLABLE'], 'up() must keep it NULLable.');
+            // MySQL melaporkan kolom `DEFAULT NULL` sebagai string 'NULL'.
+            $this->assertTrue(
+                $info['COLUMN_DEFAULT'] === null || $info['COLUMN_DEFAULT'] === 'NULL',
+                'up() must recreate it with no real default (GUD-001).'
+            );
         } finally {
             // Jangan pernah meninggalkan skema uji shared dalam kondisi tidak
             // lengkap, bahkan kalau ada assertion di atas yang gagal.

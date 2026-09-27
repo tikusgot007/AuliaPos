@@ -624,3 +624,33 @@
 <!-- checkpoint-tail: 2026-09-27 Artifact Consistency Checker audited GH-015 Balas Pesan (PRD v1.1 ↔ Spec v1.8 ↔ Plan review2 v1.0 Completed) and saved docs/audit/consistency-audit-balas-pesan-tahap3-review2-2026-09-27.md with Readiness Score 79/100 (Critical Flaw Veto, Below Threshold). All 6 Plan review2 remediation claims (SEC-001/002/003, REQ-008c media-type fidelity, ARCH-001, TASK-303 spec-wording) were verified byte-for-byte correct in code. Two Critical Blockers keep the score capped: (1) carried-forward, still unmoved — PRD GH-015 AC lines 362/364 ("offer to send without quote"/"cancel⇒nothing sent") still contradicts Spec REQ-006's auto-send-then-mark semantics, flagged in 3 prior audit/clarification docs and never routed through /sdlc-draft-prd; (2) newly found — TASK-305 (claimed Completed in two plan docs) only fixed ONE of TWO non-portable COLUMN_TYPE assertions in QuotedSourceMessageIdMigrationTest.php: testKolomAdaDenganTipeSesuaiSpesifikasi() (line 61-70) is portable, but testUpDownRoundTripMemulihkanKolom() (line 146) still hardcodes 'int(10) unsigned'. Also found a non-blocking Minor Gap: docs/ARCHITECTURE.md:193 documents a nonexistent quoted_from_me DB column (the real quoted.fromMe is a runtime Gateway-payload field derived from `direction`, never persisted). A User Decision Prompt (PROCEED vs REFINE) was presented to the user; answer not yet received when this checkpoint was written. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Code Janitor — tutup TASK-305 tersisa: portabilitas assertion kedua di QuotedSourceMessageIdMigrationTest.php)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Ad-hoc fix (`/code-janitor`, Broom Rule — single-file test assertion fix). Bukan tahap SDLC formal.
+- **Active Artifacts:**
+  - `tests/database/QuotedSourceMessageIdMigrationTest.php` — ✅ Updated (`testUpDownRoundTripMemulihkanKolom()` kini portable)
+  - `plan/plan-refactor-balas-pesan-tahap3-v1.0.md` (TASK-305, referensi — tidak diubah sesi ini)
+  - `docs/audit/consistency-audit-balas-pesan-tahap3-review2-2026-09-27.md` (sumber temuan Critical Blocker #2 — tidak diubah)
+- **Achieved Milestones:**
+  - Menutup celah `TASK-305` yang ditemukan audit sebelumnya (Critical Blocker #2, skor 79/100): `testUpDownRoundTripMemulihkanKolom()` baris 146 diganti dari `assertSame('int(10) unsigned', ...['COLUMN_TYPE'])` menjadi 3 assertion portable — `DATA_TYPE === 'int'`, `IS_NULLABLE === 'YES'`, dan `COLUMN_DEFAULT` NULL/'NULL' — pola identik dengan `testKolomAdaDenganTipeSesuaiSpesifikasi()` (baris 61-70) yang sudah portable lebih dulu.
+  - Full test file: `vendor/bin/phpunit --configuration phpunit.dist.xml tests/database/QuotedSourceMessageIdMigrationTest.php` → **6 tests, 13 assertions, exit 0** (naik dari 12 assertion sebelum fix, karena 1 assertion `COLUMN_TYPE` diganti jadi 2 assertion baru `DATA_TYPE`+`COLUMN_DEFAULT`, ditambah `IS_NULLABLE` yang tetap).
+  - Kedua method test di file ini (`testKolomAdaDenganTipeSesuaiSpesifikasi()` dan `testUpDownRoundTripMemulihkanKolom()`) sekarang konsisten memakai pola portable yang sama — tidak ada lagi literal `COLUMN_TYPE` MySQL/MariaDB-spesifik di file ini.
+- **Dead-Ends (Do NOT Repeat):**
+  - N/A — perbaikan berjalan lurus, surgical edit tunggal pada satu blok assertion, tidak ada pendekatan gagal.
+- **Updated Files:**
+  - `tests/database/QuotedSourceMessageIdMigrationTest.php` — baris 146 (dalam `testUpDownRoundTripMemulihkanKolom()`): 1 assertion `COLUMN_TYPE` non-portable diganti 3 assertion portable (`DATA_TYPE`, `IS_NULLABLE`, `COLUMN_DEFAULT`), comment penjelas ditambahkan (identik gaya baris 66-67).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Fix dieksekusi langsung via `/code-janitor` (Broom Rule) tanpa mini-plan terpisah — task sudah presisi (satu baris, satu file, pola referensi sudah ada di file yang sama), sesuai lingkup TASK-305 yang sudah didefinisikan di plan lama.
+  - Tidak menyentuh `plan/plan-refactor-balas-pesan-tahap3-v1.0.md` (status checkbox `TASK-305`) — itu wewenang `/sdlc-plan-tasks`, bukan janitor.
+- **Next Action / Pending:**
+  - Opsional: `/sdlc-plan-tasks` (sesi baru) untuk mengonfirmasi ulang status `TASK-305` di `plan-refactor-balas-pesan-tahap3-v1.0.md` kini benar-benar selesai (kedua assertion sudah portable).
+  - Opsional: `/sdlc-audit-consistency` re-run atas GH-015 Balas Pesan — Critical Blocker #2 (skor 79/100) kini terselesaikan; Critical Blocker #1 (PRD GH-015 AC 362/364 vs REQ-006) TETAP terbuka, masih perlu `/sdlc-draft-prd`.
+  - Carried forward (tidak berubah): PRD GH-015 AC lines 362/364 → `/sdlc-draft-prd` (masih blocker utama); `docs/ARCHITECTURE.md:193` `quoted_from_me` entry salah (Minor Gap, non-blocking); `CONTEXT.md:68`; PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search.
+  - Belum ada commit/push sesi ini — menunggu tawaran & persetujuan owner (Rule #3 End-of-Session Closing Sequence).
+
+<!-- checkpoint-tail: 2026-09-27 Code Janitor closed the remaining TASK-305 gap found by the prior consistency audit (Critical Blocker #2, score 79/100): tests/database/QuotedSourceMessageIdMigrationTest.php:146 testUpDownRoundTripMemulihkanKolom() replaced its non-portable `assertSame('int(10) unsigned', ...COLUMN_TYPE)` with the same portable pattern already used in testKolomAdaDenganTipeSesuaiSpesifikasi() (line 61-70): DATA_TYPE==='int' + IS_NULLABLE==='YES' + COLUMN_DEFAULT NULL check. Full file suite: 6 tests/13 assertions/exit 0. Both test methods in the file now consistently avoid MySQL/MariaDB-specific COLUMN_TYPE literals. Next: optional /sdlc-plan-tasks to reconfirm TASK-305 checkbox status; optional /sdlc-audit-consistency re-run (Blocker #2 resolved, Blocker #1 — PRD GH-015 AC 362/364 vs REQ-006 — still open, needs /sdlc-draft-prd). No commit/push yet this session. -->
+
+---
