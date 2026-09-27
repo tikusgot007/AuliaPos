@@ -685,3 +685,38 @@
 <!-- checkpoint-tail: 2026-09-27 Code Janitor closed the two remaining non-blocking Minor Gaps flagged by consistency-audit-balas-pesan-tahap3-review3 (score 94/100, Good Enough, user chose REFINE before proceeding): (1) CONTEXT.md:68 "Kutipan" entry wording aligned with REQ-005/REQ-013/AC-007's "identitas pengirim (nomor telepon atau LID)" phrasing; (2) docs/ARCHITECTURE.md:193 phantom `quoted_from_me` DB column entry removed and replaced with an accurate note that `quoted.fromMe` is a Gateway-payload runtime field derived from `direction`, never persisted. Both were surgical single-location edits per audit review3's explicit Handoff Routing (Section 5) recommending /code-janitor. No code/migration/test touched. Both carried-forward Minor Gaps are now CLOSED; PRD GH-015 AC 362/364 vs REQ-006 was already resolved earlier (PRD v1.2, commit 25b4e93). No commit/push yet this session. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6y — `/sdlc-write-code` menutup guard grup Tahap 1 `SEC-01`: handoff & tandai-dibaca)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`, Phase Code). Menutup item `SEC-01` dari audit `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` (Readiness Score 84/100 → PROCEED) atas `spec/spec-design-grup-tahap1-tab-inbox.md` **v1.2**.
+- **Active Artifacts:**
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — ✅ v1.2 (CON-004 diperluas ke `handoffPercakapan()`/`tandaiDibaca()`; AC-006 diperluas + AC-013 baru; Section 9 invariant positif). Tidak diubah sesi ini, hanya dirujuk.
+  - `app/Controllers/Inbox.php` — ✅ Guard `cekBukanGrup()` ditambahkan ke 2 endpoint.
+  - `tests/session/InboxGrupTahap1Test.php` — ✅ +5 test AC-013.
+  - `docs/audit/consistency-audit-balas-pesan-tahap3-review3-2026-09-27.md` — ✅ Ikut di-commit (sebelumnya untracked).
+- **Achieved Milestones:**
+  - `Inbox::handoffPercakapan()` (`Inbox.php:1318`) dan `Inbox::tandaiDibaca()` (`Inbox.php:1904`) kini menolak `jid_type='group'` dengan **403**, guard diletakkan **setelah pengecekan 404 dan sebelum eligibility/ownership** (CON-004). Tidak ada penulisan ke `assigned_to`, `conversation_handoffs`, maupun `last_seen_by_assignee_at`.
+  - 6 endpoint aksi lain (ambil/lepas/snooze/tutup/edit profil/konfirmasi nomor) sudah ber-guard sebelumnya; kini lengkap 8.
+  - Test AC-013: grup handoff (payload sah) → 403 tanpa penulisan; grup handoff payload tak lengkap → 403 (bukan 400, membuktikan guard mendahului validasi); pribadi handoff → 200 + ownership pindah + 1 baris riwayat; grup tandai-dibaca → 403, `last_seen` tetap `null`; pribadi tandai-dibaca → 200, `last_seen` terisi.
+  - Suite penuh `vendor/bin/phpunit --no-coverage` → **OK (571 tests, 2188 assertions)**, exit 0 (baseline 566/2169; +5 test).
+  - Commit `09a6f0e` di branch `v2.3` (3 file; `docs/peta-kemajuan-inbox.html` sengaja TIDAK disentuh/di-stage).
+- **Dead-Ends (Do NOT Repeat):**
+  - N/A — kedua surgical edit + test berhasil tanpa pendekatan gagal. Catatan: `InboxGrupTahap1Test.php` tidak punya seam untuk memaksa penulisan `conversation_handoffs`, jadi jalur "grup = no-write" dibuktikan lewat 403 + assertion `countAllResults() === 0` (tidak perlu trigger DB seperti `InboxHandoffTest` C03).
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — guard `cekBukanGrup()` di `handoffPercakapan()` (+13 baris) dan `tandaiDibaca()` (+9 baris).
+  - `tests/session/InboxGrupTahap1Test.php` — `setUp()` kini mengosongkan `conversation_handoffs` + seed users 7/8 (`seedKasir()`); blok test AC-013 (+5 test).
+  - `docs/audit/consistency-audit-balas-pesan-tahap3-review3-2026-09-27.md` — file baru di-commit.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Guard grup pada `tandaiDibaca()` ditaruh **sebelum** `cekOwnership()` (bukan sesudah) supaya jawabannya 403 grup yang deterministik, konsisten dengan 6 endpoint lain — bukan 403 ownership atau 200.
+  - Tidak ada ADR baru (penerapan pola `cekBukanGrup()` yang sudah ada; memakai ulang primitive guard, reversibel).
+- **Next Action / Pending:**
+  - **Gate One Path Rule:** `ALT-003` (`GET /inbox/api/conversations/(:num)/messages` belum cek kepemilikan — `cekOwnership()` AUTHZ-02) dan plan **Teruskan (Tahap 4)** **BELUM boleh dimulai** sampai guard `SEC-01` ini **direview**.
+  - Langkah berikutnya: `/sdlc-code-review` **singkat** atas commit `09a6f0e` (wajib **sesi baru** — Strict Session Isolation, sesi ini terkunci pada persona Senior Software Engineer). Setelah review lolos → `/sdlc-define-specs` untuk `ALT-003`.
+  - Push diminta/dijalankan sesi ini (commit `09a6f0e` → `origin/v2.3`).
+  - Carried forward (tidak berubah): PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search; `docs/ARCHITECTURE.md` §11 `aulia_inboxdb_perf` paragraph.
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6y /sdlc-write-code closed SEC-01 (Grup Tahap 1): cekBukanGrup() guard added to Inbox::handoffPercakapan() (Inbox.php:1318) and Inbox::tandaiDibaca() (Inbox.php:1904), placed after the 404 check and before eligibility/ownership, so both answer 403 and write nothing to assigned_to / conversation_handoffs / last_seen_by_assignee_at (CON-004, AC-006, AC-013). Private conversations unchanged. +5 AC-013 tests; full suite OK 571 tests/2188 assertions exit 0; commit 09a6f0e on v2.3. One Path Rule gate: ALT-003 and Tahap 4 (Teruskan) still blocked until this guard is code-reviewed by a NEW session (/sdlc-code-review). -->
+
+---
