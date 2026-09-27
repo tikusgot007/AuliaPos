@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-This document describes the current architecture of the AuliaPos application as observed on branch `feature/m3-operational-inbox-fase1a-task001`.
+This document describes the current architecture of the AuliaPos application as observed on branch `v2.3` (updated 2026-09-27).
 
 AuliaPos is a CodeIgniter 4 application running on PHP 8.2+ and providing the core POS workflows plus a Shared WhatsApp Inbox module.
 
@@ -179,6 +179,43 @@ Inbox controller / models / services
 Server-rendered Inbox UI
 ```
 
+### Balas Pesan (Reply with Quote) Architecture
+
+The Reply feature allows cashiers to reply to a specific message with a quote. It spans both AuliaPos and the WA-Gateway.
+
+**Database additions (`messages` table):**
+- `quoted_wa_message_id` — `VARCHAR(64) NULL` (WhatsApp message ID of the quoted message)
+- `quoted_source_message_id` — `INT UNSIGNED NULL` (local `messages.id` of the quoted message, for media live-fetch)
+- `quoted_media_available` — `TINYINT(1) NOT NULL DEFAULT 0` (0 = text/unsupported, 1 = media available for live-fetch)
+- `quoted_media_type` — `VARCHAR(30) NULL` (`image`, `sticker`, `document`, `audio`, `video`; `NULL` for text or not found)
+- `quoted_sender_label` — `VARCHAR(191) NULL` (display name of the quoted message sender)
+- `quoted_snippet` — `TEXT NULL` (trimmed, normalized quote preview, max 200 chars, multibyte-safe)
+- `quoted_from_me` — `TINYINT(1) NOT NULL DEFAULT 0` (whether the quoted message was sent by the cashier)
+
+**Gateway contract (`WA-Gateway`):**
+- `POST /send` and `POST /send-media` accept optional `quoted` object:
+  ```json
+  { "quoted": { "wa_message_id": "string", "sender_jid": "string?", "snippet": "string?" } }
+  ```
+- Response includes `quote_applied: true|false` (only when `quoted` was provided; legacy responses unchanged).
+- Inbound webhook extracts `contextInfo` → `quoted: { wa_message_id, sender_jid?, snippet? }` in payload.
+
+**Service: `InboxQuoteSnapshotService` (`app/Services/InboxQuoteSnapshotService.php`)**
+- Pure, stateless service (no DB, session, or request access).
+- `rakitSnapshot(array $sumber): array` — builds the 7 quote columns from a source message row.
+- `potongSnippet(?string $teks, string $q): ?string` — normalizes whitespace, clamps to 200 multibyte chars, adds ellipsis `…` on cut sides.
+- `tipeMediaSumber(string $messageType): ?string` — maps source `message_type` to `quoted_media_type` (`image`/`sticker`/`document`/`audio`/`video` or `NULL` for text).
+
+**UI: `renderKotakKutipan()` in `app/Views/inbox/index.php`**
+- Single component renders quote box for both outgoing and incoming quotes.
+- 5 display branches per `AC-005` (Spec v1.8):
+  - (a) `quoted_media_available = 0` → text-only, no live-fetch
+  - (b) `quoted_media_type IN ('image','sticker')` + live-fetch `GET /inbox/media/:quoted_source_message_id` → `<img>` with `onerror` fallback
+  - (c) `quoted_media_type = 'document'` → link to media endpoint
+  - (d) `quoted_media_type IN ('audio','video')` → label only (no fetch, Gateway rejects)
+  - (e) `quoted_source_message_id IS NULL` (legacy/not found) → no live-fetch attempt
+- Client-side `mediaGagal` memory (namespaced `'kutipan:' + messageId`) prevents repeated refetch polling on failure.
+
 Gateway routes:
 
 - `POST /api/inbox/gateway/messages`
@@ -229,6 +266,16 @@ Current Inbox routes include:
 | `POST /inbox/mulai-percakapan` | Start conversation |
 | `GET /inbox/api/perlu-dibalas-count` | Sidebar reply-needed count |
 
+**Outgoing replies with quote (`POST /inbox/kirim`, `POST /inbox/kirim-media`):**
+- Request body includes optional `quoted_message_id` (local `messages.id`).
+- Server resolves quote via `Inbox::resolveKutipan()` → writes 7 `quoted_*` columns.
+- Response includes `quote_applied: true|false` (mirrors Gateway `quote_applied`).
+
+**Incoming quote resolution (`InboxGatewayApi::resolveKutipanMasuk()`):**
+- Called on inbound webhook (`POST /api/inbox/gateway/messages`).
+- If quoted message found locally → builds snapshot from local row via `InboxQuoteSnapshotService` (ignores Gateway `snippet`).
+- If not found → `quoted_sender_label = NULL`, snippet from Gateway payload / generic fallback.
+
 `GET /inbox/api/conversations` accepts `page`, `status` and `q`. `q` matches the identity columns (`contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id`) after fetch and — since M3 Fase 1e — the message text as well, through one aggregate `messages` query per request (`ROW_NUMBER()` over `message_timestamp DESC, id DESC`, `LIKE` with an explicit `ESCAPE`), so no `messages` query runs when `q` is empty. Every conversation element carries `match_snippet`: `null` when there is no `q` or when the hit came through an identity column, otherwise `{ text, is_internal, message_timestamp }` cut by `InboxMatchSnippetService::potong()`.
 
 ## 8. Current Operational Inbox Architecture
@@ -266,6 +313,22 @@ Handoff moves conversation ownership between staff and records every transfer in
 - The ownership write and the history insert share one `inbox`-group transaction, so a failed history insert rolls the ownership change back.
 - History is read back through the dedicated `GET /inbox/percakapan/(:num)/handoff` route (auth filter only, newest-first, capped at 50); the message thread endpoint is untouched and the `messages` table is never written by Handoff.
 - Staff-facing names in the handoff history are resolved in the Inbox UI from the same active-kasir list the Handoff dialog uses, because the read contract carries user ids only.
+
+### Balas Pesan (Reply with Quote)
+
+The Reply-with-Quote feature introduces the following seams:
+
+**Snapshot immutability (REQ-007):** Quote data is copied **once** at send/receive time into the 7 `quoted_*` columns on the new message row. It is never re-derived from the source message at render time. This ensures the quote survives source message edits or soft-deletes.
+
+**Single source of truth for snapshot building:** `InboxQuoteSnapshotService::rakitSnapshot()` is the only place that populates `quoted_*` columns. Both cashier-initiated replies (`Inbox::kirimKeConversation()`, `Inbox::kirimMedia()`) and inbound webhook processing (`InboxGatewayApi::resolveKutipanMasuk()`) call this service.
+
+**Ownership check ordering (SEC-001):** `Inbox::kirimKeConversation()` now performs `cekOwnership()` **before** `resolveKutipan()` (matching `kirimMedia()`), preventing a non-owner from using the text-reply endpoint as an existence oracle for cross-conversation message IDs.
+
+**Media live-fetch with failure memory (PERF-001):** `renderKotakKutipan()` performs live-fetch `GET /inbox/media/:quoted_source_message_id` only for `image`/`sticker`/`document` types. On error (404/410/5xx), the client records the failure in `sessionStorage` under key `'kutipan:' + messageId` and skips subsequent fetches for 4 seconds, preventing polling amplification.
+
+**Replay lookup scoped to conversation (ARCH-001):** `MessageModel::findByOperationIdIncludingDeleted($operationId, $conversationId)` replaces the controller-level query builder, ensuring idempotency replay respects conversation boundaries.
+
+**Snippet normalization (SEC-003, REQ-011):** Both local and Gateway fallback snippets pass through `potongSnippet()` (whitespace normalization, 200-char bound, ellipsis). Non-string payloads are coerced to generic label "Pesan tidak ditemukan" without throwing `TypeError`.
 
 ## 9. Authentication and Security Boundaries
 
@@ -354,6 +417,7 @@ The following constraints are important for subsequent Handoff and Collision Det
 | Schedule persistence | `app/Models/JadwalModel.php` |
 | Inbox SLA | `app/Services/InboxSlaService.php` |
 | Inbox match snippet | `app/Services/InboxMatchSnippetService.php` |
+| Inbox quote snapshot | `app/Services/InboxQuoteSnapshotService.php` |
 | Inbox media | `app/Libraries/InboxMediaStorage.php` |
 | Inbox UI | `app/Views/inbox/index.php` |
 | Production migrations | `app/Database/Migrations/` |
