@@ -7,6 +7,8 @@ use App\Models\MessageModel;
 use App\Models\GatewayStatusModel;
 use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
+use App\Services\SenderIdentityFormatter;
+use App\Services\InboxQuoteSnapshotService;
 use Config\Database;
 use Config\Inbox as InboxConfig;
 
@@ -284,6 +286,12 @@ class InboxGatewayApi extends BaseController
             $conversationModel->update($conversationId, ['group_name' => $groupNameFromPayload]);
         }
 
+        // --- Kutipan MASUK (Balas Pesan Tahap 3, TASK-010, REQ-010/011) -----
+        // Kondisional (REQ-012): lookup HANYA dijalankan saat `quoted` benar-
+        // benar ada di payload -- jalur normal tanpa kutipan tidak menambah
+        // query sama sekali, konsisten GUD-001.
+        $quoteColumns = $this->resolveKutipanMasuk($payload['quoted'] ?? null);
+
         // --- Insert message --------------------------------------------------
         $messageModel->insert(array_merge([
             'conversation_id'   => $conversationId,
@@ -297,7 +305,7 @@ class InboxGatewayApi extends BaseController
             // mana yang mengirim -- Baileys/Gateway tidak punya info itu.
             'sent_by_user_id'   => null,
             'send_status'       => $direction === 'outgoing' ? 'sent' : 'received',
-        ], $mediaColumns));
+        ], $mediaColumns, $quoteColumns));
 
         // --- Update conversation ---------------------------------------------
         // `last_message_at`/`last_message_direction` TIDAK ditulis buta di
@@ -466,5 +474,83 @@ class InboxGatewayApi extends BaseController
             'application/pdf' => 'pdf',
             default => 'bin',
         };
+    }
+
+    /**
+     * Balas Pesan (Tahap 3, TASK-010) -- resolusi kutipan MASUK dari
+     * pelanggan (REQ-010/REQ-011/ASSUMPTION-007).
+     *
+     * AuliaPos TIDAK mempercayai `quoted.snippet` yang dikirim Gateway begitu
+     * saja (konsisten "Gateway bukan sumber kebenaran riwayat pesan",
+     * docs/CHAT.md §2/§18): pertama coba resolve `quoted.wa_message_id` ke
+     * tabel `messages` MILIK SENDIRI (query yang sama dengan pengecekan
+     * idempotensi `existsByWaMessageId()`), lalu:
+     *
+     * - **Ditemukan** -> keempat kolom diisi dari DATA LOKAL (bukan payload
+     *   Gateway), memakai `InboxQuoteSnapshotService` yang sama dengan jalur
+     *   kirim kasir (TASK-002). `quoted_sender_label` WAJIB non-null (F-B):
+     *   `SenderIdentityFormatter::labelFor()` yang mengembalikan null (baris
+     *   legacy ber-JID grup) diganti `LABEL_FALLBACK`.
+     * - **Tidak ditemukan** -> `quoted_wa_message_id` tetap diisi (untuk
+     *   tampilan Section 4.4), `quoted_snippet` dari `quoted.snippet` payload
+     *   apa adanya (fallback best-effort, TIDAK diverifikasi) atau label
+     *   generik "Pesan tidak ditemukan" bila kosong, `quoted_media_available`
+     *   NULL. `quoted_sender_label` **TIDAK ditulis** (tetap NULL) -- inilah
+     *   penanda TUNGGAL status "tidak ditemukan" (F-B); tidak ada pemblokiran
+     *   penyimpanan pesan masuk itu sendiri.
+     *
+     * Lookup WAJIB soft-delete-inclusive (`MessageModel::findByWaMessageId()`
+     * memakai query builder tanpa filter `deleted_at`) -- pesan yang sudah
+     * di-soft-delete tetap harus ditemukan (spec REQ-011/Section 12).
+     *
+     * REQ-012: kondisional -- HANYA dipanggil pemanggil saat `quoted` ada di
+     * payload, supaya jalur normal tanpa kutipan tidak menambah query.
+     *
+     * @param array<string, mixed>|null $quoted objek `quoted` dari payload
+     *        Gateway (Section 4.4): `wa_message_id` (wajib jika objek ada),
+     *        `sender_jid` (opsional, tidak dipakai di sini), `snippet`
+     *        (opsional, fallback).
+     *
+     * @return array{quoted_wa_message_id: ?string, quoted_sender_label: ?string, quoted_snippet: ?string, quoted_media_available: ?int}
+     */
+    private function resolveKutipanMasuk(?array $quoted): array
+    {
+        $kosong = [
+            'quoted_wa_message_id'   => null,
+            'quoted_sender_label'    => null,
+            'quoted_snippet'         => null,
+            'quoted_media_available' => null,
+        ];
+
+        if ($quoted === null) {
+            return $kosong;
+        }
+
+        $waMessageId = trim((string) ($quoted['wa_message_id'] ?? ''));
+        if ($waMessageId === '') {
+            // Objek `quoted` ada tapi tanpa ID -- tidak ada yang bisa
+            // di-resolve maupun ditampilkan (spec REQ-010: wajib jika objek
+            // `quoted` ada; kalau kosong berarti payload malformed, degradasi
+            // sama seperti tidak ada kutipan sama sekali).
+            return $kosong;
+        }
+
+        $sumber = (new MessageModel())->findByWaMessageId($waMessageId);
+
+        if ($sumber === null) {
+            $snippetPayload = trim((string) ($quoted['snippet'] ?? ''));
+
+            return [
+                'quoted_wa_message_id'   => $waMessageId,
+                'quoted_sender_label'    => null, // F-B: penanda tunggal "tidak ditemukan"
+                'quoted_snippet'         => $snippetPayload !== '' ? $snippetPayload : 'Pesan tidak ditemukan',
+                'quoted_media_available' => null,
+            ];
+        }
+
+        $label = (new SenderIdentityFormatter())->labelFor($sumber['sender_jid'] ?? null)
+            ?? SenderIdentityFormatter::LABEL_FALLBACK;
+
+        return (new InboxQuoteSnapshotService())->rakitSnapshot($sumber, $label);
     }
 }
