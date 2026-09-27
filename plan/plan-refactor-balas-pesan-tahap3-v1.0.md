@@ -73,6 +73,7 @@ Refactoring plan ini menindaklanjuti `/sdlc-code-review` formal atas implementas
 ## 3. Structural Remedies & Alternatives
 
 - **ALT-001**: Bila fallback tampilan media (`TASK-201`) tidak dapat direalisasikan karena snapshot tidak menyimpan referensi media yang dapat dimuat ulang, jalur yang benar adalah mengembalikan cabang tersebut ke `/sdlc-define-specs` untuk mencabut/mengubah `REQ-008`/`AC-005` — **bukan** membiarkan kode dan spec berbeda.
+  - **RESOLVED (2026-09-27):** `TASK-201` memang tidak dapat direalisasikan tanpa perubahan snapshot (snapshot hanya menyimpan `wa_message_id`, `GET /inbox/media/(:num)` butuh `messages.id` lokal, dan cache thread client tidak reliable sebagai fallback). `/sdlc-define-specs` menambah `REQ-008b` (kolom snapshot additive `quoted_source_message_id`) dan merevisi `REQ-008`/`AC-005`/Section 4.2 di `spec/spec-design-balas-pesan.md` v1.6. `TASK-201`/`TASK-202` remediasi ini **dilanjutkan** dengan kontrak baru (bukan dibatalkan) — lihat spec v1.6 untuk detail mekanisme live-fetch `GET /inbox/media/(:quoted_source_message_id)`.
 - **ALT-002**: Memindahkan seluruh otorisasi ke `kirim()`/`kirimMedia()` alih-alih di dalam `kirimKeConversation()` — ditolak, karena menyebar cek otorisasi dan memutus pola `kirimMedia()` yang sudah benar.
 
 ## 4. Dependencies
