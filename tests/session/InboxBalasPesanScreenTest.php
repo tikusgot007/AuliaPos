@@ -144,4 +144,38 @@ final class InboxBalasPesanScreenTest extends CIUnitTestCase
         $this->assertStringContainsString('.kutipan-aktif {', $body);
         $this->assertStringContainsString('.penanda-tanpa-kutipan {', $body);
     }
+
+    // ------------------------------------------------------------------
+    // Phase 2 (TASK-007): balas-dengan-lampiran sambil mengutip
+    // ------------------------------------------------------------------
+
+    public function testKirimMediaBalasanMenyertakanQuotedMessageId(): void
+    {
+        // REQ-001a/AC-003b: jalur media harus ikut mengirim quoted_message_id
+        // -- hanya ID lokal; isi kutipan tetap diambil server (ALT-002).
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString("formData.append('quoted_message_id', quotedMessageId)", $body);
+        $this->assertStringContainsString('kutipanAktif ? kutipanAktif.id : null', $body);
+    }
+
+    public function testKirimMediaBalasanMenanganiQuoteAppliedFalse(): void
+    {
+        // Reaksi (a) REQ-006 harus sama persis di jalur media: media tetap
+        // terkirim, penanda "Terkirim tanpa kutipan" muncul.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString('Media terkirim, TAPI tanpa kutipan', $body);
+        $this->assertStringContainsString('pesanTerkirimTanpaKutipan.add(json.message.id)', $body);
+    }
+
+    public function testKotakKutipanJugaTampilPadaBubbleMedia(): void
+    {
+        // Komponen yang sama dipakai untuk media (TASK-007), bukan komponen
+        // terpisah.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString('renderKotakKutipan(m) +', $body);
+        $this->assertStringContainsString('renderKotakKutipan', $body);
+    }
 }

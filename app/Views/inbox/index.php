@@ -2778,20 +2778,21 @@
         // Kunci idempotensi percobaan ini -- lihat kirimBalasan().
         const operationId = ambilOperationIdBalasan();
 
-        // Balas Pesan: balas-dengan-media sambil mengutip adalah Phase 2
-        // (TASK-006, /send-media). Untuk Phase 1 jalur ini sengaja TIDAK
-        // mengirim `quoted_message_id`; kutipan aktif karena itu dibuang
-        // dengan jujur, bukan diam-diam hilang dari balasan kasir.
-        if (kutipanAktif) {
-            batalkanKutipan();
-            showToast('Balas dengan lampiran belum bisa menyertakan kutipan -- kutipan dibatalkan.', 'warning');
-        }
+        // Balas Pesan (Tahap 3, TASK-007/AC-003b): balas-dengan-lampiran
+        // sambil mengutip. Hanya ID LOKAL yang ikut -- isi kutipan tetap
+        // diambil ulang dari database server saat permintaan diproses
+        // (ALT-002), persis seperti jalur teks.
+        const quotedMessageId = kutipanAktif ? kutipanAktif.id : null;
 
         const formData = new FormData();
         formData.append('conversation_id', conversationAktif);
         formData.append('caption', caption);
         formData.append('media', file);
         formData.append('operation_id', operationId);
+
+        if (quotedMessageId !== null) {
+            formData.append('quoted_message_id', quotedMessageId);
+        }
 
         fetch('<?= base_url('/inbox/kirim-media') ?>', {
                 method: 'POST',
@@ -2807,6 +2808,15 @@
                     buangOperationIdBalasan();
                     sembunyikanStatusKirimBalasan();
                     batalkanMediaBalasan();
+                    // Kutipan sudah terkirim sebagai bagian pesan ini.
+                    batalkanKutipan();
+                    // Reaksi (a) REQ-006: identik dengan jalur teks --
+                    // media tetap terkirim, kasir diberi tahu kutipannya
+                    // tidak sampai ke penerima.
+                    if (json.quote_applied === false) {
+                        pesanTerkirimTanpaKutipan.add(json.message.id);
+                        showToast('Media terkirim, TAPI tanpa kutipan -- kutipan tidak sampai ke penerima.', 'warning');
+                    }
                     tampilkanBubbleOutgoing(json.message);
                     muatUlangDaftarConversation();
                 } else {

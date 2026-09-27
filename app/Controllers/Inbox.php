@@ -990,6 +990,30 @@ class Inbox extends BaseController
             ]);
         }
 
+        // Balas Pesan (Tahap 3, TASK-006): balas-dengan-lampiran sambil
+        // mengutip memakai RESOLUSI YANG SAMA dengan jalur teks
+        // (resolveKutipan), jadi guard F-A (lintas percakapan) dan taksonomi
+        // F-D (sumber tidak ada / `local-` / soft-deleted) tidak pernah
+        // berbeda antar dua jalur.
+        //
+        // Diletakkan SESUDAH cekOwnership() dengan sengaja: kalau kasir tidak
+        // berhak atas percakapan tujuan, jawabannya 403 dan dia tidak boleh
+        // ikut diberi tahu apakah sebuah pesan di percakapan lain itu ada.
+        $quotedMessageId = (int) ($this->request->getPost('quoted_message_id') ?? 0);
+        $quotedMessageId = $quotedMessageId > 0 ? $quotedMessageId : null;
+
+        $kutipan = $this->resolveKutipan($conversationId, $quotedMessageId);
+
+        if ($kutipan['error'] !== null) {
+            // 400 tanpa menulis kolom snapshot apa pun (taksonomi F-D).
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => $kutipan['error'],
+            ]);
+        }
+
+        $quoteSnapshot = $kutipan['snapshot'];
+
         $gatewayStatusModel = new GatewayStatusModel();
 
         if (!$gatewayStatusModel->isUsable()) {
@@ -1031,7 +1055,7 @@ class Inbox extends BaseController
 
         $mediaBase64 = base64_encode(file_get_contents($file->getTempName()));
 
-        $result = $this->callGatewaySendMedia($config, $conversation['chat_id'], $mediaType, $mediaBase64, $mimetype, $fileName, $captionUntukGateway, $operationId);
+        $result = $this->callGatewaySendMedia($config, $conversation['chat_id'], $mediaType, $mediaBase64, $mimetype, $fileName, $captionUntukGateway, $operationId, $kutipan['quotedPayload']);
 
         if (!$result['ok']) {
             return $this->gatewayFailureResponse($result, $conversationId, 'kirimMedia', 'Gagal mengirim media: ');
@@ -1048,12 +1072,20 @@ class Inbox extends BaseController
         if ($existingMessage !== null) {
             log_message('info', "Inbox::kirimMedia replay (operation_id sama). conversation_id={$conversationId}, operation_id={$operationId}");
 
-            return $this->response->setStatusCode(200)->setJSON([
+            $replayBody = [
                 'status'          => 'success',
                 'conversation_id' => $conversationId,
                 'message'         => $this->attachSenderNames([$existingMessage])[0],
                 'replayed'        => true,
-            ]);
+            ];
+
+            // Sama seperti jalur teks: replay melaporkan indikator kutipan
+            // yang sama, karena ini hasil kirim yang sama (REQ-003).
+            if ($quoteSnapshot !== null) {
+                $replayBody['quote_applied'] = (bool) ($result['quote_applied'] ?? false);
+            }
+
+            return $this->response->setStatusCode(200)->setJSON($replayBody);
         }
 
         $userId = (int) session()->get('id_user');
@@ -1085,6 +1117,13 @@ class Inbox extends BaseController
             'sent_by_user_id'   => $userId,
             'send_status'       => 'sent',
             'gateway_operation_id' => $operationId,
+            // Snapshot kutipan (REQ-007): aturan & nilai berasal dari
+            // resolveKutipan() yang sama dengan jalur teks, jadi kolom
+            // media_available di sini juga ikuti aturan tiga-nilai REQ-008.
+            'quoted_wa_message_id'   => $quoteSnapshot['quoted_wa_message_id'] ?? null,
+            'quoted_sender_label'    => $quoteSnapshot['quoted_sender_label'] ?? null,
+            'quoted_snippet'         => $quoteSnapshot['quoted_snippet'] ?? null,
+            'quoted_media_available' => $quoteSnapshot['quoted_media_available'] ?? null,
 
         ]);
 
@@ -1115,11 +1154,20 @@ class Inbox extends BaseController
         $newMessage = $messageModel->find($newMessageId);
         $newMessage = $this->attachSenderNames([$newMessage])[0];
 
-        return $this->response->setStatusCode(200)->setJSON([
+        $body = [
             'status'          => 'success',
             'conversation_id' => $conversationId,
             'message'         => $newMessage,
-        ]);
+        ];
+
+        // Reaksi (a) REQ-006 pada jalur media: identik dengan jalur teks --
+        // media tetap terkirim, kasir diberi tahu kutipannya tidak sampai
+        // (penanda "Terkirim tanpa kutipan", ASSUMPTION-008).
+        if ($quoteSnapshot !== null) {
+            $body['quote_applied'] = (bool) ($result['quote_applied'] ?? false);
+        }
+
+        return $this->response->setStatusCode(200)->setJSON($body);
     }
 
 
@@ -2500,7 +2548,7 @@ class Inbox extends BaseController
      * belum tentu ter-install di project ini.
      *
      * @param array<string, mixed>|null $quoted objek kutipan Balas Pesan
-     *        (spec Section 4.1). null = pesan biasa, Gatewway berperilaku
+     *        (spec Section 4.1). null = pesan biasa, Gateway berperilaku
      *        seperti sebelumnya.
      *
      * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, quote_applied?: bool, error?: string}
@@ -2591,9 +2639,15 @@ class Inbox extends BaseController
      * callGatewayMediaDownload()) karena upload base64 + kirim ke
      * Baileys butuh waktu lebih dibanding teks biasa.
      *
-     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, media_ref?: ?array, error?: string}
+     * @param array<string, mixed>|null $quoted objek kutipan Balas Pesan
+     *        (spec Section 4.1.1). Bentuknya IDENTIK dengan jalur teks --
+     *        termasuk `fromMe` yang hanya diturunkan dari `direction`, dan
+     *        `sender_jid` yang boleh null untuk sumber outgoing. null = kiriman
+     *        media biasa, Gateway berperilaku seperti sebelumnya.
+     *
+     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, media_ref?: ?array, quote_applied?: bool, error?: string}
      */
-    protected function callGatewaySendMedia(InboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null): array
+    protected function callGatewaySendMedia(InboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null): array
     {
         $url = $config->gatewayBaseUrl . '/send-media';
 
@@ -2616,6 +2670,12 @@ class Inbox extends BaseController
         // pernah dibuat di sisi server.
         if ($operationId !== null) {
             $payloadData['operation_id'] = $operationId;
+        }
+
+        // Balas Pesan (REQ-001a): balas-dengan-lampiran sambil mengutip.
+        // Hanya ikut kalau kasir benar-benar mengutip.
+        if ($quoted !== null) {
+            $payloadData['quoted'] = $quoted;
         }
 
         $payload = json_encode($payloadData);
@@ -2664,6 +2724,10 @@ class Inbox extends BaseController
                 'error_code'    => $json['error_code'] ?? null,
                 'state'         => $json['state'] ?? 'sent',
                 'replayed'      => (bool) ($json['replayed'] ?? false),
+                // ASSUMPTION-010, sama seperti jalur teks: Gateway yang belum
+                // understands `quoted` tidak mengirim field ini, dan yang
+                // hilang diperlakukan false.
+                'quote_applied' => (bool) ($json['quote_applied'] ?? false),
                 'http_code'     => $httpCode,
             ];
         }

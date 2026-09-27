@@ -35,7 +35,13 @@ final class InboxOutgoingOperationIdTest extends CIUnitTestCase
             $this->controllerSource
         );
         $this->assertStringContainsString("callGatewaySendMedia(\$config, \$conversation['chat_id']", $this->controllerSource);
-        $this->assertStringContainsString("\$captionUntukGateway, \$operationId)", $this->controllerSource);
+        // Sama seperti jalur teks, jalur media menambah satu argumen aditif
+        // (objek kutipan hasil resolusi server). Yang dijaga tetap sama:
+        // `operation_id` diteruskan apa adanya, tidak pernah dibuat di server.
+        $this->assertStringContainsString(
+            "\$captionUntukGateway, \$operationId, \$kutipan['quotedPayload'])",
+            $this->controllerSource
+        );
         $this->assertStringNotContainsString('random_bytes(16)', $this->controllerSource);
     }
 

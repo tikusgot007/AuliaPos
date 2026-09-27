@@ -396,7 +396,7 @@ final class InboxGatewayIdempotencySpy extends Inbox
         ];
     }
 
-    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null): array
+    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null): array
     {
         $this->capturedOperationId = $operationId;
         if ($operationId !== $this->expectedOperationId) {
@@ -410,6 +410,7 @@ final class InboxGatewayIdempotencySpy extends Inbox
             'error_code'    => null,
             'state'         => 'sent',
             'replayed'      => false,
+            'quote_applied' => (bool) $quoted,
         ];
     }
 }

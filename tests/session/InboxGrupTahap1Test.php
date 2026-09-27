@@ -412,7 +412,7 @@ final class InboxGrupKirimSpy extends Inbox
         ];
     }
 
-    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null): array
+    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null): array
     {
         return [
             'ok'            => true,
@@ -421,6 +421,7 @@ final class InboxGrupKirimSpy extends Inbox
             'error_code'    => null,
             'state'         => 'sent',
             'replayed'      => false,
+            'quote_applied' => (bool) $quoted,
         ];
     }
 }
