@@ -547,7 +547,16 @@ class InboxGatewayApi extends BaseController
             // `potongSnippet()` supaya bentuk cuplikan fallback identik dengan
             // jalur sumber-ditemukan (batas `MAKS_KARAKTER`); nilai `null`
             // berarti payload kosong -> label generik.
-            $snippetPayload = (new InboxQuoteSnapshotService())->potongSnippet($quoted['snippet'] ?? null);
+            //
+            // SEC-003 (review ronde-2): jaga TIPE dulu -- `quoted.snippet`
+            // yang bukan string (array/objek) tidak boleh diteruskan ke
+            // `potongSnippet(?string)` karena TypeError -> `500`. Payload
+            // aneh didegradasi ke cuplikan generik, bukan menggagalkan
+            // penyimpanan pesan masuk.
+            $rawSnippet     = $quoted['snippet'] ?? null;
+            $snippetPayload = is_string($rawSnippet)
+                ? (new InboxQuoteSnapshotService())->potongSnippet($rawSnippet)
+                : null;
 
             return [
                 'quoted_wa_message_id'     => $waMessageId,

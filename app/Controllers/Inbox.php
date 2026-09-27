@@ -39,6 +39,16 @@ class Inbox extends BaseController
     private const CONVERSATIONS_PER_PAGE = 50;
 
     /**
+     * Pesan `400` generik untuk SEMUA kegagalan resolusi kutipan (SEC-001
+     * review ronde-2): "sumber tidak ada" dan "sumber di percakapan lain"
+     * tidak boleh bisa dibedakan oleh pemanggil yang berhak atas percakapan
+     * TUJUAN, supaya endpoint kirim tidak menjadi oracle keberadaan pesan
+     * lintas-percakapan. Penyebab sebenarnya tetap dicatat lewat
+     * `log_message()` di `resolveKutipan()`.
+     */
+    private const PESAN_KUTIPAN_TIDAK_VALID = 'Pesan yang ingin dikutip tidak valid.';
+
+    /**
      * Kolom yang dicocokkan parameter `q` (REQ-013, CL-015): semua nama/nomor
      * yang bisa tampil di daftar. Dicek per kolom, tidak pernah digabung.
      */
@@ -394,6 +404,29 @@ class Inbox extends BaseController
             return $this->response->setStatusCode(404)->setJSON([
                 'status'  => 'error',
                 'message' => 'Pesan tidak ditemukan.',
+            ]);
+        }
+
+        // SEC-002 (review ronde-2): otorisasi object-level. Media adalah konten
+        // biner milik SATU percakapan, jadi pemanggil yang tidak berhak atas
+        // percakapan pemiliknya tidak boleh menyajikannya (IDOR lewat ID
+        // `messages.id` yang sekuensial). Dijalankan SEBELUM baca disk, cek
+        // ETag, atau callGatewayMediaDownload supaya tidak ada byte yang keluar
+        // dan tidak ada kerja mahal untuk request yang ditolak.
+        $conversation = (new ConversationModel())->find((int) $message['conversation_id']);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Pesan tidak ditemukan.',
+            ]);
+        }
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
             ]);
         }
 
@@ -2442,6 +2475,11 @@ class Inbox extends BaseController
      * - `wa_message_id` placeholder lokal (`local-…`) -> DITERIMA; Gateway
      *   yang akan mendegradasinya ke `quote_applied:false` (F-D).
      *
+     * Kedua cabang `400` di atas memakai pesan generik yang SAMA
+     * (`PESAN_KUTIPAN_TIDAK_VALID`) supaya endpoint tidak menjadi oracle
+     * keberadaan pesan lintas-percakapan (SEC-001 review ronde-2); penyebab
+     * aslinya hanya tercatat di log server.
+     *
      * @return array{error: ?string, snapshot: ?array<string, mixed>, quotedPayload: ?array<string, mixed>}
      */
     private function resolveKutipan(int $conversationId, ?int $quotedMessageId): array
@@ -2458,16 +2496,22 @@ class Inbox extends BaseController
         // tersebut tanpa suara (spec REQ-008b/REQ-011, Section 12).
         $sumber = (new MessageModel())->findByIdIncludingDeleted($quotedMessageId);
 
+        // SEC-001 (review ronde-2): KEDUA cabang di bawah memakai pesan `400`
+        // generik yang SAMA PERSIS. Pesan yang berbeda membuat pemanggil yang
+        // berhak atas percakapan TUJUAN tetap bisa membedakan "pesan ada di
+        // percakapan lain" dari "ID tidak ada" -- oracle keberadaan pesan
+        // lintas-percakapan yang tidak perlu. Perbedaan penyebab tetap tercatat
+        // hanya di log server.
         if ($sumber === null) {
             log_message('info', "Inbox::resolveKutipan sumber tidak ditemukan. conversation_id={$conversationId}, quoted_message_id={$quotedMessageId}");
 
-            return ['error' => 'Pesan yang ingin dikutip tidak ditemukan.', 'snapshot' => null, 'quotedPayload' => null];
+            return ['error' => self::PESAN_KUTIPAN_TIDAK_VALID, 'snapshot' => null, 'quotedPayload' => null];
         }
 
         if ((int) $sumber['conversation_id'] !== $conversationId) {
             log_message('warning', "Inbox::resolveKutipan lintas percakapan ditolak (F-A). conversation_id={$conversationId}, quoted_message_id={$quotedMessageId}, sumber_conversation_id={$sumber['conversation_id']}");
 
-            return ['error' => 'Pesan yang ingin dikutip bukan dari percakapan ini.', 'snapshot' => null, 'quotedPayload' => null];
+            return ['error' => self::PESAN_KUTIPAN_TIDAK_VALID, 'snapshot' => null, 'quotedPayload' => null];
         }
 
         return [

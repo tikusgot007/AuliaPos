@@ -344,3 +344,65 @@
   - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
 
 <!-- checkpoint-tail: 2026-09-27 Phase 6s `/sdlc-write-code` menyelesaikan plan remediasi Tahap 3 v1.1 (Phase 1 verifikasi SEC-001/SEC-002 sudah ada; Phase 2 REQ-008b: migrasi `quoted_source_message_id` + isi di `rakitSnapshot()`/2 situs insert/`resolveKutipanMasuk()` + `renderKotakKutipan()` live-fetch 3 cabang AC-005 + 4 screen test; Phase 3 ARCH-001 `findByIdIncludingDeleted()` + PRN-001 `withQuoteApplied()` 4 lokasi) → suite 536 test/2058 assertion exit 0, plan Completed atas persetujuan user. Dead-end utama: Avast menghapus+mengunci file test di `tests/` setelah PHPUnit menjalankannya (hanya matikan AV + `git checkout` yang memulihkan); PHPUnit 10 hanya menjalankan kelas yang namanya cocok nama file. Next: `/sdlc-code-review` diff remediasi + update `docs/ARCHITECTURE.md` §11. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-27 (Review ronde-2 `/sdlc-code-review` atas remediasi Tahap 3 + plan refactor baru, blocked-by-spec)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review`). Persona-locked Expert Code Reviewer. Fixed point `4e0fb79` (commit remediasi Phase 2-3), diff yang direview `88b28a6..4e0fb79` untuk `app/` + `tests/` (mencakup `654ba97` Phase 1 SEC-001/SEC-002). Dua sub-agent paralel (Standards/Security, Spec) dijalankan via `task` (`explore`) sesuai workflow skill.
+- **Active Artifacts:**
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — **NEW**, status `Planned` (ronde review ke-2; plan lama `plan-refactor-balas-pesan-tahap3-v1.0.md` tidak disentuh).
+  - `spec/spec-design-balas-pesan.md` — v1.6 (kontrak, tidak diubah; menunggu keputusan amandemen v1.7 atas `ALT-001`).
+  - `plan/plan-refactor-balas-pesan-tahap3-v1.0.md` — `Completed` (tidak diubah).
+- **Achieved Milestones:**
+  - Review ronde-2 selesai; **terverifikasi bersih**: SEC-001 urutan `cekOwnership()` (`Inbox.php:2210` sebelum baca `quoted_message_id` `:2221`/`resolveKutipan()` `:2224`, cocok `kirimMedia()`), SEC-002 bound `potongSnippet()` (`InboxGatewayApi.php:550`), ARCH-001 `findByIdIncludingDeleted()` (`MessageModel.php:144`, dipakai `Inbox.php:2459`), PRN-001 `withQuoteApplied()` 4 titik (`:1085`, `:1167`, `:2299`, `:2370`), REQ-008b migrasi additive-nullable + wiring found-branch + cabang (c) skip live-fetch.
+  - Temuan **REQUIRED** (5 Standards + 1 Spec): (A01) oracle keberadaan residual — dua pesan `400` berbeda di `resolveKutipan()` `:2464` vs `:2470`; (A02) `GET /inbox/media/(:num)` tanpa otorisasi object-level (IDOR, `Inbox.php:386-391`, route `Routes.php:42`) — sudah tercatat sebagai carried-forward di checkpoint 6s; (A03) `quoted.snippet` non-string → `TypeError` 500 (`InboxGatewayApi.php:550`); (A04)/(B01) `<img>` untuk semua tipe media → media tersedia non-gambar dilabeli `[Media tidak tersedia]` (`index.php:1989-1992` vs `renderIsiPesan()` `:2085-2147`, endpoint tolak audio/video di `Inbox.php:400`); (A05) live-fetch kutipan tak punya memori `mediaGagal` → amplifikasi polling 4 detik.
+  - Temuan NIT/FYI: `findMessageByOperationId` masih query builder mentah di controller (`Inbox.php:2390-2402`); error curl diteruskan ke kasir (`:2627`,`:2808`); lookup replay tak di-scope percakapan; `escapeHtmlInbox()` tak escape kutip (`:860-865`); test AC-005 hanya grep string (`InboxBalasPesanScreenTest.php:186-233`); plan lama `TASK-206` APPROVAL `[ ]` tapi status `Completed`; test migrasi pin `int(10) unsigned`.
+- **Decisions Made:**
+  - `SPEC-A04/B01` (fidelitas tipe media) **memerlukan keputusan hulu** `/sdlc-define-specs` (`ALT-001` plan baru): snapshot v1.6 tak menyimpan tipe media sumber; `quoted_snippet` media bercaption berisi caption sehingga tipe tak bisa disimpulkan dari string tanpa melanggar semangat F-B. Opsi (a) tambah field snapshot `quoted_media_type` (rekomendasi), (b) batasi live-fetch. Phase 2 plan baru = **blocked-by-spec**.
+  - `A02` media authz: bila kebijakan baca `auth`-only disengaja (komentar `Routes.php:57-58`), turunkan ke FYI/dokumentasi, jangan ubah perilaku diam-diam.
+  - `PRN-001`/`ARCH-001`/`SEC-001`/`SEC-002` Phase 1 & 3 dinyatakan patuh; tidak ada temuan.
+- **Next Action / Pending:**
+  - Handoff: `/sdlc-write-code` jalankan `@plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — **mulai Phase 1 saja**; Phase 2 tertahan sampai keputusan `/sdlc-define-specs` atas `ALT-001`.
+  - Carried-forward (tidak disentuh sesi ini): `docs/ARCHITECTURE.md` §11 belum diperbarui (kolom `quoted_source_message_id`, `InboxQuoteSnapshotService`, kontrak `quoted`/`quote_applied`); guard `SEC-01` Tahap 1 Handoff/Tandai-Dibaca; PRD GH-015 AC 362/364; `CONTEXT.md:68`; `[OPTIONAL] SEC-01` raw `sender_jid`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
+  - Tidak ada perubahan `AGENTS.md`: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-27 `/sdlc-code-review` ronde-2 atas remediasi Tahap 3 (`88b28a6..4e0fb79`) memverifikasi SEC-001/SEC-002/ARCH-001/PRN-001/REQ-008b bersih, tetapi menemukan 6 temuan REQUIRED: oracle 400 residual (`resolveKutipan`), IDOR `GET /inbox/media/(:num)`, `TypeError` 500 dari `quoted.snippet` non-string, `<img>` semua tipe media (media tersedia non-gambar salah tampil `[Media tidak tersedia]`), amplifikasi polling kutipan, dan ketiadaan memori `mediaGagal`. Plan remediasi baru `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` (Planned); Phase 2 blocked-by-spec (`ALT-001`, butuh `/sdlc-define-specs`). Next: `/sdlc-write-code` Phase 1 plan baru. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6t — `/sdlc-write-code` Phase 1 plan remediasi ronde-2: SEC-001/002/003, plan Phase 1 CLOSED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code (`/sdlc-write-code`). Persona-locked Senior Software Engineer. HANYA Phase 1 `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` yang dieksekusi (security remediation). Phase 2 (TASK-201..204, fidelitas tipe media) SENGAJA tidak disentuh — blocked-by-spec (`ALT-001`). `TASK-108` (APPROVAL) disetujui user → Phase 1 ditutup.
+- **Active Artifacts:**
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — Phase 1 `TASK-101..108` ✅ (2026-09-27); Phase 2/3 masih `[ ]`.
+  - `spec/spec-design-balas-pesan.md` — v1.6 (tidak diubah; keputusan `ALT-001` tertunda).
+- **Achieved Milestones:**
+  - `TASK-101` (SEC-001): `Inbox::resolveKutipan()` menyatukan dua pesan `400` yang bisa dibedakan jadi konstanta `PESAN_KUTIPAN_TIDAK_VALID = 'Pesan yang ingin dikutip tidak valid.'`; penyebab asli tetap di `log_message()`.
+  - `TASK-102`: test baru di `tests/session/InboxBalasPesanTest.php` — kasir yang BERHAK atas percakapan tujuan: sumber lintas percakapan vs ID tidak ada → body `400` identik, 0 baris ditulis.
+  - `TASK-103` (SEC-002): `Inbox::media()` memuat percakapan pemilik + `cekOwnership()` SEBELUM disk/ETag/Gateway; `404` percakapan hilang, `403` tidak berhak.
+  - `TASK-104`: `tests/session/InboxMediaAuthTest.php` (BARU, 4 test) — orang lain → `403` tanpa byte keluar + 0 panggilan Gateway; sendiri → `200` dari disk; belum ditangani → `200`; admin → `200`.
+  - `TASK-105` (SEC-003): `InboxGatewayApi::resolveKutipanMasuk()` `is_string($quoted['snippet'])` sebelum `potongSnippet()` → tidak lagi `TypeError`/`500`.
+  - `TASK-106`: 2 test di `tests/session/InboxGatewayApiKutipanMasukTest.php` — `quoted.snippet` array & objek JSON → `success`, `quoted_snippet = 'Pesan tidak ditemukan'`, `quoted_sender_label` tetap `NULL`.
+  - `TASK-107` VERIFY: `vendor/bin/phpunit --no-coverage` → **OK (543 tests, 2092 assertions), exit 0** (= baseline 536 + 7 test baru).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Avast (`aswidsagent`) mengulang ENV-BLOCKER-001:** menghapus + mengunci `tests/session/InboxGatewayApiKutipanMasukTest.php` setelah PHPUnit; `git checkout`/buat file → `Permission denied` (delete-pending). **KONSEKUENSI KRITIS:** run full-suite PERTAMA exit 0 tapi hanya **532 test** — diam-diam kehilangan 11 test file yang terhapus, jadi "exit 0" TANPA membandingkan jumlah test ke baseline BUKAN green yang sah. Setelah user menonaktifkan Avast, file dipulihkan + edit `TASK-106` ditulis ulang, suite ulang 543. Pencegahan: tambahkan `C:\xampp\htdocs\aulia` ke exclusion Avast.
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — konstanta `PESAN_KUTIPAN_TIDAK_VALID`; `resolveKutipan()` 400 identik; `media()` otorisasi object-level.
+  - `app/Controllers/InboxGatewayApi.php` — guard `is_string()` pada `quoted.snippet`.
+  - `tests/session/InboxBalasPesanTest.php` — +1 test oracle residual.
+  - `tests/session/InboxGatewayApiKutipanMasukTest.php` — +2 test SEC-003.
+  - `tests/session/InboxMediaAuthTest.php` — BARU (4 test).
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — checkbox Phase 1 ✅.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - `TASK-103` diimplementasikan (bukan ditunda): tidak ada bukti baca media `auth`-only adalah keputusan desain sengaja (komentar `Routes.php:57-58` hanya mencakup handoff + daftar pesan). Perubahan perilaku RISK-002 (kasir non-admin `403` untuk media percakapan kasir lain) diterima sebagai inti SEC-002 dan disurfacekan ke user saat approval.
+  - MySQL XAMPP mati saat sesi mulai; `mysqld` dijalankan sebagai background process PERSISTEN (id `bgp_0e1571bb...`).
+- **Next Action / Pending:**
+  - Phase 2 plan review2 tetap **BLOCKED-BY-SPEC**: butuh keputusan `/sdlc-define-specs` atas `ALT-001` (opsi a: kolom snapshot `quoted_media_type` + spec v1.7; opsi b: batasi live-fetch).
+  - Setelah keputusan spec: `/sdlc-write-code` Phase 2 (`TASK-201..204`) lalu Phase 3.
+  - Carried forward (tidak berubah): `docs/ARCHITECTURE.md` §11; guard `SEC-01` Tahap 1 Handoff/Tandai-Dibaca; PRD GH-015 AC 362/364; `CONTEXT.md:68`; `[OPTIONAL] SEC-01` raw `sender_jid`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6t `/sdlc-write-code` Phase 1 plan review2 (`plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md`) CLOSED & user-approved: SEC-001 pesan 400 `resolveKutipan()` disatukan (`PESAN_KUTIPAN_TIDAK_VALID`), SEC-002 otorisasi object-level `Inbox::media()` (403/404 sebelum disk/ETag/Gateway), SEC-003 guard `is_string` `quoted.snippet` (tidak lagi 500); +7 test (MediaAuth 4, BalasPesan 1, KutipanMasuk 2) → suite 543 test/2092 assertion exit 0. Insiden Avast mengulang ENV-BLOCKER-001: file test terhapus → full-suite "exit 0" palsu 532 test; dipulihkan setelah Avast dinonaktifkan. Phase 2 blocked-by-spec (`ALT-001`, butuh `/sdlc-define-specs`). -->

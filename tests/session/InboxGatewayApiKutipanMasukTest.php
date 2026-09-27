@@ -192,6 +192,62 @@ final class InboxGatewayApiKutipanMasukTest extends CIUnitTestCase
     }
 
     // ------------------------------------------------------------------
+    // SEC-003: `quoted.snippet` bukan string -> degradasi, bukan 500
+    // ------------------------------------------------------------------
+
+    public function testSnippetPayloadBerupaArrayTidakMenggagalkanPenyimpanan(): void
+    {
+        // Gateway (sumber LUAR) mengirim `quoted.snippet` sebagai array.
+        // Sebelumnya nilai ini diteruskan mentah ke `potongSnippet(?string)`
+        // -> TypeError -> 500. Sekarang harus didegradasi ke label generik
+        // dan pesan pelanggan tetap tersimpan (SEC-003, review ronde-2).
+        $body = $this->callMessages([
+            'wa_message_id'     => 'BALASAN-ARRAY',
+            'chat_id'           => '6281200000092@s.whatsapp.net',
+            'jid_type'          => 'pn',
+            'message_type'      => 'text',
+            'text'              => 'Oke',
+            'message_timestamp' => '2026-09-27 07:10:00',
+            'quoted'            => [
+                'wa_message_id' => 'TIDAK-ADA-DI-DB-ARRAY',
+                'snippet'       => ['bukan', 'string'],
+            ],
+        ]);
+
+        $this->assertSame('success', $body['status'], 'SEC-003: tipe bukan string TIDAK boleh -> 500.');
+
+        $row = $this->lastMessage();
+        $this->assertSame('TIDAK-ADA-DI-DB-ARRAY', $row['quoted_wa_message_id']);
+        $this->assertSame('Pesan tidak ditemukan', $row['quoted_snippet'], 'SEC-003: degradasi ke label generik.');
+        $this->assertNull($row['quoted_sender_label'], 'F-B: penanda "tidak ditemukan" tetap NULL.');
+        $this->assertNull($row['quoted_media_available']);
+    }
+
+    public function testSnippetPayloadBerupaObjekTidakMenggagalkanPenyimpanan(): void
+    {
+        $body = $this->callMessages([
+            'wa_message_id'     => 'BALASAN-OBJEK',
+            'chat_id'           => '6281200000091@s.whatsapp.net',
+            'jid_type'          => 'pn',
+            'message_type'      => 'text',
+            'text'              => 'Oke',
+            'message_timestamp' => '2026-09-27 07:11:00',
+            'quoted'            => [
+                'wa_message_id' => 'TIDAK-ADA-DI-DB-OBJEK',
+                'snippet'       => (object) ['teks' => 'bukan string'],
+            ],
+        ]);
+
+        $this->assertSame('success', $body['status'], 'SEC-003: objek JSON pun TIDAK boleh -> 500.');
+
+        $row = $this->lastMessage();
+        $this->assertSame('TIDAK-ADA-DI-DB-OBJEK', $row['quoted_wa_message_id']);
+        $this->assertSame('Pesan tidak ditemukan', $row['quoted_snippet'], 'SEC-003: degradasi ke label generik.');
+        $this->assertNull($row['quoted_sender_label'], 'F-B: penanda "tidak ditemukan" tetap NULL.');
+        $this->assertNull($row['quoted_media_available']);
+    }
+
+    // ------------------------------------------------------------------
     // F-B: label wajib non-NULL saat ditemukan, termasuk fallback formatter
     // ------------------------------------------------------------------
 

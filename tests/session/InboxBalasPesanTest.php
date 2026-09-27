@@ -347,6 +347,47 @@ final class InboxBalasPesanTest extends CIUnitTestCase
         $this->assertStringNotContainsString('dikutip', (string) $bodyAda['message'], 'SEC-001: tidak membocorkan resolusi kutipan.');
     }
 
+    public function testKasirBerhakAtasPercakapanTujuanTetapTidakDapatMembedakanSumberLintasPercakapanDariIdTidakAda(): void
+    {
+        // SEC-001 (review ronde-2): kasir yang BERHAK atas percakapan tujuan
+        // pun tidak boleh memakai endpoint kirim sebagai oracle keberadaan
+        // pesan di percakapan lain. Dua request -- (a) sumber nyata di
+        // percakapan lain, (b) ID yang tidak ada -- harus menghasilkan
+        // respons `400` yang TIDAK BISA DIBEDAKAN (status + message) dan
+        // tidak menulis baris apa pun.
+        $conversationA = $this->seedConversation('628111111111@s.whatsapp.net');
+        $conversationB = $this->seedConversation('628222222222@s.whatsapp.net');
+        $sourceId      = $this->seedMessage($conversationA, [
+            'direction'    => 'incoming',
+            'message_type' => 'text',
+            'text'         => 'pesan nyata di percakapan lain',
+        ]);
+
+        $controllerAda = $this->controller(['quoted_message_id' => $sourceId]);
+        $responseAda   = $this->invoke($controllerAda, $conversationB, 'mencoba membalas');
+        $bodyAda       = $this->body($controllerAda);
+
+        $controllerTidakAda = $this->controller(['quoted_message_id' => 999999]);
+        $responseTidakAda   = $this->invoke($controllerTidakAda, $conversationB, 'mencoba membalas');
+        $bodyTidakAda       = $this->body($controllerTidakAda);
+
+        $this->assertSame(400, $responseAda->getStatusCode(), 'F-A: sumber lintas percakapan -> 400.');
+        $this->assertSame(400, $responseTidakAda->getStatusCode(), 'F-D: ID sumber tidak ada -> 400.');
+        $this->assertSame(0, $this->countOutgoing($conversationB), 'Tidak ada baris yang ditulis untuk kedua kasus.');
+
+        // Body identik: status + message tidak membedakan kedua penyebab.
+        $this->assertSame(
+            $bodyAda,
+            $bodyTidakAda,
+            'SEC-001: respons 400 tidak boleh membedakan sumber lintas percakapan dari ID tidak ada.'
+        );
+        $this->assertSame(
+            'Pesan yang ingin dikutip tidak valid.',
+            $bodyAda['message'],
+            'SEC-001: pesan 400 generik (tidak membocorkan penyebab).'
+        );
+    }
+
     // ------------------------------------------------------------------
     // GUD-001: tanpa kutipan, keempat kolom tetap NULL
     // ------------------------------------------------------------------
