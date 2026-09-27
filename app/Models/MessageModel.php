@@ -59,6 +59,12 @@ class MessageModel extends Model
         'send_status',
         'is_internal',
         'gateway_operation_id',
+        // Balas Pesan (Tahap 3, spec Section 4.2): snapshot kutipan pada baris
+        // pesan itu sendiri. Nullable -- baris yang bukan balasan tetap NULL.
+        'quoted_wa_message_id',
+        'quoted_sender_label',
+        'quoted_snippet',
+        'quoted_media_available',
         'deleted_at',
     ];
 
@@ -84,6 +90,39 @@ class MessageModel extends Model
     public function existsByWaMessageId(string $waMessageId): bool
     {
         return $this->where('wa_message_id', $waMessageId)->countAllResults() > 0;
+    }
+
+    /**
+     * Ambil satu baris `messages` berdasarkan `wa_message_id`, atau null.
+     *
+     * Pemakaian (Balas Pesan, Tahap 3): resolusi kutipan MASUK pada
+     * `InboxGatewayApi::messages()` (REQ-011) mencari pesan yang dikutip lewat
+     * ID yang sama dengan yang dipakai pengecekan idempotensi di atas, tapi
+     * butuh BARIS-nya (bukan hanya boolean) untuk membentuk snapshot kutipan
+     * dari data lokal.
+     *
+     * SENGAJA memakai query builder TANPA filter `deleted_at`, bukan
+     * `find()`/`first()` polos: model ini memakai `useSoftDeletes` (lihat
+     * properti di atas), jadi pencarian biasa diam-diam mengabaikan baris
+     * yang sudah di-soft-delete. Kalau baris sumber kutipan ikut hilang dari
+     * hasil pencarian, snapshot kutipan gagal terbentuk tanpa suara --
+     * kutipan tampil kosong padahal datanya ada (spec REQ-011, Section 12).
+     * Pola yang sama dipakai `Inbox::findMessageByOperationId()`.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findByWaMessageId(string $waMessageId): ?array
+    {
+        if ($waMessageId === '') {
+            return null;
+        }
+
+        $rows = db_connect('inbox')->table('messages')
+            ->where('wa_message_id', $waMessageId)
+            ->get()
+            ->getResultArray();
+
+        return $rows[0] ?? null;
     }
 
     /**

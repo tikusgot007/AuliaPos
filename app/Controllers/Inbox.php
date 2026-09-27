@@ -11,6 +11,7 @@ use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
 use App\Services\InboxSlaService;
 use App\Services\InboxMatchSnippetService;
+use App\Services\InboxQuoteSnapshotService;
 use App\Services\SenderIdentityFormatter;
 use Config\Inbox as InboxConfig;
 
@@ -2154,6 +2155,25 @@ class Inbox extends BaseController
         $operationId = (string) ($this->request->getPost('operation_id') ?? '');
         $operationId = $operationId === '' ? null : $operationId;
 
+        // Balas Pesan (Tahap 3): ID LOKAL `messages.id` pesan yang
+        // dikutip -- bukan `wa_message_id`. Client tidak pernah mengirim isi
+        // kutipan; server ambil sendiri dari DB (ALT-002, spec Section 4.3).
+        $quotedMessageId = (int) ($this->request->getPost('quoted_message_id') ?? 0);
+        $quotedMessageId = $quotedMessageId > 0 ? $quotedMessageId : null;
+
+        $kutipan = $this->resolveKutipan($conversationId, $quotedMessageId);
+
+        if ($kutipan['error'] !== null) {
+            // 400, bukan 403/404: permintaan tidak valid, dan TIDAK ada kolom
+            // snapshot yang ditulis (taksonomi F-D).
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => $kutipan['error'],
+            ]);
+        }
+
+        $quoteSnapshot = $kutipan['snapshot'];
+
         $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
         if ($ownershipError) {
             return $this->response->setStatusCode(403)->setJSON([
@@ -2185,7 +2205,7 @@ class Inbox extends BaseController
             ]);
         }
 
-        $result = $this->callGatewaySend($config, $chatId, $text, $operationId);
+        $result = $this->callGatewaySend($config, $chatId, $text, $operationId, $kutipan['quotedPayload']);
 
         if (!$result['ok']) {
             return $this->gatewayFailureResponse($result, $conversationId, 'kirimKeConversation', 'Gagal mengirim pesan: ');
@@ -2211,12 +2231,21 @@ class Inbox extends BaseController
         if ($existingMessage !== null) {
             log_message('info', "Inbox::kirimKeConversation replay (operation_id sama). conversation_id={$conversationId}, operation_id={$operationId}");
 
-            return $this->response->setStatusCode(200)->setJSON([
+            $replayBody = [
                 'status'          => 'success',
                 'conversation_id' => $conversationId,
                 'message'         => $this->attachSenderNames([$existingMessage])[0],
                 'replayed'        => true,
-            ]);
+            ];
+
+            // Replay adalah hasil kirim yang sama, jadi indikator kutipan
+            // dilaporkan lagi -- Gateway menyimpannya pada baris operasinya
+            // supaya tidak perlu mengira ulang atau mengirim ulang.
+            if ($quoteSnapshot !== null) {
+                $replayBody['quote_applied'] = (bool) ($result['quote_applied'] ?? false);
+            }
+
+            return $this->response->setStatusCode(200)->setJSON($replayBody);
         }
 
         $db->table('messages')->insert([
@@ -2230,6 +2259,12 @@ class Inbox extends BaseController
             'sent_by_user_id'     => $userId,
             'send_status'         => 'sent',
             'gateway_operation_id' => $operationId,
+            // Snapshot kutipan (REQ-007): beku sejak pesan ini dibuat, tidak
+            // pernah ditulis ulang. Tanpa kutipan keempatnya NULL (GUD-001).
+            'quoted_wa_message_id'   => $quoteSnapshot['quoted_wa_message_id'] ?? null,
+            'quoted_sender_label'    => $quoteSnapshot['quoted_sender_label'] ?? null,
+            'quoted_snippet'         => $quoteSnapshot['quoted_snippet'] ?? null,
+            'quoted_media_available' => $quoteSnapshot['quoted_media_available'] ?? null,
             'created_at'            => $now,
         ]);
 
@@ -2266,11 +2301,22 @@ class Inbox extends BaseController
         $newMessage = $messageModel->find($newMessageId);
         $newMessage = $this->attachSenderNames([$newMessage])[0];
 
-        return $this->response->setStatusCode(200)->setJSON([
+        $body = [
             'status'          => 'success',
             'conversation_id' => $conversationId,
             'message'         => $newMessage,
-        ]);
+        ];
+
+        // Reaksi (a) REQ-006: kutipan DITOLAK Gateway tidak menggagalkan
+        // pengiriman (isi pesan sudah sampai), tapi kasir diberi tahu lewat
+        // `quote_applied:false` agar UI menampilkan "Terkirim tanpa kutipan"
+        // -- bukan berpura-pura kutipan berhasil (ASSUMPTION-008: penanda ini
+        // EPHEMERAL, tidak disimpan sebagai kolom).
+        if ($quoteSnapshot !== null) {
+            $body['quote_applied'] = (bool) ($result['quote_applied'] ?? false);
+        }
+
+        return $this->response->setStatusCode(200)->setJSON($body);
     }
 
     /**
@@ -2304,6 +2350,132 @@ class Inbox extends BaseController
     }
 
     /**
+     * Balas Pesan (Tahap 3, spec Section 4.3): resolve kutipan dari
+     * `quoted_message_id` milik kasir, lalu ambil snapshot dari DB SERVER --
+     * bukan dari data yang dikirim browser (ALT-002: mencegah manipulasi).
+     *
+     * Mel manoeuvre dua guard yang TIDAK ada di `cekOwnership()`: yang itu
+     * hanya memvalidasi percakapan TUJUAN, bukan keterkaitan pesan sumber,
+     * sehingga tanpa guard di bawah endpoint ini jadi celah IDOR -- kutipan
+     * lintas percakapan (jalur yang secara semantik adalah "Teruskan", lihat
+     * Out of Scope spec Section 1.1).
+     *
+     * - Sumber tidak ada         -> `400` (taksonomi F-D).
+     * - Sumber di percakapan lain -> `400` (F-A).
+     * - Sumber soft-deleted       -> DITERIMA, kutipan tetap snapshot (AC-004).
+     * - `wa_message_id` placeholder lokal (`local-…`) -> DITERIMA; Gateway
+     *   yang akan mendegradasinya ke `quote_applied:false` (F-D).
+     *
+     * @return array{error: ?string, snapshot: ?array<string, mixed>, quotedPayload: ?array<string, mixed>}
+     */
+    private function resolveKutipan(int $conversationId, ?int $quotedMessageId): array
+    {
+        if ($quotedMessageId === null) {
+            return ['error' => null, 'snapshot' => null, 'quotedPayload' => null];
+        }
+
+        // Lookup WAJIB soft-delete-inclusive: kutipan dari pesan yang sudah
+        // di-soft-delete tetap harus terbentuk (AC-004). Karena itu memakai
+        // query builder tanpa filter `deleted_at`; `MessageModel::find()`
+        // polos DILARANG (model itu memakai useSoftDeletes dan menyaring
+        // baris tersebut tanpa suara -- spec REQ-011 / Section 12). Pola
+        // yang sama seperti findMessageByOperationId() di atas.
+        $rows = db_connect('inbox')->table('messages')
+            ->where('id', $quotedMessageId)
+            ->get()
+            ->getResultArray();
+
+        $sumber = $rows[0] ?? null;
+
+        if ($sumber === null) {
+            log_message('info', "Inbox::resolveKutipan sumber tidak ditemukan. conversation_id={$conversationId}, quoted_message_id={$quotedMessageId}");
+
+            return ['error' => 'Pesan yang ingin dikutip tidak ditemukan.', 'snapshot' => null, 'quotedPayload' => null];
+        }
+
+        if ((int) $sumber['conversation_id'] !== $conversationId) {
+            log_message('warning', "Inbox::resolveKutipan lintas percakapan ditolak (F-A). conversation_id={$conversationId}, quoted_message_id={$quotedMessageId}, sumber_conversation_id={$sumber['conversation_id']}");
+
+            return ['error' => 'Pesan yang ingin dikutip bukan dari percakapan ini.', 'snapshot' => null, 'quotedPayload' => null];
+        }
+
+        return [
+            'error'         => null,
+            'snapshot'      => (new InboxQuoteSnapshotService())->rakitSnapshot(
+                $sumber,
+                $this->labelPengirimKutipan($sumber)
+            ),
+            'quotedPayload' => $this->quotedPayloadGateway($sumber),
+        ];
+    }
+
+    /**
+     * Label pengirim pesan yang dikutip untuk disimpan pada
+     * `quoted_sender_label` (AC-007: pada grup tampil identitas anggota,
+     * bukan nama grup).
+     *
+     * WAJIB non-null selama pesan sumber DITEMUKAN: entah `null` inilah
+     * penanda TUNGGAL status "tidak ditemukan" (F-B). Karena itu nilai null
+     * dari `SenderIdentityFormatter::labelFor()` (mis. baris legacy ber-JID
+     * grup `@g.us`) diganti `LABEL_FALLBACK` di sini, bukan di UI.
+     */
+    private function labelPengirimKutipan(array $sumber): string
+    {
+        if (! empty($sumber['sent_by_user_id'])) {
+            $user = (new UserModel())->find($sumber['sent_by_user_id']);
+
+            if ($user !== null) {
+                $nama = trim((string) ($user['nama'] ?: ($user['username'] ?? '')));
+
+                if ($nama !== '') {
+                    return $nama;
+                }
+            }
+        }
+
+        $label = (new SenderIdentityFormatter())->labelFor($sumber['sender_jid'] ?? null);
+
+        return $label ?? SenderIdentityFormatter::LABEL_FALLBACK;
+    }
+
+    /**
+     * Bentuk objek `quoted` untuk payload Gateway (spec Section 4.1).
+     *
+     * `fromMe` HANYA diturunkan dari kolom `direction` (outgoing -> true,
+     * incoming -> false) -- DILARANG memakai `sender_jid` sebagai dasar,
+     * karena baris incoming pun bisa punya `sender_jid` NULL (pesan grup
+     * pra-Tahap-2, dan validasi `sender_jid` hanya berlaku untuk grup), jadi
+     * NULL bukan bukti pesan keluar (spec REQ-001, F2-1..F2-4).
+     *
+     * `sender_jid` boleh null untuk sumber outgoing (baris outgoing memang
+     * menyimpannya NULL by design); untuk `fromMe: true` Gateway mengisi
+     * `key.participant` dari JID akun-bot-nya sendiri.
+     */
+    private function quotedPayloadGateway(array $sumber): array
+    {
+        $tipe = (string) ($sumber['message_type'] ?? 'text');
+
+        $payload = [
+            'wa_message_id' => $sumber['wa_message_id'] ?? null,
+            'sender_jid'    => ($sumber['sender_jid'] ?? null) ?: null,
+            'message_type'  => $tipe,
+            'fromMe'        => ($sumber['direction'] ?? 'incoming') === 'outgoing',
+        ];
+
+        // Teks ATAU tipe media -- sesuai bentuk yang dibaca Gateway
+        // (`quoted.text` untuk teks, `quoted.media_type` untuk media).
+        if ($tipe === 'text') {
+            $payload['text'] = (string) ($sumber['text'] ?? '');
+
+            return $payload;
+        }
+
+        $payload['media_type'] = $tipe;
+
+        return $payload;
+    }
+
+    /**
      * Normalisasi nomor telepon Indonesia (format umum: 08xx, 8xx,
      * 62xx, +62xx, boleh ada spasi/strip) menjadi JID WhatsApp.
      * Mengembalikan null kalau formatnya tidak bisa dikenali dengan
@@ -2327,9 +2499,13 @@ class Inbox extends BaseController
      * bergantung ke library HTTP client tambahan (Guzzle dkk) yang
      * belum tentu ter-install di project ini.
      *
-     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, error?: string}
+     * @param array<string, mixed>|null $quoted objek kutipan Balas Pesan
+     *        (spec Section 4.1). null = pesan biasa, Gatewway berperilaku
+     *        seperti sebelumnya.
+     *
+     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, quote_applied?: bool, error?: string}
      */
-    protected function callGatewaySend(InboxConfig $config, string $chatId, string $text, ?string $operationId = null): array
+    protected function callGatewaySend(InboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null): array
     {
         $url = $config->gatewayBaseUrl . '/send';
 
@@ -2343,6 +2519,12 @@ class Inbox extends BaseController
         // seperti sebelumnya, dan kunci TIDAK dibuat di sini.
         if ($operationId !== null) {
             $payloadData['operation_id'] = $operationId;
+        }
+
+        // Balas Pesan (REQ-001): hanya ikut kalau kasir benar-benar
+        // mengutip. Tanpa itu Gateway tidak mengubah apa pun.
+        if ($quoted !== null) {
+            $payloadData['quoted'] = $quoted;
         }
 
         $payload = json_encode($payloadData);
@@ -2379,6 +2561,12 @@ class Inbox extends BaseController
                 'error_code'    => $json['error_code'] ?? null,
                 'state'         => $json['state'] ?? 'sent',
                 'replayed'      => (bool) ($json['replayed'] ?? false),
+                // ASSUMPTION-010: Gateway yang belum understands `quoted`
+                // (rollout parsial) tidak mengirim field ini sama sekali,
+                // dan itu diperlakukan sebagai false -- kasir lalu melihat
+                // penanda "Terkirim tanpa kutipan" yang jujur, bukan
+                // kutipan yang dikira berhasil padahal tidak sampai.
+                'quote_applied' => (bool) ($json['quote_applied'] ?? false),
                 'http_code'     => $httpCode,
             ];
         }

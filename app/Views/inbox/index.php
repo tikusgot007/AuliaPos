@@ -228,6 +228,105 @@
         margin-bottom: 2px;
     }
 
+    /* ============================================================
+       BALAS PESAN (Tahap 3, REQ-005/REQ-008/REQ-013)
+       Satu komponen untuk dua arah: kotak kutipan pada bubble
+       balasan kasir maupun bubble pesan masuk pelanggan, supaya
+       tampilannya dijamin identik (REQ-013: TIDAK ada komponen
+       UI baru untuk arah masuk).
+       ============================================================ */
+    .inbox-kutipan {
+        display: flex;
+        gap: 6px;
+        align-items: stretch;
+        background: rgba(0, 0, 0, 0.05);
+        border-left: 3px solid #1da47f;
+        border-radius: 6px;
+        padding: 4px 8px;
+        margin-bottom: 4px;
+        font-size: 0.75rem;
+        line-height: 1.3;
+        text-align: left;
+    }
+
+    .inbox-bubble.incoming .inbox-kutipan {
+        background: rgba(29, 164, 127, 0.08);
+    }
+
+    .inbox-kutipan-isi {
+        min-width: 0;
+    }
+
+    .inbox-kutipan-pengirim {
+        font-weight: 600;
+        color: #1da47f;
+        margin-bottom: 1px;
+    }
+
+    .inbox-kutipan-snippet {
+        color: #5c5c5c;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .inbox-kutipan-tak-ada {
+        font-style: italic;
+        color: #8a8a8a;
+    }
+
+    /* Area kutipan aktif di atas kotak ketik (REQ-005). */
+    .kutipan-aktif {
+        display: flex;
+        gap: 6px;
+        align-items: stretch;
+        background: #f2fbf8;
+        border: 1px solid #bfe6da;
+        border-left: 3px solid #1da47f;
+        border-radius: 6px;
+        padding: 5px 8px;
+        margin-bottom: 6px;
+        font-size: 0.78rem;
+    }
+
+    .kutipan-aktif-judul {
+        font-weight: 600;
+        color: #1da47f;
+        margin-bottom: 1px;
+    }
+
+    /* Penanda "Terkirim tanpa kutipan" (REQ-006a reaksi a). Sengaja
+       kecil dan non-merge -- ini penanda sementara di layar kasir,
+       BUKAN status yang disimpan di database (ASSUMPTION-008). */
+    .penanda-tanpa-kutipan {
+        font-size: 0.66rem;
+        color: #8a6d3b;
+        background: #fdf6e3;
+        border: 1px solid #f0e2b6;
+        border-radius: 4px;
+        padding: 1px 5px;
+        margin-top: 3px;
+        display: inline-block;
+    }
+
+    /* Aksi per-pesan (REQ-004): "Balas" -- disembunyikan sampai kursor
+       berada di bubble supaya tidak ramai di thread yang panjang. */    .bubble-aksi {
+        margin-top: 3px;
+        text-align: right;
+        opacity: 0;
+        transition: opacity 0.12s ease-in-out;
+    }
+
+    .inbox-bubble:hover .bubble-aksi {
+        opacity: 1;
+    }
+
+    .bubble-aksi .btn {
+        font-size: 0.68rem;
+        padding: 1px 6px;
+    }
+
     .inbox-media-image {
         max-width: 100%;
         max-height: 300px;
@@ -414,6 +513,19 @@
                 </div>
 
                 <div class="inbox-thread-form">
+                    <!-- Area kutipan aktif (Balas Pesan, REQ-005): muncul
+                         hanya setelah kasir menekan "Balas" pada salah satu
+                         bubble. Tepat di atas kotak ketik supaya jelas
+                         balasan mana yang sedang ditulis, dan bisa dibatalkan
+                         tanpa mengirim apa pun. -->
+                    <div id="kutipanAktif" class="kutipan-aktif" style="display:none;">
+                        <i class="fas fa-reply align-self-center text-success"></i>
+                        <div class="inbox-kutipan-isi flex-grow-1">
+                            <div class="kutipan-aktif-judul" id="kutipanAktifJudul"></div>
+                            <div class="inbox-kutipan-snippet" id="kutipanAktifSnippet"></div>
+                        </div>
+                        <button type="button" class="btn-close btn-sm align-self-center" style="font-size:0.6rem;" aria-label="Batalkan kutipan" onclick="batalkanKutipan()"></button>
+                    </div>
                     <div id="previewMediaBalasan" class="mb-2" style="display:none;">
                         <span class="badge bg-light text-dark border">
                             <i class="fas fa-paperclip"></i> <span id="previewMediaNama"></span>
@@ -1784,6 +1896,15 @@
         renderDaftarConversation();
         renderThreadHeader();
 
+        // Balas Pesan: kutipan aktif milik percakapan sebelumnya. Kalau
+        // dibawa, kasir bisa mengirim balasan ke percakapan A sambil
+        // mengutip pesan dari percakapan B tanpa sadar -- server memang
+        // akan menolak dengan 400, tapi lebih baik jangan sampai situasi
+        // itu muncul sama sekali.
+        batalkanKutipan();
+        pesanTerkirimTanpaKutipan.clear();
+        pesanCached = {};
+
         document.getElementById('teksBalasan').disabled = false;
         document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
         document.getElementById('btnKirimBalasan').disabled = false;
@@ -1793,6 +1914,142 @@
         muatUlangPesan(true);
         muatUlangRiwayatHandoff();
         return false;
+    }
+
+    /* ================================================================
+       BALAS PESAN (Tahap 3)
+       Kutipan yang SEDANG dipilih kasir, atau null. Yang disimpan HANYA id
+       pesan sumber + label/cuplikan untuk ditampilkan -- isi kutipan yang
+       sesungguhnya dikirim ke Gateway diambil ULANG dari database server
+       saat tombol kirim ditekan (ALT-002: browser tidak pernah menentukan
+       apa yang sebenarnya dikutip).
+       ================================================================ */
+    let kutipanAktif = null;
+
+    /* Pesan yang terkirim tapi kutipannya tidak sampai ke penerima
+       (reaksi (a) REQ-006, `quote_applied:false`). Sengaja disimpan di
+       memori saja, TIDAK kolom di database: penanda ini menggambarkan
+       hasil percobaan kirim yang sedang berjalan, dan menghilang saat
+       halaman dimuat ulang (ASSUMPTION-008). */
+    const pesanTerkirimTanpaKutipan = new Set();
+
+    /* Data pesan hasil render terakhir, dipakai pilihKutipan() agar kotak
+       kutipan bisa ditampilkan tanpa request tambahan. Direset setiap
+       renderPesan() supaya tidak menahan baris lama. */
+    let pesanCached = {};
+
+    function adaKutipan(m) {
+        return m && m.quoted_wa_message_id !== null && m.quoted_wa_message_id !== undefined && m.quoted_wa_message_id !== '';
+    }
+
+    /**
+     * Kotak kutipan pada satu bubble. SATU komponen dipakai untuk balasan
+     * kasir (REQ-005) dan pesan masuk pelanggan (REQ-013), supaya keduanya
+     * dijamin tampil sama.
+     *
+     * Penentuan "kutipan tidak ditemukan" HANYA lewat `quoted_sender_label`
+     * yang null -- itulah penanda tunggalnya (F-B). UI dilarang menyimpulkan
+     * status itu dengan membandingkan isi cuplikan terhadap teks generik
+     * mana pun, karena cuplikan itu isinya pesan asli, bukan penanda.
+     */
+    function renderKotakKutipan(m) {
+        if (!adaKutipan(m)) return '';
+
+        const tidakDitemukan = (m.quoted_sender_label === null || m.quoted_sender_label === undefined || m.quoted_sender_label === '');
+
+        // Snapshot 0 berarti media sumber dipastikan hilang sejak kutipan
+        // dibuat. Selain itu, kalau kutipannya media, jangan coba memuat
+        // gambar: snapshot tidak menyimpan URL media, dan permintaan
+        // yang gagal ditangani sebagai teks "[Media tidak tersedia]"
+        // (fallback tampilan REQ-008, tanpa menulis ulang DB).
+        const mediaTidakTersedia = (m.quoted_media_available === 0 || m.quoted_media_available === '0');
+        const isiKutipan = mediaTidakTersedia
+            ? '<div class="inbox-kutipan-snippet inbox-kutipan-tak-ada">[Media tidak tersedia]</div>'
+            : '<div class="inbox-kutipan-snippet">' + escapeHtmlInbox(m.quoted_snippet || 'Pesan tidak ditemukan') + '</div>';
+
+        const judul = tidakDitemukan
+            ? '<div class="inbox-kutipan-pengirim">Pesan tidak ditemukan</div>'
+            : '<div class="inbox-kutipan-pengirim">' + escapeHtmlInbox(m.quoted_sender_label) + '</div>';
+
+        return '<div class="inbox-kutipan">' + '<i class="fas fa-reply align-self-center text-success"></i>' +
+            '<div class="inbox-kutipan-isi">' + judul + isiKutipan + '</div>' +
+            '</div>';
+    }
+
+    /* Aksi per-pesan (REQ-004): tombol "Balas". Tidak dirender untuk
+       Internal Note (bukan percakapan dengan pelanggan) dan untuk pesan
+       outgoing yang belum terkirim (tidak ada yang bisa dibalas). */
+    function renderAksiBalas(m) {
+        const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
+        const belumTerkirim = m.direction === 'outgoing' && m.send_status !== 'sent';
+
+        if (internal || belumTerkirim) return '';
+
+        return '<div class="bubble-aksi">' +
+            '<button type="button" class="btn btn-outline-success btn-sm" onclick="pilihKutipan(' + m.id + ')">' +
+            '<i class="fas fa-reply"></i> Balas</button>' +
+            '</div>';
+    }
+
+    /* Cuplikan singkat isi satu pesan untuk ditampilkan di area kutipan
+       aktif. Meniru aturan yang sama dengan InboxQuoteSnapshotService di
+       server: teks bila ada, kalau tidak label jenis media. */
+    function cuplikanPesan(m) {
+        const teks = (m.text || '').trim();
+
+        if (teks !== '') {
+            return teks.length > 200 ? teks.slice(0, 200) + '\u2026' : teks;
+        }
+
+        const labelMedia = {
+            image: '[Foto]',
+            document: '[Dokumen]',
+            sticker: '[Stiker]',
+            audio: '[Audio]',
+            video: '[Video]'
+        };
+
+        return labelMedia[m.message_type] || '[Pesan tanpa teks]';
+    }
+
+    function pilihKutipan(messageId) {
+        // Data pesan diambil dari cache render terakhir -- tidak perlu
+        // request tambahan ke server hanya untuk mengambil cuplikan yang
+        // sudah tampil di layar.
+        const m = pesanCached[messageId];
+        if (!m) {
+            showToast('Pesan tidak ditemukan untuk dikutip.', 'warning');
+            return;
+        }
+
+        kutipanAktif = {
+            id: messageId
+        };
+
+        const judul = document.getElementById('kutipanAktifJudul');
+        const snippet = document.getElementById('kutipanAktifSnippet');
+
+        // Yang ditampilkan di sini adalah ISI pesan yang sedang dipilih untuk
+        // dikutip -- yaitu `m.text` miliknya sendiri, BUKAN `m.quoted_snippet`
+        // yang menjelaskan pesan apa yang dikutip oleh pesan ini. Memakai kolom
+        // kutipan akan menampilkan kotak kosong pada pesan biasa, persis
+        // seperti yang terjadi saat uji manual pertama.
+        //
+        // Label pengirim memakai `sender_name` yang sudah dipakai bubble
+        // (identitas Tahap 2 untuk grup, nama staff untuk pesan kasir), lalu
+        // jatuh ke kalimat generik untuk percakapan yang identitasnya belum
+        // diketahui -- mis. percakapan LID.
+        judul.textContent = m.sender_name ? 'Membalas pesan dari ' + m.sender_name : 'Membalas pesan';
+        snippet.textContent = cuplikanPesan(m);
+
+        document.getElementById('kutipanAktif').style.display = 'flex';
+        const textarea = document.getElementById('teksBalasan');
+        if (textarea) textarea.focus();
+    }
+
+    function batalkanKutipan() {
+        kutipanAktif = null;
+        document.getElementById('kutipanAktif').style.display = 'none';
     }
 
     function renderIsiPesan(m) {
@@ -1883,6 +2140,11 @@
             return;
         }
 
+        // Cache untuk pilihKutipan() (Balas Pesan, REQ-005) -- reset supaya
+        // tidak menahan baris dari percakapan sebelumnya.
+        pesanCached = {};
+        messages.forEach(function(m) { pesanCached[m.id] = m; });
+
         container.innerHTML = messages.map(function(m) {
             const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
             const arah = internal ? 'internal-note' : (m.direction === 'outgoing' ? 'outgoing' : 'incoming');
@@ -1892,11 +2154,19 @@
             const internalLabel = internal ?
                 '<div class="inbox-internal-label"><i class="fas fa-sticky-note"></i> Internal</div>' :
                 '';
+            // Penanda "Terkirim tanpa kutipan" hanya untuk pesan yang
+            // terkirim BARU SESAJA di sesi ini (lihat pesanTerkirimTanpaKutipan).
+            const penandaKutipan = pesanTerkirimTanpaKutipan.has(m.id) ?
+                '<div class="penanda-tanpa-kutipan"><i class="fas fa-exclamation-triangle"></i> Terkirim tanpa kutipan</div>' :
+                '';
 
             return '<div class="inbox-bubble ' + arah + '">' +
                 internalLabel +
                 senderLabel +
+                renderKotakKutipan(m) +
                 renderIsiPesan(m) +
+                penandaKutipan +
+                renderAksiBalas(m) +
                 '<div class="bubble-meta">' + formatWaktuInbox(m.message_timestamp) + '</div>' +
                 '</div>';
         }).join('');
@@ -2073,10 +2343,19 @@
         const emptyState = container.querySelector('.inbox-thread-empty');
         if (emptyState) container.innerHTML = '';
 
+        pesanCached[m.id] = m;
+
         container.insertAdjacentHTML('beforeend',
             '<div class="inbox-bubble outgoing">' +
             '<div class="bubble-sender">' + escapeHtmlInbox(m.sender_name) + '</div>' +
+            renderKotakKutipan(m) +
             renderIsiPesan(m) +
+            // Penanda kutipan gagal: bubble yang baru saja dikirim, jadi
+            // penandanya langsung ikut tampil tanpa menunggu polling
+            // (reaksi (a) REQ-006).
+            (pesanTerkirimTanpaKutipan.has(m.id) ?
+                '<div class="penanda-tanpa-kutipan"><i class="fas fa-exclamation-triangle"></i> Terkirim tanpa kutipan</div>' : '') +
+            renderAksiBalas(m) +
             '<div class="bubble-meta">' + formatWaktuInbox(m.message_timestamp) + '</div>' +
             '</div>');
         container.scrollTop = container.scrollHeight;
@@ -2425,6 +2704,11 @@
         // dan DIPERTAHANKAN kalau kirim ulang karena gagal/timeout.
         const operationId = ambilOperationIdBalasan();
 
+        // Balas Pesan (Tahap 3): hanya ID LOKAL pesan yang dipilih. Isi
+        // kutipan TIDAK ikut dikirim -- server mengambilnya sendiri dari
+        // database (ALT-002, spec Section 4.3).
+        const quotedMessageId = kutipanAktif ? kutipanAktif.id : null;
+
         fetch('<?= base_url('/inbox/kirim') ?>', {
                 method: 'POST',
                 headers: {
@@ -2432,7 +2716,8 @@
                 },
                 body: 'conversation_id=' + encodeURIComponent(conversationAktif) +
                     '&text=' + encodeURIComponent(text) +
-                    '&operation_id=' + encodeURIComponent(operationId)
+                    '&operation_id=' + encodeURIComponent(operationId) +
+                    (quotedMessageId === null ? '' : '&quoted_message_id=' + encodeURIComponent(quotedMessageId))
             })
             .then(function(res) {
                 return res.json();
@@ -2444,6 +2729,17 @@
                     // pesan berikutnya memakai operasi baru.
                     buangOperationIdBalasan();
                     sembunyikanStatusKirimBalasan();
+                    // Kutipan sudah terkirim sebagai bagian pesan ini, jadi
+                    // area kutipan aktif ditutup.
+                    batalkanKutipan();
+                    // Reaksi (a) REQ-006: Gateway tetap mengirim isi pesan
+                    // tapi TIDAK menerapkan kutipan. Kasir diberi tahu
+                    // eksplisit supaya tidak mengira kutipan sudah sampai
+                    // ke pelanggan.
+                    if (json.quote_applied === false) {
+                        pesanTerkirimTanpaKutipan.add(json.message.id);
+                        showToast('Pesan terkirim, TAPI tanpa kutipan -- kutipan tidak sampai ke penerima.', 'warning');
+                    }
                     // Langsung tampilkan pesan baru tanpa nunggu polling
                     // (sesuai spec: outgoing langsung terlihat setelah sukses).
                     tampilkanBubbleOutgoing(json.message);
@@ -2481,6 +2777,15 @@
 
         // Kunci idempotensi percobaan ini -- lihat kirimBalasan().
         const operationId = ambilOperationIdBalasan();
+
+        // Balas Pesan: balas-dengan-media sambil mengutip adalah Phase 2
+        // (TASK-006, /send-media). Untuk Phase 1 jalur ini sengaja TIDAK
+        // mengirim `quoted_message_id`; kutipan aktif karena itu dibuang
+        // dengan jujur, bukan diam-diam hilang dari balasan kasir.
+        if (kutipanAktif) {
+            batalkanKutipan();
+            showToast('Balas dengan lampiran belum bisa menyertakan kutipan -- kutipan dibatalkan.', 'warning');
+        }
 
         const formData = new FormData();
         formData.append('conversation_id', conversationAktif);

@@ -25,7 +25,15 @@ final class InboxOutgoingOperationIdTest extends CIUnitTestCase
     public function testAjaxOperationIdIsReadAndForwardedWithoutServerGeneratedKey(): void
     {
         $this->assertStringContainsString("getPost('operation_id')", $this->controllerSource);
-        $this->assertStringContainsString("callGatewaySend(\$config, \$chatId, \$text, \$operationId)", $this->controllerSource);
+        // Balas Pesan (Tahap 3) menambah satu parameter ADITIF pada
+        // callGatewaySend(): argumen ke-5 adalah objek kutipan dari DB
+        // server. Yang dijaga guard ini tetap sama -- `operation_id` milik
+        // browser diteruskan apa adanya, tidak pernah dibuat di server --
+        // dan argumen kutipan pun bukan nilai yang dikarang controller.
+        $this->assertStringContainsString(
+            "callGatewaySend(\$config, \$chatId, \$text, \$operationId, \$kutipan['quotedPayload'])",
+            $this->controllerSource
+        );
         $this->assertStringContainsString("callGatewaySendMedia(\$config, \$conversation['chat_id']", $this->controllerSource);
         $this->assertStringContainsString("\$captionUntukGateway, \$operationId)", $this->controllerSource);
         $this->assertStringNotContainsString('random_bytes(16)', $this->controllerSource);
