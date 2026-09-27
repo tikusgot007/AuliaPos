@@ -792,3 +792,38 @@
 <!-- checkpoint-tail: 2026-09-27 Phase Spec `/sdlc-define-specs` ALT-003/AUTHZ-02 → decided Inbox read-open (all logged-in staff may read all conversations + media + internal notes) and write-gated to holder/admin; created spec/spec-design-inbox-read-authorization.md v1.0 + linked from spec-index; closed ALT-003 as deliberate (NO cekOwnership on apiMessages) and reversed SEC-002 media guard (remove cekOwnership in Inbox::media()); no ADR; no schema change. Next: /sdlc-clarify-reqs on the new spec (new session). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6aa — `/sdlc-clarify-reqs` atas spec Inbox Read Authorization ALT-003/AUTHZ-02 → Readiness 92/100 PROCEED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`). Persona-locked Clarification Analyst; tidak ada kode/plan yang ditulis, kecuali laporan klarifikasi (exception yang diizinkan skill ini).
+- **Konteks pemicu:** Tindak lanjut langsung checkpoint Phase Spec sebelumnya (baris 762) yang menetapkan next = `/sdlc-clarify-reqs` atas `spec/spec-design-inbox-read-authorization.md`.
+- **Active Artifacts:**
+  - `spec/spec-design-inbox-read-authorization.md` — v1.0, 🔄 In Progress. Readiness 92/100 PROCEED; menunggu amandemen 4 poin dari `/sdlc-define-specs` (lihat Next Action).
+  - `docs/audit/clarification-report-inbox-read-authorization-2026-09-27.md` — ✅ NEW, Readiness 92/100.
+- **Achieved Milestones:**
+  - Interogasi spec dengan Grill Me protocol (satu pertanyaan per giliran). Verifikasi kode: matriks tulis spec akurat (`cekOwnership()` `:761-773`; `hapus` admin-only `:1698-1703`; `ambil` klaim `:1804-1809`; `handoff` inisiator `:1461-1463`; `kirimMedia` guard `:1018-1024`; `kirimKeConversation` guard `:2269`); `catatanInternal()` tanpa guard `:1217-1273`; badge kepemilikan sudah tampil untuk SEMUA staff (`index.php:1094-1097`, `:1322-1335`) — REQ-005/AC-005 sudah terpenuhi tanpa perubahan kode.
+  - **C-1 diputuskan (opsi A):** hapus HANYA blok `cekOwnership()` (`Inbox.php:425-431`); **PERTAHANKAN** lookup percakapan (`:416-423`) + `404`-nya supaya AC-007 ("pesan atau percakapan tidak ada → `404`") tetap benar. Section 7 spec harus diubah dari "boleh dihapus" menjadi "dipertahankan untuk `404`", dan contoh kode Section 8 ikut disesuaikan.
+  - **C-2 diputuskan (opsi A):** penulisan `media_confirmed_gone_at` pada jalur 410 (`Inbox.php:531-535`) boleh dipicu staff mana pun (menandai fakta objektif, bukan sensitif kepemilikan) — meski spec mendefinisikan "Operasi Tulis" termasuk "menulis baris `messages`". REQ-002/§2 wajib menyatakannya eksplisit + 1 test bahwa non-pemegang pada jalur 410 tidak diblokir.
+  - 5 item kecil ditandai `[Assumed / Auto-Resolved]`: (1) AC-005 manual-only, tidak perlu test tambahan karena tanpa perubahan kode; (2) Section 8 contoh kode diperbarui; (3) `GET /inbox/test` out-of-scope (halaman dev); (4) "Pemegang (Holder)" istilah kerja, tanpa perubahan `CONTEXT.md`; (5) coverage anti-regresi tambahan untuk `apiConversations`/`apiHandoffs` bersifat opsional.
+  - Cross-check dokumen: `docs/CHAT.md` §15 (`:321-329`) "Lihat conversation: Staff lain **Ya**" konsisten dengan baca-terbuka; Tidak ada test lain yang mengharapkan media `403`; tidak ada ADR baru (Triple Gate gagal) dan tidak ada perubahan `CONTEXT.md`.
+  - Readiness 92/100 (Completeness 36/40, Clarity 27/30, Alignment 29/30). Critical Flaw Veto sempat aktif di **79** karena kontradiksi internal Section 7/8 vs AC-007, lalu lepas setelah C-1 diselesaikan. User memilih **PROCEED**.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Menganggap spec "sudah jelas" tanpa membaca kode `media()` sampai habis. **Reason:** Section 7/8 ternyata bertentangan internal dengan AC-007 (blok percakapan yang dihapus justru sumber `404`), dan `media()` ternyata punya side-effect tulis (jalur 410) meski diklasifikasi "Baca" oleh spec-nya sendiri. **Correct:** baca `media()` utuh (`:396-551`, termasuk `:531-535`) + cek dokumen pembanding (`CHAT.md` §15) sebelum menyimpulkan.
+- **Updated Files:**
+  - `docs/audit/clarification-report-inbox-read-authorization-2026-09-27.md` — NEW (template wajib skill).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - **C-1 = A:** `media()` → hapus hanya guard `:425-431`; simpan lookup `:416-423` + `404`.
+  - **C-2 = A:** penanda 410 `media_confirmed_gone_at` boleh ditulis siapa pun; didokumentasikan eksplisit.
+  - Tidak ada ADR baru (mudah dibalik → Triple Gate gagal); tidak ada perubahan `CONTEXT.md`.
+- **Next Action / Pending:**
+  - `/sdlc-define-specs` mengamandemen `spec/spec-design-inbox-read-authorization.md` 4 poin: (1) §3 `REQ-002`/§2 catatan izin tulis penanda 410; (2) §7 pertahankan `:416-423` (hapus hanya `:425-431`); (3) §8 contoh kode memuat `404` percakapan; (4) §6/§13 tambah test non-pemegang 410 + pertahankan indicator check.
+  - Setelah itu `/sdlc-plan-tasks`, lalu `/sdlc-write-code`.
+  - Carried forward (tidak berubah): `TEST-01`/`DOC-01` Grup Tahap 1; PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search; `docs/ARCHITECTURE.md` §11 `aulia_inboxdb_perf` paragraph; `docs/ARCHITECTURE.md` phantom `quoted_from_me` column; `CONTEXT.md` "Kutipan" wording.
+  - File sesi ini (`docs/audit/clarification-report-*.md` + memory) **belum di-commit** — menunggu perintah owner (closing sequence #3: checkpoint ini → commit → push → prompt sesi berikutnya).
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6aa `/sdlc-clarify-reqs` atas `spec/spec-design-inbox-read-authorization.md` v1.0 (ALT-003/AUTHZ-02) → Readiness 92/100 PROCEED. Dua keputusan: (C-1/A) `media()` hapus HANYA guard `cekOwnership()` `Inbox.php:425-431`, PERTAHANKAN lookup percakapan `:416-423` + `404` agar AC-007 tetap benar (veto 79 lepas setelah ini); (C-2/A) penanda 410 `media_confirmed_gone_at` `:531-535` boleh ditulis semua staff login, didokumentasikan eksplisit + 1 test. Diverifikasi: matriks tulis spec akurat, badge kepemilikan sudah tampil ke semua staff (`index.php:1094-1097`/`:1322-1335`), `CHAT.md` §15 konsisten baca-terbuka, tidak ada ADR/CONTEXT.md baru. Laporan: `docs/audit/clarification-report-inbox-read-authorization-2026-09-27.md`. Next: `/sdlc-define-specs` amandemen 4 poin, lalu `/sdlc-plan-tasks`. -->
+
+---
