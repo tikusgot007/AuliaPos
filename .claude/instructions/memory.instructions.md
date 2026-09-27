@@ -567,3 +567,31 @@
 <!-- checkpoint-tail: 2026-09-27 Housekeeping: 2 standing rule (bahasa sederhana ke owner + ready-to-paste next-session prompt) dipindah dari Knowledge Base memory ke AGENTS.md sebagai section permanen "Standing Rules (Universal)", plus rule baru ke-3 "End-of-Session Closing Sequence" (checkpoint → commit → push → prompt berikutnya, urutan terkunci). Next: jalankan closing sequence rule #3 untuk sesi ini sendiri (commit lalu push). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Planner Architect — tutup plan remediasi ronde-2 Balas Pesan Tahap 3)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (penutupan plan; `/sdlc-plan-tasks`)
+- **Active Artifacts:**
+  - `spec/spec-design-balas-pesan.md` — Status: ✅ Finalized (v1.8, `TASK-303` menyelaraskan wording `REQ-011`/`AC-009` dengan `potongSnippet()`)
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — Status: ✅ Completed (seluruh task Phase 1–3 selesai, `TASK-303`/`TASK-307` ditutup)
+- **Achieved Milestones:**
+  - Menandai **`TASK-303`** sebagai ✅ selesai (`[x]`, 2026-09-27) di `plan-refactor-balas-pesan-tahap3-review2-v1.0.md`: spec diamandemen ke **v1.8** oleh `/sdlc-define-specs`, memilih **perbaiki wording spec** (bukan ubah implementasi) — `REQ-011` (kedua cabang), `AC-009`, `ASSUMPTION-007`, dan Section 4.2 kini menyebut cuplikan fallback `quoted.snippet` Gateway dilewatkan lewat `potongSnippet()` yang sama seperti jalur sumber-ditemukan (satu standar: normalisasi whitespace + batas 200 karakter + elipsis).
+  - Traceability `SPEC-001` ditandai RESOLVED; catatan Status Phase 3 dan `FILE-007` disinkronkan.
+  - **`TASK-307`** (APPROVAL penutup remediasi ronde-2) dikonfirmasi user ("lanjut") dan ditutup; seluruh task Phase 1–3 plan ini kini selesai. Scan plan mengonfirmasi tidak ada task `[ ]` tersisa.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Memuat skill `memory-manager` lewat tool `skill`.
+  - **Reason:** Tool `skill` hanya mengenali skill builtin terdaftar (`kilo-config`); skill proyek di `.claude/skills/` harus dibaca langsung via `read` (dan `glob` tidak menembus dot-directory — lihat `DE-53`). Baca `.claude/skills/memory-manager/SKILL.md` langsung.
+- **Updated Files:**
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — `SPEC-001` RESOLVED; baris `TASK-303` `[ ]`→`[x]` + tanggal + deskripsi hasil v1.8; catatan Status Phase 3 (TASK-303 selesai, TASK-307 disetujui); `FILE-007` tambah keterangan amandemen v1.8
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini
+- **Decisions Made:**
+  - `TASK-303` diselesaikan dengan **memperbaiki wording spec, bukan mengubah implementasi** — Section 4.2 sudah menjanjikan cuplikan "dipotong ke panjang wajar" dan unit test mengunci batas `MAKS_KARAKTER` (200) + elipsis + normalisasi, sehingga mengubah implementasi ke `mb_substr` murni justru menghapus perilaku yang dijanjikan. Tidak ada perubahan kode/perilaku dan tidak ada ADR baru.
+  - Plan revision bersifat surgical: struktur Phase, `Dep` column, dan task lain tidak disentuh (Anti-Data Loss Guard).
+- **Next Action / Pending:**
+  - Rule #3 (End-of-Session Closing Sequence) langkah berikutnya untuk sesi ini: tawarkan **commit** atas `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` + `spec/spec-design-balas-pesan.md` (v1.8, jika belum ter-commit) → tawarkan **push** → baru sajikan prompt siap-tempel sesi berikutnya.
+  - Tidak ada blocker pada plan ini. Carried forward (tidak berubah): `SEC-01` Handoff/Tandai-Dibaca, PRD GH-015 Teruskan, `CONTEXT.md:68`, `ESC-001..004`, `docs/TODO-CHAT.md` 11–13, group-rename sync, BACKLOG `group_name` search, opsional link `docs/ARCHITECTURE.md` di `AGENTS.md`.
+
+<!-- checkpoint-tail: 2026-09-27 Planner Architect: plan-refactor-balas-pesan-tahap3-review2-v1.0.md ditutup — TASK-303 [x] (spec v1.8 menyelaraskan REQ-011/AC-009/ASSUMPTION-007 dengan potongSnippet(), wording-bukan-implementasi), TASK-307 APPROVAL dikonfirmasi user; seluruh Phase 1–3 selesai, tidak ada task tersisa. Next: closing sequence langkah 2 (tawarkan commit plan+spec) → push → prompt sesi berikutnya. -->
+
+---
