@@ -105,6 +105,45 @@ final class InboxGatewayApiKutipanMasukTest extends CIUnitTestCase
         $this->assertSame('Kapan pesanan saya dikirim?', $row['quoted_snippet'], 'AC-008: dari data lokal, bukan payload.');
         $this->assertSame('6281200000099', $row['quoted_sender_label']);
         $this->assertNull($row['quoted_media_available'], 'Sumber teks -> NULL.');
+        $this->assertNull($row['quoted_media_type'], 'REQ-008c: sumber teks -> tipe media NULL.');
+    }
+
+    public function testKutipanDitemukanSumberMediaMenyimpanTipeMedia(): void
+    {
+        // REQ-008c (v1.7): kutipan MASUK yang sumbernya pesan media ->
+        // `quoted_media_type` = tipe sumber (dari data lokal, bukan payload
+        // Gateway). Sumber dibuat lewat jalur API normal supaya conversation +
+        // identity terbentuk benar, lalu baris sumber diubah menjadi bertipe
+        // media langsung di DB -- payload media lewat API butuh field media
+        // yang tidak relevan untuk pengujian resolusi ini.
+        $sumberWa = $this->seedSumber();
+        $db = db_connect('inbox');
+        $db->table('messages')->where('wa_message_id', $sumberWa)->update([
+            'message_type' => 'image',
+            'text'         => null,
+        ]);
+
+        $body = $this->callMessages([
+            'wa_message_id'     => 'BALASAN-MEDIA-001',
+            'chat_id'           => '6281200000099@s.whatsapp.net',
+            'jid_type'          => 'pn',
+            'message_type'      => 'text',
+            'text'              => 'Baik, fotonya saya terima',
+            'message_timestamp' => '2026-09-27 07:04:00',
+            'sender_jid'        => '6281200000099@s.whatsapp.net',
+            'quoted'            => [
+                'wa_message_id' => $sumberWa,
+                'snippet'       => 'TEKS PALSU DARI GATEWAY',
+            ],
+        ]);
+
+        $this->assertSame('success', $body['status']);
+
+        $row = $this->lastMessage();
+        $this->assertSame($sumberWa, $row['quoted_wa_message_id']);
+        $this->assertSame('image', $row['quoted_media_type'], 'REQ-008c: tipe media sumber tersimpan.');
+        $this->assertSame(1, (int) $row['quoted_media_available'], 'REQ-008: media tersedia (heuristik) -> 1.');
+        $this->assertSame('[Foto]', $row['quoted_snippet'], 'Sumber media tanpa caption -> label jenis.');
     }
 
     // ------------------------------------------------------------------

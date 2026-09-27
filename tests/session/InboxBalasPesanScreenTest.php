@@ -230,4 +230,91 @@ final class InboxBalasPesanScreenTest extends CIUnitTestCase
         $this->assertStringContainsString("sumberId !== null && sumberId !== undefined && sumberId !== ''", $body);
         $this->assertStringContainsString("m.quoted_snippet || 'Pesan tidak ditemukan'", $body);
     }
+
+    // ------------------------------------------------------------------
+    // Phase 2 review-2 (TASK-202/203): fidelitas tipe media AC-005 v1.7
+    // ------------------------------------------------------------------
+
+    public function testCabangBImageDanStickerMemakaiImgLiveFetch(): void
+    {
+        // AC-005 (b) v1.7: hanya image/sticker yang di-live-fetch jadi <img>;
+        // dispatch memakai `quoted_media_type`, bukan menebak dari snippet.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString("tipeMedia === 'image' || tipeMedia === 'sticker'", $body);
+        $this->assertStringContainsString('inbox-kutipan-sticker', $body, 'Sticker punya kelas thumbnail sendiri.');
+    }
+
+    public function testCabangCDocumentMenampilkanTautanBukanImg(): void
+    {
+        // AC-005 (c) v1.7: dokumen = tautan, tidak ada <img>, tanpa fetch.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString("tipeMedia === 'document'", $body);
+        $this->assertStringContainsString('inbox-kutipan-dokumen', $body);
+        $this->assertStringContainsString("'[Dokumen]'", $body, 'Label default dokumen saat caption kosong.');
+    }
+
+    public function testCabangDAudioVideoMenampilkanLabelTanpaFetch(): void
+    {
+        // AC-005 (d) v1.7: audio/video cukup label jenis, tanpa fetch/player.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString("tipeMedia === 'audio' || tipeMedia === 'video'", $body);
+        $this->assertStringContainsString("tipeMedia === 'audio' ? '[Audio]' : '[Video]'", $body);
+    }
+
+    public function testCabangETipeMediaNullMelewatiLiveFetch(): void
+    {
+        // AC-005 (e) v1.7: `quoted_media_type` NULL (legacy / sumber teks)
+        // -> TANPA live-fetch; hanya cabang fallback cuplikan yang dirender.
+        // Asersi menempel ke EKSPRESI GUARD UTUH (bukan token lepas), supaya
+        // syarat `tipeMedia !== null` benar-benar terbukti bagian dari kondisi
+        // fetch, plus syarat isi fallback-nya -- keduanya bisa gagal kalau
+        // tipe-null keliru jatuh ke <img>.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString('m.quoted_media_type', $body);
+        $this->assertStringContainsString(
+            "adaSumberMedia = (angkaMedia === '1') && adaSumberId && (tipeMedia !== null)",
+            $body,
+            'Guard fetch wajib mensyaratkan tipe media non-NULL (AC-005 cabang e).'
+        );
+        $this->assertStringContainsString(
+            "m.quoted_snippet || 'Pesan tidak ditemukan'",
+            $body,
+            'Cabang (e) merender cuplikan apa adanya, bukan percobaan fetch.'
+        );
+    }
+
+    public function testKegagalanKutipanMemakaiKunciMemoriTerpisahDariMediaPesan(): void
+    {
+        // PERF-001: kegagalan live-fetch kutipan diingat supaya tidak di-fetch
+        // ulang tiap polling; kuncinya WAJIB dipisah dari `m.id` mentah milik
+        // renderIsiPesan() supaya media pesan itu sendiri tidak ikut ditandai
+        // gagal (satu pesan bisa punya media sendiri SEKALIGUS kutipan).
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString("kunciKutipanGagal = 'kutipan:' + m.id", $body);
+        $this->assertStringContainsString('mediaGagal.add', $body);
+        $this->assertStringContainsString('mediaGagal.has(kunciKutipanGagal)', $body);
+    }
+
+    public function testMediaGagalMedianPesanSendiriMemakaiKunciString(): void
+    {
+        // Bug lama (Tahap E tidak efektif): `numberNative=false` membuat `m.id`
+        // berupa STRING, tetapi `onerror` menulis `mediaGagal.add(900010)`
+        // (angka) sementara pemeriksaannya `mediaGagal.has("900010")` (string)
+        // -- memori gagal tidak pernah cocok sehingga polling 4 detik terus
+        // meminta ulang media yang sudah gagal (melanggar PERF-001). Kuncinya
+        // WAJIB string, selaras dengan `mediaGagal.has(m.id)`.
+        $body = $this->halamanInbox();
+
+        $this->assertStringNotContainsString(
+            "mediaGagal.add(' + m.id + ')",
+            $body,
+            'Kunci media pesan sendiri tidak boleh berupa angka mentah.'
+        );
+        $this->assertStringContainsString('mediaGagal.has(m.id)', $body, 'Pemeriksaannya tetap ada.');
+    }
 }

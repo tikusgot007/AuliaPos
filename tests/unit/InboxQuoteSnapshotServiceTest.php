@@ -194,4 +194,56 @@ final class InboxQuoteSnapshotServiceTest extends CIUnitTestCase
 
         $this->assertNull($snapshot['quoted_sender_label'], 'F-B: null label berarti status tidak ditemukan.');
     }
+
+    // ------------------------------------------------------------------
+    // v1.7 (REQ-008c): fidelitas tipe media kutipan
+    // ------------------------------------------------------------------
+
+    public function testTipeMediaSumberMengembalikanTipeMediaYangDikenal(): void
+    {
+        foreach (['image', 'document', 'sticker', 'audio', 'video'] as $tipe) {
+            $this->assertSame(
+                $tipe,
+                $this->service->tipeMediaSumber(['message_type' => $tipe]),
+                "REQ-008c: tipe media '{$tipe}' harus disimpan apa adanya."
+            );
+        }
+    }
+
+    public function testTipeMediaSumberNullUntukTeksDanTipeTakDikenal(): void
+    {
+        // REQ-008c: NULL untuk sumber teks, tipe tak dikenal, atau baris tanpa
+        // `message_type` -- UI melewati live-fetch (AC-005 cabang e).
+        $this->assertNull($this->service->tipeMediaSumber(['message_type' => 'text']));
+        $this->assertNull($this->service->tipeMediaSumber(['message_type' => 'location']));
+        $this->assertNull($this->service->tipeMediaSumber([]));
+    }
+
+    public function testRakitSnapshotMenyimpanTipeMediaUntukSumberMedia(): void
+    {
+        $snapshot = $this->service->rakitSnapshot([
+            'id'                      => 77,
+            'wa_message_id'           => '3EB0MEDIA',
+            'message_type'            => 'image',
+            'text'                    => null,
+            'media_local_filename'    => '20260927-foto.png',
+            'media_confirmed_gone_at' => null,
+        ], '628123456789');
+
+        $this->assertSame('image', $snapshot['quoted_media_type'], 'REQ-008c: tipe media sumber disimpan.');
+        $this->assertSame(1, $snapshot['quoted_media_available']);
+        $this->assertSame(77, $snapshot['quoted_source_message_id']);
+    }
+
+    public function testRakitSnapshotMenyimpanTipeMediaNullUntukSumberTeks(): void
+    {
+        $snapshot = $this->service->rakitSnapshot([
+            'id'           => 78,
+            'wa_message_id' => '3EB0TEKS',
+            'message_type'  => 'text',
+            'text'          => 'halo',
+        ], '628123456789');
+
+        $this->assertNull($snapshot['quoted_media_type'], 'REQ-008c: sumber teks -> NULL.');
+    }
 }

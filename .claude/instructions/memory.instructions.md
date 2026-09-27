@@ -406,3 +406,73 @@
   - Carried forward (tidak berubah): `docs/ARCHITECTURE.md` §11; guard `SEC-01` Tahap 1 Handoff/Tandai-Dibaca; PRD GH-015 AC 362/364; `CONTEXT.md:68`; `[OPTIONAL] SEC-01` raw `sender_jid`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
 
 <!-- checkpoint-tail: 2026-09-27 Phase 6t `/sdlc-write-code` Phase 1 plan review2 (`plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md`) CLOSED & user-approved: SEC-001 pesan 400 `resolveKutipan()` disatukan (`PESAN_KUTIPAN_TIDAK_VALID`), SEC-002 otorisasi object-level `Inbox::media()` (403/404 sebelum disk/ETag/Gateway), SEC-003 guard `is_string` `quoted.snippet` (tidak lagi 500); +7 test (MediaAuth 4, BalasPesan 1, KutipanMasuk 2) → suite 543 test/2092 assertion exit 0. Insiden Avast mengulang ENV-BLOCKER-001: file test terhapus → full-suite "exit 0" palsu 532 test; dipulihkan setelah Avast dinonaktifkan. Phase 2 blocked-by-spec (`ALT-001`, butuh `/sdlc-define-specs`). -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6u — `/sdlc-define-specs` memutuskan `ALT-001` → spec v1.7)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`). Persona-locked Specification Architect. Fokus tunggal: memutuskan `ALT-001` dari `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` yang memblokir Phase 2.
+- **Active Artifacts:**
+  - `spec/spec-design-balas-pesan.md` — ✅ v1.7 (diamandemen dari v1.6; self-assessed 97/100).
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — Phase 1 ✅; Phase 2 gate `BLOCKED-BY-SPEC` kini **terangkat** (keputusan sudah ada) tetapi checkbox `TASK-201` belum ditandai — di luar scope tulis spec.
+- **Achieved Milestones:**
+  - **Keputusan `ALT-001`: opsi (a)** — tambah kolom snapshot `quoted_media_type` (additive-nullable), bukan opsi (b) batasi live-fetch.
+  - Spec v1.7: `REQ-008c` baru (`quoted_media_type` = `message_type` sumber media; `NULL` untuk teks/tidak ditemukan/legacy; satu titik isi di `InboxQuoteSnapshotService::rakitSnapshot()`); `REQ-008` fallback tampilan direvisi (dispatch per tipe); `REQ-013` diperbarui; `AC-005` menjadi 5 cabang (a–e); Section 4.2 kolom `VARCHAR(30) NULL after quoted_source_message_id` + migrasi `AddQuotedMediaTypeToMessages`; Section 6/7/10/12/13 diselaraskan.
+  - Tidak ada perubahan kontrak Gateway (`quoted`/`quote_applied`), `REQ-001`–`REQ-012`, atau `quoted_media_available`; tidak ada ADR baru (gagal *Triple Gate*: nullable-additive, `down()` drop kolom); `CONTEXT.md` tidak berubah.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** membatasi live-fetch / menebak tipe media dari `quoted_snippet` (opsi b `ALT-001`). **Reason:** `InboxQuoteSnapshotService::snippetDari()` mengutamakan `text`, jadi media bercaption menyimpan **caption** (bukan `[Dokumen]`/`[Foto]`) — tebakan string salah dan melanggar semangat F-B; opsi ini juga menurunkan janji `AC-005(b)`. **Correct Solution:** simpan `message_type` sumber sebagai snapshot terpisah (`quoted_media_type`).
+- **Updated Files:**
+  - `spec/spec-design-balas-pesan.md` — v1.6 → v1.7 (`REQ-008c`, revisi `REQ-008`/`REQ-013`/`AC-005`, kolom + migrasi `quoted_media_type`, Section 6/7/10/12/13, catatan revisi v1.7).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Opsi (a) dipilih karena konsisten snapshot beku `REQ-007`, tanpa query tambahan (`$sumber['message_type']` sudah di tangan pemanggil), dan biaya rollback trivial.
+  - Representasi kutipan per tipe: `image`/`sticker` → `<img>` live-fetch; `document` → tautan; `audio`/`video` → label tanpa fetch; `[Media tidak tersedia]` hanya untuk `quoted_media_available = 0` atau `404`/`410`/error nyata.
+- **Next Action / Pending:**
+  - `/sdlc-plan-tasks` (sesi baru): tandai `TASK-201` selesai + angkat gate `BLOCKED-BY-SPEC` Phase 2 di `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md`.
+  - Lalu `/sdlc-write-code` Phase 2 (`TASK-202..204`): migrasi additive `quoted_media_type`, isi di `rakitSnapshot()`, dispatch `renderKotakKutipan()`, memori `mediaGagal` (PERF-001), + test unit/migrasi/feature.
+  - Carried forward (tidak berubah): `docs/ARCHITECTURE.md` §11; guard `SEC-01` Tahap 1 Handoff/Tandai-Dibaca; PRD GH-015 AC 362/364; `CONTEXT.md:68`; `[OPTIONAL] SEC-01` raw `sender_jid`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6u `/sdlc-define-specs` memutuskan `ALT-001` = opsi (a): spec `spec/spec-design-balas-pesan.md` naik ke v1.7 dengan `REQ-008c` + kolom snapshot additive `quoted_media_type` (migrasi `AddQuotedMediaTypeToMessages`), dispatch kutipan per tipe (`image`/`sticker` → `<img>`, `document` → tautan, `audio`/`video` → label), `AC-005` 5 cabang; opsi (b) "tebak tipe dari `quoted_snippet`" ditolak karena caption menggantikan label. Gate `BLOCKED-BY-SPEC` Phase 2 `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` terangkat. Next: `/sdlc-plan-tasks` tandai `TASK-201`, lalu `/sdlc-write-code` Phase 2 (`TASK-202..204`). -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6v — `/sdlc-write-code` Phase 2+3 plan remediasi ronde-2 → plan Completed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`), persona Senior Software Engineer. Menuntaskan `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` Phase 2 (`REQ-008c` fidelitas tipe media) + Phase 3 (kebersihan arsitektur). Plan kini ✅ **Completed**.
+- **Active Artifacts:**
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — ✅ Completed (TASK-201..307; kecuali `TASK-303` **ditunda**).
+  - `spec/spec-design-balas-pesan.md` — ✅ v1.7 (tidak diubah sesi ini).
+  - `plan/plan-refactor-balas-pesan-tahap3-v1.0.md` — ✅ Completed (jejak status disinkronkan).
+- **Achieved Milestones:**
+  - Phase 2: migrasi `app/Database/Migrations/2026-09-27-000003_AddQuotedMediaTypeToMessages.php` (`quoted_media_type VARCHAR(30) NULL after quoted_source_message_id`); `InboxQuoteSnapshotService::tipeMediaSumber()` + isi di `rakitSnapshot()`; `MessageModel::$allowedFields`; 2 insert site `Inbox.php` + array kosong/not-found `InboxGatewayApi`; dispatch `renderKotakKutipan()` 5 cabang `AC-005` + CSS dokumen/sticker.
+  - `TASK-203` (`PERF-001`): memori kegagalan live-fetch kutipan di `mediaGagal`, kunci di-namespace `'kutipan:' + m.id`.
+  - Verifikasi manual browser (data demo sementara, 7 kasus) **LULUS**; log Apache membuktikan tak ada refetch media berulang setelah fix.
+  - Phase 3: `MessageModel::findByOperationIdIncludingDeleted($operationId, $conversationId)` (scope percakapan) menggantikan `Inbox::findMessageByOperationId()`; test migrasi v1.6 dibuat portable; jejak plan tahap3 disinkronkan.
+  - `vendor/bin/phpunit --no-coverage` → **566 tests, 2167 assertions, exit 0** (baseline pra-sesi 543). Demo dibersihkan: DB kembali 1 conversation/0 message; `build/inbox-media-demo`, probe, seed, dan baris `.env` sementara dihapus.
+  - **Tindak lanjut `/review uncommitted`** (Setelah plan Completed): track security & performa bersih (NO_FINDINGS); 2 temuan SUGGESTION diterapkan — (1) asersi `testCabangETipeMediaNullMelewatiLiveFetch` diperkuat (menempel ke ekspresi guard `adaSumberMedia = … && (tipeMedia !== null)` + asersi isi fallback, bukan token lepas), (2) urutan deploy **migrasi-dulu-baru-kode** didokumentasikan di docblock migrasi 000003 + `RISK-005` plan. Full suite pasca-perbaikan: **566 tests, 2168 assertions, exit 0**.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** path Windows berebackslash bertanda kutip di `.env` (`inbox.mediaStoragePath = 'C:\...'`). **Reason:** `CodeIgniter\Config\DotEnv::sanitizeValue()` tidak melepas kutip untuk nilai ber-`\`, jadi nilainya tersimpan berikut kutip → `is_file()` gagal → `Inbox::media()` jatuh ke live-fetch Gateway (mati) → `502`. **Correct Solution:** pakai garis miring depan (`C:/...`) di `.env`.
+  - **Attempted:** `mediaGagal.add(' + m.id + ')` (media pesan sendiri) tanpa kutip. **Reason:** `numberNative=false` → `m.id` STRING, tetapi `add(900010)` menyimpan ANGKA sedangkan pemeriksaannya `has("900010")` string → tidak pernah cocok → polling 4 detik refetch media gagal (PERF-001 bocor; `502`/`304` berulang di log Apache). **Correct Solution:** kutip id di `onerror` (`add(\'' + m.id + '\')`); dikunci test `testMediaGagalMedianPesanSendiriMemakaiKunciString`.
+  - **Attempted:** memakai `write` langsung ke `tests/database/MessageModelSoftDeleteLookupTest.php`. **Reason:** file itu SUDAH ADA (4 test `findByIdIncludingDeleted`) — `write` menimpanya. **Correct Solution:** cek keberadaan/`git status` sebelum `write` pada path yang tampak "baru"; pulihkan test lama lalu GABUNG (file akhir 9 test; diff hanya mengganti docblock).
+- **Updated Files:**
+  - `app/Database/Migrations/2026-09-27-000003_AddQuotedMediaTypeToMessages.php` — baru.
+  - `app/Services/InboxQuoteSnapshotService.php` — `tipeMediaSumber()` + `quoted_media_type` di `rakitSnapshot()`.
+  - `app/Models/MessageModel.php` — `allowedFields` + `findByOperationIdIncludingDeleted()`.
+  - `app/Controllers/Inbox.php` — 2 insert site `quoted_media_type`; hapus `findMessageByOperationId()`; call-site replay baru.
+  - `app/Controllers/InboxGatewayApi.php` — `quoted_media_type` di array kosong/not-found + docblock.
+  - `app/Views/inbox/index.php` — dispatch `renderKotakKutipan()` (5 cabang) + CSS + fix kunci `mediaGagal` media pesan sendiri.
+  - `tests/` — `database/AddQuotedMediaTypeToMessagesMigrationTest.php` (baru), `database/MessageModelSoftDeleteLookupTest.php` (+5), `unit/InboxQuoteSnapshotServiceTest.php` (+4), `session/InboxBalasPesanScreenTest.php` (+6), `session/InboxBalasPesanTest.php` (+1), `session/InboxGatewayApiKutipanMasukTest.php` (+1), `database/QuotedSourceMessageIdMigrationTest.php` (portable).
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` (Completed), `plan/plan-refactor-balas-pesan-tahap3-v1.0.md` (jejak), `.claude/instructions/memory.instructions.md` (checkpoint ini).
+- **Decisions Made:**
+  - `quoted_media_type` additive-nullable, satu titik isi, tanpa query tambahan (keputusan spec v1.7).
+  - Kunci `mediaGagal` kutipan di-namespace `'kutipan:' + m.id` agar tak bentrok dengan memori media pesan sendiri.
+  - Lookup replay dipindah ke Model dan di-scope `conversation_id` (ARCH-001).
+  - `TASK-303` **ditunda** ke `/sdlc-define-specs`: ketidakcocokan ada di wording spec (`REQ-011` "apa adanya" vs `potongSnippet()`), bukan kode.
+- **Next Action / Pending:**
+  - `/sdlc-define-specs` (sesi baru): selaraskan wording `REQ-011` dengan perilaku `potongSnippet()` (bound + elipsis + normalisasi; Section 4.2 sudah menyebut "dipotong ke panjang wajar").
+  - Opsional: commit perubahan (belum ada commit sesi ini).
+  - Carried forward (tidak berubah): `docs/ARCHITECTURE.md` §11; guard `SEC-01` Tahap 1 Handoff/Tandai-Dibaca; PRD GH-015 AC 362/364; `CONTEXT.md:68`; `[OPTIONAL] SEC-01` raw `sender_jid`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6v `/sdlc-write-code` menuntaskan plan remediasi ronde-2 Balas Pesan Tahap 3 → **Completed**: Phase 2 `quoted_media_type` (migrasi 000003, `rakitSnapshot()`, dispatch 5 cabang, `mediaGagal` namespace `kutipan:`) + fix kunci string `mediaGagal` media sendiri + Phase 3 `findByOperationIdIncludingDeleted` scope percakapan; full suite **566 tests/2167 assertions exit 0**; verifikasi manual browser LULUS (demo dibersihkan); `TASK-303` ditunda ke `/sdlc-define-specs`. -->

@@ -486,7 +486,7 @@ class InboxGatewayApi extends BaseController
      * tabel `messages` MILIK SENDIRI (query yang sama dengan pengecekan
      * idempotensi `existsByWaMessageId()`), lalu:
      *
-     * - **Ditemukan** -> keempat kolom diisi dari DATA LOKAL (bukan payload
+     * - **Ditemukan** -> kolom kutipan diisi dari DATA LOKAL (bukan payload
      *   Gateway), memakai `InboxQuoteSnapshotService` yang sama dengan jalur
      *   kirim kasir (TASK-002). `quoted_sender_label` WAJIB non-null (F-B):
      *   `SenderIdentityFormatter::labelFor()` yang mengembalikan null (baris
@@ -513,7 +513,7 @@ class InboxGatewayApi extends BaseController
      *        `sender_jid` (opsional, tidak dipakai di sini), `snippet`
      *        (opsional, fallback).
      *
-     * @return array{quoted_wa_message_id: ?string, quoted_sender_label: ?string, quoted_snippet: ?string, quoted_media_available: ?int, quoted_source_message_id: ?int}
+     * @return array{quoted_wa_message_id: ?string, quoted_sender_label: ?string, quoted_snippet: ?string, quoted_media_available: ?int, quoted_source_message_id: ?int, quoted_media_type: ?string}
      */
     private function resolveKutipanMasuk(?array $quoted): array
     {
@@ -523,6 +523,7 @@ class InboxGatewayApi extends BaseController
             'quoted_snippet'           => null,
             'quoted_media_available'   => null,
             'quoted_source_message_id' => null,
+            'quoted_media_type'        => null,
         ];
 
         if ($quoted === null) {
@@ -566,6 +567,9 @@ class InboxGatewayApi extends BaseController
                 // REQ-008b: kasus "tidak ditemukan" tetap NULL (tidak ada ID
                 // lokal) -- UI melewati live-fetch (AC-005 cabang c).
                 'quoted_source_message_id' => null,
+                // REQ-008c: tipe media juga NULL (tidak ada baris sumber) --
+                // UI melewati live-fetch (AC-005 cabang e).
+                'quoted_media_type'        => null,
             ];
         }
 

@@ -1,11 +1,11 @@
 <?php
 
-use App\Database\Migrations\AddQuotedSourceMessageIdToMessages;
+use App\Database\Migrations\AddQuotedMediaTypeToMessages;
 use CodeIgniter\Test\CIUnitTestCase;
 
 /**
- * Balas Pesan (Tahap 3, v1.6 REQ-008b) -- kontrak skema untuk kolom
- * `messages.quoted_source_message_id` (spec Section 4.2).
+ * Balas Pesan (Tahap 3, v1.7 REQ-008c) -- kontrak skema untuk kolom
+ * `messages.quoted_media_type` (spec Section 4.2).
  *
  * Berjalan terhadap grup `inbox` yang diarahkan ke `aulia_inboxdb_test`
  * (salinan skema database Inbox yang sudah dimigrasi; riwayat migrasi ada di
@@ -15,11 +15,11 @@ use CodeIgniter\Test\CIUnitTestCase;
  *
  * @internal
  */
-final class QuotedSourceMessageIdMigrationTest extends CIUnitTestCase
+final class AddQuotedMediaTypeToMessagesMigrationTest extends CIUnitTestCase
 {
-    private const MIGRATION_FILE = '2026-09-27-000002_AddQuotedSourceMessageIdToMessages.php';
-    private const COLUMN         = 'quoted_source_message_id';
-    private const AFTER_COLUMN   = 'quoted_media_available';
+    private const MIGRATION_FILE = '2026-09-27-000003_AddQuotedMediaTypeToMessages.php';
+    private const COLUMN         = 'quoted_media_type';
+    private const AFTER_COLUMN   = 'quoted_source_message_id';
 
     private $inbox;
 
@@ -62,14 +62,12 @@ final class QuotedSourceMessageIdMigrationTest extends CIUnitTestCase
     {
         $info = $this->columnInfo(self::COLUMN);
 
-        $this->assertNotNull($info, 'messages.quoted_source_message_id must exist (REQ-008b, spec 4.2).');
-        // DATA_TYPE (bukan COLUMN_TYPE): `int(10) unsigned` adalah detail
-        // display yang berbeda antar versi MySQL/MariaDB; tipe dasarnya `int`.
-        $this->assertSame('int', $info['DATA_TYPE'], 'Type must be INT (spec 4.2), portable across MySQL/MariaDB.');
+        $this->assertNotNull($info, 'messages.quoted_media_type must exist (REQ-008c, spec 4.2).');
+        $this->assertSame('varchar(30)', $info['COLUMN_TYPE'], 'Type must match spec 4.2 (VARCHAR(30)).');
         $this->assertSame('YES', $info['IS_NULLABLE'], 'Column must stay NULLable (GUD-001).');
     }
 
-    public function testKolomDitempatkanSetelahQuotedMediaAvailable(): void
+    public function testKolomDitempatkanSetelahQuotedSourceMessageId(): void
     {
         $kolom   = $this->columnInfo(self::COLUMN);
         $sebelum = $this->columnInfo(self::AFTER_COLUMN);
@@ -77,7 +75,7 @@ final class QuotedSourceMessageIdMigrationTest extends CIUnitTestCase
         $this->assertSame(
             (int) $sebelum['ORDINAL_POSITION'] + 1,
             (int) $kolom['ORDINAL_POSITION'],
-            'Column must sit right after quoted_media_available (spec 4.2).'
+            'Column must sit right after quoted_source_message_id (spec 4.2).'
         );
     }
 
@@ -136,14 +134,14 @@ final class QuotedSourceMessageIdMigrationTest extends CIUnitTestCase
         $this->assertNotNull($this->columnInfo(self::COLUMN), 'Precondition: column exists in the test schema.');
 
         require_once APPPATH . 'Database/Migrations/' . self::MIGRATION_FILE;
-        $migration = new AddQuotedSourceMessageIdToMessages();
+        $migration = new AddQuotedMediaTypeToMessages();
 
         try {
             $migration->down();
             $this->assertNull($this->columnInfo(self::COLUMN), 'down() must drop the column.');
 
             $migration->up();
-            $this->assertSame('int(10) unsigned', $this->columnInfo(self::COLUMN)['COLUMN_TYPE'], 'up() must recreate it.');
+            $this->assertSame('varchar(30)', $this->columnInfo(self::COLUMN)['COLUMN_TYPE'], 'up() must recreate it.');
             $this->assertSame('YES', $this->columnInfo(self::COLUMN)['IS_NULLABLE'], 'up() must keep it NULLable.');
         } finally {
             // Jangan pernah meninggalkan skema uji shared dalam kondisi tidak

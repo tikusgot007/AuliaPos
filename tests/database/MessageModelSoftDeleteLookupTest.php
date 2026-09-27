@@ -4,12 +4,19 @@ use App\Models\MessageModel;
 use CodeIgniter\Test\CIUnitTestCase;
 
 /**
- * Balas Pesan (Tahap 3, ARCH-001) -- `MessageModel::findByIdIncludingDeleted()`
- * MUST return the source row even when it is already soft-deleted, because
- * `Inbox::resolveKutipan()` builds the quote snapshot from that row (AC-004).
+ * Balas Pesan (Tahap 3, ARCH-001) -- dua seam lookup soft-delete-inclusive
+ * pada `MessageModel`:
  *
- * The plain `find()`/`first()` path is deliberately shown to hide the row, to
- * document why the dedicated seam exists (spec REQ-008b/REQ-011, Section 12).
+ * 1. `findByIdIncludingDeleted(int $id)` MUST return the source row even when
+ *    it is already soft-deleted, because `Inbox::resolveKutipan()` builds the
+ *    quote snapshot from that row (AC-004). The plain `find()`/`first()` path
+ *    is deliberately shown to hide the row, to document why the dedicated
+ *    seam exists (spec REQ-008b/REQ-011, Section 12).
+ * 2. `findByOperationIdIncludingDeleted(?string $operationId, int $conversationId)`
+ *    -- replay lookup. Soft-delete-inclusive because the UNIQUE index
+ *    `uniq_messages_gateway_operation_id` also covers soft-deleted rows, and
+ *    scoped to the conversation so a replay can never match another
+ *    conversation's row (ARCH-001 review ronde-2).
  *
  * Runs against the `inbox` group, redirected to `aulia_inboxdb_test` under
  * testing.
@@ -70,6 +77,30 @@ final class MessageModelSoftDeleteLookupTest extends CIUnitTestCase
         return (int) $this->inbox->insertID();
     }
 
+    private function seedOutgoing(int $conversationId, string $operationId, bool $softDeleted = false): int
+    {
+        $now = date('Y-m-d H:i:s');
+
+        $this->inbox->table('messages')->insert([
+            'conversation_id'      => $conversationId,
+            'wa_message_id'        => 'op-' . bin2hex(random_bytes(8)),
+            'direction'            => 'outgoing',
+            'message_type'         => 'text',
+            'text'                 => 'pesan replay',
+            'message_timestamp'    => $now,
+            'send_status'          => 'sent',
+            'gateway_operation_id' => $operationId,
+            'created_at'           => $now,
+            'deleted_at'           => $softDeleted ? $now : null,
+        ]);
+
+        return (int) $this->inbox->insertID();
+    }
+
+    // ------------------------------------------------------------------
+    // findByIdIncludingDeleted(): kutipan pesan sumber (AC-004)
+    // ------------------------------------------------------------------
+
     public function testFindByIdIncludingDeletedMengembalikanBarisAktif(): void
     {
         $conversationId = $this->seedConversation();
@@ -108,5 +139,66 @@ final class MessageModelSoftDeleteLookupTest extends CIUnitTestCase
         $id             = $this->seedMessage($conversationId, date('Y-m-d H:i:s'));
 
         $this->assertNull((new MessageModel())->find($id));
+    }
+
+    // ------------------------------------------------------------------
+    // findByOperationIdIncludingDeleted(): replay kirim (ARCH-001 review-2)
+    // ------------------------------------------------------------------
+
+    public function testFindByOperationIdMengembalikanBarisSoftDeletedPercakapanSama(): void
+    {
+        $conversationId = $this->seedConversation();
+        $messageId      = $this->seedOutgoing($conversationId, 'OP-DELETED', true);
+
+        $row = (new MessageModel())->findByOperationIdIncludingDeleted('OP-DELETED', $conversationId);
+
+        $this->assertNotNull($row, 'Indeks UNIQUE mencakup baris soft-deleted -> wajib dikembalikan.');
+        $this->assertSame($messageId, (int) $row['id']);
+    }
+
+    public function testFindByOperationIdTidakMengembalikanBarisPercakapanLain(): void
+    {
+        $conversationA = $this->seedConversation();
+        $conversationB = $this->seedConversation();
+        $this->seedOutgoing($conversationA, 'OP-SCOPE');
+
+        $model = new MessageModel();
+
+        $this->assertNotNull(
+            $model->findByOperationIdIncludingDeleted('OP-SCOPE', $conversationA),
+            'Percakapan pemilik wajib menemukan barisnya.'
+        );
+        $this->assertNull(
+            $model->findByOperationIdIncludingDeleted('OP-SCOPE', $conversationB),
+            'ARCH-001: percakapan lain TIDAK BOLEH menemukan baris dengan operation_id yang sama.'
+        );
+    }
+
+    public function testFindByOperationIdKosongAtauNullMengembalikanNull(): void
+    {
+        $conversationId = $this->seedConversation();
+        $model          = new MessageModel();
+
+        $this->assertNull($model->findByOperationIdIncludingDeleted(null, $conversationId));
+        $this->assertNull($model->findByOperationIdIncludingDeleted('', $conversationId));
+    }
+
+    public function testFindByOperationIdTidakAdaMengembalikanNull(): void
+    {
+        $conversationId = $this->seedConversation();
+        $this->seedOutgoing($conversationId, 'OP-LAIN');
+
+        $this->assertNull((new MessageModel())->findByOperationIdIncludingDeleted('OP-TIDAK-ADA', $conversationId));
+    }
+
+    public function testFindByOperationIdMengembalikanBarisAktifSepertiPerilakuLama(): void
+    {
+        $conversationId = $this->seedConversation();
+        $messageId      = $this->seedOutgoing($conversationId, 'OP-AKTIF');
+
+        $row = (new MessageModel())->findByOperationIdIncludingDeleted('OP-AKTIF', $conversationId);
+
+        $this->assertNotNull($row);
+        $this->assertSame($messageId, (int) $row['id']);
     }
 }

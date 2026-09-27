@@ -285,6 +285,23 @@
         display: block;
     }
 
+    /* Tipe media lain pada kutipan (REQ-008c v1.7): dokumen jadi tautan,
+       audio/video cukup label teks. */
+    .inbox-kutipan-dokumen {
+        color: #1da47f;
+        text-decoration: none;
+        word-break: break-word;
+    }
+
+    .inbox-kutipan-dokumen:hover {
+        text-decoration: underline;
+    }
+
+    .inbox-kutipan-sticker {
+        max-width: 96px;
+        max-height: 96px;
+    }
+
     /* Area kutipan aktif di atas kotak ketik (REQ-005). */
     .kutipan-aktif {
         display: flex;
@@ -1966,30 +1983,60 @@
 
         const tidakDitemukan = (m.quoted_sender_label === null || m.quoted_sender_label === undefined || m.quoted_sender_label === '');
 
-        // Fallback tampilan media (REQ-008/AC-005 v1.6), tiga cabang:
-        //  (a) snapshot 0 -> media dipastikan hilang: tampil langsung, TANPA
-        //      live-fetch (tidak ada gunanya memanggil endpoint).
-        //  (b) snapshot 1 + `quoted_source_message_id` terisi -> live-fetch
-        //      endpoint media existing `GET /inbox/media/:id`; 404/410/error
-        //      jatuh ke placeholder yang sama, TANPA menulis ulang DB
-        //      (snapshot tetap beku, REQ-007).
-        //  (c) `quoted_source_message_id` NULL (kutipan legacy / sumber tidak
-        //      ditemukan) -> JANGAN live-fetch; pakai snapshot apa adanya.
+        // Fallback tampilan kutipan media (REQ-008/REQ-008c, AC-005 v1.7),
+        // lima cabang -- representasi dipilih oleh `quoted_media_type`, BUKAN
+        // ditebak dari `quoted_snippet` (caption bisa menggantikan label jenis):
+        //  (a) `quoted_media_available = 0` -> "[Media tidak tersedia]"
+        //      langsung, tanpa live-fetch (berlaku semua tipe).
+        //  (b) tipe image/sticker + snapshot 1 + id sumber terisi -> <img>
+        //      live-fetch GET /inbox/media/:id; 404/410/error jatuh ke
+        //      placeholder yang sama TANPA menulis ulang DB (snapshot beku,
+        //      REQ-007) dan kegagalannya diingat di `mediaGagal` supaya tidak
+        //      di-fetch ulang tiap siklus polling (PERF-001).
+        //  (c) tipe document + snapshot 1 + id sumber terisi -> tautan, bukan
+        //      <img>, tanpa fetch saat render.
+        //  (d) tipe audio/video -> label jenis tanpa fetch/player/unduhan.
+        //  (e) id sumber NULL (legacy / sumber tidak ditemukan) ATAU
+        //      `quoted_media_type` NULL (legacy / sumber teks) -> tanpa
+        //      live-fetch; pakai snapshot tersimpan apa adanya.
         const angkaMedia = (m.quoted_media_available === null || m.quoted_media_available === undefined)
             ? null
             : String(m.quoted_media_available);
         const mediaTidakTersedia = (angkaMedia === '0');
+
         const sumberId = m.quoted_source_message_id;
-        const adaSumberMedia = (angkaMedia === '1') &&
-            (sumberId !== null && sumberId !== undefined && sumberId !== '');
+        const adaSumberId = (sumberId !== null && sumberId !== undefined && sumberId !== '');
+        const tipeMedia = (m.quoted_media_type === null || m.quoted_media_type === undefined)
+            ? null
+            : String(m.quoted_media_type);
+        const adaSumberMedia = (angkaMedia === '1') && adaSumberId && (tipeMedia !== null);
+
+        // Kunci memori kegagalan DIPISAH dari `mediaGagal.has(m.id)` milik
+        // renderIsiPesan(): satu pesan bisa sekaligus punya media sendiri DAN
+        // membawa kutipan, jadi kunci mentah `m.id` akan salah menandai media
+        // pesan itu sendiri sebagai gagal.
+        const kunciKutipanGagal = 'kutipan:' + m.id;
 
         let isiKutipan;
         if (mediaTidakTersedia) {
             isiKutipan = '<div class="inbox-kutipan-snippet inbox-kutipan-tak-ada">[Media tidak tersedia]</div>';
-        } else if (adaSumberMedia) {
+        } else if (adaSumberMedia && (tipeMedia === 'image' || tipeMedia === 'sticker')) {
+            if (mediaGagal.has(kunciKutipanGagal)) {
+                isiKutipan = '<div class="inbox-kutipan-snippet inbox-kutipan-tak-ada">[Media tidak tersedia]</div>';
+            } else {
+                const urlMediaKutipan = '<?= base_url('/inbox/media/') ?>' + sumberId;
+                const kelasMedia = tipeMedia === 'sticker' ? 'inbox-kutipan-media inbox-kutipan-sticker' : 'inbox-kutipan-media';
+                isiKutipan = '<img src="' + urlMediaKutipan + '" alt="Media kutipan" class="' + kelasMedia + '" ' +
+                    'onerror="mediaGagal.add(\'' + kunciKutipanGagal + '\'); this.outerHTML=\'<div class=&quot;inbox-kutipan-snippet inbox-kutipan-tak-ada&quot;>[Media tidak tersedia]</div>\'">';
+            }
+        } else if (adaSumberMedia && tipeMedia === 'document') {
             const urlMediaKutipan = '<?= base_url('/inbox/media/') ?>' + sumberId;
-            isiKutipan = '<img src="' + urlMediaKutipan + '" alt="Media kutipan" class="inbox-kutipan-media" ' +
-                'onerror="this.outerHTML=\'<div class=&quot;inbox-kutipan-snippet inbox-kutipan-tak-ada&quot;>[Media tidak tersedia]</div>\'">';
+            const labelDokumen = m.quoted_snippet || '[Dokumen]';
+            isiKutipan = '<a href="' + urlMediaKutipan + '" target="_blank" class="inbox-kutipan-dokumen">' +
+                '<i class="fas fa-file-alt"></i> ' + escapeHtmlInbox(labelDokumen) + '</a>';
+        } else if (adaSumberMedia && (tipeMedia === 'audio' || tipeMedia === 'video')) {
+            const labelTipe = tipeMedia === 'audio' ? '[Audio]' : '[Video]';
+            isiKutipan = '<div class="inbox-kutipan-snippet">' + labelTipe + '</div>';
         } else {
             isiKutipan = '<div class="inbox-kutipan-snippet">' + escapeHtmlInbox(m.quoted_snippet || 'Pesan tidak ditemukan') + '</div>';
         }
@@ -2105,7 +2152,7 @@
             // file permanen) -- tampilkan placeholder yang jelas, bukan
             // ikon "broken image" generik browser.
             return '<img src="' + urlMedia + '" alt="Gambar" class="inbox-media-image" ' +
-                'onerror="mediaGagal.add(' + m.id + '); this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-image&quot;></i> Gambar tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">' +
+                'onerror="mediaGagal.add(\'' + m.id + '\'); this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-image&quot;></i> Gambar tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">' +
                 (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
         }
 
@@ -2120,7 +2167,7 @@
                 return '<div class="inbox-media-unavailable"><i class="fas fa-wifi"></i> Gateway terputus -- sticker belum bisa dimuat, coba lagi nanti</div>';
             }
             return '<img src="' + urlMedia + '" alt="Sticker" class="inbox-media-sticker" ' +
-                'onerror="mediaGagal.add(' + m.id + '); this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-icons&quot;></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">';
+                'onerror="mediaGagal.add(\'' + m.id + '\'); this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-icons&quot;></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">';
         }
 
         if (m.message_type === 'document') {

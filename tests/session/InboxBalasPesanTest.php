@@ -82,7 +82,28 @@ final class InboxBalasPesanTest extends CIUnitTestCase
         $this->assertSame('628999888777', $row['quoted_sender_label'], 'AC-001: nama pengirim sumber tersimpan.');
         $this->assertSame('Kapan pesanan saya dikirim?', $row['quoted_snippet'], 'AC-001: cuplikan sumber tersimpan.');
         $this->assertNull($row['quoted_media_available'], 'REQ-008: sumber teks -> NULL.');
+        $this->assertNull($row['quoted_media_type'], 'REQ-008c: sumber teks -> tipe media NULL.');
         $this->assertTrue($body['quote_applied'], 'REQ-003: quote_applied:true saat Gateway menerapkan kutipan.');
+    }
+
+    public function testKirimBerkutipanSumberMediaMenyimpanTipeMedia(): void
+    {
+        // REQ-008c (v1.7): sumber media -> `quoted_media_type` = tipe sumber,
+        // dibaca server dari DB (bukan dari kiriman client) supaya UI tidak
+        // perlu menebak tipe dari `quoted_snippet`.
+        $conversationId = $this->seedConversation();
+        $sourceId       = $this->seedMessage($conversationId, [
+            'direction'    => 'incoming',
+            'message_type' => 'image',
+        ]);
+
+        $controller = $this->controller(['quoted_message_id' => $sourceId]);
+        $this->invoke($controller, $conversationId, 'Ini balasannya.');
+
+        $row = $this->lastOutgoing($conversationId);
+        $this->assertSame('image', $row['quoted_media_type'], 'REQ-008c: tipe media sumber tersimpan.');
+        $this->assertSame(1, (int) $row['quoted_media_available'], 'REQ-008: media belum confirmed-gone -> 1.');
+        $this->assertSame($sourceId, (int) $row['quoted_source_message_id'], 'REQ-008b: ID lokal sumber tetap terisi.');
     }
 
     public function testSnapshotDiambilDariDatabaseServerBukanDariKirimanClient(): void
@@ -101,12 +122,14 @@ final class InboxBalasPesanTest extends CIUnitTestCase
             'quoted_snippet'         => 'TEKS PALSU DARI CLIENT',
             'quoted_sender_label'    => 'PALSU',
             'quoted_media_available' => 0,
+            'quoted_media_type'      => 'image',
         ]);
         $this->invoke($controller, $conversationId, 'Halo');
 
         $row = $this->lastOutgoing($conversationId);
         $this->assertSame('TEKS ASLI DARI DB', $row['quoted_snippet'], 'ALT-002: snapshot wajib dari DB server.');
         $this->assertNotSame('PALSU', $row['quoted_sender_label']);
+        $this->assertNull($row['quoted_media_type'], 'ALT-002/REQ-008c: tipe media dari DB (teks -> NULL), bukan kiriman client.');
     }
 
     // ------------------------------------------------------------------

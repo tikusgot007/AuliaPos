@@ -132,6 +132,20 @@ class InboxQuoteSnapshotService
     }
 
     /**
+     * Tipe media pesan sumber untuk snapshot `quoted_media_type` (REQ-008c):
+     * hanya tipe media yang dikenal (`image`/`document`/`sticker`/`audio`/
+     * `video`), `null` untuk pesan teks atau tipe yang tidak dikenal. UI
+     * memakai nilai ini untuk memilih representasi kutipan TANPA menebak dari
+     * `quoted_snippet` (caption bisa menggantikan label jenis).
+     */
+    public function tipeMediaSumber(array $sumber): ?string
+    {
+        $tipe = (string) ($sumber['message_type'] ?? '');
+
+        return in_array($tipe, self::TIPE_MEDIA, true) ? $tipe : null;
+    }
+
+    /**
      * Rakit nilai snapshot kutipan dari satu baris pesan sumber.
      *
      * `$senderLabel` diserahkan pemanggil (lihat catatan kelas): untuk grup
@@ -146,7 +160,11 @@ class InboxQuoteSnapshotService
      * tampilan `REQ-008` dijalankan. Nilainya `null` bila baris sumber tidak
      * membawa `id` (kasus "tidak ditemukan" tidak lewat method ini).
      *
-     * @return array{quoted_wa_message_id: ?string, quoted_sender_label: ?string, quoted_snippet: ?string, quoted_media_available: ?int, quoted_source_message_id: ?int}
+     * v1.7 (REQ-008c): `quoted_media_type` diisi dari `$sumber['message_type']`
+     * bila sumbernya pesan media, `null` untuk teks/tipe tak dikenal -- tetap
+     * satu titik (mencakup kutipan keluar DAN masuk), tanpa query tambahan.
+     *
+     * @return array{quoted_wa_message_id: ?string, quoted_sender_label: ?string, quoted_snippet: ?string, quoted_media_available: ?int, quoted_source_message_id: ?int, quoted_media_type: ?string}
      */
     public function rakitSnapshot(array $sumber, ?string $senderLabel): array
     {
@@ -156,6 +174,7 @@ class InboxQuoteSnapshotService
             'quoted_snippet'           => $this->snippetDari($sumber),
             'quoted_media_available'   => $this->ketersediaanMedia($sumber),
             'quoted_source_message_id' => isset($sumber['id']) ? (int) $sumber['id'] : null,
+            'quoted_media_type'        => $this->tipeMediaSumber($sumber),
         ];
     }
 

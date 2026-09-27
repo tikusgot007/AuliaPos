@@ -68,6 +68,10 @@ class MessageModel extends Model
         // v1.6 (REQ-008b): ID LOKAL `messages.id` pesan sumber, snapshot beku
         // -- target `GET /inbox/media/(:num)` untuk fallback tampilan REQ-008.
         'quoted_source_message_id',
+        // v1.7 (REQ-008c): `message_type` sumber media (image/document/
+        // sticker/audio/video) -- UI memilih representasi kutipan per tipe,
+        // bukan menebak dari `quoted_snippet`. NULL untuk teks/legacy.
+        'quoted_media_type',
         'deleted_at',
     ];
 
@@ -110,7 +114,7 @@ class MessageModel extends Model
      * yang sudah di-soft-delete. Kalau baris sumber kutipan ikut hilang dari
      * hasil pencarian, snapshot kutipan gagal terbentuk tanpa suara --
      * kutipan tampil kosong padahal datanya ada (spec REQ-011, Section 12).
-     * Pola yang sama dipakai `Inbox::findMessageByOperationId()`.
+     * Pola yang sama dipakai `findByOperationIdIncludingDeleted()` di bawah.
      *
      * @return array<string, mixed>|null
      */
@@ -145,6 +149,45 @@ class MessageModel extends Model
     {
         $rows = db_connect('inbox')->table('messages')
             ->where('id', $id)
+            ->get()
+            ->getResultArray();
+
+        return $rows[0] ?? null;
+    }
+
+    /**
+     * M1 Wave 2 (TASK-017/AC-041; ARCH-001 review ronde-2 Tahap 3): cari
+     * baris `messages` yang sudah menyimpan operasi kirim ini, supaya
+     * percobaan ulang (`replay` Gateway) dengan `operation_id` yang sama
+     * tidak menulis baris kedua.
+     *
+     * Dipakai BERSAMA oleh `Inbox::kirimKeConversation()` dan
+     * `Inbox::kirimMedia()` -- pemilik satu method ini di Model mencegah
+     * kedua jalur menyimpan salinannya sendiri dan drift lagi (temuan F-03).
+     *
+     * SENGAJA memakai query builder TANPA filter `deleted_at`, bukan
+     * `find()`/`first()` polos: indeks UNIQUE
+     * `uniq_messages_gateway_operation_id` juga mencakup baris yang sudah
+     * di-soft-delete, jadi baris itu WAJIB dikembalikan -- kalau tidak,
+     * insert berikutnya justru ditolak database (pola sama dengan
+     * `findByWaMessageId()`/`findByIdIncludingDeleted()`).
+     *
+     * `conversation_id` WAJIB disertakan (scope percakapan): `operation_id`
+     * hanya unik per operasi kirim, dan lookup tanpa scope bisa mengembalikan
+     * baris percakapan LAIN dengan `operation_id` kebetulan sama -- replay
+     * lintas percakapan yang salah (ARCH-001 review ronde-2).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findByOperationIdIncludingDeleted(?string $operationId, int $conversationId): ?array
+    {
+        if ($operationId === null || $operationId === '') {
+            return null;
+        }
+
+        $rows = db_connect('inbox')->table('messages')
+            ->where('gateway_operation_id', $operationId)
+            ->where('conversation_id', $conversationId)
             ->get()
             ->getResultArray();
 
