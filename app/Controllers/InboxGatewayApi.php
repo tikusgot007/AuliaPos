@@ -495,7 +495,9 @@ class InboxGatewayApi extends BaseController
      *   tampilan Section 4.4), `quoted_snippet` dari `quoted.snippet` payload
      *   apa adanya (fallback best-effort, TIDAK diverifikasi) atau label
      *   generik "Pesan tidak ditemukan" bila kosong, `quoted_media_available`
-     *   NULL. `quoted_sender_label` **TIDAK ditulis** (tetap NULL) -- inilah
+     *   NULL dan `quoted_source_message_id` NULL (REQ-008b: tidak ada ID lokal
+     *   -> UI melewati live-fetch, AC-005 cabang c).
+     *   `quoted_sender_label` **TIDAK ditulis** (tetap NULL) -- inilah
      *   penanda TUNGGAL status "tidak ditemukan" (F-B); tidak ada pemblokiran
      *   penyimpanan pesan masuk itu sendiri.
      *
@@ -511,15 +513,16 @@ class InboxGatewayApi extends BaseController
      *        `sender_jid` (opsional, tidak dipakai di sini), `snippet`
      *        (opsional, fallback).
      *
-     * @return array{quoted_wa_message_id: ?string, quoted_sender_label: ?string, quoted_snippet: ?string, quoted_media_available: ?int}
+     * @return array{quoted_wa_message_id: ?string, quoted_sender_label: ?string, quoted_snippet: ?string, quoted_media_available: ?int, quoted_source_message_id: ?int}
      */
     private function resolveKutipanMasuk(?array $quoted): array
     {
         $kosong = [
-            'quoted_wa_message_id'   => null,
-            'quoted_sender_label'    => null,
-            'quoted_snippet'         => null,
-            'quoted_media_available' => null,
+            'quoted_wa_message_id'     => null,
+            'quoted_sender_label'      => null,
+            'quoted_snippet'           => null,
+            'quoted_media_available'   => null,
+            'quoted_source_message_id' => null,
         ];
 
         if ($quoted === null) {
@@ -547,10 +550,13 @@ class InboxGatewayApi extends BaseController
             $snippetPayload = (new InboxQuoteSnapshotService())->potongSnippet($quoted['snippet'] ?? null);
 
             return [
-                'quoted_wa_message_id'   => $waMessageId,
-                'quoted_sender_label'    => null, // F-B: penanda tunggal "tidak ditemukan"
-                'quoted_snippet'         => $snippetPayload ?? 'Pesan tidak ditemukan',
-                'quoted_media_available' => null,
+                'quoted_wa_message_id'     => $waMessageId,
+                'quoted_sender_label'      => null, // F-B: penanda tunggal "tidak ditemukan"
+                'quoted_snippet'           => $snippetPayload ?? 'Pesan tidak ditemukan',
+                'quoted_media_available'   => null,
+                // REQ-008b: kasus "tidak ditemukan" tetap NULL (tidak ada ID
+                // lokal) -- UI melewati live-fetch (AC-005 cabang c).
+                'quoted_source_message_id' => null,
             ];
         }
 

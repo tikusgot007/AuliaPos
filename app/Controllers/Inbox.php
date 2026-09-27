@@ -1081,11 +1081,9 @@ class Inbox extends BaseController
 
             // Sama seperti jalur teks: replay melaporkan indikator kutipan
             // yang sama, karena ini hasil kirim yang sama (REQ-003).
-            if ($quoteSnapshot !== null) {
-                $replayBody['quote_applied'] = (bool) ($result['quote_applied'] ?? false);
-            }
-
-            return $this->response->setStatusCode(200)->setJSON($replayBody);
+            return $this->response->setStatusCode(200)->setJSON(
+                $this->withQuoteApplied($replayBody, $quoteSnapshot, $result)
+            );
         }
 
         $userId = (int) session()->get('id_user');
@@ -1120,10 +1118,12 @@ class Inbox extends BaseController
             // Snapshot kutipan (REQ-007): aturan & nilai berasal dari
             // resolveKutipan() yang sama dengan jalur teks, jadi kolom
             // media_available di sini juga ikuti aturan tiga-nilai REQ-008.
-            'quoted_wa_message_id'   => $quoteSnapshot['quoted_wa_message_id'] ?? null,
-            'quoted_sender_label'    => $quoteSnapshot['quoted_sender_label'] ?? null,
-            'quoted_snippet'         => $quoteSnapshot['quoted_snippet'] ?? null,
-            'quoted_media_available' => $quoteSnapshot['quoted_media_available'] ?? null,
+            'quoted_wa_message_id'     => $quoteSnapshot['quoted_wa_message_id'] ?? null,
+            'quoted_sender_label'      => $quoteSnapshot['quoted_sender_label'] ?? null,
+            'quoted_snippet'           => $quoteSnapshot['quoted_snippet'] ?? null,
+            'quoted_media_available'   => $quoteSnapshot['quoted_media_available'] ?? null,
+            // v1.6 (REQ-008b): ID lokal sumber, target `GET /inbox/media/:id`.
+            'quoted_source_message_id' => $quoteSnapshot['quoted_source_message_id'] ?? null,
 
         ]);
 
@@ -1163,11 +1163,9 @@ class Inbox extends BaseController
         // Reaksi (a) REQ-006 pada jalur media: identik dengan jalur teks --
         // media tetap terkirim, kasir diberi tahu kutipannya tidak sampai
         // (penanda "Terkirim tanpa kutipan", ASSUMPTION-008).
-        if ($quoteSnapshot !== null) {
-            $body['quote_applied'] = (bool) ($result['quote_applied'] ?? false);
-        }
-
-        return $this->response->setStatusCode(200)->setJSON($body);
+        return $this->response->setStatusCode(200)->setJSON(
+            $this->withQuoteApplied($body, $quoteSnapshot, $result)
+        );
     }
 
 
@@ -2297,11 +2295,9 @@ class Inbox extends BaseController
             // Replay adalah hasil kirim yang sama, jadi indikator kutipan
             // dilaporkan lagi -- Gateway menyimpannya pada baris operasinya
             // supaya tidak perlu mengira ulang atau mengirim ulang.
-            if ($quoteSnapshot !== null) {
-                $replayBody['quote_applied'] = (bool) ($result['quote_applied'] ?? false);
-            }
-
-            return $this->response->setStatusCode(200)->setJSON($replayBody);
+            return $this->response->setStatusCode(200)->setJSON(
+                $this->withQuoteApplied($replayBody, $quoteSnapshot, $result)
+            );
         }
 
         $db->table('messages')->insert([
@@ -2316,11 +2312,13 @@ class Inbox extends BaseController
             'send_status'         => 'sent',
             'gateway_operation_id' => $operationId,
             // Snapshot kutipan (REQ-007): beku sejak pesan ini dibuat, tidak
-            // pernah ditulis ulang. Tanpa kutipan keempatnya NULL (GUD-001).
-            'quoted_wa_message_id'   => $quoteSnapshot['quoted_wa_message_id'] ?? null,
-            'quoted_sender_label'    => $quoteSnapshot['quoted_sender_label'] ?? null,
-            'quoted_snippet'         => $quoteSnapshot['quoted_snippet'] ?? null,
-            'quoted_media_available' => $quoteSnapshot['quoted_media_available'] ?? null,
+            // pernah ditulis ulang. Tanpa kutipan semuanya NULL (GUD-001).
+            'quoted_wa_message_id'     => $quoteSnapshot['quoted_wa_message_id'] ?? null,
+            'quoted_sender_label'      => $quoteSnapshot['quoted_sender_label'] ?? null,
+            'quoted_snippet'           => $quoteSnapshot['quoted_snippet'] ?? null,
+            'quoted_media_available'   => $quoteSnapshot['quoted_media_available'] ?? null,
+            // v1.6 (REQ-008b): ID lokal sumber, target `GET /inbox/media/:id`.
+            'quoted_source_message_id' => $quoteSnapshot['quoted_source_message_id'] ?? null,
             'created_at'            => $now,
         ]);
 
@@ -2368,11 +2366,9 @@ class Inbox extends BaseController
         // `quote_applied:false` agar UI menampilkan "Terkirim tanpa kutipan"
         // -- bukan berpura-pura kutipan berhasil (ASSUMPTION-008: penanda ini
         // EPHEMERAL, tidak disimpan sebagai kolom).
-        if ($quoteSnapshot !== null) {
-            $body['quote_applied'] = (bool) ($result['quote_applied'] ?? false);
-        }
-
-        return $this->response->setStatusCode(200)->setJSON($body);
+        return $this->response->setStatusCode(200)->setJSON(
+            $this->withQuoteApplied($body, $quoteSnapshot, $result)
+        );
     }
 
     /**
@@ -2406,6 +2402,30 @@ class Inbox extends BaseController
     }
 
     /**
+     * Lengkapi body respons kirim dengan indikator `quote_applied` (REQ-006):
+     * HANYA ketika permintaan membawa kutipan (`$quoteSnapshot !== null`),
+     * supaya respons tanpa kutipan tidak berubah (selaras perilaku lama;
+     * `$result['quote_applied']` yang hilang diperlakukan `false`).
+     *
+     * Satu tempat untuk empat lokasi (dua jalur kirim x sukses/replay) supaya
+     * perakitan indikator kutipan tidak terduplikasi (PRN-001, Fowler).
+     *
+     * @param array<string, mixed>      $body
+     * @param array<string, mixed>|null $quoteSnapshot
+     * @param array<string, mixed>      $result
+     *
+     * @return array<string, mixed>
+     */
+    private function withQuoteApplied(array $body, ?array $quoteSnapshot, array $result): array
+    {
+        if ($quoteSnapshot !== null) {
+            $body['quote_applied'] = (bool) ($result['quote_applied'] ?? false);
+        }
+
+        return $body;
+    }
+
+    /**
      * Balas Pesan (Tahap 3, spec Section 4.3): resolve kutipan dari
      * `quoted_message_id` milik kasir, lalu ambil snapshot dari DB SERVER --
      * bukan dari data yang dikirim browser (ALT-002: mencegah manipulasi).
@@ -2431,17 +2451,12 @@ class Inbox extends BaseController
         }
 
         // Lookup WAJIB soft-delete-inclusive: kutipan dari pesan yang sudah
-        // di-soft-delete tetap harus terbentuk (AC-004). Karena itu memakai
-        // query builder tanpa filter `deleted_at`; `MessageModel::find()`
-        // polos DILARANG (model itu memakai useSoftDeletes dan menyaring
-        // baris tersebut tanpa suara -- spec REQ-011 / Section 12). Pola
-        // yang sama seperti findMessageByOperationId() di atas.
-        $rows = db_connect('inbox')->table('messages')
-            ->where('id', $quotedMessageId)
-            ->get()
-            ->getResultArray();
-
-        $sumber = $rows[0] ?? null;
+        // di-soft-delete tetap harus terbentuk (AC-004). Pengetahuan akses
+        // data tinggal di Model (ARCH-001, Dependency Rule) -- method itu
+        // memakai query builder tanpa filter `deleted_at`, sedangkan
+        // `MessageModel::find()` polos DILARANG karena menyaring baris
+        // tersebut tanpa suara (spec REQ-008b/REQ-011, Section 12).
+        $sumber = (new MessageModel())->findByIdIncludingDeleted($quotedMessageId);
 
         if ($sumber === null) {
             log_message('info', "Inbox::resolveKutipan sumber tidak ditemukan. conversation_id={$conversationId}, quoted_message_id={$quotedMessageId}");

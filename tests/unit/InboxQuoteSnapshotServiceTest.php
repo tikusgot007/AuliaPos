@@ -149,9 +149,10 @@ final class InboxQuoteSnapshotServiceTest extends CIUnitTestCase
         $this->assertSame(1, $hasil, 'REQ-008: file lokal menang atas confirmed-gone.');
     }
 
-    public function testRakitSnapshotMenggabungkanKeempatNilai(): void
+    public function testRakitSnapshotMenggabungkanKelimaNilai(): void
     {
         $snapshot = $this->service->rakitSnapshot([
+            'id'                      => 42,
             'wa_message_id'           => '3EB0XXXX',
             'message_type'            => 'text',
             'text'                    => 'Kapan pesanan saya dikirim?',
@@ -163,6 +164,21 @@ final class InboxQuoteSnapshotServiceTest extends CIUnitTestCase
         $this->assertSame('628123456789', $snapshot['quoted_sender_label']);
         $this->assertSame('Kapan pesanan saya dikirim?', $snapshot['quoted_snippet']);
         $this->assertNull($snapshot['quoted_media_available'], 'Teks -> NULL.');
+        // v1.6 (REQ-008b): ID lokal sumber diambil apa adanya dari baris.
+        $this->assertSame(42, $snapshot['quoted_source_message_id']);
+    }
+
+    public function testRakitSnapshotTanpaIdMenghasilkanSourceMessageIdNull(): void
+    {
+        // REQ-008b: baris sumber tanpa `id` (mis. diminta dari seam yang tidak
+        // menyertakan kolom itu) tidak boleh menulis ID palsu.
+        $snapshot = $this->service->rakitSnapshot([
+            'wa_message_id' => '3EB0ZZZZ',
+            'message_type'  => 'text',
+            'text'          => 'halo',
+        ], '628123456789');
+
+        $this->assertNull($snapshot['quoted_source_message_id']);
     }
 
     public function testRakitSnapshotMenyimpanLabelNullApaAdanya(): void

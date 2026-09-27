@@ -276,6 +276,15 @@
         color: #8a8a8a;
     }
 
+    /* Fallback tampilan media kutipan (REQ-008/AC-005 v1.6): thumbnail
+       dari live-fetch GET /inbox/media/:quoted_source_message_id. */
+    .inbox-kutipan-media {
+        max-width: 140px;
+        max-height: 140px;
+        border-radius: 4px;
+        display: block;
+    }
+
     /* Area kutipan aktif di atas kotak ketik (REQ-005). */
     .kutipan-aktif {
         display: flex;
@@ -1957,15 +1966,33 @@
 
         const tidakDitemukan = (m.quoted_sender_label === null || m.quoted_sender_label === undefined || m.quoted_sender_label === '');
 
-        // Snapshot 0 berarti media sumber dipastikan hilang sejak kutipan
-        // dibuat. Selain itu, kalau kutipannya media, jangan coba memuat
-        // gambar: snapshot tidak menyimpan URL media, dan permintaan
-        // yang gagal ditangani sebagai teks "[Media tidak tersedia]"
-        // (fallback tampilan REQ-008, tanpa menulis ulang DB).
-        const mediaTidakTersedia = (m.quoted_media_available === 0 || m.quoted_media_available === '0');
-        const isiKutipan = mediaTidakTersedia
-            ? '<div class="inbox-kutipan-snippet inbox-kutipan-tak-ada">[Media tidak tersedia]</div>'
-            : '<div class="inbox-kutipan-snippet">' + escapeHtmlInbox(m.quoted_snippet || 'Pesan tidak ditemukan') + '</div>';
+        // Fallback tampilan media (REQ-008/AC-005 v1.6), tiga cabang:
+        //  (a) snapshot 0 -> media dipastikan hilang: tampil langsung, TANPA
+        //      live-fetch (tidak ada gunanya memanggil endpoint).
+        //  (b) snapshot 1 + `quoted_source_message_id` terisi -> live-fetch
+        //      endpoint media existing `GET /inbox/media/:id`; 404/410/error
+        //      jatuh ke placeholder yang sama, TANPA menulis ulang DB
+        //      (snapshot tetap beku, REQ-007).
+        //  (c) `quoted_source_message_id` NULL (kutipan legacy / sumber tidak
+        //      ditemukan) -> JANGAN live-fetch; pakai snapshot apa adanya.
+        const angkaMedia = (m.quoted_media_available === null || m.quoted_media_available === undefined)
+            ? null
+            : String(m.quoted_media_available);
+        const mediaTidakTersedia = (angkaMedia === '0');
+        const sumberId = m.quoted_source_message_id;
+        const adaSumberMedia = (angkaMedia === '1') &&
+            (sumberId !== null && sumberId !== undefined && sumberId !== '');
+
+        let isiKutipan;
+        if (mediaTidakTersedia) {
+            isiKutipan = '<div class="inbox-kutipan-snippet inbox-kutipan-tak-ada">[Media tidak tersedia]</div>';
+        } else if (adaSumberMedia) {
+            const urlMediaKutipan = '<?= base_url('/inbox/media/') ?>' + sumberId;
+            isiKutipan = '<img src="' + urlMediaKutipan + '" alt="Media kutipan" class="inbox-kutipan-media" ' +
+                'onerror="this.outerHTML=\'<div class=&quot;inbox-kutipan-snippet inbox-kutipan-tak-ada&quot;>[Media tidak tersedia]</div>\'">';
+        } else {
+            isiKutipan = '<div class="inbox-kutipan-snippet">' + escapeHtmlInbox(m.quoted_snippet || 'Pesan tidak ditemukan') + '</div>';
+        }
 
         const judul = tidakDitemukan
             ? '<div class="inbox-kutipan-pengirim">Pesan tidak ditemukan</div>'

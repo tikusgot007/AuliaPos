@@ -178,4 +178,56 @@ final class InboxBalasPesanScreenTest extends CIUnitTestCase
         $this->assertStringContainsString('renderKotakKutipan(m) +', $body);
         $this->assertStringContainsString('renderKotakKutipan', $body);
     }
+
+    // ------------------------------------------------------------------
+    // Phase 2 balas pesan (TASK-201b/202): fallback tampilan media AC-005 v1.6
+    // ------------------------------------------------------------------
+
+    public function testCabangAMediaAvailableNolTampilLangsungTanpaLiveFetch(): void
+    {
+        // AC-005 (a): snapshot `quoted_media_available = 0` -> placeholder
+        // ditampilkan langsung; cabang ini TIDAK memanggil live-fetch.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString("angkaMedia === '0'", $body);
+        $this->assertStringContainsString('mediaTidakTersedia', $body);
+        $this->assertStringContainsString('[Media tidak tersedia]', $body);
+    }
+
+    public function testCabangBLiveFetchMediaKutipanMemakaiIdLokalSumber(): void
+    {
+        // AC-005 (b): snapshot 1 + `quoted_source_message_id` terisi ->
+        // live-fetch endpoint media existing lewat ID lokal, bukan wa_message_id.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString("angkaMedia === '1'", $body);
+        $this->assertStringContainsString('m.quoted_source_message_id', $body);
+        // URL dibangun dari ID lokal sumber lewat endpoint media existing.
+        $this->assertStringContainsString("urlMediaKutipan = '", $body);
+        $this->assertStringContainsString("/inbox/media/' + sumberId", $body);
+        $this->assertStringContainsString('inbox-kutipan-media', $body);
+    }
+
+    public function testCabangBLiveFetchGagalMenampilkanMediaTidakTersedia(): void
+    {
+        // AC-005 (b) kegagalan: 404/410/error pada <img> wajib jatuh ke
+        // placeholder yang SAMA, tanpa menulis ulang DB.
+        $body = $this->halamanInbox();
+
+        $this->assertMatchesRegularExpression(
+            '/onerror="[^"]*inbox-kutipan-tak-ada[^"]*\[Media tidak tersedia\]/',
+            $body,
+            'onerror <img> harus mengganti ke "[Media tidak tersedia]" (AC-005 b).'
+        );
+    }
+
+    public function testCabangCSourceMessageIdNullMelewatiLiveFetch(): void
+    {
+        // AC-005 (c): `quoted_source_message_id` NULL (legacy / sumber tidak
+        // ditemukan) -> guard menolak live-fetch; pakai snapshot apa adanya.
+        $body = $this->halamanInbox();
+
+        $this->assertStringContainsString("sumberId !== null && sumberId !== undefined && sumberId !== ''", $body);
+        $this->assertStringContainsString("m.quoted_snippet || 'Pesan tidak ditemukan'", $body);
+    }
 }

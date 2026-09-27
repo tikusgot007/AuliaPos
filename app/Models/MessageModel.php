@@ -65,6 +65,9 @@ class MessageModel extends Model
         'quoted_sender_label',
         'quoted_snippet',
         'quoted_media_available',
+        // v1.6 (REQ-008b): ID LOKAL `messages.id` pesan sumber, snapshot beku
+        // -- target `GET /inbox/media/(:num)` untuk fallback tampilan REQ-008.
+        'quoted_source_message_id',
         'deleted_at',
     ];
 
@@ -119,6 +122,29 @@ class MessageModel extends Model
 
         $rows = db_connect('inbox')->table('messages')
             ->where('wa_message_id', $waMessageId)
+            ->get()
+            ->getResultArray();
+
+        return $rows[0] ?? null;
+    }
+
+    /**
+     * Ambil satu baris `messages` berdasarkan ID lokal, TERMASUK baris yang
+     * sudah soft-deleted (ARCH-001).
+     *
+     * Lookup kutipan pesan sumber (`Inbox::resolveKutipan()`) WAJIB
+     * soft-delete-inclusive: kutipan dari pesan yang sudah di-soft-delete tetap
+     * harus terbentuk (AC-004). `find()`/`first()` polos pada model ini
+     * DILARANG karena `useSoftDeletes` menyaring baris tersebut tanpa suara
+     * (spec REQ-008b/REQ-011, Section 12). Pola sama dengan
+     * `findByWaMessageId()` di atas.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findByIdIncludingDeleted(int $id): ?array
+    {
+        $rows = db_connect('inbox')->table('messages')
+            ->where('id', $id)
             ->get()
             ->getResultArray();
 
