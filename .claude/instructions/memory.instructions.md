@@ -758,3 +758,37 @@
 <!-- checkpoint-tail: 2026-09-27 Phase 6z /sdlc-code-review short review of SEC-01 Grup Tahap 1 guard on commit 09a6f0e → PASS/clear-to-merge: confirmed cekBukanGrup() sits after the 404 check and before eligibility/ownership in Inbox::handoffPercakapan() (Inbox.php:1318-1329) and Inbox::tandaiDibaca() (Inbox.php:1904-1911), so both answer 403 (not 409/200) and write nothing to assigned_to / conversation_handoffs / last_seen_by_assignee_at; zero regression for private chats; independent InboxGrupTahap1Test re-run OK (19 tests/84 assertions); only 2 non-blocking minors ([NIT] DOC-01 stale cekBukanGrup() docblock, [OPTIONAL] TEST-01 no closed-group 403-vs-409 discriminator). One Path Rule gate lifted → ALT-003 (/sdlc-define-specs) and Teruskan Tahap 4 now unblocked but deliberately not started. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (selesai — spec ALT-003/AUTHZ-02 dibuat)
+- **Active Artifacts:**
+  - `spec/spec-design-inbox-read-authorization.md` — Status: ✅ Drafted (v1.0; menunggu `/sdlc-clarify-reqs`)
+  - `spec/spec-index.md` — Status: ✅ Updated (bagian "Spec Lintas-Tahap" + entri spec baru)
+- **Achieved Milestones:**
+  - Memutuskan aturan akses Inbox: **baca terbuka** untuk semua staff yang login (daftar, thread, media), **Internal Note terbuka**, **operasi tulis terbatas pemegang/admin**.
+  - Menutup temuan audit `ALT-003`/`AUTHZ-02` sebagai keputusan disengaja (bukan celah): `GET /inbox/api/conversations/(:num)/messages` **tetap** `auth`-only dan **dilarang** menambah `cekOwnership()`.
+  - Memutuskan **membuka** `GET /inbox/media/(:num)` (guard `cekOwnership()` di `Inbox::media()` dihapus) — **menggantikan** `SEC-002`/`TASK-103` (`plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md:50`).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Menambahkan `cekOwnership()` ke `GET /inbox/api/conversations/(:num)/messages` (sesuai instruksi awal ALT-003).
+  - **Reason:** Bertabrakan dengan keputusan terkunci `CL-004` (`spec-design-m3-operational-inbox-fase1.md:86`, "semua staff yang login boleh melihat semua conversation; ownership bukan visibility filter"), komentar `app/Config/Routes.php:57-59`, dan `docs/Rencana Implementasi M3 Operational Inbox.md:216`. Juga kontradiktif dengan `SEC-001` (Internal Note boleh ditulis siapa pun) dan janji PRD "membuka percakapan tidak pernah ditolak".
+  - **Correct solution:** Dokumentasikan baca-terbuka; buka `media()`; pertahankan guard hanya pada operasi tulis.
+- **Updated Files:**
+  - `spec/spec-design-inbox-read-authorization.md` — spec baru (aturan baca/tulis Inbox, ALT-003/AUTHZ-02).
+  - `spec/spec-index.md` — tautan spec baru (bagian "Spec Lintas-Tahap").
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Baca = terbuka untuk semua staff login; tulis = pemegang/admin; Internal Note = terbuka.
+  - `media()` dibuka (menghapus guard kepemilikan); `apiMessages()` tidak disentuh.
+  - Tidak ada ADR baru (gagal Triple Gate: mudah dibalik).
+- **Next Action / Pending:**
+  - Sesi baru: `/sdlc-clarify-reqs` atas `spec/spec-design-inbox-read-authorization.md`.
+  - Saat implementasi: hapus guard `cekOwnership()` di `Inbox::media()` (`app/Controllers/Inbox.php:425-431`); perbarui `tests/session/InboxMediaAuthTest.php` (kasus non-pemegang → `200`, bukan `403`); tambah test anti-regresi `apiMessages` non-pemegang → `200`; perbarui `docs/ARCHITECTURE.md` (Living Architecture Map mandate).
+  - Opsional: perbarui baris `ALT-003` di `docs/audit/consistency-audit-balas-pesan-tahap3-review3-2026-09-27.md:53` (kini tertutup).
+  - Closing sequence rule #3: checkpoint (ini) → tawarkan commit → push → prompt sesi berikutnya.
+  - Carried forward (tidak berubah): `TEST-01`/`DOC-01` Grup Tahap 1; PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search; `docs/ARCHITECTURE.md` §11 `aulia_inboxdb_perf` paragraph; `docs/ARCHITECTURE.md` phantom `quoted_from_me` column; `CONTEXT.md` "Kutipan" wording.
+
+<!-- checkpoint-tail: 2026-09-27 Phase Spec `/sdlc-define-specs` ALT-003/AUTHZ-02 → decided Inbox read-open (all logged-in staff may read all conversations + media + internal notes) and write-gated to holder/admin; created spec/spec-design-inbox-read-authorization.md v1.0 + linked from spec-index; closed ALT-003 as deliberate (NO cekOwnership on apiMessages) and reversed SEC-002 media guard (remove cekOwnership in Inbox::media()); no ADR; no schema change. Next: /sdlc-clarify-reqs on the new spec (new session). -->
+
+---

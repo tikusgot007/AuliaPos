@@ -33,6 +33,14 @@ Tahap 1 (spec #1) ──► Tahap 2 (spec #2) ──► Tahap 3 (spec #3) ──
 
 Setiap spec **wajib** diselesaikan lewat alur SDLC penuh (`/sdlc-clarify-reqs` → `/sdlc-plan-tasks` → `/sdlc-write-code` → `/sdlc-code-review`) sebelum lanjut ke spec berikutnya. Jangan mengerjakan dua spec sekaligus (One Path Rule, `CLAUDE.md`).
 
+## Spec Lintas-Tahap
+
+Spec berikut tidak terikat satu tahap PRD, melainkan mengatur aturan yang berlaku lintas tahap pada modul Inbox:
+
+| File | Cakupan | Catatan |
+| --- | --- | --- |
+| [`spec-design-inbox-read-authorization.md`](./spec-design-inbox-read-authorization.md) | Aturan akses baca/tulis Inbox (ALT-003/AUTHZ-02) | Menegaskan **baca terbuka** untuk semua staff yang login, **tulis terbatas pemegang**; membuka `GET /inbox/media/(:num)` (menggantikan `SEC-002`/`TASK-103`). |
+
 ## Istilah Kanonik
 
 Seluruh spec dalam set ini memakai istilah dari `CONTEXT.md`: **Grup**, **Balas Pesan**, **Teruskan**. Lihat masing-masing entri untuk sinonim yang harus dihindari (`_Avoid_`).
