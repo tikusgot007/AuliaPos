@@ -538,12 +538,18 @@ class InboxGatewayApi extends BaseController
         $sumber = (new MessageModel())->findByWaMessageId($waMessageId);
 
         if ($sumber === null) {
-            $snippetPayload = trim((string) ($quoted['snippet'] ?? ''));
+            // SEC-002 (trust boundary): `quoted.snippet` datang dari Gateway --
+            // perlakukan sebagai DATA LUAR dan batasi panjangnya di sini,
+            // JANGAN mengandalkan truncation di sisi Gateway. Reuse
+            // `potongSnippet()` supaya bentuk cuplikan fallback identik dengan
+            // jalur sumber-ditemukan (batas `MAKS_KARAKTER`); nilai `null`
+            // berarti payload kosong -> label generik.
+            $snippetPayload = (new InboxQuoteSnapshotService())->potongSnippet($quoted['snippet'] ?? null);
 
             return [
                 'quoted_wa_message_id'   => $waMessageId,
                 'quoted_sender_label'    => null, // F-B: penanda tunggal "tidak ditemukan"
-                'quoted_snippet'         => $snippetPayload !== '' ? $snippetPayload : 'Pesan tidak ditemukan',
+                'quoted_snippet'         => $snippetPayload ?? 'Pesan tidak ditemukan',
                 'quoted_media_available' => null,
             ];
         }

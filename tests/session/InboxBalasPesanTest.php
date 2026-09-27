@@ -140,6 +140,29 @@ final class InboxBalasPesanTest extends CIUnitTestCase
         $this->assertTrue($controller->capturedQuoted['fromMe'], 'outgoing -> fromMe:true walau sender_jid NULL.');
     }
 
+    // ------------------------------------------------------------------
+    // REQ-001: sender_jid TIDAK PERNAH disertakan untuk sumber outgoing
+    // ------------------------------------------------------------------
+
+    public function testSenderJidTidakDisertakanUntukSumberOutgoing(): void
+    {
+        $conversationId = $this->seedConversation();
+        // Baris legacy yang kebetulan punya sender_jid terisi -- payload
+        // tetap TIDAK boleh menyertakannya karena fromMe:true.
+        $outgoing = $this->seedMessage($conversationId, [
+            'direction'    => 'outgoing',
+            'message_type' => 'text',
+            'text'         => 'balasan kasir sebelumnya',
+            'sender_jid'   => '628999888777@s.whatsapp.net',
+        ]);
+
+        $controller = $this->controller(['quoted_message_id' => $outgoing]);
+        $this->invoke($controller, $conversationId, 'balasan baru');
+
+        $this->assertTrue($controller->capturedQuoted['fromMe']);
+        $this->assertNull($controller->capturedQuoted['sender_jid'], 'REQ-001: sender_jid null untuk sumber outgoing walau kolom terisi.');
+    }
+
     public function testSenderJidDiteruskanUntukSumberIncoming(): void
     {
         $conversationId = $this->seedConversation();
@@ -282,6 +305,49 @@ final class InboxBalasPesanTest extends CIUnitTestCase
     }
 
     // ------------------------------------------------------------------
+    // SEC-001: otorisasi menang atas resolusi kutipan (anti-oracle)
+    // ------------------------------------------------------------------
+
+    public function testKasirTanpaHakTidakDapatMemakaiKutipanSebagaiOracleKeberadaanPesan(): void
+    {
+        // Percakapan A ditangani kasir id 7 (pemilik sesi) dan berisi pesan
+        // NYATA. Percakapan B ditangani user LAIN, sehingga kasir id 7 TIDAK
+        // berhak membalasnya (cekOwnership() -> 403).
+        $conversationA = $this->seedConversation('628111111111@s.whatsapp.net');
+        $conversationB = $this->seedConversation('628222222222@s.whatsapp.net', 9);
+        $sourceId      = $this->seedMessage($conversationA, [
+            'direction'    => 'incoming',
+            'message_type' => 'text',
+            'text'         => 'pesan nyata di percakapan lain',
+        ]);
+
+        // Request 1: kutipan menunjuk pesan yang BENAR-BENAR ADA (tapi di
+        // percakapan lain). Request 2: kutipan menunjuk ID yang TIDAK ADA.
+        // Keduanya harus menghasilkan jawaban yang TIDAK BISA DIBEDAKAN.
+        $controllerAda = $this->controller(['quoted_message_id' => $sourceId]);
+        $responseAda   = $this->invoke($controllerAda, $conversationB, 'mencoba membalas');
+        $bodyAda       = $this->body($controllerAda);
+
+        $controllerTidakAda = $this->controller(['quoted_message_id' => 999999]);
+        $responseTidakAda   = $this->invoke($controllerTidakAda, $conversationB, 'mencoba membalas');
+        $bodyTidakAda       = $this->body($controllerTidakAda);
+
+        // Otorisasi menang: 403 (BUKAN 400), dan tak satu pun baris ditulis.
+        $this->assertSame(403, $responseAda->getStatusCode(), 'SEC-001: kasir tanpa hak -> 403 sebelum menyentuh kutipan.');
+        $this->assertSame(403, $responseTidakAda->getStatusCode(), 'SEC-001: ID tidak ada pun -> 403, bukan 400.');
+        $this->assertSame(0, $this->countOutgoing($conversationB), 'SEC-001: tidak ada baris yang ditulis.');
+
+        // Tidak ada oracle: pesan respons identik, tidak menyebut status
+        // keberadaan pesan sumber (tidak ada kata "dikutip").
+        $this->assertSame(
+            $bodyAda['message'],
+            $bodyTidakAda['message'],
+            'SEC-001: respons tidak boleh membedakan pesan yang ada vs tidak ada.'
+        );
+        $this->assertStringNotContainsString('dikutip', (string) $bodyAda['message'], 'SEC-001: tidak membocorkan resolusi kutipan.');
+    }
+
+    // ------------------------------------------------------------------
     // GUD-001: tanpa kutipan, keempat kolom tetap NULL
     // ------------------------------------------------------------------
 
@@ -380,14 +446,14 @@ final class InboxBalasPesanTest extends CIUnitTestCase
         return json_decode($property->getValue($controller)->getBody(), true, 512, JSON_THROW_ON_ERROR);
     }
 
-    private function seedConversation(string $chatId = '628123456789@s.whatsapp.net'): int
+    private function seedConversation(string $chatId = '628123456789@s.whatsapp.net', int $assignedTo = 7): int
     {
         $db = db_connect('inbox');
         $db->table('conversations')->insert([
             'chat_id'                => $chatId,
             'jid_type'               => 'pn',
             'status'                 => 'open',
-            'assigned_to'            => 7,
+            'assigned_to'            => $assignedTo,
             'last_message_direction' => 'incoming',
             'created_at'             => date('Y-m-d H:i:s'),
             'updated_at'             => date('Y-m-d H:i:s'),

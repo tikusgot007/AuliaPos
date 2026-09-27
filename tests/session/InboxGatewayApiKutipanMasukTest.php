@@ -1,6 +1,7 @@
 <?php
 
 use App\Controllers\InboxGatewayApi;
+use App\Services\InboxQuoteSnapshotService;
 use App\Services\SenderIdentityFormatter;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\Response;
@@ -149,6 +150,45 @@ final class InboxGatewayApiKutipanMasukTest extends CIUnitTestCase
         $this->assertSame('success', $body['status']);
         $this->assertSame('Pesan tidak ditemukan', $this->lastMessage()['quoted_snippet']);
         $this->assertNull($this->lastMessage()['quoted_sender_label']);
+    }
+
+    // ------------------------------------------------------------------
+    // SEC-002: bound trust boundary pada `quoted.snippet` payload Gateway
+    // ------------------------------------------------------------------
+
+    public function testSnippetPayloadSangatPanjangDibatasiSaatSumberTidakDitemukan(): void
+    {
+        // Gateway (sumber LUAR) mengirim snippet 5.000 karakter. AuliaPos
+        // WAJIB membatasinya sendiri, tidak menaruh 5.000 karakter ke DB.
+        $snippet = str_repeat('A', 5000);
+
+        $body = $this->callMessages([
+            'wa_message_id'     => 'BALASAN-PANJANG',
+            'chat_id'           => '6281200000093@s.whatsapp.net',
+            'jid_type'          => 'pn',
+            'message_type'      => 'text',
+            'text'              => 'Oke',
+            'message_timestamp' => '2026-09-27 07:09:00',
+            'quoted'            => [
+                'wa_message_id' => 'TIDAK-ADA-DI-DB-PANJANG',
+                'snippet'       => $snippet,
+            ],
+        ]);
+
+        $this->assertSame('success', $body['status'], 'SEC-002: bound TIDAK menolak pesan masuk.');
+
+        $row = $this->lastMessage();
+        $this->assertSame('TIDAK-ADA-DI-DB-PANJANG', $row['quoted_wa_message_id']);
+        $this->assertNull($row['quoted_sender_label'], 'F-B: penanda "tidak ditemukan" tetap NULL.');
+        $this->assertNull($row['quoted_media_available']);
+
+        $tersimpan = (string) $row['quoted_snippet'];
+        $this->assertSame(
+            InboxQuoteSnapshotService::MAKS_KARAKTER + 1,
+            mb_strlen($tersimpan),
+            'SEC-002: cuplikan dipotong ke batas + elipsis, bukan 5.000 karakter.'
+        );
+        $this->assertStringStartsWith(str_repeat('A', InboxQuoteSnapshotService::MAKS_KARAKTER), $tersimpan);
     }
 
     // ------------------------------------------------------------------

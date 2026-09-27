@@ -2203,6 +2203,20 @@ class Inbox extends BaseController
         $operationId = (string) ($this->request->getPost('operation_id') ?? '');
         $operationId = $operationId === '' ? null : $operationId;
 
+        // Otorisasi DIJALANKAN DULU, sebelum `quoted_message_id` apa pun
+        // dibaca -- urutan yang sama persis dengan `kirimMedia()` (:985 lalu
+        // :1005). Kalau kasir tidak berhak atas percakapan tujuan, jawabannya
+        // 403 dan dia TIDAK boleh ikut diberi tahu apakah sebuah pesan di
+        // percakapan lain itu ada (SEC-001: endpoint teks tidak boleh menjadi
+        // oracle keberadaan pesan lintas-percakapan).
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
+            ]);
+        }
+
         // Balas Pesan (Tahap 3): ID LOKAL `messages.id` pesan yang
         // dikutip -- bukan `wa_message_id`. Client tidak pernah mengirim isi
         // kutipan; server ambil sendiri dari DB (ALT-002, spec Section 4.3).
@@ -2213,7 +2227,9 @@ class Inbox extends BaseController
 
         if ($kutipan['error'] !== null) {
             // 400, bukan 403/404: permintaan tidak valid, dan TIDAK ada kolom
-            // snapshot yang ditulis (taksonomi F-D).
+            // snapshot yang ditulis (taksonomi F-D). Kasus gabungan "tidak
+            // berhak DAN kutipan tidak valid" sudah dijawab 403 di atas --
+            // otorisasi menang (RISK-001).
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
                 'message' => $kutipan['error'],
@@ -2221,14 +2237,6 @@ class Inbox extends BaseController
         }
 
         $quoteSnapshot = $kutipan['snapshot'];
-
-        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
-        if ($ownershipError) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'status'  => 'error',
-                'message' => $ownershipError,
-            ]);
-        }
 
         // --- Cek Gateway usable DULU, sebelum mencoba HTTP call ------------
         // Supaya kalau Gateway jelas-jelas offline, kasir langsung tahu
@@ -2501,13 +2509,18 @@ class Inbox extends BaseController
      */
     private function quotedPayloadGateway(array $sumber): array
     {
-        $tipe = (string) ($sumber['message_type'] ?? 'text');
+        $tipe   = (string) ($sumber['message_type'] ?? 'text');
+        $fromMe = ($sumber['direction'] ?? 'incoming') === 'outgoing';
 
+        // REQ-001: `sender_jid` TIDAK PERNAH disertakan untuk sumber outgoing
+        // (`fromMe: true`), sekalipun baris legacy kebetulan punya nilai di
+        // kolom itu -- Gateway mengisi `key.participant` dari JID akun-bot-nya
+        // sendiri untuk kasus ini (spec Section 4.1), bukan dari data kita.
         $payload = [
             'wa_message_id' => $sumber['wa_message_id'] ?? null,
-            'sender_jid'    => ($sumber['sender_jid'] ?? null) ?: null,
+            'sender_jid'    => $fromMe ? null : (($sumber['sender_jid'] ?? null) ?: null),
             'message_type'  => $tipe,
-            'fromMe'        => ($sumber['direction'] ?? 'incoming') === 'outgoing',
+            'fromMe'        => $fromMe,
         ];
 
         // Teks ATAU tipe media -- sesuai bentuk yang dibaca Gateway
