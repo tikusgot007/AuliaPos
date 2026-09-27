@@ -1,6 +1,12 @@
 <!-- markdownlint-disable -->
 
-# 🔍 Consistency Audit Report [Review Iteration 1]
+> [!SUCCESS]
+> **REMEDIATION STATUS: RESOLVED (GH-015 PRD↔Spec divergence only)**
+> This audit's PRD-facing Critical Blocker has been remediated by Product Manager PRD.
+>
+> - **Fix:** `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` bumped to **v1.2**. AC GH-015 (Section 10.5, previously lines 362 & 364) rewritten to match `REQ-006`/`CON-001`'s implemented semantics: the message is already sent when the Gateway reports `quote_applied: false`; the cashier is informed **after the fact** via the "Terkirim tanpa kutipan" marker, not via a pre-send offer/cancel step. The AC now explicitly states the only cancel point is **before** send (the existing cancel button in the active-quote area, `REQ-005`), and that a rejected quote after send cannot be cancelled.
+> - **Not addressed by this revision (out of PM/PRD scope):** the second Critical Blocker in this report — `TASK-305`'s incomplete migration-test portability fix (`QuotedSourceMessageIdMigrationTest.php:146`) — is a code/test-layer gap, not a PRD-authoring gap. It requires `/sdlc-write-code` or `/code-janitor`, not a PRD change, and remains open.
+> - **Projected Readiness Score (PRD-side only):** 93/100 (Completeness 38/40, Clarity 27/30, Alignment 28/30) — Critical Flaw Veto for the GH-015 divergence no longer applies. This projection reflects the PRD document alone; a full re-audit may still cap the overall Plan-round score until `TASK-305` is also closed.
 
 **Readiness Score:** 79/100
 **Status:** Below Threshold

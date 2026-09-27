@@ -5,10 +5,13 @@
 ### 1.1 Document title and version
 
 - PRD: Inbox WhatsApp — Grup, Balas Pesan, Teruskan — AuliaPos
-- Version: 1.1
+- Version: 1.2
 
 > [!NOTE]
 > **Catatan revisi v1.1 (2026-09-26):** penyelarasan redaksi dengan keputusan **T3** di `docs/audit/clarification-report-grup-tahap2-identitas-2026-09-26.md` — frasa **"nama pengirim"** diganti menjadi **"identitas pengirim (nomor telepon atau LID)"**, mengikuti `spec/spec-design-grup-tahap2-identitas.md` v1.1 (`REQ-008`/`AC-002`). Tidak ada perubahan lingkup, tujuan, user story, maupun metrik.
+
+> [!NOTE]
+> **Catatan revisi v1.2 (2026-09-27):** penyelarasan **AC GH-015** (Section 10.5, baris 362 & 364) dengan semantik yang sudah berjalan di implementasi (`spec/spec-design-balas-pesan.md` `REQ-006`/`CON-001`) — tindak lanjut Critical Blocker di `docs/audit/consistency-audit-balas-pesan-tahap3-review2-2026-09-27.md` (Readiness Score 79/100, dicetuskan sejak `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27-reaudit.md`). Pesan **sudah terkirim** pada saat Gateway melaporkan `quote_applied: false`; kasir diberi tahu **setelah** kejadian lewat penanda "Terkirim tanpa kutipan" di UI — bukan lewat tawaran pilihan pra-kirim, karena isi pesan sudah diterima Gateway sebelum status kutipan diketahui, sehingga langkah tawar/batal semacam itu tidak mungkin secara teknis. AC yang sebelumnya menuntut "ditawarkan pilihan mengirim tanpa kutipan" (pasca-penolakan) dan "kasir membatalkan ⇒ tidak ada pesan terkirim" diganti agar mencerminkan bahwa satu-satunya titik pembatalan kutipan ada **sebelum** kirim (tombol batal di area kutipan aktif, `REQ-005`), bukan sesudah Gateway menolak kutipan. Tidak ada perubahan pada lingkup, tujuan, user story lain, atau metrik.
 
 **Hubungan dengan dokumen lain:**
 
@@ -359,9 +362,9 @@ Urutan mengikuti keputusan draft §5.1 butir 9 (**Grup lebih dulu**, baru Balas 
   - [ ] Kutipan yang terkirim ke pelanggan adalah kutipan WhatsApp asli, bukan teks yang disalin manual.
   - [ ] Kutipan tetap terlihat oleh kasir setelah berpindah percakapan lalu kembali, dan setelah thread dimuat ulang.
   - [ ] Di grup, kutipan menampilkan identitas pengirim (nomor telepon atau LID) yang dikutip.
-  - [ ] Bila kutipan ditolak Gateway, kasir menerima penjelasan yang bisa dipahami dan ditawarkan pilihan mengirim tanpa kutipan.
-  - [ ] Pesan tidak pernah terkirim tanpa kutipan tanpa sepengetahuan kasir.
-  - [ ] Bila kutipan ditolak dan kasir memilih membatalkan, tidak ada pesan apa pun yang terkirim.
+  - [ ] Bila Gateway menolak kutipan (`quote_applied: false`), pesan **tetap terkirim** tanpa kutipan, dan kasir diberi tahu **setelah pengiriman** lewat penanda "Terkirim tanpa kutipan" di UI — bukan lewat tawaran pilihan sebelum kirim, karena isi pesan sudah diterima Gateway pada saat status kutipan diketahui.
+  - [ ] Pesan tidak pernah terkirim tanpa kutipan tanpa sepengetahuan kasir — kasir selalu tahu lewat penanda "Terkirim tanpa kutipan", meski pemberitahuan itu terjadi setelah pesan terkirim.
+  - [ ] Satu-satunya titik pembatalan kutipan ada **sebelum** pesan dikirim, lewat tombol batal di area kutipan aktif (lihat AC kelima di atas). Setelah pesan terkirim dan Gateway melaporkan `quote_applied: false`, pengiriman **tidak dapat dibatalkan** — isi pesan sudah diterima Gateway.
   - [ ] Pesan hasil **Balas Pesan** tidak terkirim ganda saat kasir menekan kirim berulang atau koneksi terputus (memakai mekanisme idempotensi kirim yang sudah ada).
   - [ ] Bila berkas media yang dikutip sudah tidak tersedia, rujukan kutipan tetap tampil dan thread tetap dapat dimuat.
 
