@@ -827,3 +827,35 @@
 <!-- checkpoint-tail: 2026-09-27 Phase 6aa `/sdlc-clarify-reqs` atas `spec/spec-design-inbox-read-authorization.md` v1.0 (ALT-003/AUTHZ-02) → Readiness 92/100 PROCEED. Dua keputusan: (C-1/A) `media()` hapus HANYA guard `cekOwnership()` `Inbox.php:425-431`, PERTAHANKAN lookup percakapan `:416-423` + `404` agar AC-007 tetap benar (veto 79 lepas setelah ini); (C-2/A) penanda 410 `media_confirmed_gone_at` `:531-535` boleh ditulis semua staff login, didokumentasikan eksplisit + 1 test. Diverifikasi: matriks tulis spec akurat, badge kepemilikan sudah tampil ke semua staff (`index.php:1094-1097`/`:1322-1335`), `CHAT.md` §15 konsisten baca-terbuka, tidak ada ADR/CONTEXT.md baru. Laporan: `docs/audit/clarification-report-inbox-read-authorization-2026-09-27.md`. Next: `/sdlc-define-specs` amandemen 4 poin, lalu `/sdlc-plan-tasks`. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6bb — `/sdlc-define-specs` amandemen C-1/C-2 → spec Inbox Read Authorization v1.0 → v1.1)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`, remediasi pasca-audit). Persona-locked Specification Architect. Lingkup tunggal: menerapkan 2 resolusi (C-1, C-2) dari `docs/audit/clarification-report-inbox-read-authorization-2026-09-27.md` (Readiness 92/100 PROCEED) ke `spec/spec-design-inbox-read-authorization.md`. Tidak ada kode produksi yang diubah (spec-only).
+- **Active Artifacts:**
+  - `spec/spec-design-inbox-read-authorization.md` — ✅ v1.0 → **v1.1** (self-assessed 98/100).
+  - `docs/audit/clarification-report-inbox-read-authorization-2026-09-27.md` — ✅ `REMEDIATION STATUS: RESOLVED` ditambahkan (banner setelah H1, proyeksi skor 98/100).
+- **Achieved Milestones:**
+  - **C-1 diterapkan:** §Introduction (catatan revisi v1.1), `REQ-002` (§3), tabel gerbang media (§4), §7 Project Structure, dan §8 contoh kode semuanya diperjelas — guard yang dihapus **hanya** `cekOwnership()` (`Inbox.php:425-431`); pemuatan percakapan (`:416-423`) + `404`-nya **dipertahankan** (bukan "boleh dihapus" seperti wording v1.0) supaya `AC-007` tetap benar. Contoh kode §8 kini menampilkan kedua blok `404` (pesan, lalu percakapan) utuh dengan komentar `// C-1` menjelaskan alasannya.
+  - **C-2 diterapkan:** definisi baru **"Penanda Objektif"** ditambahkan di §2 Definitions (pengecualian eksplisit dari definisi Operasi Tulis); `REQ-002` (§3) mendapat sub-poin baru menyatakan penulisan `media_confirmed_gone_at` pada jalur `410` boleh dipicu staff mana pun yang login; `AC-009` baru ditambahkan (§5); test baru ditambahkan di §6 dan §7 (`InboxMediaAuthTest.php`); `Validation Criteria` (§13) menambah baris verifikasi.
+  - Verifikasi kode: `app/Controllers/Inbox.php:396-551` (`media()`) dibaca utuh untuk memastikan urutan blok (404 pesan → lookup percakapan `:416-423` → guard `:425-431` → jalur 410 `:531-535`) sebelum menulis amandemen — tidak ada asumsi tanpa verifikasi.
+  - **Self-Assessment (3-Step Remediation Sequence, AGENTS.md rubrik):** Completeness 39/40 (kedua item C-1/C-2 terimplementasi penuh di semua section relevan), Clarity 29/30 (kontradiksi Section 7/8 vs AC-007 tuntas, frasa "boleh dihapus" dihapus total), Alignment 30/30 (terminologi "Penanda Objektif" konsisten dipakai di §2/§3/§4, tidak menyimpang dari `CONTEXT.md`), tidak ada Critical Flaw Veto → **Proyeksi 98/100**. Blok `REMEDIATION STATUS: RESOLVED` ditambahkan ke laporan klarifikasi tepat setelah H1 (menghindari DE-06).
+- **Dead-Ends (Do NOT Repeat):**
+  - N/A — amandemen berjalan lurus mengikuti instruksi eksplisit laporan klarifikasi (4 poin di Section 4 "Next Steps"), tidak ada pendekatan gagal.
+- **Updated Files:**
+  - `spec/spec-design-inbox-read-authorization.md` — v1.0 → v1.1 (front matter `version`; catatan revisi v1.1; §2 definisi "Penanda Objektif"; `REQ-002` sub-poin C-2; §4 tabel media; `AC-009` baru §5; §6/§7 test baru; §8 contoh kode direvisi; §13 Validation Criteria).
+  - `docs/audit/clarification-report-inbox-read-authorization-2026-09-27.md` — banner `REMEDIATION STATUS: RESOLVED` (98/100) ditambahkan setelah H1.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Tidak ada keputusan arsitektur baru — sesi ini murni menerapkan 2 resolusi yang SUDAH diputuskan pemilik proyek di sesi klarifikasi sebelumnya (opsi A untuk C-1 dan C-2 keduanya).
+  - Tidak ada ADR baru (Triple Gate tetap gagal — guard yang dihapus mudah dibalik); tidak ada perubahan `CONTEXT.md` (istilah "Penanda Objektif" adalah istilah kerja lokal spec ini, bukan istilah bisnis baru).
+- **Next Action / Pending:**
+  - Skor proyeksi 98/100 ≥ 80 → user dapat memilih **Opsi A** (langsung `/sdlc-plan-tasks`, sesi baru, lampirkan spec v1.1) atau **Opsi B** (`/sdlc-clarify-reqs` sekali lagi untuk verifikasi ekstra, tidak wajib).
+  - Implementasi kode (saat `/sdlc-write-code` nanti): hapus HANYA `Inbox.php:425-431`; PERTAHANKAN `:416-423`; perbarui `tests/session/InboxMediaAuthTest.php` (kasus non-pemegang → `200`; tambah kasus `410` non-pemegang → tetap `410` + `media_confirmed_gone_at` tertulis); tambah anti-regresi `apiMessages()` non-pemegang → `200`; perbarui `docs/ARCHITECTURE.md` (Living Architecture Map mandate).
+  - Carried forward (tidak berubah): `TEST-01`/`DOC-01` Grup Tahap 1; PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search; `docs/ARCHITECTURE.md` §11 `aulia_inboxdb_perf` paragraph.
+  - File sesi ini (spec v1.1 + laporan klarifikasi + memory) **belum di-commit** — menunggu perintah owner (closing sequence #3: checkpoint ini → commit → push → prompt sesi berikutnya). Juga masih ada 1 commit lama (`95daa01`) yang belum di-push ke `origin/v2.3` dari sesi sebelumnya.
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6bb `/sdlc-define-specs` menerapkan C-1/C-2 dari clarification report ke spec/spec-design-inbox-read-authorization.md (v1.0 → v1.1): C-1 memperjelas bahwa media() hanya menghapus guard cekOwnership() Inbox.php:425-431, mempertahankan lookup percakapan :416-423 + 404 (AC-007 tetap benar) — §Introduction/REQ-002/§4/§7/§8 diselaraskan + contoh kode §8 direvisi; C-2 menambah definisi "Penanda Objektif" (§2) + sub-poin REQ-002 + AC-009 baru + test baru (§6/§7/§13) menyatakan penulisan media_confirmed_gone_at pada jalur 410 boleh dipicu staff mana pun. Self-assessment 98/100 (Completeness 39/40, Clarity 29/30, Alignment 30/30, no veto); REMEDIATION STATUS: RESOLVED ditambahkan ke clarification report setelah H1. Tidak ada ADR/CONTEXT.md baru. Next: user pilih /sdlc-plan-tasks langsung (skor ≥80) atau /sdlc-clarify-reqs opsional lagi. Belum commit/push; masih ada 1 commit lama (95daa01) tertunda push dari sesi sebelumnya. -->
+
+---
