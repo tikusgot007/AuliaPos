@@ -859,3 +859,38 @@
 <!-- checkpoint-tail: 2026-09-27 Phase 6bb `/sdlc-define-specs` menerapkan C-1/C-2 dari clarification report ke spec/spec-design-inbox-read-authorization.md (v1.0 → v1.1): C-1 memperjelas bahwa media() hanya menghapus guard cekOwnership() Inbox.php:425-431, mempertahankan lookup percakapan :416-423 + 404 (AC-007 tetap benar) — §Introduction/REQ-002/§4/§7/§8 diselaraskan + contoh kode §8 direvisi; C-2 menambah definisi "Penanda Objektif" (§2) + sub-poin REQ-002 + AC-009 baru + test baru (§6/§7/§13) menyatakan penulisan media_confirmed_gone_at pada jalur 410 boleh dipicu staff mana pun. Self-assessment 98/100 (Completeness 39/40, Clarity 29/30, Alignment 30/30, no veto); REMEDIATION STATUS: RESOLVED ditambahkan ke clarification report setelah H1. Tidak ada ADR/CONTEXT.md baru. Next: user pilih /sdlc-plan-tasks langsung (skor ≥80) atau /sdlc-clarify-reqs opsional lagi. Belum commit/push; masih ada 1 commit lama (95daa01) tertunda push dari sesi sebelumnya. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6cc — `/sdlc-plan-tasks` plan baru untuk Inbox Read Authorization ALT-003/AUTHZ-02)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`). Persona-locked Planner Architect; hanya dokumen `/plan/` yang ditulis, tidak ada kode produksi diubah.
+- **Konteks pemicu:** Sesi dimulai dengan push 2 commit tertunda (`95daa01`, `04575bf`) ke `origin/v2.3` — sudah sinkron sebelum plan dimulai. Lalu user memilih lanjut ke Plan untuk spec Inbox Read Authorization (v1.1, 98/100) yang sudah dipush.
+- **Active Artifacts:**
+  - `plan/plan-refactor-inbox-media-read-authorization-v1.0.md` — ✅ **NEW**, status `Planned`, 2 fase, 9 task.
+  - `spec/spec-design-inbox-read-authorization.md` — v1.1 (input, tidak diubah sesi ini).
+- **Achieved Milestones:**
+  - Verifikasi kode sebelum menulis plan: `Inbox::media()` (`app/Controllers/Inbox.php:396-551`) dibaca utuh (blok `cekOwnership()` di `:425-431`, lookup percakapan `:416-423`, jalur `410` di `:531-535`); `Inbox::apiMessages()` (`:303-332`) dan `app/Config/Routes.php:39-40` dikonfirmasi `auth`-only tanpa guard kepemilikan (SEC-001 sudah benar, tidak perlu diubah). `CONTEXT.md` dan `docs/adr/` dicek — tidak ada istilah/ADR baru dibutuhkan (konsisten dengan spec Section 10, Triple Gate gagal).
+  - Repo-wide grep membuktikan **hanya** `tests/session/InboxMediaAuthTest.php` yang mengasumsikan `403` untuk non-pemegang di `media()` — tidak ada file test lain yang akan pecah oleh perubahan ini.
+  - Ditemukan `tests/session/InboxHandoffTest.php:596-598` sudah punya assertion insidental `apiMessages()` → `200` untuk non-terlibat, tapi tidak bernama eksplisit sebagai regression anchor SEC-001 — plan menambah 1 test baru bernama eksplisit (TASK-004) supaya grep/audit masa depan bisa menemukannya.
+  - Plan **2 Fase**: Fase 1 (TASK-001 hapus guard + TASK-002/003 perbarui/tambah test `InboxMediaAuthTest` + TASK-004 test jangkar SEC-001 baru di `InboxHandoffTest` + VERIFY + APPROVAL); Fase 2 (TASK-007 sinkron `docs/ARCHITECTURE.md` Section 7 + VERIFY + APPROVAL). Semua task Size XS-S (1 file/task).
+  - User memvalidasi granularity 9-task/2-fase lewat pertanyaan interaktif wajib skill ("Quiz the User") sebelum file plan ditulis — dipilih "Sudah pas, lanjut buat file plan".
+  - Self-audit 7 Red Flags (horizontal slicing, bloated task, AC subjektif, deskripsi mekanis, VERIFY hilang, dependency inversion, silent requirement change) dijalankan — tidak ada yang terdeteksi.
+- **Dead-Ends (Do NOT Repeat):**
+  - N/A sesi ini — riset dan penulisan plan berjalan lurus tanpa pendekatan gagal.
+- **Updated Files:**
+  - `plan/plan-refactor-inbox-media-read-authorization-v1.0.md` — file baru (lihat Achieved Milestones untuk isi).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Plan **menggantikan** (bukan mengubah) `SEC-002`/`TASK-103` dari `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md:50` — guard yang ditambahkan sesi itu kini dihapus lagi sesuai keputusan spec v1.1.
+  - `TASK-004` (test jangkar SEC-001 baru) ditempatkan di `InboxHandoffTest.php`, bukan file test baru — mengikuti pola existing test G01 di file yang sama yang sudah menyentuh isu serupa.
+  - 2 alternatif eksplisit didokumentasikan di plan (Section 3): ALT-001 (guard lunak/logging — ditolak, di luar scope spec) dan ALT-002 (hapus juga lookup percakapan `:416-423` — ditolak, akan merusak AC-007/404).
+- **Next Action / Pending:**
+  - Sesuai skill Phase 4: arahkan user ke `/sdlc-clarify-reqs` **sesi baru** untuk menginterogasi plan baru ini sebelum eksekusi (plan baru, bukan hasil remediasi audit, jadi tidak ada self-assessment skor di sini).
+  - Setelah klarifikasi (atau kalau user memilih skip klarifikasi secara eksplisit): `/sdlc-write-code` mengeksekusi `plan/plan-refactor-inbox-media-read-authorization-v1.0.md` Fase 1, berhenti di TASK-006 (APPROVAL) sebelum Fase 2.
+  - Carried forward (tidak berubah): `TEST-01`/`DOC-01` Grup Tahap 1; PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search; `docs/ARCHITECTURE.md` §11 `aulia_inboxdb_perf` paragraph.
+  - File sesi ini (plan baru + memory) **belum di-commit** — menunggu perintah owner (closing sequence #3: checkpoint ini → commit → push → prompt sesi berikutnya).
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6cc `/sdlc-plan-tasks` created plan/plan-refactor-inbox-media-read-authorization-v1.0.md (Planned, 2 phases, 9 tasks) implementing spec-design-inbox-read-authorization.md v1.1: Phase 1 removes cekOwnership() guard from Inbox::media() (keeps conversation-lookup 404), rewrites the now-inverted InboxMediaAuthTest.php non-holder test to expect 200, adds a new AC-009/C-2 test for the 410 path, and adds a dedicated named SEC-001 regression-anchor test in InboxHandoffTest.php; Phase 2 syncs docs/ARCHITECTURE.md Section 7. This plan REPLACES the SEC-002/TASK-103 guard added by plan-refactor-balas-pesan-tahap3-review2-v1.0.md. Verified via code read + repo-wide grep that InboxMediaAuthTest.php is the only test file assuming 403 for a non-holder. User validated the 9-task/2-phase breakdown via the mandatory Quiz-the-User step before the file was written. Next: /sdlc-clarify-reqs in a new session, then /sdlc-write-code Phase 1 (stop at TASK-006 APPROVAL). No commit/push yet. -->
+
+---
