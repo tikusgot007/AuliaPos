@@ -894,3 +894,38 @@
 <!-- checkpoint-tail: 2026-09-27 Phase 6cc `/sdlc-plan-tasks` created plan/plan-refactor-inbox-media-read-authorization-v1.0.md (Planned, 2 phases, 9 tasks) implementing spec-design-inbox-read-authorization.md v1.1: Phase 1 removes cekOwnership() guard from Inbox::media() (keeps conversation-lookup 404), rewrites the now-inverted InboxMediaAuthTest.php non-holder test to expect 200, adds a new AC-009/C-2 test for the 410 path, and adds a dedicated named SEC-001 regression-anchor test in InboxHandoffTest.php; Phase 2 syncs docs/ARCHITECTURE.md Section 7. This plan REPLACES the SEC-002/TASK-103 guard added by plan-refactor-balas-pesan-tahap3-review2-v1.0.md. Verified via code read + repo-wide grep that InboxMediaAuthTest.php is the only test file assuming 403 for a non-holder. User validated the 9-task/2-phase breakdown via the mandatory Quiz-the-User step before the file was written. Next: /sdlc-clarify-reqs in a new session, then /sdlc-write-code Phase 1 (stop at TASK-006 APPROVAL). No commit/push yet. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6dd — `/sdlc-plan-tasks` remediasi 6 resolusi klarifikasi → plan Inbox Media Read Authorization v1.0 → v1.1)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`, Phase 3 Audit Remediation). Persona-locked Planner Architect; hanya dokumen `/plan/` + banner remediasi laporan klarifikasi yang ditulis, tidak ada kode produksi diubah.
+- **Konteks pemicu:** Tindak lanjut langsung checkpoint Phase 6cc — user menjalankan `/sdlc-clarify-reqs` di sesi baru atas plan yang baru dibuat, menghasilkan `docs/audit/clarification-report-inbox-media-read-authorization-plan-2026-09-27.md` (Readiness 91/100 PROCEED, 6 resolusi execution-detail). Sesi ini melipat keenam resolusi itu ke plan.
+- **Active Artifacts:**
+  - `plan/plan-refactor-inbox-media-read-authorization-v1.0.md` — v1.0 → **v1.1** (frontmatter `version`; banner revisi v1.1 setelah Introduction; TASK-001/002/003/004/007 diperluas; Section 5/8 disinkronkan). Struktur Phase/Dep **tidak diubah**.
+  - `docs/audit/clarification-report-inbox-media-read-authorization-plan-2026-09-27.md` — ✅ `REMEDIATION STATUS: RESOLVED` ditambahkan setelah H1 (proyeksi 99/100).
+  - `spec/spec-design-inbox-read-authorization.md` — v1.1 (input, tidak diubah sesi ini).
+- **Achieved Milestones:**
+  - **TASK-001:** update komentar dipecah jadi 2 komentar terpisah (C-1 sebelum lookup percakapan yang dipertahankan; REQ-002 di lokasi guard yang dihapus) — bukan satu komentar diedit di tempat.
+  - **TASK-002:** rewrite kini juga memperbaiki class docblock usang (`:12-18`) dan pesan assertion usang (`:97`) yang masih menyebut perilaku 403 lama.
+  - **TASK-003:** ditambah sub-langkah (a) `InboxMediaAuthSpy::$gatewayResponse` properti publik mutable (default backward-compatible) + `callGatewayMediaDownload()` mengembalikannya; sub-langkah (b) test AC-009 menyetel properti itu sebelum memanggil `media()`, ditambah assertion ketiga `gatewayMediaDownloadCalls === 1` untuk membuktikan jalur Gateway benar-benar tereksekusi.
+  - **TASK-004:** ditambah sub-langkah (a) helper `seedMessage()` baru di `InboxHandoffTest.php` (pola sama `seedConversation()`) sebelum test anchor SEC-001 ditulis — file itu belum punya cara menyeed baris `messages`.
+  - **TASK-007:** lokasi dokumentasi dipertegas jadi sub-section baru `### Media Read Authorization` di Section 8 `docs/ARCHITECTURE.md`, paralel dengan `### Handoff and Collision Detection` — bukan digabung ke sub-section Balas Pesan yang tidak relevan.
+  - Self-Assessment (3-Step Remediation Sequence, rubrik AGENTS.md): Completeness 40/40, Clarity 30/30, Alignment 29/30, tidak ada Critical Flaw Veto → **Proyeksi 99/100**.
+- **Dead-Ends (Do NOT Repeat):**
+  - N/A sesi ini — remediasi berjalan lurus mengikuti 6 resolusi eksplisit di laporan klarifikasi, tidak ada pendekatan gagal.
+- **Updated Files:**
+  - `plan/plan-refactor-inbox-media-read-authorization-v1.0.md` — v1.0 → v1.1 (lihat Achieved Milestones).
+  - `docs/audit/clarification-report-inbox-media-read-authorization-plan-2026-09-27.md` — banner `REMEDIATION STATUS: RESOLVED` (99/100) ditambahkan setelah H1.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Tidak ada keputusan arsitektur baru — sesi ini murni menerapkan resolusi yang SUDAH diputuskan di sesi klarifikasi sebelumnya, tanpa mengubah requirement/Phase/Dep graph.
+  - Tidak ada ADR baru; `CONTEXT.md` tidak berubah.
+- **Next Action / Pending:**
+  - Skor proyeksi 99/100 ≥ 80 → user dapat memilih **Opsi A** (langsung `/sdlc-write-code`, sesi baru, eksekusi Fase 1 sampai TASK-006 APPROVAL) atau **Opsi B** (`/sdlc-clarify-reqs` sekali lagi, opsional, tidak wajib).
+  - Carried forward (tidak berubah): `TEST-01`/`DOC-01` Grup Tahap 1; PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search; `docs/ARCHITECTURE.md` §11 `aulia_inboxdb_perf` paragraph.
+  - File sesi ini (plan v1.1 + banner remediasi laporan klarifikasi + memory) **belum di-commit** — menunggu perintah owner (closing sequence #3: checkpoint ini → commit → push → prompt sesi berikutnya).
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6dd `/sdlc-plan-tasks` folded all 6 execution-detail resolutions from clarification-report-inbox-media-read-authorization-plan-2026-09-27.md (Readiness 91/100 PROCEED) into plan-refactor-inbox-media-read-authorization-v1.0.md (v1.0 → v1.1): TASK-001 comment split into two (C-1 + REQ-002); TASK-002 also fixes stale docblock/assertion message; TASK-003 adds InboxMediaAuthSpy::$gatewayResponse mutable property + third gatewayMediaDownloadCalls assertion; TASK-004 adds missing seedMessage() helper; TASK-007 targets new named "Media Read Authorization" sub-section in ARCHITECTURE.md Section 8. No requirement/Phase/Dep graph changed. Self-assessment 99/100 (Completeness 40/40, Clarity 30/30, Alignment 29/30, no veto); REMEDIATION STATUS: RESOLVED banner added to clarification report after H1. Next: user picks Option A (/sdlc-write-code Phase 1, new session) or Option B (/sdlc-clarify-reqs again, optional). No commit/push yet. -->
+
+---
