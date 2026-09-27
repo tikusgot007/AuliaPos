@@ -1000,3 +1000,38 @@
 <!-- checkpoint-tail: 2026-09-27 Phase 6ff `/sdlc-code-review` ran a formal Two-Axis (Standards vs Spec) review of commit 1961bda (open GET /inbox/media/(:num) to all logged-in staff) via 2 parallel read-only sub-agents, using spec-design-inbox-read-authorization.md v1.1 and the now-Completed plan-refactor-inbox-media-read-authorization-v1.0.md v1.1 as upstream context. Result: 0 CRITICAL/REQUIRED findings on either axis (1 NIT test-double ergonomics, 1 NIT stale unrelated doc footnote, a few FYIs all confirming the open-read decision is intentional/bounded/well-tested); all 9 plan tasks verified PASS; code matches spec Section 8's canonical example byte-for-byte; SEC-001 regression anchor confirmed. Verdict: Proceed to merge — no refactoring plan file was created (correctly skipped per skill's own Phase 2 branching rule). This closes the Inbox Read Authorization (ALT-003/AUTHZ-02) SDLC arc: Spec v1.1 → Plan v1.1 (Completed) → Code (1961bda) → Review (clear). Next: owner's choice for next feature/phase; no mandatory follow-up commit. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Code Janitor — 3 carried-forward minor cleanups: cekBukanGrup() docblock, closed-group handoff test, ARCHITECTURE.md §11 perf-DB paragraph)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Ad-hoc fix (`/code-janitor`, Broom Rule — 3 small, independent, single-location edits across 2 files). Bukan tahap SDLC formal.
+- **Konteks pemicu:** User bertanya "enaknya ngapain hari ini" — setelah tinjau memori + status git (working tree bersih, `origin/v2.3` sinkron di `56142d0`), dipilih opsi "beres-beres catatan kecil" dari carried-forward items lama: `TEST-01`/`DOC-01` Grup Tahap 1 (checkpoint Phase 6z) dan `docs/ARCHITECTURE.md` §11 `aulia_inboxdb_perf` paragraph (carried forward sejak Fase 1e, ~15 checkpoint).
+- **Active Artifacts:**
+  - `app/Controllers/Inbox.php` — ✅ Updated (docblock `cekBukanGrup()`)
+  - `tests/session/InboxGrupTahap1Test.php` — ✅ Updated (+1 test)
+  - `docs/ARCHITECTURE.md` — ✅ Updated (§11 paragraf baru)
+- **Achieved Milestones:**
+  - **`DOC-01` (dari checkpoint Phase 6z) ditutup:** docblock `cekBukanGrup()` (`Inbox.php:769-778`) direvisi dari "CON-004 (Grup Tahap 1)" + enumerasi 6 endpoint menjadi "CON-004 (Grup Tahap 1 + SEC-01)" + enumerasi 8 endpoint (menambahkan Handoff/Tandai Dibaca yang ditutup di Phase 6y).
+  - **`TEST-01` (dari checkpoint Phase 6z) ditutup:** test baru `testHandoffPercakapanGrupClosedTetapDitolak403BukanSelesai409()` — grup dengan `status='closed'` yang dicoba handoff tetap dijawab **403** (bukan 409 keluarga "selesai"), membuktikan guard `cekBukanGrup()` dievaluasi SEBELUM cabang eligibility `queue_status==='selesai'` di `handoffPercakapan()`; tanpa penulisan `assigned_to`/`conversation_handoffs`.
+  - **`docs/ARCHITECTURE.md` §11 perf-DB paragraph ditutup** (utang dari Fase 1e, 25 Sep, dirujuk berulang di ~15 checkpoint sebagai carried-forward): paragraf baru "Manual performance measurement database: `aulia_inboxdb_perf`" menjelaskan provisioning schema-only, guarded Spark command `aulia:seed-fase1e-perf` (`SeedFase1ePerf::DATABASE_DIIZINKAN` guard), dan alasan tidak diwire ke `composer test`/CI.
+  - Verifikasi: `--filter InboxGrupTahap1Test` → **20/20 tests, 89 assertions, OK** (naik dari 19). Full suite `vendor/bin/phpunit --no-coverage` → **574 tests, 2201 assertions, OK, exit 0** (naik dari baseline 573/2196 — persis +1 test baru, zero regresi).
+- **Dead-Ends (Do NOT Repeat):**
+  - N/A sesi ini — ketiga edit surgical berhasil pada percobaan pertama, tidak ada pendekatan gagal.
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — docblock `cekBukanGrup()` (`:769-778`) direvisi (2 baris komentar).
+  - `tests/session/InboxGrupTahap1Test.php` — +1 test `testHandoffPercakapanGrupClosedTetapDitolak403BukanSelesai409()` (setelah `testTandaiDibacaPribadiTetapMenulisLastSeen()`).
+  - `docs/ARCHITECTURE.md` — Section 11, paragraf baru "Manual performance measurement database: `aulia_inboxdb_perf`" ditambahkan setelah paragraf checkpoint M3 Phase 2a yang sudah ada.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Tidak ada keputusan arsitektur baru — sesi ini murni membersihkan 3 item non-blocking yang sudah lama tercatat carried-forward di banyak checkpoint (Phase 6z, Phase 6ff dst.) tanpa pernah dieksekusi.
+  - Ketiga item dieksekusi via `/code-janitor` (Broom Rule) tanpa mini-plan terpisah — semuanya presisi (1-2 lokasi per file, sumber kebenaran sudah eksplisit dari checkpoint lama).
+- **Next Action / Pending:**
+  - Ketiga item carried-forward ini (`TEST-01`, `DOC-01` Grup Tahap 1; `docs/ARCHITECTURE.md` §11 perf-DB paragraph) kini **CLOSED** — hapus dari daftar carried-forward pada checkpoint berikutnya.
+  - Carried forward (tidak berubah, tetap terbuka): PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13 (catatan: seluruh dokumen `docs/TODO-CHAT.md` juga sudah sangat basi — terakhir diupdate 24-25 Sep, belum mencatat kerjaan Balas Pesan/Grup Tahap 2/Inbox Read Authorization yang sudah selesai; belum ditindaklanjuti sesi ini karena user memilih opsi "beres-beres catatan kecil", bukan "update dokumen status"); group-rename sync; BACKLOG `group_name` search; `docs/CHAT.md:323` stale footnote (SPEC-02, informational).
+  - Fitur besar berikutnya yang belum dimulai (ditawarkan tapi tidak dipilih sesi ini): **Teruskan (Tahap 4)** — forward pesan WhatsApp, PRD sudah ada tapi belum masuk `/sdlc-define-specs`.
+  - File sesi ini (kode + test + dokumen + memory) **belum di-commit** — menunggu perintah owner (closing sequence #3: checkpoint ini → commit → push → prompt sesi berikutnya).
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path digunakan sesi ini).
+
+<!-- checkpoint-tail: 2026-09-28 Code Janitor closed 3 long-carried-forward minor items in one Broom-Rule session: (1) Inbox.php:769-778 cekBukanGrup() docblock now lists all 8 guarded endpoints (was 6, missing Handoff/Tandai Dibaca from Phase 6y); (2) InboxGrupTahap1Test.php +1 test proving a closed group still gets 403 (not 409) on handoff attempts, confirming guard order; (3) docs/ARCHITECTURE.md Section 11 gained the long-owed aulia_inboxdb_perf + aulia:seed-fase1e-perf paragraph (owed since Fase 1e, referenced as carried-forward in ~15 prior checkpoints). Full suite green at 574 tests/2201 assertions (was 573/2196), zero regressions. No architectural decisions made — pure cleanup of items that were flagged but never executed. Not committed yet. Next: owner's choice — docs/TODO-CHAT.md is also very stale and could be the next small task, or start the bigger Teruskan (Tahap 4) feature. -->
+
+---

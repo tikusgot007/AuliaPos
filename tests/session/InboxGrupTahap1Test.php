@@ -373,6 +373,25 @@ final class InboxGrupTahap1Test extends CIUnitTestCase
         $this->assertNotNull($this->conversation($id)['last_seen_by_assignee_at']);
     }
 
+    /**
+     * Discriminator urutan (CON-004): guard grup HARUS dievaluasi SEBELUM
+     * cabang 409 'selesai' (queue_status computed dari status='closed'),
+     * jadi grup yang sudah closed pun tetap dijawab 403 -- bukan 409 --
+     * dan tidak ada penulisan apa pun.
+     */
+    public function testHandoffPercakapanGrupClosedTetapDitolak403BukanSelesai409(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => 7, 'status' => 'closed']);
+
+        $res = $this->withSession($this->sesi())
+            ->post(self::PERCAKAPAN_URL . $id . '/handoff', $this->payloadHandoff(8, 7));
+
+        $res->assertStatus(403);
+        $res->assertJSONFragment(['status' => 'error']);
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertSame(0, $this->jumlahHandoff($id));
+    }
+
     // ---- AC-009: hapusPercakapan() grup dikecualikan dari syarat closed --
 
     public function testHapusPercakapanGrupOlehAdminSuksesWalauBukanClosed(): void

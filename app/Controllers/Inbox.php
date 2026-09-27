@@ -767,10 +767,10 @@ class Inbox extends BaseController
     }
 
     /**
-     * CON-004 (Grup Tahap 1) -- percakapan grup tidak pernah boleh
-     * Ambil/Lepas/Tutup/Snooze/Konfirmasi Nomor/Edit Profil, sekalipun
-     * request datang LANGSUNG ke endpoint (melewati UI yang sudah
-     * menyembunyikan/men-disable tombolnya per CON-001/CON-002).
+     * CON-004 (Grup Tahap 1 + SEC-01) -- percakapan grup tidak pernah boleh
+     * Ambil/Lepas/Tutup/Snooze/Konfirmasi Nomor/Edit Profil/Handoff/Tandai
+     * Dibaca, sekalipun request datang LANGSUNG ke endpoint (melewati UI
+     * yang sudah menyembunyikan/men-disable tombolnya per CON-001/CON-002).
      * Defense in depth, pola yang sama dengan cekOwnership().
      *
      * @return string|null Pesan error kalau DITOLAK, null kalau BOLEH.

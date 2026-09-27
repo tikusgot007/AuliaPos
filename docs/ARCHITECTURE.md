@@ -398,6 +398,23 @@ mysqldump -u root -p --no-data --routines --triggers aulia_inboxdb | mysql -u ro
 
 The M3 Phase 2a checkpoint recorded in `.claude/instructions/memory.instructions.md` reports 283 tests and 867 assertions on branch `feature/m3-operational-inbox-fase1a-task001` using `vendor/bin/phpunit --no-coverage` (plain `composer test` still exits non-zero because of the pre-existing "No code coverage driver available" warning).
 
+### Manual performance measurement database: `aulia_inboxdb_perf`
+
+The M3 Fase 1e search feature (`AC-016`, message-search latency) is measured manually against a **separate, non-live database** — never `aulia_inboxdb` (production) and never `aulia_inboxdb_test` (`composer test` empties its tables between runs). Provision it schema-only with the same recipe as the test database above, pointed at a different name:
+
+```text
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS aulia_inboxdb_perf CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+mysqldump -u root -p --no-data --routines --triggers aulia_inboxdb | mysql -u root -p aulia_inboxdb_perf
+```
+
+Fixture data (2,000 conversations x 100 messages = 200,000 `messages` rows) is loaded by the guarded Spark command `app/Commands/SeedFase1ePerf.php`:
+
+```text
+php spark aulia:seed-fase1e-perf --dbgroup=inbox
+```
+
+The command refuses to run unless the active database of the `inbox` group is literally `aulia_inboxdb_perf` (`SeedFase1ePerf::DATABASE_DIIZINKAN`), so it can never write to production or the test database. It is deliberately **not** wired into `composer test`, PHPUnit, or CI — it only runs when a human invokes it directly. To point the real HTTP endpoints at the perf database for measurement, temporarily override `database.inbox.database` in `.env` (git-ignored), measure, then restore it.
+
 ## 12. Architectural Constraints Relevant to M3 Phase 2
 
 The following constraints are important for subsequent Handoff and Collision Detection work:
