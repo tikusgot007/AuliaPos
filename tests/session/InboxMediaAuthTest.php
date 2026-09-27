@@ -10,12 +10,17 @@ use Config\Inbox as GatewayInboxConfig;
 use Psr\Log\NullLogger;
 
 /**
- * Balas Pesan (Tahap 3 remediasi ronde-2, SEC-002) -- otorisasi object-level
- * pada `GET /inbox/media/(:num)` (`Inbox::media()`).
+ * Inbox Read Authorization (REQ-002, `spec-design-inbox-read-authorization.md`
+ * v1.1) -- `GET /inbox/media/(:num)` (`Inbox::media()`) kini terbuka bagi
+ * seluruh staff yang login, menggantikan guard `SEC-002`/`TASK-103` yang
+ * dulu menolak `403` pemanggil bukan pemegang percakapan.
  *
- * Cakupan: pemanggil yang TIDAK berhak atas percakapan pemilik media ditolak
- * `403` SEBELUM baca disk/ETag/hubungi Gateway; pemilik (atau admin, atau
- * percakapan yang belum ditangani) tetap disajikan.
+ * Cakupan: pemanggil bukan pemegang percakapan tetap DISAJIKAN (`200`) dari
+ * disk tanpa menghubungi Gateway; pemegang, percakapan tanpa pemilik, dan
+ * admin tetap disajikan seperti sebelumnya (regresi); pesan/percakapan tidak
+ * ada tetap `404` (AC-007, guard `cekOwnership()` bukan sumber `404` itu);
+ * jalur `410` boleh dipicu staff mana pun dan menulis
+ * `media_confirmed_gone_at` (AC-009/C-2).
  *
  * @internal
  */
@@ -73,28 +78,26 @@ final class InboxMediaAuthTest extends CIUnitTestCase
     }
 
     // ------------------------------------------------------------------
-    // SEC-002: percakapan milik kasir lain -> 403 tanpa byte keluar
+    // REQ-002: percakapan milik kasir lain -> tetap disajikan dari disk
     // ------------------------------------------------------------------
 
-    public function testMediaPercakapanMilikKasirLainDitolak403TanpaHubungiGateway(): void
+    public function testMediaPercakapanMilikKasirLainDisajikanDariDisk(): void
     {
         $conversationId = $this->seedConversation('628222222222@s.whatsapp.net', 9);
         $messageId      = $this->seedImageMessage($conversationId, ['media_local_filename' => 'rahasia.jpg']);
 
-        // File SENGAJA ada di disk: kalau otorisasi bocor, responsnya 200
-        // dan isi rahasia keluar -- jadi test ini membuktikan urutan guard.
         file_put_contents($this->mediaDir . DIRECTORY_SEPARATOR . 'rahasia.jpg', 'ISI-RAHASIA');
 
         $controller = $this->makeController();
         $response   = $controller->media($messageId);
 
-        $this->assertSame(403, $response->getStatusCode(), 'SEC-002: media percakapan orang lain -> 403.');
-        $this->assertStringNotContainsString(
+        $this->assertSame(200, $response->getStatusCode(), 'REQ-002: media percakapan kasir lain tetap disajikan.');
+        $this->assertSame(
             'ISI-RAHASIA',
             (string) $response->getBody(),
-            'SEC-002: tidak ada byte media yang boleh keluar sebelum otorisasi.'
+            'REQ-002: disajikan dari disk untuk non-pemegang, tanpa menghubungi Gateway.'
         );
-        $this->assertSame(0, $controller->gatewayMediaDownloadCalls, 'SEC-002: tidak menghubungi Gateway pada kasus ditolak.');
+        $this->assertSame(0, $controller->gatewayMediaDownloadCalls, 'REQ-002: tidak menghubungi Gateway saat file sudah ada di disk.');
     }
 
     // ------------------------------------------------------------------
@@ -149,6 +152,36 @@ final class InboxMediaAuthTest extends CIUnitTestCase
 
         $this->assertSame(200, $response->getStatusCode(), 'Admin boleh (supervisi/override).');
         $this->assertSame('ISI-ADMIN', (string) $response->getBody());
+    }
+
+    // ------------------------------------------------------------------
+    // AC-009/C-2: jalur 410 Gateway tetap diproses untuk non-pemegang,
+    // dan media_confirmed_gone_at boleh ditulis staff mana pun.
+    // ------------------------------------------------------------------
+
+    public function testMediaKedaluwarsa410DiprosesUntukNonPemegangDanMenulisPenanda(): void
+    {
+        $conversationId = $this->seedConversation('628555555555@s.whatsapp.net', 9);
+        $messageId      = $this->seedImageMessage($conversationId, [
+            'media_local_filename'    => null,
+            'media_confirmed_gone_at' => null,
+        ]);
+
+        $controller = $this->makeController();
+        $controller->gatewayResponse = [
+            'ok'     => false,
+            'status' => 410,
+            'error'  => 'Media sudah tidak tersedia (kedaluwarsa).',
+        ];
+
+        $response = $controller->media($messageId);
+
+        $this->assertSame(410, $response->getStatusCode(), 'AC-009/C-2: jalur 410 tidak ditolak 403 di awal untuk non-pemegang.');
+
+        $row = db_connect('inbox')->table('messages')->where('id', $messageId)->get()->getRowArray();
+        $this->assertNotNull($row['media_confirmed_gone_at'], 'AC-009/C-2: penanda objektif tetap ditulis untuk non-pemegang.');
+
+        $this->assertSame(1, $controller->gatewayMediaDownloadCalls, 'AC-009/C-2: request harus benar-benar mencapai jalur Gateway.');
     }
 
     // ------------------------------------------------------------------
@@ -207,10 +240,21 @@ final class InboxMediaAuthSpy extends Inbox
     /** Berapa kali jalur live-fetch Gateway dipanggil (harus 0 saat ditolak). */
     public int $gatewayMediaDownloadCalls = 0;
 
+    /**
+     * TASK-003 (AC-009/C-2): respons Gateway yang dikembalikan
+     * callGatewayMediaDownload(). Default backward-compatible -- sama
+     * persis dengan literal lama -- supaya keempat test lama (yang tidak
+     * pernah menyetel properti ini) tetap memakai default sukses tanpa
+     * perubahan perilaku.
+     *
+     * @var array<string, mixed>
+     */
+    public array $gatewayResponse = ['ok' => true, 'binary' => 'GATEWAY-BYTES'];
+
     public function callGatewayMediaDownload(GatewayInboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30): array
     {
         $this->gatewayMediaDownloadCalls++;
 
-        return ['ok' => true, 'binary' => 'GATEWAY-BYTES'];
+        return $this->gatewayResponse;
     }
 }

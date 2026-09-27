@@ -407,12 +407,10 @@ class Inbox extends BaseController
             ]);
         }
 
-        // SEC-002 (review ronde-2): otorisasi object-level. Media adalah konten
-        // biner milik SATU percakapan, jadi pemanggil yang tidak berhak atas
-        // percakapan pemiliknya tidak boleh menyajikannya (IDOR lewat ID
-        // `messages.id` yang sekuensial). Dijalankan SEBELUM baca disk, cek
-        // ETag, atau callGatewayMediaDownload supaya tidak ada byte yang keluar
-        // dan tidak ada kerja mahal untuk request yang ditolak.
+        // C-1: pemuatan percakapan DIPERTAHANKAN -- bukan sisa kode mati --
+        // karena inilah yang menghasilkan 404 saat percakapan pemilik pesan
+        // tidak ada (AC-007). Hanya blok cekOwnership() di bawahnya yang
+        // dihapus.
         $conversation = (new ConversationModel())->find((int) $message['conversation_id']);
 
         if (!$conversation) {
@@ -422,13 +420,9 @@ class Inbox extends BaseController
             ]);
         }
 
-        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
-        if ($ownershipError) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'status'  => 'error',
-                'message' => $ownershipError,
-            ]);
-        }
+        // REQ-002: baca terbuka -- TIDAK ada cekOwnership() di sini.
+        // Semua staff yang sudah login (filter auth) boleh membaca media
+        // percakapan mana pun; kepemilikan hanya membatasi operasi tulis.
 
         if (!in_array($message['message_type'], ['image', 'document', 'sticker'], true) || empty($message['media_metadata'])) {
             return $this->response->setStatusCode(400)->setJSON([

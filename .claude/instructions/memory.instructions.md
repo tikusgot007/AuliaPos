@@ -929,3 +929,43 @@
 <!-- checkpoint-tail: 2026-09-27 Phase 6dd `/sdlc-plan-tasks` folded all 6 execution-detail resolutions from clarification-report-inbox-media-read-authorization-plan-2026-09-27.md (Readiness 91/100 PROCEED) into plan-refactor-inbox-media-read-authorization-v1.0.md (v1.0 → v1.1): TASK-001 comment split into two (C-1 + REQ-002); TASK-002 also fixes stale docblock/assertion message; TASK-003 adds InboxMediaAuthSpy::$gatewayResponse mutable property + third gatewayMediaDownloadCalls assertion; TASK-004 adds missing seedMessage() helper; TASK-007 targets new named "Media Read Authorization" sub-section in ARCHITECTURE.md Section 8. No requirement/Phase/Dep graph changed. Self-assessment 99/100 (Completeness 40/40, Clarity 30/30, Alignment 29/30, no veto); REMEDIATION STATUS: RESOLVED banner added to clarification report after H1. Next: user picks Option A (/sdlc-write-code Phase 1, new session) or Option B (/sdlc-clarify-reqs again, optional). No commit/push yet. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6ee — `/sdlc-write-code` executed plan-refactor-inbox-media-read-authorization-v1.0.md v1.1 end-to-end, Phase 1 + Phase 2, plan now Completed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code (`/sdlc-write-code`) — executed the full plan (Phase 1 TASK-001..006, user-approved TASK-006, then Phase 2 TASK-007..009, user-approved TASK-009). Plan `status` moved `Planned` → **`Completed`**.
+- **Active Artifacts:**
+  - `plan/plan-refactor-inbox-media-read-authorization-v1.0.md` — ✅ Completed, all 9 tasks checked with date 2026-09-27.
+  - `spec/spec-design-inbox-read-authorization.md` v1.1 — used as contract, not modified this session.
+  - `docs/ARCHITECTURE.md` — Section 7 table row + new Section 8 `### Media Read Authorization` sub-section added.
+- **Achieved Milestones:**
+  - **TASK-001:** `Inbox::media()` (`app/Controllers/Inbox.php`) — `cekOwnership()` block removed; conversation lookup + its `404` kept byte-identical; old SEC-002 comment split into two, exactly matching spec Section 8's example: a **C-1** comment before the retained lookup, a **REQ-002** comment where the guard used to be.
+  - **TASK-002:** `tests/session/InboxMediaAuthTest.php` — `testMediaPercakapanMilikKasirLainDitolak403TanpaHubungiGateway` renamed to `testMediaPercakapanMilikKasirLainDisajikanDariDisk`, now asserts `200` + file body + `gatewayMediaDownloadCalls === 0`; class docblock and the stale assertion message both rewritten to describe the open-read rule (no remaining "403"/"SEC-002" narrative). The other 3 pre-existing tests were left untouched (already valid regression coverage).
+  - **TASK-003:** `InboxMediaAuthSpy` extended with public mutable `array $gatewayResponse` (default identical to the old hardcoded literal — verified backward-compatible, the 4 pre-existing tests never set it); `callGatewayMediaDownload()` now returns `$this->gatewayResponse`. New test `testMediaKedaluwarsa410DiprosesUntukNonPemegangDanMenulisPenanda` proves AC-009/C-2: non-holder non-admin request reaches the `410` Gateway path (not blocked `403` up front), `media_confirmed_gone_at` gets written, and `gatewayMediaDownloadCalls === 1` proves the Gateway path actually executed. Confirmed `.env` has a non-empty `inbox.gatewayBaseUrl` (`http://127.0.0.1:3000`) so the request does not short-circuit at the `503` guard before reaching the spied Gateway call.
+  - **TASK-004:** `tests/session/InboxHandoffTest.php` — new `seedMessage()` helper (same pattern as `seedConversation()`) inserts one minimal `messages` row; new named test `testApiMessagesTetapTerbukaUntukKasirBukanPemegang` is a dedicated SEC-001 regression anchor, distinct from the incidental assertion already at `:596-598` (now shifted a few lines by the earlier edits).
+  - **TASK-005 (VERIFY):** `--filter InboxMediaAuthTest` → **5/5 tests, 18 assertions, OK**. `--filter InboxHandoffTest` → **42/42 tests, 277 assertions, OK**. Full suite `vendor/bin/phpunit --no-coverage` → **573 tests, 2196 assertions, OK (exit 0)** — zero regressions, comfortably above the pre-session 536-test baseline plus the 2 new tests required by the plan.
+  - **TASK-006 (APPROVAL):** user confirmed "ya" — proceeded to Phase 2.
+  - **TASK-007:** `docs/ARCHITECTURE.md` Section 7 table row for `GET /inbox/media/(:num)` changed from `Authenticated media access` to `Media access (open to all logged-in staff; no ownership check)`. New Section 8 sub-section `### Media Read Authorization` added, parallel to `### Handoff and Collision Detection` (not merged into the unrelated `### Balas Pesan` sub-section) — states the guard removal, the retained `404` lookup, the REQ-002-C2 open `410` write, and the SEC-001 `apiMessages()` invariant. Surgical edit only, no file regeneration.
+  - **TASK-008 (VERIFY):** re-read the edited Section 7/8 regions; grepped the whole file for `cekOwnership`/`media()`/`Authenticated media access` — no other section still claims `media()` is ownership-gated.
+  - **TASK-009 (APPROVAL):** user confirmed "acc" — plan marked Completed, all 9 task rows in the plan file checked ✅ with date 2026-09-27.
+- **Dead-Ends (Do NOT Repeat):**
+  - N/A this session — execution followed the approved v1.1 plan directly with no failed approach; the `.env`/`gatewayBaseUrl` check was a precaution, not a dead-end (it was already correctly configured).
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — `media()` guard removal + comment split (TASK-001).
+  - `tests/session/InboxMediaAuthTest.php` — test rewrite/rename, docblock, `InboxMediaAuthSpy` extension, new AC-009 test (TASK-002/003).
+  - `tests/session/InboxHandoffTest.php` — `seedMessage()` helper + new SEC-001 anchor test (TASK-004).
+  - `docs/ARCHITECTURE.md` — Section 7 row + new Section 8 sub-section (TASK-007).
+  - `plan/plan-refactor-inbox-media-read-authorization-v1.0.md` — `status: Planned` → `Completed`, all 9 task rows checked with date.
+  - `.claude/instructions/memory.instructions.md` — this checkpoint.
+- **Decisions Made:**
+  - No new architectural decision this session — pure execution of the already-approved v1.1 plan. No ADR, no `CONTEXT.md` change (consistent with the spec's own "Triple Gate fails" conclusion).
+- **Next Action / Pending:**
+  - **New PHPUnit baseline: 573 tests / 2196 assertions, OK, exit 0 (2026-09-27, this session)** — supersedes the previous 536/2058 entry in Key Metrics & Baselines; promote at next compaction.
+  - Files above are **staged but not committed** — closing sequence in progress: this checkpoint (step 1) done; commit (step 2), push (step 3), and next-session prompt (step 4) are next, each awaiting owner's separate go-ahead per AGENTS.md's End-of-Session Closing Sequence.
+  - Recommended next phase: `/sdlc-code-review` (Technical Spec + Implementation Plan for this change are both `spec-design-inbox-read-authorization.md` v1.1 and this now-Completed plan).
+  - Carried forward (unchanged, out of this session's scope): `TEST-01`/`DOC-01` Grup Tahap 1; PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search; `docs/ARCHITECTURE.md` §11 `aulia_inboxdb_perf` paragraph.
+  - No `AGENTS.md` change: `Active Memory Path` already recorded and matches (fast path used this session).
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6ee `/sdlc-write-code` executed the full plan-refactor-inbox-media-read-authorization-v1.0.md v1.1 (both phases, both APPROVAL gates confirmed by the user "ya"/"acc"): Phase 1 removed Inbox::media()'s cekOwnership() guard with the C-1/REQ-002 comment split, rewrote/extended InboxMediaAuthTest.php (renamed non-holder test to expect 200, added the InboxMediaAuthSpy $gatewayResponse property, added the AC-009/C-2 410 test), added InboxHandoffTest.php's seedMessage() helper + a dedicated SEC-001 anchor test; Phase 2 updated docs/ARCHITECTURE.md Section 7's media() row and added a new "Media Read Authorization" Section 8 sub-section. Full suite is green at 573 tests / 2196 assertions (new baseline, up from 536/2058), zero regressions. Plan status is now Completed with all 9 tasks checked 2026-09-27. Nothing is committed yet — next steps are commit, push, then a /sdlc-code-review handoff prompt, each pending the owner's explicit go-ahead. -->
+
+---

@@ -135,6 +135,31 @@ final class InboxHandoffTest extends CIUnitTestCase
         return (int) $db->insertID();
     }
 
+    /**
+     * TASK-004 (SEC-001 anchor): tidak ada helper existing di file ini
+     * yang bisa menghasilkan baris `messages` -- insert minimal satu
+     * baris pesan untuk satu conversation yang sudah di-seed.
+     */
+    private function seedMessage(int $conversationId): int
+    {
+        $db  = db_connect('inbox');
+        $now = date('Y-m-d H:i:s');
+
+        $db->table('messages')->insert([
+            'conversation_id'   => $conversationId,
+            'wa_message_id'     => 'SEC-001-ANCHOR-' . bin2hex(random_bytes(4)),
+            'direction'         => 'incoming',
+            'message_type'      => 'text',
+            'sender_jid'        => '628999888777@s.whatsapp.net',
+            'text'              => 'Pesan anchor SEC-001.',
+            'message_timestamp' => $now,
+            'send_status'       => 'received',
+            'created_at'        => $now,
+        ]);
+
+        return (int) $db->insertID();
+    }
+
     private function conversation(int $id): array
     {
         return db_connect('inbox')
@@ -1207,5 +1232,28 @@ final class InboxHandoffTest extends CIUnitTestCase
         $response->assertOK();
         $this->assertSame(8, (int) $this->conversation($id)['assigned_to']);
         $this->assertCount(1, $this->handoffRows($id));
+    }
+
+    // ================================================================
+    // TASK-004 (SEC-001 anchor, plan-refactor-inbox-media-read-
+    // authorization-v1.0.md): jangkar regresi bernama khusus, terpisah
+    // dari assertion insidental di testG01... (:596-598), supaya audit
+    // atau grep mendatang bisa menemukannya lewat nama method.
+    // ================================================================
+
+    public function testApiMessagesTetapTerbukaUntukKasirBukanPemegang(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => 8]);
+        $this->seedMessage($id);
+
+        $response = $this->withSession($this->sesi('kasir', 12))
+            ->get('inbox/api/conversations/' . $id . '/messages');
+
+        $response->assertOK();
+
+        $json = json_decode($response->getJSON(), true);
+        $this->assertIsArray($json);
+        $this->assertSame('success', $json['status']);
+        $this->assertNotEmpty($json['messages'], 'SEC-001: thread tetap terbuka dan berisi pesan untuk non-pemegang.');
     }
 }

@@ -250,7 +250,7 @@ Current Inbox routes include:
 | `GET /inbox/api/conversations` | Conversation queue data |
 | `GET /inbox/api/conversations/(:num)/messages` | Conversation thread |
 | `GET /inbox/api/gateway-status` | Gateway status |
-| `GET /inbox/media/(:num)` | Authenticated media access |
+| `GET /inbox/media/(:num)` | Media access (open to all logged-in staff; no ownership check) |
 | `POST /inbox/kirim` | Send text reply (idempotent per caller-owned `operation_id`) |
 | `POST /inbox/kirim-media` | Send media (idempotent per caller-owned `operation_id`) |
 | `POST /inbox/percakapan/(:num)/ambil` | Take ownership |
@@ -314,6 +314,14 @@ Handoff moves conversation ownership between staff and records every transfer in
 - The ownership write and the history insert share one `inbox`-group transaction, so a failed history insert rolls the ownership change back.
 - History is read back through the dedicated `GET /inbox/percakapan/(:num)/handoff` route (auth filter only, newest-first, capped at 50); the message thread endpoint is untouched and the `messages` table is never written by Handoff.
 - Staff-facing names in the handoff history are resolved in the Inbox UI from the same active-kasir list the Handoff dialog uses, because the read contract carries user ids only.
+
+### Media Read Authorization
+
+Per `spec-design-inbox-read-authorization.md` REQ-002, `Inbox::media()` no longer performs a `cekOwnership()` check: any logged-in staff member may read the media attachment of any conversation, regardless of who holds it (`assigned_to`).
+
+- The conversation `404` lookup is retained — a message referencing a conversation that no longer exists still answers `404`, unchanged from before this decision.
+- The `410`/`media_confirmed_gone_at` write path (recording that WhatsApp confirmed the media is permanently gone) is triggerable by any logged-in staff, not only the conversation's holder (REQ-002-C2) — it records an objective fact and only prevents repeated Gateway calls, so it is not treated as an ownership-gated write operation.
+- `GET /inbox/api/conversations/(:num)/messages` (`Inbox::apiMessages()`) remains untouched and must never gain a `cekOwnership()` guard (SEC-001) — this closes the same open-read decision for the thread endpoint as for media.
 
 ### Balas Pesan (Reply with Quote)
 
