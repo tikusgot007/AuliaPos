@@ -51,8 +51,27 @@ final class InboxGrupTahap1Test extends CIUnitTestCase
         $db = db_connect('inbox');
         $db->table('messages')->emptyTable();
         $db->table('conversation_identities')->emptyTable();
+        $db->table('conversation_handoffs')->emptyTable();
         $db->table('conversations')->emptyTable();
         $db->table('gateway_status')->emptyTable();
+
+        // Users hidup di group default (SQLite in-memory saat testing),
+        // sama seperti InboxHandoffTest -- dibutuhkan AC-013 pada jalur
+        // handoff percakapan pribadi (target gate: daftarKasirAktif).
+        db_connect()->table('users')->emptyTable();
+        $this->seedKasir(7, 'Kasir Tujuh');
+        $this->seedKasir(8, 'Kasir Delapan');
+    }
+
+    private function seedKasir(int $id, string $nama): void
+    {
+        db_connect()->table('users')->insert([
+            'id'        => $id,
+            'username'  => 'user' . $id,
+            'nama'      => $nama,
+            'role'      => 'kasir',
+            'is_active' => 1,
+        ]);
     }
 
     private function sesi(string $role = 'kasir', int $idUser = 7): array
@@ -253,6 +272,105 @@ final class InboxGrupTahap1Test extends CIUnitTestCase
         $res->assertStatus(403);
         $res->assertJSONFragment(['status' => 'error']);
         $this->assertNull($this->conversation($id)['contact_name']);
+    }
+
+    // ---- AC-013 (SEC-01): guard grup pada handoff & tandai-dibaca --------
+
+    /**
+     * Payload handoff yang sah -- dipakai untuk membuktikan grup ditolak
+     * SEBELUM validasi/eligibility, dan percakapan pribadi tetap lolos.
+     */
+    private function payloadHandoff(int $toUserId, int $expectedOwner): array
+    {
+        return [
+            'to_user_id'     => $toUserId,
+            'summary'        => 'Serah terima ke shift berikutnya.',
+            'next_action'    => 'Cek pesanan berikutnya.',
+            'note'           => '',
+            'expected_owner' => $expectedOwner,
+        ];
+    }
+
+    private function jumlahHandoff(int $conversationId): int
+    {
+        return db_connect('inbox')
+            ->table('conversation_handoffs')
+            ->where('conversation_id', $conversationId)
+            ->countAllResults();
+    }
+
+    public function testHandoffPercakapanGrupDitolak403TanpaPenulisan(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $res = $this->withSession($this->sesi())
+            ->post(self::PERCAKAPAN_URL . $id . '/handoff', $this->payloadHandoff(8, 7));
+
+        $res->assertStatus(403);
+        $res->assertJSONFragment(['status' => 'error']);
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertSame(0, $this->jumlahHandoff($id));
+    }
+
+    /**
+     * Discriminator urutan (CON-004): guard WAJIB berada SEBELUM validasi
+     * /eligibility, jadi payload yang TIDAK lengkap pun dijawab 403 (bukan
+     * 400) dan tidak ada penulisan apa pun.
+     */
+    public function testHandoffPercakapanGrupDitolak403SebelumValidasi(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $res = $this->withSession($this->sesi())
+            ->post(self::PERCAKAPAN_URL . $id . '/handoff', ['to_user_id' => 8]);
+
+        $res->assertStatus(403);
+        $this->assertSame(7, (int) $this->conversation($id)['assigned_to']);
+        $this->assertSame(0, $this->jumlahHandoff($id));
+    }
+
+    /**
+     * Regresi nol (AC-013): percakapan pribadi tetap bisa di-handoff --
+     * ownership pindah dan riwayat tercatat.
+     */
+    public function testHandoffPercakapanPribadiTetapMemindahkanOwnership(): void
+    {
+        $id = $this->seedConversationPribadi(['assigned_to' => 7]);
+
+        $res = $this->withSession($this->sesi())
+            ->post(self::PERCAKAPAN_URL . $id . '/handoff', $this->payloadHandoff(8, 7));
+
+        $res->assertOK();
+        $res->assertJSONFragment(['status' => 'success']);
+        $this->assertSame(8, (int) $this->conversation($id)['assigned_to']);
+        $this->assertSame(1, $this->jumlahHandoff($id));
+    }
+
+    public function testTandaiDibacaGrupDitolak403TanpaPenulisan(): void
+    {
+        $id = $this->seedConversation(['assigned_to' => 7]);
+
+        $res = $this->withSession($this->sesi())
+            ->post(self::PERCAKAPAN_URL . $id . '/tandai-dibaca');
+
+        $res->assertStatus(403);
+        $res->assertJSONFragment(['status' => 'error']);
+        $this->assertNull($this->conversation($id)['last_seen_by_assignee_at']);
+    }
+
+    /**
+     * Regresi nol (AC-013): pemilik percakapan pribadi tetap bisa menandai
+     * dibaca -- last_seen_by_assignee_at terisi.
+     */
+    public function testTandaiDibacaPribadiTetapMenulisLastSeen(): void
+    {
+        $id = $this->seedConversationPribadi(['assigned_to' => 7]);
+
+        $res = $this->withSession($this->sesi())
+            ->post(self::PERCAKAPAN_URL . $id . '/tandai-dibaca');
+
+        $res->assertOK();
+        $this->assertNotNull($this->conversation($id)['last_seen_by_assignee_at']);
     }
 
     // ---- AC-009: hapusPercakapan() grup dikecualikan dari syarat closed --

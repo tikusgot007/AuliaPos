@@ -1315,6 +1315,19 @@ class Inbox extends BaseController
             ]);
         }
 
+        // (1b) CON-004/AC-013 (Grup Tahap 1) -- percakapan grup TIDAK PERNAH
+        // boleh di-handoff, sekalipun request datang langsung ke endpoint.
+        // Ditaruh SETELAH 404 dan SEBELUM eligibility, supaya jawabannya
+        // 403 (bukan 409 'selesai') dan TIDAK ada penulisan sama sekali:
+        // assigned_to maupun baris conversation_handoffs tetap utuh.
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $grupError,
+            ]);
+        }
+
         // (2) Eligibility dari sumber tunggal queue_status (DEP-01).
         // 'selesai' = 409 keluarga state-reload (P-01 memperbaiki 403
         // pada teks Spec v1.0 -- plan menang per RISK-01).
@@ -1886,6 +1899,15 @@ class Inbox extends BaseController
 
         if (!$conversation) {
             return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Conversation tidak ditemukan.']);
+        }
+
+        // CON-004/AC-013 (Grup Tahap 1) -- percakapan grup TIDAK PERNAH boleh
+        // ditandai dibaca. Ditaruh SETELAH 404 dan SEBELUM cekOwnership,
+        // supaya jawabannya 403 (konsisten dengan endpoint aksi lain) dan
+        // last_seen_by_assignee_at TIDAK pernah ditulis.
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => $grupError]);
         }
 
         $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
