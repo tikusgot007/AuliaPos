@@ -595,3 +595,32 @@
 <!-- checkpoint-tail: 2026-09-27 Planner Architect: plan-refactor-balas-pesan-tahap3-review2-v1.0.md ditutup — TASK-303 [x] (spec v1.8 menyelaraskan REQ-011/AC-009/ASSUMPTION-007 dengan potongSnippet(), wording-bukan-implementasi), TASK-307 APPROVAL dikonfirmasi user; seluruh Phase 1–3 selesai, tidak ada task tersisa. Next: closing sequence langkah 2 (tawarkan commit plan+spec) → push → prompt sesi berikutnya. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Artifact Consistency Checker — audit GH-015 Balas Pesan pasca-spec v1.8 & plan remediasi ronde-2)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Audit (`/sdlc-audit-consistency`) — traceability PRD ↔ Spec ↔ Plan untuk GH-015 Balas Pesan setelah spec naik ke v1.8 dan `plan-refactor-balas-pesan-tahap3-review2-v1.0.md` ditutup.
+- **Active Artifacts:**
+  - `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — v1.1 (input, tidak diubah)
+  - `spec/spec-design-balas-pesan.md` — v1.8 (input, tidak diubah)
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — v1.0 Completed (input, tidak diubah)
+  - `docs/audit/consistency-audit-balas-pesan-tahap3-review2-2026-09-27.md` — ✅ **NEW**, Readiness Score **79/100** (Below Threshold, Critical Flaw Veto triggered)
+- **Achieved Milestones:**
+  - Memverifikasi byte-for-byte 6 klaim remediasi Plan review2 terhadap kode: SEC-001 (`resolveKutipan()` satu pesan 400 generik), SEC-002 (`media()` cekOwnership sebelum disk/Gateway), SEC-003 (guard `is_string()` sebelum `potongSnippet()`), REQ-008c (`quoted_media_type` — migrasi, service, UI 5 cabang, test lengkap), ARCH-001 (`findByOperationIdIncludingDeleted()` scoped percakapan), SPEC-001/TASK-303 (wording-only, tidak ada perubahan kode) — semuanya **✅ terverifikasi benar**.
+  - Menemukan 2 **Critical Blocker** yang menahan skor di 79: (1) **carried-forward, belum bergerak** — PRD GH-015 AC baris 362/364 ("ditawarkan pilihan kirim tanpa kutipan" / "batal ⇒ tidak ada pesan terkirim") masih berkontradiksi dengan `REQ-006` Spec (auto-send, ditandai belakangan) — sudah diflag di re-audit 2026-09-27 dan 2 clarification report berikutnya, tetap belum diselesaikan `/sdlc-draft-prd`; (2) **BARU ditemukan** — `TASK-305` plan lama (`plan-refactor-balas-pesan-tahap3-v1.0.md`, diklaim selesai di 2 dokumen plan) hanya memperbaiki SATU dari DUA assertion non-portable di `tests/database/QuotedSourceMessageIdMigrationTest.php`: `testKolomAdaDenganTipeSesuaiSpesifikasi()` (baris 61-70) sudah portable (`DATA_TYPE`/`IS_NULLABLE`), tapi `testUpDownRoundTripMemulihkanKolom()` (baris 146) MASIH memakai literal lama `assertSame('int(10) unsigned', ...)`.
+  - Menemukan 1 Minor Gap baru (non-blocking): `docs/ARCHITECTURE.md:193` mendokumentasikan kolom `quoted_from_me` yang **tidak ada** di migrasi manapun — mekanisme sebenarnya (`quoted.fromMe`) adalah field payload Gateway runtime yang diturunkan dari `direction`, bukan kolom tersimpan.
+- **Dead-Ends (Do NOT Repeat):**
+  - N/A — audit berjalan lurus, semua verifikasi kode berhasil pada percobaan pertama.
+- **Updated Files:**
+  - `docs/audit/consistency-audit-balas-pesan-tahap3-review2-2026-09-27.md` — file audit report baru (Iteration 1, skor 79/100).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Tidak ada keputusan otorisasi baru diambil (peran Auditor murni) — dua Critical Blocker di-rute eksplisit ke `/sdlc-draft-prd` (item PRD GH-015) dan `/sdlc-write-code`/`/code-janitor` (item `TASK-305`), bukan diperbaiki langsung oleh sesi ini.
+- **Next Action / Pending:**
+  - **User Decision Prompt tersaji ke user** (skor 79 < 80, Deadlock Breaker relevan karena blocker utama sudah pernah muncul di audit sebelumnya): PROCEED (terima Tahap 3 GH-015 selesai apa adanya, dua celah jadi utang teknis) vs REFINE (`/sdlc-draft-prd` untuk GH-015 AC + `/sdlc-write-code`/`/code-janitor` untuk `TASK-305`, lalu audit ulang) — **jawaban user belum diterima saat checkpoint ini ditulis**.
+  - Carried forward (tidak berubah dari sesi-sesi sebelumnya, tetap terbuka): PRD GH-015 AC lines 362/364 → `/sdlc-draft-prd` (kini juga menahan skor audit ini, bukan cuma Teruskan); `CONTEXT.md:68` "Kutipan" wording; `docs/ARCHITECTURE.md` §Balas Pesan `quoted_from_me` entry salah (BARU, item ini); PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004` OPEN; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search.
+  - **BARU, perlu ditindaklanjuti sesi mendatang:** `TASK-305` (`plan-refactor-balas-pesan-tahap3-v1.0.md`) perlu dibuka kembali — `QuotedSourceMessageIdMigrationTest.php:146` (`testUpDownRoundTripMemulihkanKolom()`) masih memakai assertion `COLUMN_TYPE === 'int(10) unsigned'` non-portable, padahal task itu ditandai selesai di DUA dokumen plan.
+
+<!-- checkpoint-tail: 2026-09-27 Artifact Consistency Checker audited GH-015 Balas Pesan (PRD v1.1 ↔ Spec v1.8 ↔ Plan review2 v1.0 Completed) and saved docs/audit/consistency-audit-balas-pesan-tahap3-review2-2026-09-27.md with Readiness Score 79/100 (Critical Flaw Veto, Below Threshold). All 6 Plan review2 remediation claims (SEC-001/002/003, REQ-008c media-type fidelity, ARCH-001, TASK-303 spec-wording) were verified byte-for-byte correct in code. Two Critical Blockers keep the score capped: (1) carried-forward, still unmoved — PRD GH-015 AC lines 362/364 ("offer to send without quote"/"cancel⇒nothing sent") still contradicts Spec REQ-006's auto-send-then-mark semantics, flagged in 3 prior audit/clarification docs and never routed through /sdlc-draft-prd; (2) newly found — TASK-305 (claimed Completed in two plan docs) only fixed ONE of TWO non-portable COLUMN_TYPE assertions in QuotedSourceMessageIdMigrationTest.php: testKolomAdaDenganTipeSesuaiSpesifikasi() (line 61-70) is portable, but testUpDownRoundTripMemulihkanKolom() (line 146) still hardcodes 'int(10) unsigned'. Also found a non-blocking Minor Gap: docs/ARCHITECTURE.md:193 documents a nonexistent quoted_from_me DB column (the real quoted.fromMe is a runtime Gateway-payload field derived from `direction`, never persisted). A User Decision Prompt (PROCEED vs REFINE) was presented to the user; answer not yet received when this checkpoint was written. -->
+
+---
