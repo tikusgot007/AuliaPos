@@ -720,3 +720,41 @@
 <!-- checkpoint-tail: 2026-09-27 Phase 6y /sdlc-write-code closed SEC-01 (Grup Tahap 1): cekBukanGrup() guard added to Inbox::handoffPercakapan() (Inbox.php:1318) and Inbox::tandaiDibaca() (Inbox.php:1904), placed after the 404 check and before eligibility/ownership, so both answer 403 and write nothing to assigned_to / conversation_handoffs / last_seen_by_assignee_at (CON-004, AC-006, AC-013). Private conversations unchanged. +5 AC-013 tests; full suite OK 571 tests/2188 assertions exit 0; commit 09a6f0e on v2.3. One Path Rule gate: ALT-003 and Tahap 4 (Teruskan) still blocked until this guard is code-reviewed by a NEW session (/sdlc-code-review). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6z — `/sdlc-code-review` singkat atas guard SEC-01 Grup Tahap 1 commit `09a6f0e` → PASS/clear-to-merge)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review` singkat, persona Expert Code Reviewer). Menutup gate "One Path Rule" yang dicatat di checkpoint Phase 6y.
+- **Active Artifacts:**
+  - `spec/spec-design-grup-tahap1-tab-inbox.md` — ✅ v1.2 (dirujuk; CON-004/AC-006/AC-013 sebagai kriteria review). Tidak diubah.
+  - `app/Controllers/Inbox.php` — ✅ direview (commit `09a6f0e`). Tidak diubah.
+  - `tests/session/InboxGrupTahap1Test.php` — ✅ direview + dijalankan. Tidak diubah.
+- **Achieved Milestones:**
+  - Review Two-Axis (Standards + Spec) langsung (tanpa sub-agen paralel: diff hanya 22 baris dan permintaan eksplisit "review singkat") atas `09a6f0e` — `git diff 09a6f0e~1 09a6f0e` = 3 file, +241 (Inbox.php +22, audit doc baru, test +118).
+  - Terkonfirmasi guard `cekBukanGrup()` berada **setelah 404 dan sebelum eligibility/ownership**: `handoffPercakapan()` (`Inbox.php:1318-1329`; 404 di `:1311-1316`, cabang 409 `selesai` di `:1331-1347`, gate inisiator di `:1461-1481`, transaksi tulis di `:1515+`) dan `tandaiDibaca()` (`:1904-1911`; 404 di `:1900-1902`, `cekOwnership` di `:1913-1916`, tulis di `:1918-1919`) → jawaban **403** (bukan 409/200), **tanpa penulisan** ke `assigned_to`/`conversation_handoffs`/`last_seen_by_assignee_at`; **regresi nol** untuk percakapan pribadi (guard hanya benar saat `jid_type === 'group'`; `?? null` membuat non-grup selalu lolos).
+  - Bukti tambahan: `ConversationModel::find()` tidak di-override → SELECT * menyertakan `jid_type` (guard tak bisa lolos karena kolom absen); kedua route di balik filter `auth` (`Routes.php:52,55`); `cekBukanGrup()` (`Inbox.php:784-791`) memang satu-satunya helper guard.
+  - Verifikasi independen: `vendor/bin/phpunit --no-coverage --filter InboxGrupTahap1Test` → **OK (19 tests, 84 assertions), exit 0**.
+  - **Verdict: 2 Standards Issues (1 `[NIT] DOC-01`, 1 `[OPTIONAL] TEST-01`), 0 Spec Issues → Merge / clear to merge.** Phase 2 (Refactoring Plan) di-skip karena tidak ada CRITICAL/REQUIRED; kedua temuan minor non-blocking.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `rg` (ripgrep) lewat shell PowerShell untuk pencarian pola.
+  - **Reason:** ripgrep tidak terpasang — `rg : The term 'rg' is not recognized as the name of a cmdlet...`.
+  - **Correct solution:** pakai tool `grep` bawaan (regex/literal/context) atau `Select-String`.
+  - **Attempted:** `git show 09a6f0e -- app/Controllers/Inbox.php` untuk membaca body diff.
+  - **Reason:** body diff ter-render `... diff body omitted` di lingkungan ini.
+  - **Correct solution:** `git diff 09a6f0e~1 09a6f0e --no-color -- <file> | Out-String`.
+- **Updated Files:**
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini (satu-satunya file yang berubah; review bersifat read-only, tanpa edit kode/produksi).
+- **Decisions Made:**
+  - Review dijalankan langsung (tanpa men-spawn 2 sub-agen paralel) alih-alih mengikuti Step 3 workflow yang default; verifikasi independen dilakukan lewat eksekusi test file terkait.
+  - Dua temuan minor **non-blocking**: (1) `[NIT] DOC-01` — docblock `cekBukanGrup()` (`:775-783`) masih meng-enumerasi 6 endpoint lama dan belum menyebut Handoff/Tandai Dibaca; (2) `[OPTIONAL] TEST-01` — belum ada test khusus yang membuktikan handoff grup ber-`status='closed'` → 403 alih-alih 409 (urutan sudah kuat terbukti lewat diskriminator "payload tak lengkap → 403 bukan 400" di `InboxGrupTahap1Test.php:320-330`).
+  - Tidak ada ADR baru.
+- **Next Action / Pending:**
+  - **Gate One Path Rule TERANGKAT** — `ALT-003` dan plan **Teruskan (Tahap 4)** kini boleh dimulai, namun **TIDAK dimulai sesi ini** sesuai instruksi user.
+  - Langkah berikutnya (sesi baru): `/sdlc-define-specs` untuk `ALT-003` (`GET /inbox/api/conversations/(:num)/messages` belum cek kepemilikan — `cekOwnership()` AUTHZ-02).
+  - Opsional kapan saja (tidak menghalangi): tutup `TEST-01` (test grup `status='closed'`) dan `DOC-01` (update docblock helper).
+  - Closing sequence rule #3: checkpoint (ini) → tawarkan commit → push → prompt sesi berikutnya.
+  - Carried forward (tidak berubah): PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search; `docs/ARCHITECTURE.md` §11 `aulia_inboxdb_perf` paragraph.
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6z /sdlc-code-review short review of SEC-01 Grup Tahap 1 guard on commit 09a6f0e → PASS/clear-to-merge: confirmed cekBukanGrup() sits after the 404 check and before eligibility/ownership in Inbox::handoffPercakapan() (Inbox.php:1318-1329) and Inbox::tandaiDibaca() (Inbox.php:1904-1911), so both answer 403 (not 409/200) and write nothing to assigned_to / conversation_handoffs / last_seen_by_assignee_at; zero regression for private chats; independent InboxGrupTahap1Test re-run OK (19 tests/84 assertions); only 2 non-blocking minors ([NIT] DOC-01 stale cekBukanGrup() docblock, [OPTIONAL] TEST-01 no closed-group 403-vs-409 discriminator). One Path Rule gate lifted → ALT-003 (/sdlc-define-specs) and Teruskan Tahap 4 now unblocked but deliberately not started. -->
+
+---
