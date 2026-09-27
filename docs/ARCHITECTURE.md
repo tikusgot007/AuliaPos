@@ -190,7 +190,8 @@ The Reply feature allows cashiers to reply to a specific message with a quote. I
 - `quoted_media_type` — `VARCHAR(30) NULL` (`image`, `sticker`, `document`, `audio`, `video`; `NULL` for text or not found)
 - `quoted_sender_label` — `VARCHAR(191) NULL` (display name of the quoted message sender)
 - `quoted_snippet` — `TEXT NULL` (trimmed, normalized quote preview, max 200 chars, multibyte-safe)
-- `quoted_from_me` — `TINYINT(1) NOT NULL DEFAULT 0` (whether the quoted message was sent by the cashier)
+
+There is no `quoted_from_me` column: `quoted.fromMe` is a runtime-only field sent in the Gateway payload (`POST /send`/`/send-media`), derived at request time from the source message's `direction` column (`outgoing` → `true`, `incoming` → `false`). It is never persisted on `messages`.
 
 **Gateway contract (`WA-Gateway`):**
 - `POST /send` and `POST /send-media` accept optional `quoted` object:

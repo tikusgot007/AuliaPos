@@ -654,3 +654,34 @@
 <!-- checkpoint-tail: 2026-09-27 Code Janitor closed the remaining TASK-305 gap found by the prior consistency audit (Critical Blocker #2, score 79/100): tests/database/QuotedSourceMessageIdMigrationTest.php:146 testUpDownRoundTripMemulihkanKolom() replaced its non-portable `assertSame('int(10) unsigned', ...COLUMN_TYPE)` with the same portable pattern already used in testKolomAdaDenganTipeSesuaiSpesifikasi() (line 61-70): DATA_TYPE==='int' + IS_NULLABLE==='YES' + COLUMN_DEFAULT NULL check. Full file suite: 6 tests/13 assertions/exit 0. Both test methods in the file now consistently avoid MySQL/MariaDB-specific COLUMN_TYPE literals. Next: optional /sdlc-plan-tasks to reconfirm TASK-305 checkbox status; optional /sdlc-audit-consistency re-run (Blocker #2 resolved, Blocker #1 — PRD GH-015 AC 362/364 vs REQ-006 — still open, needs /sdlc-draft-prd). No commit/push yet this session. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-27 (Code Janitor — dua Minor Gap dari review3 audit: CONTEXT.md wording + ARCHITECTURE.md quoted_from_me)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Ad-hoc fix (`/code-janitor`, Broom Rule — two tiny doc-wording edits, no code/migration touched). Bukan tahap SDLC formal.
+- **Active Artifacts:**
+  - `CONTEXT.md` — ✅ Updated (entri "Kutipan" baris 67-68)
+  - `docs/ARCHITECTURE.md` — ✅ Updated (baris 193, entri kolom `quoted_from_me`)
+  - `docs/audit/consistency-audit-balas-pesan-tahap3-review3-2026-09-27.md` — sumber temuan (Readiness Score 94/100, Good Enough; user memilih REFINE untuk dua Minor Gap ini sebelum lanjut) — tidak diubah sesi ini.
+- **Achieved Milestones:**
+  - **Item 1 (`CONTEXT.md:67-68` "Kutipan"):** frasa "beserta nama pengirim asli" diganti menjadi "beserta identitas pengirim asli (nomor telepon atau LID)", menyelaraskan glosarium dengan wording level-requirement `REQ-005`/`REQ-013`/`AC-007` di `spec/spec-design-balas-pesan.md` (yang sudah konsisten memakai "identitas pengirim (nomor telepon atau LID)" sejak amandemen T3 Grup Tahap 2).
+  - **Item 2 (`docs/ARCHITECTURE.md:193` `quoted_from_me`):** baris kolom fiktif `quoted_from_me — TINYINT(1) NOT NULL DEFAULT 0` dihapus dari daftar 7 kolom `quoted_*` (kolom ini tidak pernah ada di migrasi manapun maupun `MessageModel::$allowedFields`). Diganti kalimat penjelas: `quoted.fromMe` adalah field **runtime-only** pada payload Gateway (`POST /send`/`/send-media`), diturunkan saat request dibuat dari kolom `direction` baris sumber (`outgoing` → `true`, `incoming` → `false`), tidak pernah dipersist sebagai kolom `messages`.
+  - Kedua item ini adalah Minor Gap non-blocking yang di-carry-forward sejak audit review2 (skor 79/100) dan masih ada di audit review3 (skor 94/100, Good Enough) — audit review3 secara eksplisit mengarahkan fix ke `/code-janitor` (Section 5 "Handoff Routing").
+- **Dead-Ends (Do NOT Repeat):**
+  - N/A — dua surgical edit langsung berhasil pada percobaan pertama, tidak ada pendekatan gagal.
+- **Updated Files:**
+  - `CONTEXT.md` — baris 68 (dalam entri **Kutipan**): "beserta nama pengirim asli" → "beserta identitas pengirim asli (nomor telepon atau LID)".
+  - `docs/ARCHITECTURE.md` — baris 193: entri kolom `quoted_from_me` dihapus, diganti catatan bahwa `quoted.fromMe` adalah field payload Gateway runtime turunan `direction`, bukan kolom database.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Fix dieksekusi langsung via `/code-janitor` (Broom Rule) tanpa mini-plan terpisah — kedua item presisi (satu baris/entri per file, sumber kebenaran sudah eksplisit di Spec `REQ-005`/`REQ-013`/`AC-007` dan `spec/spec-design-balas-pesan.md` Section 4.1/4.3 untuk `fromMe`), sesuai arahan Handoff Routing audit review3.
+  - Tidak menyentuh audit report review3 itu sendiri (Auditor-not-Author boundary tetap milik `/sdlc-audit-consistency`, bukan janitor) — bila diperlukan, re-audit adalah opsi terpisah bagi user.
+- **Next Action / Pending:**
+  - Kedua Minor Gap yang di-carry-forward sejak audit review2/review3 (`CONTEXT.md:68`, `docs/ARCHITECTURE.md:193`) kini **CLOSED**.
+  - Opsional: `/sdlc-audit-consistency` re-run atas GH-015 Balas Pesan bila user ingin skor Alignment/Completeness/Clarity naik dari 94/100 mencerminkan kedua fix ini (tidak wajib — skor 94 sudah "Good Enough").
+  - Carried forward (tidak berubah, tetap terbuka): PRD GH-015 AC lines 362/364 vs `REQ-006` — **sudah diperbaiki di PRD v1.2** (`commit 25b4e93`, diverifikasi di audit review3) — item ini sudah **RESOLVED**, tidak perlu tindak lanjut lagi; `ALT-003` (`GET /inbox/api/conversations/(:num)/messages` `cekOwnership()` guard, AUTHZ-02) tetap deferred ke `/sdlc-define-specs` sesuai audit review3; PRD Section 4 note lines 158-165 & GH-012 AC phase mismatch; `ESC-001..004`; `docs/TODO-CHAT.md` items 11-13; group-rename sync; BACKLOG `group_name` search.
+  - Belum ada commit/push sesi ini — menunggu tawaran & persetujuan owner (Rule #3 End-of-Session Closing Sequence).
+
+<!-- checkpoint-tail: 2026-09-27 Code Janitor closed the two remaining non-blocking Minor Gaps flagged by consistency-audit-balas-pesan-tahap3-review3 (score 94/100, Good Enough, user chose REFINE before proceeding): (1) CONTEXT.md:68 "Kutipan" entry wording aligned with REQ-005/REQ-013/AC-007's "identitas pengirim (nomor telepon atau LID)" phrasing; (2) docs/ARCHITECTURE.md:193 phantom `quoted_from_me` DB column entry removed and replaced with an accurate note that `quoted.fromMe` is a Gateway-payload runtime field derived from `direction`, never persisted. Both were surgical single-location edits per audit review3's explicit Handoff Routing (Section 5) recommending /code-janitor. No code/migration/test touched. Both carried-forward Minor Gaps are now CLOSED; PRD GH-015 AC 362/364 vs REQ-006 was already resolved earlier (PRD v1.2, commit 25b4e93). No commit/push yet this session. -->
+
+---

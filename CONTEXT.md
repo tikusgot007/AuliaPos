@@ -65,8 +65,8 @@ _Avoid_: Reply, Quote
 
 **Kutipan**:
 Cuplikan (snapshot) dari pesan yang ditunjuk saat Balas Pesan dilakukan —
-teks terpotong atau label jenis media, beserta nama pengirim asli — yang
-ikut tampil pada bubble pesan balasan. Disimpan sekali saat balasan dibuat,
+teks terpotong atau label jenis media, beserta identitas pengirim asli
+(nomor telepon atau LID) — yang ikut tampil pada bubble pesan balasan. Disimpan sekali saat balasan dibuat,
 tidak pernah dihitung ulang dari pesan aslinya. Istilah untuk hasil/tampilannya,
 bukan untuk aksinya (lihat **Balas Pesan**).
 _Avoid_: Quote, Mengutip (sebagai nama fitur/aksi — gunakan Balas Pesan)
