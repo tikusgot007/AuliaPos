@@ -17,8 +17,6 @@
 
 ### Architecture & Patterns
 
-- **User communication preference (2026-09-27, standing rule, all sessions):** Owner sering bingung dan salah ambil keputusan saat ditanya dengan bahasa SDLC/teknis. Semua pertanyaan ke owner (klarifikasi, Grill-Me, pilihan opsi, dsb.) **wajib** pakai bahasa sederhana/awam: kalimat pendek, hindari jargon tanpa penjelasan, tawarkan pilihan konkret (bukan pertanyaan terbuka), dan sebutkan **konsekuensi tiap pilihan** dalam bahasa sehari-hari. Istilah teknis yang tak terhindarkan wajib dijelaskan singkat di tempat. Ini berlaku otomatis di semua skill/tahap SDLC, tidak perlu diingatkan ulang tiap sesi.
-- **Ready-to-paste next-session prompt (2026-09-27, standing rule, all sessions):** Di akhir setiap sesi/tahap SDLC (selesai Clarify, Spec, Plan, Code, Review, dsb.) — atau kapan pun jawaban merekomendasikan sesi baru — **wajib** sertakan satu prompt siap-tempel yang lengkap untuk tahap berikutnya (skill/slash-command yang benar + file mana saja yang harus dilampirkan `@file` + ringkasan singkat apa yang harus dikerjakan). Owner tinggal copy-paste, tidak perlu menyusun kalimat perintah sendiri. Berlaku otomatis, tidak perlu diminta ulang tiap sesi.
 - **Language policy per artifact:** PRD and `docs/audit/` reports are written in **Indonesian**; `/plan/` documents and `REMEDIATION STATUS` blocks are written in **English** (AGENTS.md "English-only documentation"). Conversational replies remain Indonesian. **Discovery drafts** (`docs/discovery-draft-*.md`) sit in the PRD lineage and are therefore written in **Indonesian** as well — verified 2026-09-25 that `spec/` is Indonesian too, so in practice `AGENTS.md`'s blanket "all SDLC documentation MUST be English" rule is honoured only by `/plan/`. [Still valid 2026-09-23; discovery-draft case verified 2026-09-25]
 - **Strict session isolation:** a locked persona may not switch phase mid-session; the user can override explicitly, but the agent must print `[Session Override Active - Warning: Context Mixing Active]` first. A phase change normally belongs in a NEW session. [Recurring across all sessions]
 - **Readiness scoring gate:** audits score 0–100 (Completeness 40 / Clarity 30 / Alignment 30); an unresolved fundamental contradiction caps the score at **79** (Critical Flaw Veto); the PROCEED/REFINE prompt fires at **≥80**; deadlock breaker after 3 iterations.
@@ -476,3 +474,96 @@
   - Carried forward (tidak berubah): `docs/ARCHITECTURE.md` §11; guard `SEC-01` Tahap 1 Handoff/Tandai-Dibaca; PRD GH-015 AC 362/364; `CONTEXT.md:68`; `[OPTIONAL] SEC-01` raw `sender_jid`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
 
 <!-- checkpoint-tail: 2026-09-27 Phase 6v `/sdlc-write-code` menuntaskan plan remediasi ronde-2 Balas Pesan Tahap 3 → **Completed**: Phase 2 `quoted_media_type` (migrasi 000003, `rakitSnapshot()`, dispatch 5 cabang, `mediaGagal` namespace `kutipan:`) + fix kunci string `mediaGagal` media sendiri + Phase 3 `findByOperationIdIncludingDeleted` scope percakapan; full suite **566 tests/2167 assertions exit 0**; verifikasi manual browser LULUS (demo dibersihkan); `TASK-303` ditunda ke `/sdlc-define-specs`. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6w — `/sdlc-define-specs` menutup `TASK-303`: wording `REQ-011` diselaraskan dengan `potongSnippet()`, spec v1.7 → v1.8)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`). Persona-locked Specification Architect. Lingkup tunggal: menyelesaikan `TASK-303` (`SPEC-001`) yang **ditunda** dari Phase 6v — menyelaraskan wording `REQ-011` di `spec/spec-design-balas-pesan.md` dengan perilaku `potongSnippet()` (bound + normalisasi). Tidak ada kode produksi yang diubah (spec-only).
+- **Active Artifacts:**
+  - `spec/spec-design-balas-pesan.md` — ✅ v1.8 (diamandemen dari v1.7; self-assessed 99/100).
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — status `Completed`; `TASK-303` masih checkbox `[ ]` (penandaan = wewenang `/sdlc-plan-tasks`, di luar scope spec).
+- **Achieved Milestones:**
+  - **Keputusan `TASK-303`/`SPEC-001`: perbaiki WORDING, bukan implementasi.** Section 4.2 sudah menjanjikan "dipotong ke panjang wajar" dan unit test `tests/unit/InboxQuoteSnapshotServiceTest.php` mengunci bound `MAKS_KARAKTER` (200) + elipsis + normalisasi whitespace — mengubah kode ke `mb_substr` murni justru menghapus perilaku yang dijanjikan.
+  - Spec v1.8: `REQ-011` kedua cabang (ditemukan & **tidak ditemukan**) kini menyatakan cuplikan dilewatkan `potongSnippet()` yang **sama** — normalisasi whitespace (`\s+`→spasi, trim), batas 200 multibyte-safe, elipsis `…` bila terpotong; `null` (kosong **atau** bukan string — guard tipe `SEC-003`/`TASK-105`) → label generik "Pesan tidak ditemukan". `AC-009` diselaraskan; Section 4.2 ditegaskan satu standar untuk **kedua** jalur (sumber lokal + fallback Gateway); `ASSUMPTION-007` diselaraskan; catatan revisi v1.8 ditambahkan.
+  - Fakta kode diverifikasi saat amandemen: `InboxQuoteSnapshotService::potongSnippet()` (`app/Services/InboxQuoteSnapshotService.php:62-75`) dan `InboxGatewayApi::resolveKutipanMasuk()` (`:557-565`) memang sudah memakai bound + normalisasi + guard tipe.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** menyimpulkan cuplikan fallback Gateway disimpan "apa adanya" karena `REQ-011` v1.7 berbunyi begitu. **Reason:** spec v1.7 memang salah kata — kode (`potongSnippet()`) sejak `TASK-105` sudah membatasi + menormalkan, jadi satu standar sudah berlaku di kode. **Correct Solution:** samakan spec ke kode (spec v1.8); JANGAN "memperbaiki" kode agar cocok dengan wording lama — itu menghapus perilaku yang dijanjikan Section 4.2 + unit test. (Kelas sama dengan KB "Audit findings are not self-verifying": verifikasi kode sebelum mengubah salah satu sisi.)
+- **Updated Files:**
+  - `spec/spec-design-balas-pesan.md` — v1.7 → v1.8 (front matter `version`; catatan revisi v1.8; `REQ-011` kedua cabang; Section 4.2 paragraf `quoted_snippet`; `AC-009`; `ASSUMPTION-007`).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Standar tunggal cuplikan = `potongSnippet()` (normalisasi + bound 200 + elipsis), berlaku untuk sumber lokal **dan** fallback Gateway; "apa adanya" hanya benar untuk semantik snapshot tampilan (AC-004/legacy), bukan untuk pembentukan cuplikan.
+  - Tidak ada perubahan kontrak Gateway (`quoted`/`quote_applied`), skema kolom, `REQ-001`–`REQ-010`/`REQ-012`–`REQ-013`, atau nilai `quoted_media_available`/`quoted_media_type`; tidak ada ADR baru; `CONTEXT.md` tidak berubah.
+- **Next Action / Pending:**
+  - `/sdlc-plan-tasks` (sesi baru, opsional): tandai `TASK-303` ✅ di `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` (kondisi sudah terpenuhi spec v1.8; plan sudah `Completed`).
+  - Opsional non-blocking: `/sdlc-clarify-reqs` atas spec v1.8 (fokus `REQ-011`/`AC-009`) bila ingin interogasi ekstra; tidak wajib karena perubahan murni wording.
+  - Carried forward (tidak berubah): `docs/ARCHITECTURE.md` §11 (kolom `quoted_source_message_id`/`quoted_media_type` + `InboxQuoteSnapshotService` + kontrak `quoted`/`quote_applied`); guard `SEC-01` Tahap 1 Handoff/Tandai-Dibaca; PRD GH-015 AC 362/364; `CONTEXT.md:68`; `[OPTIONAL] SEC-01` raw `sender_jid`; `CORR-01-R1`; `HYGIENE-01`; FYI-01; ESC-001..004; `docs/TODO-CHAT.md` items 11–13; TODO group-rename sync; BACKLOG `group_name` search.
+  - File sesi (spec v1.8 + memory) belum di-commit — commit/push menunggu perintah owner.
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6w `/sdlc-define-specs` menutup `TASK-303` (`SPEC-001`): spec `spec/spec-design-balas-pesan.md` v1.7 → v1.8 menyelaraskan wording `REQ-011` (kedua cabang) + `AC-009` + Section 4.2 + `ASSUMPTION-007` dengan perilaku `potongSnippet()` (normalisasi whitespace + batas 200 karakter multibyte-safe + elipsis; kosong/non-string → "Pesan tidak ditemukan"). Keputusan: perbaiki wording, BUKAN implementasi (Section 4.2 + unit test sudah mengunci bound). Tidak ada perubahan kontrak/kode/ADR. Next: `/sdlc-plan-tasks` tandai `TASK-303` ✅ (opsional); `docs/ARCHITECTURE.md` §11 tetap carried-forward. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-27 (Phase 6x — `/sdlc-map-architecture` surgical update `docs/ARCHITECTURE.md` untuk arsitektur Balas Pesan)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Documentation / Architecture Map (Utility skill)
+- **Active Artifacts:**
+  - `docs/ARCHITECTURE.md` — ✅ Updated (surgical update 4 section)
+  - `spec/spec-design-balas-pesan.md` — ✅ v1.8 (kontrak, tidak diubah)
+  - `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — ✅ Completed
+- **Achieved Milestones:**
+  - Surgical update `docs/ARCHITECTURE.md` (439 baris, +64 dari 375) — 4 section diupdate:
+    - Section 1: branch `v2.3`, tanggal 2026-09-27
+    - Section 6: + Balas Pesan Architecture subsection (7 kolom `quoted_*`, Gateway contract `quoted`/`quote_applied`, `InboxQuoteSnapshotService`, UI 5 cabang AC-005, `mediaGagal` memory)
+    - Section 7: + Outgoing/incoming quote HTTP surface
+    - Section 8: + Balas Pesan seams (snapshot immutability, single source of truth, ownership check ordering SEC-001, media live-fetch + failure memory PERF-001, replay scoped ARCH-001, snippet normalization SEC-003/REQ-011)
+    - Section 13: + `Inbox quote snapshot → app/Services/InboxQuoteSnapshotService.php`
+  - Dokumentasi arsitektur kini sinkron dengan implementasi Phase 6v/6w (spec v1.8, 566 tests)
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** N/A — surgical edit berjalan lurus, tidak ada pendekatan gagal
+- **Updated Files:**
+  - `docs/ARCHITECTURE.md` — surgical update 4 section (lihat Achieved Milestones)
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini
+- **Decisions Made:**
+  - Pilih **surgical update (A)** bukan full regenerate — dokumen existing sudah matang, hanya perlu menyisipkan arsitektur Balas Pesan
+  - Tetap pertahankan struktur 14 section existing, hanya augment section 6, 7, 8, 13
+- **Next Action / Pending:**
+  - Opsional: tambah link referensi `docs/ARCHITECTURE.md` ke `AGENTS.md` (Phase 3 workflow skill)
+  - Carried forward (tidak berubah): `SEC-01` Handoff/Tandai-Dibaca, PRD GH-015 Teruskan, `CONTEXT.md:68`, `ESC-001..004`, `docs/TODO-CHAT.md` 11–13, group-rename sync, BACKLOG `group_name` search
+
+<!-- checkpoint-tail: 2026-09-27 Phase 6x `/sdlc-map-architecture` surgical update ARCHITECTURE.md: Section 1/6/7/8/13 augmented dengan arsitektur Balas Pesan (7 kolom quoted_*, Gateway quoted/quote_applied, InboxQuoteSnapshotService, renderKotakKutipan 5 cabang, mediaGagal namespace, 5 seam arsitektur) → dokumen sinkron spec v1.8 / 566 tests. Next: opsional AGENTS.md link integration. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-27 (Housekeeping — pindahkan 2 standing rule ke AGENTS.md constitution + tambah rule baru closing sequence)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** N/A (housekeeping / konfigurasi agen, bukan tahap SDLC)
+- **Active Artifacts:**
+  - `AGENTS.md` — ✅ Updated (section baru "Standing Rules (Universal — Berlaku Semua Sesi)")
+  - `.claude/instructions/memory.instructions.md` — ✅ Updated (2 bullet standing rule dihapus dari Knowledge Base)
+- **Achieved Milestones:**
+  - Section baru `## Standing Rules (Universal — Berlaku Semua Sesi)` ditambahkan di `AGENTS.md`, diletakkan SETELAH `## Communication` dan SEBELUM `## Explanation and Documentation`, berisi 3 rule:
+    1. **User Communication Preference** — pertanyaan ke owner wajib bahasa sederhana/awam Indonesia (dipindah dari Knowledge Base).
+    2. **Ready-to-Paste Next-Session Prompt** — akhir sesi wajib sertakan prompt siap-tempel untuk tahap berikutnya (dipindah dari Knowledge Base).
+    3. **End-of-Session Closing Sequence** (BARU) — urutan wajib berurutan setiap akhir sesi/milestone: (a) tawarkan checkpoint, (b) tawarkan commit, (c) tawarkan push, (d) baru sajikan prompt siap-tempel langkah berikutnya. Urutan tidak boleh dibalik.
+  - 2 bullet lama di `### Architecture & Patterns` (`User communication preference (2026-09-27, standing rule, all sessions)` dan `Ready-to-paste next-session prompt (2026-09-27, standing rule, all sessions)`) dihapus karena kontennya sudah menjadi bagian permanen `AGENTS.md`, sehingga tidak ada duplikasi sumber kebenaran.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** N/A — perubahan berjalan lurus tanpa pendekatan gagal.
+- **Updated Files:**
+  - `AGENTS.md` — tambah section "Standing Rules (Universal — Berlaku Semua Sesi)" (3 rule)
+  - `.claude/instructions/memory.instructions.md` — hapus 2 bullet standing rule lama, tambah checkpoint ini
+- **Decisions Made:**
+  - Standing rule yang bersifat **konstitusional/permanen** (berlaku di semua sesi, semua skill) sebaiknya hidup di `AGENTS.md`, bukan di Knowledge Base memory — Knowledge Base tetap untuk pengetahuan teknis lintas-sesi (arsitektur, dead-ends, metrik), bukan kebijakan interaksi/proses.
+  - Rule "End-of-Session Closing Sequence" baru ditambahkan sebagai rule ke-3 untuk mengunci urutan checkpoint → commit → push → prompt berikutnya, mencegah agen menyajikan prompt sesi berikutnya sebelum ketiga tawaran itu diajukan ke owner.
+- **Next Action / Pending:**
+  - Rule #3 (End-of-Session Closing Sequence) sedang dijalankan untuk sesi housekeeping ini sendiri: checkpoint ini (langkah 1) → tawarkan commit (langkah 2) → tawarkan push (langkah 3) → baru sajikan prompt siap-tempel sesi berikutnya (langkah 4).
+  - Carried forward (tidak berubah dari sesi sebelumnya): `SEC-01` Handoff/Tandai-Dibaca, PRD GH-015 Teruskan, `CONTEXT.md:68`, `ESC-001..004`, `docs/TODO-CHAT.md` 11–13, group-rename sync, BACKLOG `group_name` search, opsional link `docs/ARCHITECTURE.md` di `AGENTS.md`.
+
+<!-- checkpoint-tail: 2026-09-27 Housekeeping: 2 standing rule (bahasa sederhana ke owner + ready-to-paste next-session prompt) dipindah dari Knowledge Base memory ke AGENTS.md sebagai section permanen "Standing Rules (Universal)", plus rule baru ke-3 "End-of-Session Closing Sequence" (checkpoint → commit → push → prompt berikutnya, urutan terkunci). Next: jalankan closing sequence rule #3 untuk sesi ini sendiri (commit lalu push). -->
+
+---

@@ -20,6 +20,42 @@
 - **Tone**: Formal yet friendly and professional
 - **Format**: Use clean structure with bullet points and code blocks as needed
 
+## Standing Rules (Universal — Berlaku Semua Sesi)
+
+> [!IMPORTANT]
+> Aturan berikut bersifat **wajib** dan **otomatis** di setiap sesi baru, tidak perlu diminta ulang.
+
+### 1. User Communication Preference
+
+- **Bahasa**: Semua pertanyaan ke owner (klarifikasi, Grill-Me, pilihan opsi, dsb.) **wajib** pakai bahasa sederhana/awam Indonesia.
+- **Struktur**:
+  - Kalimat pendek
+  - Hindari jargon tanpa penjelasan
+  - Tawarkan **pilihan konkret** (bukan pertanyaan terbuka)
+  - Sebutkan **konsekuensi tiap pilihan** dalam bahasa sehari-hari
+  - Istilah teknis tak terhindarkan → jelaskan singkat di tempat
+- **Cakupan**: Berlaku otomatis di semua skill/tahap SDLC.
+
+### 2. Ready-to-Paste Next-Session Prompt
+
+- **Kewajiban**: Di akhir setiap sesi/tahap SDLC (selesai Clarify, Spec, Plan, Code, Review, dsb.) — atau kapan pun jawaban merekomendasikan sesi baru — **wajib** sertakan **satu prompt siap-tempel** yang lengkap untuk tahap berikutnya.
+- **Isi prompt**:
+  - Skill/slash-command yang benar
+  - File mana saja yang harus dilampirkan (`@file`)
+  - Ringkasan singkat apa yang harus dikerjakan
+- **Tujuan**: Owner tinggal copy-paste, tidak perlu menyusun kalimat perintah sendiri.
+- **Cakupan**: Berlaku otomatis, tidak perlu diminta ulang tiap sesi.
+
+### 3. End-of-Session Closing Sequence
+
+- **Urutan wajib** setiap kali sesi/tahap SDLC berakhir (atau ada milestone signifikan), dijalankan **berurutan**, masing-masing menunggu persetujuan owner sebelum lanjut ke langkah berikutnya:
+  1. **Tawarkan checkpoint** — simpan progres ke `memory.instructions.md` via skill `memory-manager`.
+  2. **Tawarkan commit** — setelah checkpoint tersimpan (atau ditolak), tawarkan commit atas file yang berubah sesi ini.
+  3. **Tawarkan push** — setelah commit dibuat (atau ditolak), tawarkan push ke branch aktif.
+  4. **Baru buat prompt langkah berikutnya** — SETELAH ketiga tawaran di atas selesai (disetujui maupun ditolak), sajikan satu prompt siap-tempel (lihat Rule #2) untuk sesi berikutnya.
+- **Tidak boleh dibalik urutannya**: prompt langkah berikutnya tidak boleh disajikan sebelum checkpoint/commit/push ditawarkan.
+- **Cakupan**: Berlaku otomatis di semua skill/tahap SDLC, tidak hanya untuk perubahan dokumentasi.
+
 ## Explanation and Documentation
 
 - **Clarity**: Explanations must be clear, structured, and easy to understand
@@ -222,7 +258,11 @@ To prevent infinite loops during the Draft ➔ Audit ➔ Update cycle, all clari
 
 - **Active Memory Path:** `.claude/instructions/memory.instructions.md`
 - **Managed by:** `memory-manager` skill
-- **Last Recorded:** 2026-09-25
+- **Last Recorded:** 2026-09-27
+
+## Reference Documents
+
+- **Project Architecture Map:** Read [/docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) to understand the directory layout, architectural constraints, database topology, Inbox module architecture (including Balas Pesan / Reply with Quote), and key file locations before suggesting code changes.
 
 ## Agents Specific Guidelines
 
