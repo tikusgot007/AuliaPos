@@ -609,7 +609,7 @@
                             <div class="kutipan-aktif-judul" id="kutipanAktifJudul"></div>
                             <div class="inbox-kutipan-snippet" id="kutipanAktifSnippet"></div>
                         </div>
-                        <button type="button" class="btn-close btn-sm align-self-center" style="font-size:0.6rem;" aria-label="Batalkan kutipan" onclick="batalkanKutipan()"></button>
+                        <button type="button" class="btn-close btn-sm align-self-center" id="btnBatalKutipan" style="font-size:0.6rem;" aria-label="Batalkan kutipan" onclick="batalkanKutipan()"></button>
                     </div>
                     <div id="previewMediaBalasan" class="mb-2" style="display:none;">
                         <span class="badge bg-light text-dark border">
@@ -2105,6 +2105,11 @@
     let tujuanTeruskan = null;    // conversation.id tujuan yang dipilih
     let teruskanSedangKirim = false;
 
+    /* Jenis pesan sumber yang diteruskan lewat endpoint /inbox/kirim-media;
+       sisanya (teks) lewat /inbox/kirim. Dipakai teruskanPesan() memilih rute
+       (TASK-007) -- tanpa mengunggah berkas apa pun di jalur media. */
+    const JALUR_MEDIA_TERUSKAN = ['image', 'document', 'sticker'];
+
     function adaKutipan(m) {
         return m && m.quoted_wa_message_id !== null && m.quoted_wa_message_id !== undefined && m.quoted_wa_message_id !== '';
     }
@@ -2346,6 +2351,13 @@
         document.getElementById('btnLampirkanMedia').disabled = true;
         document.getElementById('btnKirimBalasan').disabled = true;
 
+        // Area kutipan aktif (bila ada) ikut dibekukan selama pemilih terbuka:
+        // Teruskan TIDAK PERNAH membawa kutipan (CON-001), jadi tombol batalnya
+        // dinonaktifkan supaya isi yang sedang disiapkan tidak berubah-ubah di
+        // tengah aksi Teruskan.
+        const batalKutipan = document.getElementById('btnBatalKutipan');
+        if (batalKutipan) batalKutipan.disabled = true;
+
         muatDaftarTujuanTeruskan('');
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTeruskan')).show();
     }
@@ -2361,6 +2373,11 @@
             document.getElementById('teksBalasan').disabled = false;
             document.getElementById('btnLampirkanMedia').disabled = false;
             document.getElementById('btnKirimBalasan').disabled = false;
+
+            // Pulihkan tombol batal area kutipan aktif (kalau ada) -- lihat
+            // catatan pembekuannya di bukaPemilihTeruskan().
+            const batalKutipan = document.getElementById('btnBatalKutipan');
+            if (batalKutipan) batalKutipan.disabled = false;
         }
     }
 
@@ -2461,8 +2478,29 @@
 
         const tujuan = tujuanTeruskan;
         const operationId = ambilOperationIdTeruskan();
+        const sumber = pesanCached[pesanTeruskanId];
 
-        fetch('<?= base_url('/inbox/kirim') ?>', {
+        // REQ-005/REQ-006/TASK-007: rute otomatis menurut jenis pesan sumber.
+        // Lampiran (gambar/dokumen/stiker) lewat /inbox/kirim-media TANPA
+        // mengunggah berkas apa pun -- FormData di bawah sengaja hanya membawa
+        // tiga field (conversation_id, forward_from_message_id, operation_id);
+        // byte-nya diambil server dari baris sumber (Section 9 "Always do").
+        const lewatJalurMedia = !!(sumber && JALUR_MEDIA_TERUSKAN.indexOf(sumber.message_type) !== -1);
+
+        let permintaan;
+
+        if (lewatJalurMedia) {
+            const formData = new FormData();
+            formData.append('conversation_id', tujuan);
+            formData.append('forward_from_message_id', pesanTeruskanId);
+            formData.append('operation_id', operationId);
+
+            permintaan = fetch('<?= base_url('/inbox/kirim-media') ?>', {
+                method: 'POST',
+                body: formData
+            });
+        } else {
+            permintaan = fetch('<?= base_url('/inbox/kirim') ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
@@ -2470,7 +2508,10 @@
                 body: 'conversation_id=' + encodeURIComponent(tujuan) +
                     '&forward_from_message_id=' + encodeURIComponent(pesanTeruskanId) +
                     '&operation_id=' + encodeURIComponent(operationId)
-            })
+            });
+        }
+
+        permintaan
             .then(function(res) {
                 return res.json();
             })

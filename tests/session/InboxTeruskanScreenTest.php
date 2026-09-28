@@ -293,4 +293,58 @@ final class InboxTeruskanScreenTest extends CIUnitTestCase
             'Label harus dipakai di kedua jalur render bubble.'
         );
     }
+
+    // ------------------------------------------------------------------
+    // TASK-007: rute otomatis teks vs lampiran
+    // ------------------------------------------------------------------
+
+    public function testSumberLampiranDikirimKeJalurMediaTanpaFieldMedia(): void
+    {
+        // REQ-005/REQ-006: sumber gambar/dokumen/stiker lewat /inbox/kirim-media,
+        // dan FormData TIDAK PERNAH membawa berkas (`media`) -- byte diambil
+        // server dari baris sumber (Section 9).
+        $body   = $this->halamanInbox();
+        $fungsi = $this->badanFungsi($body, 'teruskanPesan');
+
+        $this->assertStringContainsString('inbox/kirim-media', $fungsi, 'Lampiran diteruskan lewat /kirim-media.');
+        $this->assertStringContainsString('JALUR_MEDIA_TERUSKAN.indexOf(sumber.message_type)', $fungsi);
+        $this->assertStringContainsString('new FormData()', $fungsi);
+        $this->assertStringNotContainsString("formData.append('media'", $fungsi, 'Tidak ada berkas yang diunggah pada Teruskan.');
+        $this->assertStringNotContainsString("formData.append('caption'", $fungsi, 'Caption diambil server dari sumber, bukan browser.');
+    }
+
+    public function testSumberTeksTetapMemakaiEndpointKirimTeks(): void
+    {
+        $body   = $this->halamanInbox();
+        $fungsi = $this->badanFungsi($body, 'teruskanPesan');
+
+        $this->assertStringContainsString('inbox/kirim', $fungsi);
+        $this->assertStringContainsString("'&forward_from_message_id=' + encodeURIComponent(pesanTeruskanId)", $fungsi);
+        $this->assertStringContainsString("'&operation_id=' + encodeURIComponent(operationId)", $fungsi);
+    }
+
+    public function testAreaKutipanAktifTidakIkutTerkirimSaatTeruskan(): void
+    {
+        // CON-001: Teruskan dan Balas saling-menolak. Request Teruskan TIDAK
+        // pernah membaca kutipan aktif maupun mengirim quoted_message_id.
+        $body   = $this->halamanInbox();
+        $fungsi = $this->badanFungsi($body, 'teruskanPesan');
+
+        $this->assertStringNotContainsString('kutipanAktif', $fungsi);
+        $this->assertStringNotContainsString('quoted_message_id', $fungsi);
+    }
+
+    public function testTombolLampiranDanBatalKutipanDibekukanSelamaPemilihTerbuka(): void
+    {
+        // TASK-007: tombol lampiran & area kutipan aktif dinonaktifkan selama
+        // proses Teruskan, dan dipulihkan saat dialog ditutup.
+        $body  = $this->halamanInbox();
+        $buka  = $this->badanFungsi($body, 'bukaPemilihTeruskan');
+        $tutup = $this->badanFungsi($body, 'tutupPemilihTeruskan');
+
+        $this->assertStringContainsString("document.getElementById('btnLampirkanMedia').disabled = true", $buka);
+        $this->assertStringContainsString("'btnBatalKutipan'", $buka);
+        $this->assertStringContainsString('batalKutipan.disabled = true', $buka);
+        $this->assertStringContainsString('batalKutipan.disabled = false', $tutup);
+    }
 }

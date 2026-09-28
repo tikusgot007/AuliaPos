@@ -549,7 +549,7 @@ final class InboxGrupKirimSpy extends Inbox
         ];
     }
 
-    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null): array
+    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
     {
         return [
             'ok'            => true,
