@@ -1578,3 +1578,43 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6ll Teruskan AuliaPos Phase 2 VERIFIED/APPROVED) TASK-008 closed with automated tests (643/2531; filtered 56/289) plus owner-run manual checks in Brave - photo forward shows the "Diteruskan" label (DB row 900080: is_forwarded=1, all quoted_* NULL, media_size 275105 matching source 900044.jpg) and a gone-media fixture showed the "Lampiran ini sudah tidak tersedia..." error with nothing sent. Gateway log proves forward:true on /send-media with forwardMarkerApplied:"native" and quoteApplied:false; deployed Gateway is master 4a766d2 (EXT-001). TASK-009 approved by owner. Live fixture 900079 deleted. New dead-end: never embed double quotes in cmd /c from PowerShell - use SQL files and git commit -F. Next: Phase 3 (TASK-010..012) in a NEW session; v2.3 not pushed yet. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6mm — Teruskan AuliaPos Phase 3 selesai: edge case + gerbang rilis + APPROVAL owner; plan Completed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — Phase 3 (`TASK-010..012`) dari `plan/plan-feature-teruskan-auliapos-v1.0.md` **SELESAI**; plan **Completed** (12/12 task). Formal `/sdlc-code-review` **belum** dijalankan untuk Teruskan.
+- **Active Artifacts:**
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md` — ✅ **Completed** (frontmatter + badge + TASK-010/011/012 ✅ + blok bukti).
+  - `spec/spec-design-teruskan.md` (v1.2) — ✅ Finalized (tidak diubah).
+- **Achieved Milestones:**
+  - **TASK-010 (edge case + regresi + fixture)**: 7 test baru — teks sumber berkutipan → seluruh `quoted_*` baris baru NULL + payload tanpa `quoted` (AC-006); teks sumber `is_forwarded=1` → penanda tunggal + tidak ada kolom `forward_count`/`forwarded_from`; tujuan==sumber milik kasir lain → `403` (bukti `cekOwnership()` tetap jalan pada tujuan==sumber); tujuan percakapan grup → `200` + `is_forwarded=1` + `assigned_to` tetap NULL; regresi Balas Pesan teks & grup; regresi kirim media biasa (payload tanpa `forward`/`quoted`, `is_forwarded=0`).
+  - **TASK-011 (VERIFY + gerbang rilis)**: `vendor/bin/phpunit --no-coverage` → **OK (650 tests, 2574 assertions), exit 0**; `--filter InboxTeruskan` → **OK (63 tests, 332 assertions)**. Gerbang `EXT-001` tercatat: Gateway ter-deploy `master 4a766d23391c3222ec252f4dfbe82e2c7d9ec06e`. Checklist manual `Section 13` **dikonfirmasi owner** via screenshot: bubble AuliaPos menampilkan `Diteruskan` di baris sendiri tanpa kotak kutipan, dan pesan hasil Teruskan tampil di **WhatsApp HP uji** dengan penanda native `↪ Forwarded`.
+  - **TASK-012 (APPROVAL)**: disetujui owner 2026-09-28 — Tahap 4 sisi AuliaPos selesai, lulus gerbang rilis, siap ditutup.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** menganggap label `Forwarded`/`Diteruskan` di WhatsApp (Web) saja sudah membuktikan jalur Gateway (TASK-011).
+  - **Reason:** label yang sama muncul juga kalau pesan diteruskan manual lewat tombol Forward WhatsApp Web. Bukti harus dari jalur AuliaPos (log Gateway `forward_marker_applied`, atau baris `messages.is_forwarded=1`).
+  - **Correct Solution:** minta konfirmasi owner bahwa pesan itu hasil klik Teruskan di AuliaPos, lalu cocokkan dengan log Gateway + baris DB.
+  - **Attempted (minor, test):** meng-assert `countOutgoing(...) === 1` pada kasus tujuan==sumber setelah `403`.
+  - **Reason:** pesan sumber di fixture itu `direction=incoming`, jadi tidak ada baris outgoing sama sekali (harus `0`).
+  - **Correct Solution:** assert `0` outgoing — sumber incoming bukan bukti penulisan; yang penting tidak ada baris BARU hasil Teruskan.
+- **Updated Files:**
+  - `tests/session/InboxTeruskanTest.php` — +6 test (non-stacking, forwarded-source, tujuan==sumber ownership 403, tujuan grup, regresi Balas teks + grup).
+  - `tests/session/InboxTeruskanMediaTest.php` — +1 test (regresi kirim media biasa) + `controllerMediaBiasa()`/`fakeUploadedMedia()` + `InboxTeruskanTestUploadedMedia`.
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md` — TASK-010/011/012 ✅, blok bukti TASK-010/011, frontmatter+badge Completed.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+  - `docs/peta-kemajuan-inbox.html` — **tetap** termodifikasi sejak sebelum sesi ini, TIDAK di-commit (skill peta: jangan commit tanpa diminta).
+- **Decisions Made:**
+  - Tidak ada keputusan desain baru — Phase 3 murni pengujian/verifikasi; tidak ada perubahan `app/` (hanya test + plan).
+  - `is_forwarded` tetap penanda tunggal tanpa penghitung (REQ-009) — ditegaskan lagi lewat test skema.
+- **Next Action / Pending:**
+  - **Closing sequence sesi ini**: checkpoint ini → **commit** (test + plan; memory) → **push** `origin/v2.3` → prompt sesi berikutnya.
+  - **`v2.3` lokal ahead dari origin, BELUM di-push** (sejak Phase 2; owner baru menyetujui checkpoint+commit).
+  - **Belum dijalankan:** `/sdlc-code-review` (sesi baru, lampirkan `@spec/spec-design-teruskan.md` + `@plan/plan-feature-teruskan-auliapos-v1.0.md` + kode/test yang berubah) — mencakup Phase 1–3 Teruskan. Bukan Kilo `/review`.
+  - Reviewer questions terbuka dari Phase 2 (bukan defect terkonfirmasi): byte sumber Teruskan melewati `maxMediaUploadMb`; jalur Teruskan tidak menulis `media_confirmed_gone_at` pada live-fetch `410`; worst case ~60s sinkron (30s live-fetch + 30s send).
+  - **Data uji sisa di DB live (sengaja)**: baris `900075`/`900076` (conv `900021`), `900077` (conv `900020`, kini dipegang user 4 `epo`), `900080` (conv `900021`) — pesan WhatsApp-nya sudah terkirim sungguhan.
+  - Carried forward (tidak berubah): `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md` belum diperbarui untuk Teruskan; kebijakan retensi folder media; GW-25/C3; E-07.
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6mm Teruskan AuliaPos Phase 3) /sdlc-write-code completed Phase 3 of plan-feature-teruskan-auliapos-v1.0.md and closed the plan (12/12, status Completed). TASK-010 added 7 tests (quoted source -> all quoted_* NULL, forwarded source -> single marker with no counter column, target==source still 403 via cekOwnership, group target 200 without auto-assign, Balas text+group regression, plain-media regression without forward); TASK-011 verified full suite OK 650 tests/2574 assertions, filtered 63/332, and recorded the release gate EXT-001 as deployed Gateway master 4a766d23391c3222ec252f4dfbe82e2c7d9ec06e, with the Section 13 manual checklist owner-confirmed by screenshot (AuliaPos "Diteruskan" label with no quote box, and the native "Forwarded" marker visible in WhatsApp on the test phone); TASK-012 approved by owner explicitly. Dead-end: the WhatsApp "Forwarded" label alone does NOT prove the Gateway path (manual WhatsApp Web forwarding shows the same label) - confirm it came from an AuliaPos Teruskan click, then match the Gateway log / messages.is_forwarded row. No app/ code changed this phase. Not yet done: /sdlc-code-review for Teruskan, and pushing v2.3 (local ahead of origin). -->
+
+
+---

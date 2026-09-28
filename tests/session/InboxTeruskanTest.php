@@ -458,6 +458,150 @@ final class InboxTeruskanTest extends CIUnitTestCase
     }
 
     // ------------------------------------------------------------------
+    // TASK-010: edge case non-stacking & regresi
+    // ------------------------------------------------------------------
+
+    public function testSumberTeksYangPunyaKutipanTidakMembawaKutipanKeBarisBaru(): void
+    {
+        // AC-006/REQ-009: sumber adalah hasil Balas Pesan -- kutipannya
+        // TIDAK ikut terbawa ke baris hasil Teruskan.
+        $sumberConversation = $this->seedConversation('628111111111@s.whatsapp.net');
+        $tujuanConversation = $this->seedConversation('628222222222@s.whatsapp.net');
+        $sourceId           = $this->seedMessage($sumberConversation, [
+            'direction'                => 'incoming',
+            'message_type'             => 'text',
+            'text'                     => 'balasan yang dikutip',
+            'quoted_wa_message_id'     => 'SRC-QUOTED-1',
+            'quoted_sender_label'      => 'Pelanggan',
+            'quoted_snippet'           => 'pesan lama',
+            'quoted_media_available'   => 1,
+            'quoted_source_message_id' => 123,
+            'quoted_media_type'        => 'text',
+        ]);
+
+        $controller = $this->controller();
+        $response   = $this->teruskan($controller, $tujuanConversation, $sourceId);
+        $row        = $this->lastOutgoing($tujuanConversation);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertTrue($controller->capturedForward, 'Teruskan tetap meminta forward ke Gateway.');
+        $this->assertNull($controller->capturedQuoted, 'CON-001/AC-006: payload tidak pernah membawa quoted.');
+
+        foreach ([
+            'quoted_wa_message_id',
+            'quoted_sender_label',
+            'quoted_snippet',
+            'quoted_media_available',
+            'quoted_source_message_id',
+            'quoted_media_type',
+        ] as $kolom) {
+            $this->assertNull($row[$kolom], "REQ-009: {$kolom} wajib NULL pada pesan hasil Teruskan.");
+        }
+    }
+
+    public function testSumberTeksTerTeruskanPenandaTetapTunggalTanpaKolomPenghitung(): void
+    {
+        // AC-007/REQ-009: meneruskan pesan yang sudah diteruskan tetap SATU
+        // penanda, dan skema tidak pernah punya kolom penghitung forward.
+        $sumberConversation = $this->seedConversation('628111111111@s.whatsapp.net');
+        $tujuanConversation = $this->seedConversation('628222222222@s.whatsapp.net');
+        $sourceId           = $this->seedMessage($sumberConversation, [
+            'direction'    => 'incoming',
+            'message_type' => 'text',
+            'text'         => 'sudah pernah diteruskan',
+            'is_forwarded' => 1,
+        ]);
+
+        $controller = $this->controller();
+        $this->teruskan($controller, $tujuanConversation, $sourceId);
+
+        $this->assertSame(1, (int) $this->lastOutgoing($tujuanConversation)['is_forwarded'], 'Penanda tunggal, tidak berlapis.');
+
+        $kolom = db_connect('inbox')->getFieldNames('messages');
+        $this->assertNotContains('forward_count', $kolom, 'REQ-009: tidak ada kolom penghitung forward.');
+        $this->assertNotContains('forwarded_from', $kolom, 'REQ-009: tidak ada referensi ke pesan asal.');
+    }
+
+    public function testTujuanSamaDenganSumberTetapDiperiksaOwnership(): void
+    {
+        // Section 12 + REQ-007: tujuan boleh sama dengan sumber, tapi tetap
+        // "percakapan tujuan" -- cekOwnership() WAJIB tetap dijalankan.
+        $conversationId = $this->seedConversation('628111111111@s.whatsapp.net', 9);
+        $sourceId       = $this->seedMessage($conversationId, [
+            'direction'    => 'incoming',
+            'message_type' => 'text',
+            'text'         => 'sumber',
+        ]);
+
+        $controller = $this->controller();
+        $response   = $this->teruskan($controller, $conversationId, $sourceId);
+
+        $this->assertSame(403, $response->getStatusCode(), 'AC-005: ownership tujuan tetap berlaku walau tujuan == sumber.');
+        $this->assertNull($controller->capturedForward, 'Gateway tidak boleh dipanggil.');
+        $this->assertSame(0, $this->countOutgoing($conversationId), 'Tidak ada baris BARU hasil Teruskan.');
+    }
+
+    public function testTeruskanKePercakapanGrupBerhasilTanpaAutoAssign(): void
+    {
+        // Regresi Grup Tahap 1: grup tetap boleh jadi tujuan Teruskan, dan
+        // aturan "grup tidak pernah di-auto-assign" tidak berubah.
+        $grup     = $this->seedGroupConversation();
+        $sourceId = $this->seedMessage($this->seedConversation('628111111111@s.whatsapp.net', 9), [
+            'direction'    => 'incoming',
+            'message_type' => 'text',
+            'text'         => 'pesan untuk grup',
+        ]);
+
+        $controller = $this->controller();
+        $response   = $this->teruskan($controller, $grup, $sourceId);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame(1, (int) $this->lastOutgoing($grup)['is_forwarded']);
+        $this->assertNull($this->conversation($grup)['assigned_to'], 'Regresi: grup tidak di-auto-assign.');
+    }
+
+    public function testBalasPesanBiasaTanpaForwardTidakBerubah(): void
+    {
+        // Regresi Balas Pesan (Tahap 3): kirim dengan kutipan TANPA
+        // forward_from_message_id harus tetap mengutip seperti sebelumnya --
+        // payload tidak pernah membawa `forward`.
+        $conversationId = $this->seedConversation();
+        $quotedId       = $this->seedMessage($conversationId, [
+            'direction'    => 'incoming',
+            'message_type' => 'text',
+            'text'         => 'pesan yang dikutip',
+        ]);
+
+        $controller = $this->controller(['quoted_message_id' => $quotedId]);
+        $response   = $this->invoke($controller, $conversationId, 'balasan biasa');
+        $body       = $this->body($controller);
+
+        $this->assertSame(200, $response->getStatusCode(), 'Regresi: Balas Pesan tetap berjalan.');
+        $this->assertNull($controller->capturedForward, 'Payload Balas tidak pernah membawa forward.');
+        $this->assertNotNull($controller->capturedQuoted, 'Balas tetap mengirim quoted.');
+        $this->assertTrue($body['quote_applied']);
+        $this->assertNotNull($this->lastOutgoing($conversationId)['quoted_wa_message_id'], 'Snapshot kutipan tetap tersimpan.');
+    }
+
+    public function testBalasPesanPadaPercakapanGrupTetapMengutipTanpaForward(): void
+    {
+        // Regresi Balas Pesan di grup: perilaku tidak berubah oleh Teruskan.
+        $grup     = $this->seedGroupConversation();
+        $quotedId = $this->seedMessage($grup, [
+            'direction'    => 'incoming',
+            'message_type' => 'text',
+            'text'         => 'pesan grup dikutip',
+        ]);
+
+        $controller = $this->controller(['quoted_message_id' => $quotedId]);
+        $response   = $this->invoke($controller, $grup, 'balasan ke grup');
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertNull($controller->capturedForward);
+        $this->assertNotNull($controller->capturedQuoted);
+    }
+
+    // ------------------------------------------------------------------
     // Helper
     // ------------------------------------------------------------------
 
@@ -505,6 +649,23 @@ final class InboxTeruskanTest extends CIUnitTestCase
             'jid_type'               => 'pn',
             'status'                 => 'open',
             'assigned_to'            => $assignedTo,
+            'last_message_direction' => 'incoming',
+            'created_at'             => date('Y-m-d H:i:s'),
+            'updated_at'             => date('Y-m-d H:i:s'),
+        ]);
+
+        return (int) $db->insertID();
+    }
+
+    /** Percakapan grup (Grup Tahap 1) tanpa penangan. */
+    private function seedGroupConversation(): int
+    {
+        $db = db_connect('inbox');
+        $db->table('conversations')->insert([
+            'chat_id'                => '628' . random_int(100000000, 999999999) . '-1500@g.us',
+            'jid_type'               => 'group',
+            'status'                 => 'open',
+            'assigned_to'            => null,
             'last_message_direction' => 'incoming',
             'created_at'             => date('Y-m-d H:i:s'),
             'updated_at'             => date('Y-m-d H:i:s'),

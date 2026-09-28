@@ -1,6 +1,8 @@
 <?php
 
 use App\Controllers\Inbox;
+use CodeIgniter\HTTP\Files\FileCollection;
+use CodeIgniter\HTTP\Files\UploadedFile;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\Response;
 use CodeIgniter\HTTP\URI;
@@ -500,6 +502,25 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
     }
 
     // ------------------------------------------------------------------
+    // TASK-010: regresi kirim media BIASA (tanpa Teruskan)
+    // ------------------------------------------------------------------
+
+    public function testKirimMediaBiasaSamaSekaliTidakMengirimForward(): void
+    {
+        // Payload Gateway tidak pernah membawa `forward` (maupun `quoted`)
+        // bila `forward_from_message_id` tidak dikirim -- jalur lama apa adanya.
+        $tujuan     = $this->seedConversation('628222222222@s.whatsapp.net', 7);
+        $controller = $this->controllerMediaBiasa($tujuan);
+
+        $controller->kirimMedia();
+
+        $this->assertSame(200, $this->statusCode($controller));
+        $this->assertNull($controller->capturedForward, 'Kirim media biasa tidak pernah membawa forward.');
+        $this->assertNull($controller->capturedQuoted);
+        $this->assertSame(0, (int) $this->lastOutgoing($tujuan)['is_forwarded'], 'Regresi: is_forwarded tetap 0.');
+    }
+
+    // ------------------------------------------------------------------
     // Helper
     // ------------------------------------------------------------------
 
@@ -512,6 +533,37 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
         $controller->initController($request, new Response(new \Config\App()), new NullLogger());
 
         return $controller;
+    }
+
+    /** Jalur kirim media BIASA: unggahan kasir nyata, tanpa `forward_from_message_id`. */
+    private function controllerMediaBiasa(int $conversationId): InboxTeruskanMediaSpy
+    {
+        $request = new IncomingRequest(new \Config\App(), new URI('cli'), null, new UserAgent());
+        $request->setGlobal('post', ['conversation_id' => (string) $conversationId, 'caption' => '']);
+
+        $collection    = new FileCollection();
+        $filesProperty = new \ReflectionProperty($collection, 'files');
+        $filesProperty->setAccessible(true);
+        $filesProperty->setValue($collection, ['media' => $this->fakeUploadedMedia()]);
+
+        $requestFiles = new \ReflectionProperty($request, 'files');
+        $requestFiles->setAccessible(true);
+        $requestFiles->setValue($request, $collection);
+
+        $controller = new InboxTeruskanMediaSpy();
+        $controller->initController($request, new Response(new \Config\App()), new NullLogger());
+
+        return $controller;
+    }
+
+    private function fakeUploadedMedia(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'aulia-teruskan-media-');
+        $this->assertIsString($path);
+
+        file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8AAAwAB/wD/AH8AAAAASUVORK5CYII='));
+
+        return new InboxTeruskanTestUploadedMedia($path, 'biasa.png', 'image/png', (int) filesize($path), UPLOAD_ERR_OK);
     }
 
     /**
@@ -658,5 +710,18 @@ final class InboxTeruskanMediaSpy extends Inbox
         $this->gatewayMediaDownloadCalls++;
 
         return $this->gatewayMediaResponse;
+    }
+}
+
+/**
+ * Test-only upload: isValid() tidak lagi menuntut unggahan HTTP nyata
+ * (is_uploaded_file() selalu false di CLI) -- pola yang sama dengan
+ * InboxTestUploadedMedia di InboxOutgoingIdempotencyTest.php.
+ */
+final class InboxTeruskanTestUploadedMedia extends UploadedFile
+{
+    public function isValid(): bool
+    {
+        return true;
     }
 }
