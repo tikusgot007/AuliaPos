@@ -2,6 +2,7 @@
 
 use Config\Inbox as GatewayInboxConfig;
 use App\Controllers\Inbox;
+use App\Libraries\InboxOutgoingRequest;
 use CodeIgniter\HTTP\Files\FileCollection;
 use CodeIgniter\HTTP\Files\UploadedFile;
 use CodeIgniter\HTTP\IncomingRequest;
@@ -383,8 +384,9 @@ final class InboxGatewayIdempotencySpy extends Inbox
     {
     }
 
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
+        $operationId = $request->operationId;
         $this->capturedOperationId = $operationId;
         if ($operationId !== $this->expectedOperationId) {
             throw new RuntimeException('Gateway received an unexpected operation_id.');
@@ -396,8 +398,9 @@ final class InboxGatewayIdempotencySpy extends Inbox
         ];
     }
 
-    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySendMedia(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
+        $operationId = $request->operationId;
         $this->capturedOperationId = $operationId;
         if ($operationId !== $this->expectedOperationId) {
             throw new RuntimeException('Gateway received an unexpected operation_id.');
@@ -410,7 +413,7 @@ final class InboxGatewayIdempotencySpy extends Inbox
             'error_code'    => null,
             'state'         => 'sent',
             'replayed'      => false,
-            'quote_applied' => (bool) $quoted,
+            'quote_applied' => (bool) $request->quoted,
         ];
     }
 }

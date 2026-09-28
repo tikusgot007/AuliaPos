@@ -9,6 +9,7 @@ use App\Models\GatewayStatusModel;
 use App\Models\UserModel;
 use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
+use App\Libraries\InboxOutgoingRequest;
 use App\Services\InboxSlaService;
 use App\Services\InboxMatchSnippetService;
 use App\Services\InboxQuoteSnapshotService;
@@ -62,6 +63,21 @@ class Inbox extends BaseController
     private const PESAN_TERUSKAN_TIPE_TIDAK_DIDUKUNG  = 'Jenis pesan ini tidak bisa diteruskan.';
     private const PESAN_TERUSKAN_TANPA_TEKS           = 'Pesan sumber tidak punya teks untuk diteruskan.';
     private const PESAN_TERUSKAN_DAN_KUTIPAN          = 'Tidak bisa menjawab sekaligus meneruskan. Pilih salah satu aksi.';
+
+    /**
+     * Pesan `400` saat sumber LAMPIRAN dicoba diteruskan lewat jalur teks
+     * `/inbox/kirim` (REQ-101/GUD-001). Cermin terbalik dari guard
+     * `TIPE_TERUSKAN_LAMPIRAN` di `kirimMedia()`: penegakan server dua arah,
+     * bukan hanya bergantung pada rute otomatis di UI.
+     */
+    private const PESAN_TERUSKAN_HARUS_MEDIA          = 'Lampiran harus diteruskan lewat jalur media.';
+
+    /**
+     * Pesan `400` saat caption (kiriman kasir ATAU turunan pesan sumber
+     * Teruskan) melebihi batas protokol WhatsApp. Satu sumber kebenaran
+     * supaya jalur biasa dan jalur Teruskan tidak bisa menyimpang.
+     */
+    private const PESAN_CAPTION_TERLALU_PANJANG       = 'Caption terlalu panjang (maksimal 1024 karakter).';
 
     /**
      * Pesan `400` Teruskan lampiran saat byte-nya tidak bisa diperoleh lagi
@@ -124,6 +140,11 @@ class Inbox extends BaseController
             // Sumber sama dengan validasi server (UserModel::daftarKasirAktif,
             // Q6) -- server tetap 403 kalau dropdown basi (RISK-05).
             'daftarKasir'    => (new UserModel())->daftarKasirAktif(),
+            // PRN-301: daftar tipe lampiran forwardable SATU sumber kebenaran --
+            // view memakai konstanta server ini (bukan salinannya sendiri),
+            // supaya rute otomatis UI dan guard server (TIPE_TERUSKAN_LAMPIRAN
+            // di kirimMedia()) tidak bisa menyimpang.
+            'tipeTeruskanLampiran' => self::TIPE_TERUSKAN_LAMPIRAN,
         ];
 
         return view('layout/minimal', $data);
@@ -985,7 +1006,15 @@ class Inbox extends BaseController
             ]);
         }
 
-        return $this->kirimKeConversation($conversation, $text, $forwardFromMessageId);
+        // PRN-302: dua aksi = dua entry point. Mode Teruskan TIDAK PERNAH
+        // menerima `$text` dari browser (isi diambil server dari DB sumber),
+        // jadi jalurnya dipisah supaya tidak ada input yang diterima-lalu-
+        // dibuang.
+        if ($forwardFromMessageId !== null) {
+            return $this->kirimTeruskanTeks($conversation, $forwardFromMessageId);
+        }
+
+        return $this->kirimKeConversation($conversation, $text);
     }
 
     /**
@@ -1048,7 +1077,7 @@ class Inbox extends BaseController
         if ($caption !== '' && strlen($caption) > 1024) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
-                'message' => 'Caption terlalu panjang (maksimal 1024 karakter).',
+                'message' => self::PESAN_CAPTION_TERLALU_PANJANG,
             ]);
         }
 
@@ -1082,9 +1111,9 @@ class Inbox extends BaseController
             ]);
         }
 
-        // Balas Pesan (Tahap 3, TASK-006): balas-dengan-lampiran sambil
-        // mengutip memakai RESOLUSI YANG SAMA dengan jalur teks
-        // (resolveKutipan), jadi guard F-A (lintas percakapan) dan taksonomi
+        // Balas Pesan (Tahap 3, TASK-006) dan Teruskan (Tahap 4) memakai
+        // RESOLUSI masing-masing yang sama dengan jalur teks (resolveKutipan /
+        // resolveTeruskan), jadi guard F-A (lintas percakapan) dan taksonomi
         // F-D (sumber tidak ada / `local-` / soft-deleted) tidak pernah
         // berbeda antar dua jalur.
         //
@@ -1104,66 +1133,41 @@ class Inbox extends BaseController
             ]);
         }
 
-        // Dua jalur saling-menolak: mode Teruskan TIDAK PERNAH memanggil
-        // resolveKutipan(), sehingga snapshot kutipan otomatis null dan
-        // `quoted_*` pada baris baru selalu NULL (REQ-009/AC-006) serta payload
-        // Gateway tidak pernah membawa `quoted` (CON-001/AC-010).
-        $quoteSnapshot = null;
-        $quotedPayload = null;
-        $sumber        = null;
-
+        // PRN-304: dua use case dipisah -- kirim media biasa/Balas vs Teruskan
+        // lampiran. Masing-masing merakit `$media`-nya sendiri, lalu keduanya
+        // memakai jalur eksekusi bersama di bawah.
         if ($isForward) {
-            $teruskan = $this->resolveTeruskan($conversationId, $forwardFromMessageId);
-
-            if ($teruskan['error'] !== null) {
-                return $this->response->setStatusCode(400)->setJSON([
-                    'status'  => 'error',
-                    'message' => $teruskan['error'],
-                ]);
-            }
-
-            $sumber = $teruskan['source'];
-
-            // Jalur ini khusus lampiran: sumber teks (walau forwardable di jalur
-            // teks) tidak boleh dipaksa lewat /send-media. GUD-001: aturan
-            // ditegakkan server, bukan hanya oleh rute otomatis di UI.
-            if (!in_array((string) ($sumber['message_type'] ?? ''), self::TIPE_TERUSKAN_LAMPIRAN, true)) {
-                return $this->response->setStatusCode(400)->setJSON([
-                    'status'  => 'error',
-                    'message' => self::PESAN_TERUSKAN_TIPE_TIDAK_DIDUKUNG,
-                ]);
-            }
-        } else {
-            $kutipan = $this->resolveKutipan($conversationId, $quotedMessageId);
-
-            if ($kutipan['error'] !== null) {
-                // 400 tanpa menulis kolom snapshot apa pun (taksonomi F-D).
-                return $this->response->setStatusCode(400)->setJSON([
-                    'status'  => 'error',
-                    'message' => $kutipan['error'],
-                ]);
-            }
-
-            $quoteSnapshot = $kutipan['snapshot'];
-            $quotedPayload = $kutipan['quotedPayload'];
+            return $this->kirimTeruskanMedia($conversation, $forwardFromMessageId, $config);
         }
 
-        $gatewayStatusModel = new GatewayStatusModel();
+        return $this->kirimMediaBiasa($conversation, $file, $caption, $quotedMessageId, $config);
+    }
 
-        if (!$gatewayStatusModel->isUsable()) {
-            return $this->response->setStatusCode(503)->setJSON([
+    /**
+     * Kirim media BIASA (tanpa Teruskan) atau Balas Pesan dengan lampiran:
+     * resolusi kutipan -> rakit atribut dari berkas unggahan kasir -> jalur
+     * eksekusi bersama. (PRN-304)
+     *
+     * @param \CodeIgniter\HTTP\Files\UploadedFile $file
+     */
+    private function kirimMediaBiasa(array $conversation, $file, string $caption, ?int $quotedMessageId, InboxConfig $config)
+    {
+        $conversationId = (int) $conversation['id'];
+
+        // Taksonomi F-D: sumber tidak ada / lintas percakapan / soft-deleted
+        // ditolak 400 tanpa menulis kolom snapshot apa pun.
+        $kutipan = $this->resolveKutipan($conversationId, $quotedMessageId);
+
+        if ($kutipan['error'] !== null) {
+            return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
-                'message' => 'Gateway WhatsApp sedang tidak terhubung. Coba lagi setelah Gateway online.',
+                'message' => $kutipan['error'],
             ]);
         }
 
-        if ($config->gatewayBaseUrl === '') {
-            log_message('critical', 'Inbox::kirimMedia -- inbox.gatewayBaseUrl belum dikonfigurasi di .env.');
-
-            return $this->response->setStatusCode(503)->setJSON([
-                'status'  => 'error',
-                'message' => 'Gateway belum dikonfigurasi di server.',
-            ]);
+        $gagal = $this->pastikanGatewaySiap($config, 'kirimMedia');
+        if ($gagal !== null) {
+            return $gagal;
         }
 
         // Mimetype asli dari isi file (bukan dari nama/ekstensi, supaya
@@ -1173,51 +1177,156 @@ class Inbox extends BaseController
         // deteksi otomatis dari mimetype ini aman tanpa perlu tombol/
         // toggle terpisah di UI). image/* lain dianggap 'image', sisanya
         // 'document' -- konsisten dengan VALID_MEDIA_TYPES Gateway.
-        //
-        // Teruskan (TASK-006 (d)): di mode ini atribut media TIDAK pernah
-        // ditebak dari berkas kasir (tidak ada berkas) -- semuanya disalin
-        // apa adanya dari baris sumber, dan caption memakai teks sumber.
-        if ($isForward) {
-            $mediaType = (string) $sumber['message_type'];
-            $mimetype  = $sumber['media_mime_type'] ?: null;
-            $fileName  = $sumber['media_filename'] ?: null;
-            $fileSize  = $sumber['media_size'] ?? null;
-            $caption   = trim((string) ($sumber['text'] ?? ''));
+        $mimetype  = $file->getMimeType();
+        $mediaType = $mimetype === 'image/webp'
+            ? 'sticker'
+            : (str_starts_with((string) $mimetype, 'image/') ? 'image' : 'document');
 
-            $baca = $this->bacaByteMediaTeruskan($config, $sumber);
+        $media = [
+            'type'     => $mediaType,
+            'mimetype' => $mimetype,
+            'fileName' => $file->getClientName(),
+            'size'     => $file->getSize(),
+            'caption'  => $caption,
+            'base64'   => base64_encode(file_get_contents($file->getTempName())),
+        ];
 
-            if ($baca['error'] !== null) {
-                // CON-002 all-or-nothing: media tidak bisa diperoleh -> seluruh
-                // aksi dibatalkan, TIDAK pernah mengirim caption tanpa lampiran.
-                return $this->response->setStatusCode(400)->setJSON([
-                    'status'  => 'error',
-                    'message' => $baca['error'],
-                ]);
-            }
+        return $this->kirimMediaViaGateway($config, $conversation, $media, $kutipan['snapshot'], $kutipan['quotedPayload'], false);
+    }
 
-            $mediaBase64 = base64_encode($baca['binary']);
-        } else {
-            $mimetype  = $file->getMimeType();
-            $mediaType = $mimetype === 'image/webp'
-                ? 'sticker'
-                : (str_starts_with((string) $mimetype, 'image/') ? 'image' : 'document');
-            $fileName  = $file->getClientName();
-            $fileSize  = $file->getSize();
+    /**
+     * Teruskan LAMPIRAN (Tahap 4): resolve sumber -> resolusi atribut + byte
+     * (disk lokal lalu live-fetch) -> jalur eksekusi bersama. Di mode ini
+     * atribut media TIDAK PERNAH ditebak dari berkas kasir (tidak ada berkas)
+     * -- semuanya disalin apa adanya dari baris sumber. (PRN-304)
+     */
+    private function kirimTeruskanMedia(array $conversation, int $forwardFromMessageId, InboxConfig $config)
+    {
+        $conversationId = (int) $conversation['id'];
 
-            $mediaBase64 = base64_encode(file_get_contents($file->getTempName()));
+        $teruskan = $this->resolveTeruskan($conversationId, $forwardFromMessageId);
+
+        if ($teruskan['error'] !== null) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => $teruskan['error'],
+            ]);
         }
+
+        // Jalur ini khusus lampiran: sumber teks (walau forwardable di jalur
+        // teks) tidak boleh dipaksa lewat /send-media. GUD-001: aturan
+        // ditegakkan server, bukan hanya oleh rute otomatis di UI. Guard
+        // diletakkan SEBELUM cek Gateway supaya cermin dengan urutan lama.
+        if (!in_array((string) ($teruskan['source']['message_type'] ?? ''), self::TIPE_TERUSKAN_LAMPIRAN, true)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => self::PESAN_TERUSKAN_TIPE_TIDAK_DIDUKUNG,
+            ]);
+        }
+
+        $gagal = $this->pastikanGatewaySiap($config, 'kirimMedia');
+        if ($gagal !== null) {
+            return $gagal;
+        }
+
+        $resolved = $this->resolveForwardMediaSource($config, $teruskan['source']);
+
+        if ($resolved['error'] !== null) {
+            // CON-002 all-or-nothing: media tidak bisa diperoleh -> seluruh
+            // aksi dibatalkan, TIDAK pernah mengirim caption tanpa lampiran.
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => $resolved['error'],
+            ]);
+        }
+
+        return $this->kirimMediaViaGateway($config, $conversation, $resolved['media'], null, null, true);
+    }
+
+    /**
+     * Resolusi sumber media Teruskan: atribut media dari baris sumber, caption
+     * (divalidasi ulang SEC-202), dan byte (disk lokal lalu live-fetch,
+     * SEC-201) -- TIDAK menulis berkas apa pun (PRD 8.2). Memindahkan
+     * pembacaan detail sumber ke satu tempat supaya `kirimMedia()` tidak lagi
+     * menangani dua use case bercampur. (PRN-304)
+     *
+     * @param array<string, mixed> $sumber
+     *
+     * @return array{error: ?string, media: ?array{type: string, mimetype: ?string, fileName: ?string, size: mixed, caption: string, base64: string}}
+     */
+    private function resolveForwardMediaSource(InboxConfig $config, array $sumber): array
+    {
+        $caption = trim((string) ($sumber['text'] ?? ''));
+
+        // SEC-202/REQ-101: caption turunan pesan sumber WAJIB divalidasi
+        // ulang -- jalur Teruskan melewati validasi `$caption` kiriman browser.
+        if (strlen($caption) > 1024) {
+            return ['error' => self::PESAN_CAPTION_TERLALU_PANJANG, 'media' => null];
+        }
+
+        $baca = $this->bacaByteMediaTeruskan($config, $sumber);
+
+        if ($baca['error'] !== null) {
+            return ['error' => $baca['error'], 'media' => null];
+        }
+
+        return ['error' => null, 'media' => [
+            'type'     => (string) $sumber['message_type'],
+            'mimetype' => $sumber['media_mime_type'] ?: null,
+            'fileName' => $sumber['media_filename'] ?: null,
+            'size'     => $sumber['media_size'] ?? null,
+            'caption'  => $caption,
+            'base64'   => base64_encode($baca['binary']),
+        ]];
+    }
+
+    /**
+     * Eksekusi bersama jalur MEDIA (kirim biasa/Balas dan Teruskan): kirim ke
+     * Gateway -> replay lookup `operation_id` -> simpan bila sukses -> rakit
+     * respons. (PRN-304)
+     *
+     * @param array{type: string, mimetype: ?string, fileName: ?string, size: mixed, caption: string, base64: string} $media
+     * @param array<string, mixed>|null $quoteSnapshot
+     * @param array<string, mixed>|null $quotedPayload
+     */
+    private function kirimMediaViaGateway(InboxConfig $config, array $conversation, array $media, ?array $quoteSnapshot, ?array $quotedPayload, bool $isForward)
+    {
+        $conversationId = (int) $conversation['id'];
+
+        // Dibaca dari request AJAX kasir, TIDAK dibuat/diubah di sini.
+        $operationId = (string) ($this->request->getPost('operation_id') ?? '');
+        $operationId = $operationId === '' ? null : $operationId;
+
+        $mediaType = (string) $media['type'];
+        $mimetype  = $media['mimetype'];
+        $fileName  = $media['fileName'];
+        $fileSize  = $media['size'];
 
         // Sticker TIDAK PERNAH punya caption di protokol WhatsApp (sama
         // seperti sisi masuk -- lihat InboxGatewayApi::messages()) --
         // caption yang mungkin diisi kasir diabaikan, tidak dikirim ke
         // Gateway maupun disimpan sebagai text pesan, supaya tidak
         // menyesatkan (terisi di form tapi diam-diam hilang).
-        $captionUntukGateway = $mediaType === 'sticker' ? '' : $caption;
+        $captionUntukGateway = $mediaType === 'sticker' ? '' : (string) $media['caption'];
 
         // Aditif (CON-001/REQ-001a): `forward` hanya ikut saat Teruskan dan
-        // TIDAK PERNAH bersama `quoted` -- kombinasinya ditolak 400 di atas.
-        // Tanpa Teruskan, `null` membuat payload Gateway tidak berubah.
-        $result = $this->callGatewaySendMedia($config, $conversation['chat_id'], $mediaType, $mediaBase64, $mimetype, $fileName, $captionUntukGateway, $operationId, $quotedPayload, $isForward ? true : null);
+        // TIDAK PERNAH bersama `quoted` -- kombinasinya ditolak 400 di entry
+        // point masing-masing. Tanpa Teruskan, `forward=false` membuat payload
+        // Gateway tidak berubah.
+        $result = $this->callGatewaySendMedia(
+            $config,
+            InboxOutgoingRequest::media(
+                $conversation['chat_id'],
+                $mediaType,
+                (string) $media['base64'],
+                $mimetype,
+                $fileName,
+                $captionUntukGateway,
+                $operationId,
+                $quotedPayload,
+                $isForward
+            )
+        );
 
         if (!$result['ok']) {
             return $this->gatewayFailureResponse($result, $conversationId, 'kirimMedia', 'Gagal mengirim media: ');
@@ -1323,6 +1432,7 @@ class Inbox extends BaseController
         if (($conversation['jid_type'] ?? null) !== 'group' && empty($conversation['assigned_to'])) {
             $conversationUpdate['assigned_to'] = $userId;
         }
+        $conversationModel = new ConversationModel();
         $conversationModel->updateLastMessageIfNewer($conversationId, $now, 'outgoing', $conversationUpdate);
 
         log_message('info', "Inbox::kirimMedia sukses. conversation_id={$conversationId}, user_id={$userId}, media_ref=" . ($mediaMetadata ? 'ada' : 'tidak ada'));
@@ -2392,33 +2502,21 @@ class Inbox extends BaseController
      * PERNAH dibuat di server (A-4) -- kalau kasir tidak mengirimkannya
      * (mis. halaman dimuat ulang), alur kirim berjalan seperti sebelumnya.
      *
-     * Teruskan (Tahap 4): `$forwardFromMessageId` = ID LOKAL pesan sumber
-     * yang meneruskan operasi ini. Nilai ini dibaca `kirim()` dari request
-     * dan diteruskan apa adanya -- `mulaiPercakapan()` tidak punya aksi
-     * Teruskan sama sekali, jadi pemanggil itu selalu mengirim `null`.
-     * `null` = kirim biasa, jalur lama apa adanya. Begitu nilai ini ada,
-     * `text` dari browser DIABAIKAN dan diganti isi pesan sumber yang dibaca
-     * dari DB server (Section 9 "Always do").
+     * Teruskan (Tahap 4, PRN-302): dipecah ke entry point sendiri
+     * `kirimTeruskanTeks()` -- method ini HANYA melayani kirim biasa/Balas
+     * Pesan, jadi tidak ada `$text` yang diterima-lalu-dibuang. Isi pesan
+     * Teruskan SELALU diambil server dari DB pesan sumber (Section 9).
      */
-    private function kirimKeConversation(array $conversation, string $text, ?int $forwardFromMessageId = null)
+    private function kirimKeConversation(array $conversation, string $text)
     {
         $conversationId = (int) $conversation['id'];
-        $chatId         = $conversation['chat_id'];
-
-        // Dibaca dari request AJAX kasir, TIDAK dibuat/diubah di sini.
-        // Nilai ini juga tidak divalidasi polanya di AuliaPos: Gateway
-        // yang memvalidasi (REQ-020) dan menolak dengan 400
-        // INVALID_OPERATION_ID, sehingga payload ditolak sebelum apa pun
-        // ditulis ke database.
-        $operationId = (string) ($this->request->getPost('operation_id') ?? '');
-        $operationId = $operationId === '' ? null : $operationId;
 
         // Otorisasi DIJALANKAN DULU, sebelum `quoted_message_id` apa pun
-        // dibaca -- urutan yang sama persis dengan `kirimMedia()` (:985 lalu
-        // :1005). Kalau kasir tidak berhak atas percakapan tujuan, jawabannya
-        // 403 dan dia TIDAK boleh ikut diberi tahu apakah sebuah pesan di
-        // percakapan lain itu ada (SEC-001: endpoint teks tidak boleh menjadi
-        // oracle keberadaan pesan lintas-percakapan).
+        // dibaca -- urutan yang sama persis dengan `kirimMedia()`. Kalau kasir
+        // tidak berhak atas percakapan tujuan, jawabannya 403 dan dia TIDAK
+        // boleh ikut diberi tahu apakah sebuah pesan di percakapan lain itu
+        // ada (SEC-001: endpoint teks tidak boleh menjadi oracle keberadaan
+        // pesan lintas-percakapan).
         $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
         if ($ownershipError) {
             return $this->response->setStatusCode(403)->setJSON([
@@ -2433,20 +2531,6 @@ class Inbox extends BaseController
         $quotedMessageId = (int) ($this->request->getPost('quoted_message_id') ?? 0);
         $quotedMessageId = $quotedMessageId > 0 ? $quotedMessageId : null;
 
-        // Teruskan (Tahap 4, CON-001): menjawab-dengan-kutipan dan meneruskan
-        // adalah dua aksi terpisah -- satu request tidak boleh jadi keduanya.
-        // Ditolak sebelum resolusi apa pun, jadi tidak ada kolom snapshot yang
-        // ditulis dan tidak ada baris pesan yang muncul. Diletakkan SESUDAH
-        // cekOwnership() di atas supaya 403 tetap menang (SEC-001).
-        $isForward = $forwardFromMessageId !== null;
-
-        if ($isForward && $quotedMessageId !== null) {
-            return $this->response->setStatusCode(400)->setJSON([
-                'status'  => 'error',
-                'message' => self::PESAN_TERUSKAN_DAN_KUTIPAN,
-            ]);
-        }
-
         $kutipan = $this->resolveKutipan($conversationId, $quotedMessageId);
 
         if ($kutipan['error'] !== null) {
@@ -2460,75 +2544,131 @@ class Inbox extends BaseController
             ]);
         }
 
-        $quoteSnapshot = $kutipan['snapshot'];
+        return $this->kirimTeksViaGateway($conversation, $text, $kutipan['snapshot'], $kutipan['quotedPayload'], false);
+    }
 
-        // Teruskan (Tahap 4): di mode Teruskan `resolveKutipan()` di atas
-        // selalu no-op (quoteSnapshot null), sehingga SETIAP kolom `quoted_*`
-        // pada baris baru terisi NULL dan payload Gateway tidak pernah
-        // membawa `quoted` (REQ-009 + CON-001) tanpa logika tambahan.
-        if ($isForward) {
-            $teruskan = $this->resolveTeruskan($conversationId, $forwardFromMessageId);
+    /**
+     * Teruskan teks (Tahap 4, REQ-006/REQ-101, PRN-302): entry point khusus
+     * aksi Teruskan. Isi pesan SELALU diambil server dari baris sumber
+     * (`resolveTeruskan()`), jadi TIDAK PERNAH ada `text` dari browser di sini.
+     *
+     * Guard `message_type !== 'text'` adalah cermin dari guard
+     * `TIPE_TERUSKAN_LAMPIRAN` di `kirimMedia()`: jalur teks hanya menerima
+     * sumber teks, lampiran hanya lewat `/inbox/kirim-media` (penegakan dua
+     * arah di server, bukan hanya rute UI).
+     */
+    private function kirimTeruskanTeks(array $conversation, int $forwardFromMessageId)
+    {
+        $conversationId = (int) $conversation['id'];
 
-            if ($teruskan['error'] !== null) {
-                return $this->response->setStatusCode(400)->setJSON([
-                    'status'  => 'error',
-                    'message' => $teruskan['error'],
-                ]);
-            }
-
-            // Isi pesan diambil dari DB SERVER, bukan dari kiriman browser --
-            // nilai `$text` yang dikirim kasir sengaja ditimpa di sini
-            // (Section 9 "Always do").
-            $text = (string) ($teruskan['source']['text'] ?? '');
-
-            if (trim($text) === '') {
-                // Melindungi dari pengiriman pesan kosong (CON-002 spirit):
-                // sumber tanpa teks tidak boleh jadi pesan teks kosong.
-                log_message('info', "Inbox::kirimKeConversation sumber Teruskan tanpa teks. conversation_id={$conversationId}, forward_from_message_id={$forwardFromMessageId}");
-
-                return $this->response->setStatusCode(400)->setJSON([
-                    'status'  => 'error',
-                    'message' => self::PESAN_TERUSKAN_TANPA_TEKS,
-                ]);
-            }
-
-            if (strlen($text) > 4096) {
-                return $this->response->setStatusCode(400)->setJSON([
-                    'status'  => 'error',
-                    'message' => 'Teks pesan terlalu panjang (maksimal 4096 karakter).',
-                ]);
-            }
+        // Otorisasi dulu -- sama seperti kirimKeConversation(), supaya 403
+        // tetap menang atas validasi Teruskan (SEC-001).
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $ownershipError,
+            ]);
         }
+
+        // Teruskan (Tahap 4, CON-001): menjawab-dengan-kutipan dan meneruskan
+        // adalah dua aksi terpisah -- satu request tidak boleh jadi keduanya.
+        $quotedMessageId = (int) ($this->request->getPost('quoted_message_id') ?? 0);
+        $quotedMessageId = $quotedMessageId > 0 ? $quotedMessageId : null;
+
+        if ($quotedMessageId !== null) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => self::PESAN_TERUSKAN_DAN_KUTIPAN,
+            ]);
+        }
+
+        $teruskan = $this->resolveTeruskan($conversationId, $forwardFromMessageId);
+
+        if ($teruskan['error'] !== null) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => $teruskan['error'],
+            ]);
+        }
+
+        // REQ-101/GUD-001: jalur teks ini HANYA untuk sumber `text`.
+        // Sumber lampiran (image/document/sticker) tidak boleh diteruskan
+        // lewat `/inbox/kirim` walau punya caption -- itu tugas
+        // `/inbox/kirim-media`. Ditolak sebelum teks apa pun dipakai/ditulis.
+        if ((string) ($teruskan['source']['message_type'] ?? '') !== 'text') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => self::PESAN_TERUSKAN_HARUS_MEDIA,
+            ]);
+        }
+
+        // Isi pesan diambil dari DB SERVER, bukan dari kiriman browser.
+        $text = (string) ($teruskan['source']['text'] ?? '');
+
+        if (trim($text) === '') {
+            // Melindungi dari pengiriman pesan kosong (CON-002 spirit):
+            // sumber tanpa teks tidak boleh jadi pesan teks kosong.
+            log_message('info', "Inbox::kirimKeConversation sumber Teruskan tanpa teks. conversation_id={$conversationId}, forward_from_message_id={$forwardFromMessageId}");
+
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => self::PESAN_TERUSKAN_TANPA_TEKS,
+            ]);
+        }
+
+        if (strlen($text) > 4096) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Teks pesan terlalu panjang (maksimal 4096 karakter).',
+            ]);
+        }
+
+        // Teruskan tidak pernah membawa kutipan: snapshot & payload `quoted`
+        // selalu null (REQ-009 + CON-001), sehingga seluruh kolom `quoted_*`
+        // pada baris baru terisi NULL tanpa logika tambahan.
+        return $this->kirimTeksViaGateway($conversation, $text, null, null, true);
+    }
+
+    /**
+     * Eksekusi bersama jalur TEKS (kirim biasa/Balas dan Teruskan): cek
+     * Gateway siap -> kirim -> simpan -> rakit respons. Dipisah dari validasi
+     * masing-masing aksi supaya orkestrasinya tidak terduplikasi
+     * (PRN-302/PRN-304).
+     *
+     * @param array<string, mixed>|null $quoteSnapshot
+     * @param array<string, mixed>|null $quotedPayload
+     */
+    private function kirimTeksViaGateway(array $conversation, string $text, ?array $quoteSnapshot, ?array $quotedPayload, bool $isForward)
+    {
+        $conversationId = (int) $conversation['id'];
+        $chatId         = $conversation['chat_id'];
+
+        // Dibaca dari request AJAX kasir, TIDAK dibuat/diubah di sini.
+        // Nilai ini juga tidak divalidasi polanya di AuliaPos: Gateway
+        // yang memvalidasi (REQ-020) dan menolak dengan 400
+        // INVALID_OPERATION_ID, sehingga payload ditolak sebelum apa pun
+        // ditulis ke database.
+        $operationId = (string) ($this->request->getPost('operation_id') ?? '');
+        $operationId = $operationId === '' ? null : $operationId;
 
         // --- Cek Gateway usable DULU, sebelum mencoba HTTP call ------------
         // Supaya kalau Gateway jelas-jelas offline, kasir langsung tahu
         // dalam waktu singkat -- tidak menunggu timeout HTTP penuh.
-        $gatewayStatusModel = new GatewayStatusModel();
-
-        if (!$gatewayStatusModel->isUsable()) {
-            return $this->response->setStatusCode(503)->setJSON([
-                'status'  => 'error',
-                'message' => 'Gateway WhatsApp sedang tidak terhubung. Coba lagi setelah Gateway online.',
-            ]);
-        }
-
         $config = new InboxConfig();
-
-        if ($config->gatewayBaseUrl === '') {
-            log_message('critical', 'Inbox::kirimKeConversation -- inbox.gatewayBaseUrl belum dikonfigurasi di .env.');
-
-            return $this->response->setStatusCode(503)->setJSON([
-                'status'  => 'error',
-                'message' => 'Gateway belum dikonfigurasi di server.',
-            ]);
+        $gagal  = $this->pastikanGatewaySiap($config, 'kirimKeConversation');
+        if ($gagal !== null) {
+            return $gagal;
         }
 
         // Aditif (CON-001/REQ-001): `forward` HANYA ikut saat Teruskan, dan
-        // TIDAK PERNAH bersama `quoted` -- kombinasi itu ditolak 400 di atas.
-        // Tanpa Teruskan, `null` membuat payload Gateway tidak berubah.
-        $forwardGateway = $isForward ? true : null;
-
-        $result = $this->callGatewaySend($config, $chatId, $text, $operationId, $kutipan['quotedPayload'], $forwardGateway);
+        // TIDAK PERNAH bersama `quoted` -- kombinasi itu ditolak 400 di
+        // masing-masing entry point. Tanpa Teruskan, `forward=false` membuat
+        // payload Gateway tidak berubah.
+        $result = $this->callGatewaySend(
+            $config,
+            InboxOutgoingRequest::teks($chatId, $text, $operationId, $quotedPayload, $isForward)
+        );
 
         if (!$result['ok']) {
             return $this->gatewayFailureResponse($result, $conversationId, 'kirimKeConversation', 'Gagal mengirim pesan: ');
@@ -2654,6 +2794,33 @@ class Inbox extends BaseController
         );
 
         return $this->response->setStatusCode(200)->setJSON($successBody);
+    }
+
+    /**
+     * PRN-303: satu tempat yang menegakkan "Gateway siap menerima perintah"
+     * (status usable + base URL terkonfigurasi), supaya jalur teks dan media
+     * tidak menyalin urutan cek `503` yang sama. Mengembalikan respons `503`
+     * bila belum siap, `null` bila aman dilanjutkan.
+     */
+    private function pastikanGatewaySiap(InboxConfig $config, string $konteks): ?\CodeIgniter\HTTP\ResponseInterface
+    {
+        if (!(new GatewayStatusModel())->isUsable()) {
+            return $this->response->setStatusCode(503)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gateway WhatsApp sedang tidak terhubung. Coba lagi setelah Gateway online.',
+            ]);
+        }
+
+        if ($config->gatewayBaseUrl === '') {
+            log_message('critical', "Inbox::{$konteks} -- inbox.gatewayBaseUrl belum dikonfigurasi di .env.");
+
+            return $this->response->setStatusCode(503)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gateway belum dikonfigurasi di server.',
+            ]);
+        }
+
+        return null;
     }
 
     /**
@@ -2809,12 +2976,23 @@ class Inbox extends BaseController
      */
     private function bacaByteMediaTeruskan(InboxConfig $config, array $sumber): array
     {
+        // SEC-201: byte Teruskan (disk maupun live-fetch) WAJIB dibatasi
+        // SEBELUM di-base64-encode, supaya tidak ada jalur memori tak
+        // terbatas. Batas ini sama dengan batas unggahan kasir.
+        $maxBytes = $config->maxMediaUploadMb * 1024 * 1024;
+
         // 1. Disk lokal dulu (murah). read() fail-safe: null kalau tidak ada.
         if (!empty($sumber['media_local_filename'])) {
             $storage = new InboxMediaStorage($config->mediaStoragePath);
             $binary  = $storage->read($sumber['media_local_filename']);
 
             if ($binary !== null) {
+                if (strlen($binary) > $maxBytes) {
+                    log_message('warning', "Inbox::bacaByteMediaTeruskan byte disk melebihi batas. message_id={$sumber['id']} size=" . strlen($binary) . " max={$maxBytes}");
+
+                    return ['error' => self::PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL, 'binary' => null];
+                }
+
                 return ['error' => null, 'binary' => $binary];
             }
         }
@@ -2852,6 +3030,16 @@ class Inbox extends BaseController
                     : self::PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL,
                 'binary' => null,
             ];
+        }
+
+        // SEC-201: batasi byte hasil live-fetch SEBELUM base64_encode di
+        // kirimMedia(), memakai batas yang sama dengan unggahan kasir.
+        $binaryLive = (string) ($hasil['binary'] ?? '');
+
+        if (strlen($binaryLive) > $maxBytes) {
+            log_message('warning', "Inbox::bacaByteMediaTeruskan byte live-fetch melebihi batas. message_id={$sumber['id']} size=" . strlen($binaryLive) . " max={$maxBytes}");
+
+            return ['error' => self::PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL, 'binary' => null];
         }
 
         return ['error' => null, 'binary' => $hasil['binary']];
@@ -3018,41 +3206,38 @@ class Inbox extends BaseController
      * bergantung ke library HTTP client tambahan (Guzzle dkk) yang
      * belum tentu ter-install di project ini.
      *
-     * @param array<string, mixed>|null $quoted objek kutipan Balas Pesan
-     *        (spec Section 4.1). null = pesan biasa, Gateway berperilaku
-     *        seperti sebelumnya.
-     * @param bool|null $forward true = aksi Teruskan (spec Section 4.1).
-     *        Tidak pernah `true` bersamaan dengan `$quoted` (CON-001).
-     *        null = kirim biasa, payload tidak berubah.
+     * PRN-303: menerima satu `InboxOutgoingRequest` (bukan daftar parameter
+     * flag). `quoted`/`forward` sudah dijamin saling-menolak oleh konstruktor
+     * value object itu (CON-001).
      *
      * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, quote_applied?: bool, forward_marker_applied?: ?string, error?: string}
      */
-    protected function callGatewaySend(InboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySend(InboxConfig $config, InboxOutgoingRequest $request): array
     {
         $url = $config->gatewayBaseUrl . '/send';
 
         $payloadData = [
-            'chat_id' => $chatId,
-            'text'    => $text,
+            'chat_id' => $request->chatId,
+            'text'    => $request->text,
         ];
 
         // Additive (CON-007/REQ-039): `operation_id` hanya ikut dikirim
         // kalau kasir mengirimkannya. Tanpa itu Gateway berperilaku
         // seperti sebelumnya, dan kunci TIDAK dibuat di sini.
-        if ($operationId !== null) {
-            $payloadData['operation_id'] = $operationId;
+        if ($request->operationId !== null) {
+            $payloadData['operation_id'] = $request->operationId;
         }
 
         // Balas Pesan (REQ-001): hanya ikut kalau kasir benar-benar
         // mengutip. Tanpa itu Gateway tidak mengubah apa pun.
-        if ($quoted !== null) {
-            $payloadData['quoted'] = $quoted;
+        if ($request->quoted !== null) {
+            $payloadData['quoted'] = $request->quoted;
         }
 
         // Teruskan (REQ-001): hanya ikut saat kasir benar-benar meneruskan.
         // Gateway yang belum understands `forward` mengabaikan field tak
         // dikenal, jadi request biasa tidak tersentuh.
-        if ($forward === true) {
+        if ($request->forward) {
             $payloadData['forward'] = true;
         }
 
@@ -3125,53 +3310,51 @@ class Inbox extends BaseController
      * callGatewayMediaDownload()) karena upload base64 + kirim ke
      * Baileys butuh waktu lebih dibanding teks biasa.
      *
-     * @param array<string, mixed>|null $quoted objek kutipan Balas Pesan
-     *        (spec Section 4.1.1). Bentuknya IDENTIK dengan jalur teks --
-     *        termasuk `fromMe` yang hanya diturunkan dari `direction`, dan
-     *        `sender_jid` yang boleh null untuk sumber outgoing. null = kiriman
-     *        media biasa, Gateway berperilaku seperti sebelumnya.
-     * @param bool|null $forward true = aksi Teruskan (spec Section 4.1.1).
-     *        Tidak pernah `true` bersamaan dengan `$quoted` (CON-001).
-     *        null = kirim media biasa, payload tidak berubah.
+     * PRN-303: menerima satu `InboxOutgoingRequest` (bukan 10 parameter).
+     * Objek kutipan media IDENTIK bentuknya dengan jalur teks -- termasuk
+     * `fromMe` yang hanya diturunkan dari `direction`, dan `sender_jid` yang
+     * boleh null untuk sumber outgoing. `quoted`/`forward` sudah dijamin
+     * saling-menolak oleh konstruktor value object itu (CON-001).
      *
      * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, media_ref?: ?array, quote_applied?: bool, forward_marker_applied?: ?string, error?: string}
      */
-    protected function callGatewaySendMedia(InboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySendMedia(InboxConfig $config, InboxOutgoingRequest $request): array
     {
         $url = $config->gatewayBaseUrl . '/send-media';
 
         $payloadData = [
-            'chat_id'      => $chatId,
-            'media_type'   => $mediaType,
-            'media_base64' => $mediaBase64,
-            'mimetype'     => $mimetype,
-            'file_name'    => $fileName,
+            'chat_id'      => $request->chatId,
+            'media_type'   => $request->mediaType,
+            'media_base64' => $request->mediaBase64,
+            'mimetype'     => $request->mimetype,
+            'file_name'    => $request->fileName,
             // $caption selalu string (lihat signature method) -- Gateway
             // menolak null untuk field ini, cuma menerima string (boleh
             // kosong ''). Sebelumnya dikirim null saat kosong, tidak
             // pernah ketahuan salah karena outgoing media belum pernah
             // dites sampai ke Gateway asli.
-            'caption'      => $caption,
+            'caption'      => $request->caption,
         ];
 
         // Additive (CON-007/REQ-039): sama seperti callGatewaySend(),
         // kunci hanya diteruskan kalau kasir mengirimkannya -- tidak
         // pernah dibuat di sisi server.
-        if ($operationId !== null) {
-            $payloadData['operation_id'] = $operationId;
+        if ($request->operationId !== null) {
+            $payloadData['operation_id'] = $request->operationId;
         }
 
         // Balas Pesan (REQ-001a): balas-dengan-lampiran sambil mengutip.
         // Hanya ikut kalau kasir benar-benar mengutip.
-        if ($quoted !== null) {
-            $payloadData['quoted'] = $quoted;
+        if ($request->quoted !== null) {
+            $payloadData['quoted'] = $request->quoted;
         }
 
         // Teruskan lampiran (TASK-006 (f)/REQ-001a): hanya ikut saat kasir
         // benar-benar meneruskan, dan TIDAK PERNAH bersama `quoted` (CON-001,
-        // ditegakkan sebelum pemanggilan ini). Gateway versi lama mengabaikan
-        // field tak dikenal, jadi kiriman media biasa tidak tersentuh.
-        if ($forward === true) {
+        // ditegakkan konstruktor `InboxOutgoingRequest`). Gateway versi lama
+        // mengabaikan field tak dikenal, jadi kiriman media biasa tidak
+        // tersentuh.
+        if ($request->forward) {
             $payloadData['forward'] = true;
         }
 

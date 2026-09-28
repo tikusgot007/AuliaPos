@@ -1,6 +1,7 @@
 <?php
 
 use App\Controllers\Inbox;
+use App\Libraries\InboxOutgoingRequest;
 use App\Models\MessageModel;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\Response;
@@ -352,12 +353,12 @@ final class InboxBalasPesanHardeningTest extends CIUnitTestCase
 
 final class InboxHardeningSpy extends Inbox
 {
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
         return [
             'ok'            => true,
             'wa_message_id' => 'wa-hardening-' . bin2hex(random_bytes(4)),
-            'quote_applied' => (bool) $quoted,
+            'quote_applied' => (bool) $request->quoted,
         ];
     }
 }
@@ -370,7 +371,7 @@ final class InboxHardeningSpy extends Inbox
  */
 final class InboxHardeningAmbiguousSpy extends Inbox
 {
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
         return [
             'ok'         => false,

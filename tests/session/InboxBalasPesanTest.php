@@ -1,6 +1,7 @@
 <?php
 
 use App\Controllers\Inbox;
+use App\Libraries\InboxOutgoingRequest;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\Response;
 use CodeIgniter\HTTP\URI;
@@ -586,9 +587,9 @@ final class InboxBalasPesanSpy extends Inbox
     {
     }
 
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
-        $this->capturedQuoted = $quoted;
+        $this->capturedQuoted = $request->quoted;
 
         return [
             'ok'            => true,

@@ -2107,8 +2107,13 @@
 
     /* Jenis pesan sumber yang diteruskan lewat endpoint /inbox/kirim-media;
        sisanya (teks) lewat /inbox/kirim. Dipakai teruskanPesan() memilih rute
-       (TASK-007) -- tanpa mengunggah berkas apa pun di jalur media. */
-    const JALUR_MEDIA_TERUSKAN = ['image', 'document', 'sticker'];
+       (TASK-007) -- tanpa mengunggah berkas apa pun di jalur media.
+
+       PRN-301: daftar ini berasal dari SATU sumber kebenaran di server
+       (`Inbox::TIPE_TERUSKAN_LAMPIRAN`, dikirim lewat `tipeTeruskanLampiran`),
+       bukan salinan terpisah -- supaya rute UI dan guard server tidak
+       menyimpang. */
+    const JALUR_MEDIA_TERUSKAN = <?= json_encode($tipeTeruskanLampiran) ?>;
 
     function adaKutipan(m) {
         return m && m.quoted_wa_message_id !== null && m.quoted_wa_message_id !== undefined && m.quoted_wa_message_id !== '';

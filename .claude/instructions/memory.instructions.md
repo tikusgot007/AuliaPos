@@ -1616,5 +1616,71 @@
 
 <!-- checkpoint-tail: 2026-09-28 (Phase 6mm Teruskan AuliaPos Phase 3) /sdlc-write-code completed Phase 3 of plan-feature-teruskan-auliapos-v1.0.md and closed the plan (12/12, status Completed). TASK-010 added 7 tests (quoted source -> all quoted_* NULL, forwarded source -> single marker with no counter column, target==source still 403 via cekOwnership, group target 200 without auto-assign, Balas text+group regression, plain-media regression without forward); TASK-011 verified full suite OK 650 tests/2574 assertions, filtered 63/332, and recorded the release gate EXT-001 as deployed Gateway master 4a766d23391c3222ec252f4dfbe82e2c7d9ec06e, with the Section 13 manual checklist owner-confirmed by screenshot (AuliaPos "Diteruskan" label with no quote box, and the native "Forwarded" marker visible in WhatsApp on the test phone); TASK-012 approved by owner explicitly. Dead-end: the WhatsApp "Forwarded" label alone does NOT prove the Gateway path (manual WhatsApp Web forwarding shows the same label) - confirm it came from an AuliaPos Teruskan click, then match the Gateway log / messages.is_forwarded row. No app/ code changed this phase. Not yet done: /sdlc-code-review for Teruskan, and pushing v2.3 (local ahead of origin). -->
 
+---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6nn — `/sdlc-code-review` Teruskan Tahap 4 AuliaPos; plan refactoring terpisah dibuat)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review`) — Two-Axis Review atas fitur Teruskan (AuliaPos), fixed point `2eca592` → HEAD `40caf14` (branch `v2.3`). Refactoring plan terpisah **dibuat**; **belum ada eksekusi kode**.
+- **Active Artifacts:**
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md` — ✅ Completed (direview, tidak diubah).
+  - `spec/spec-design-teruskan.md` (v1.2) — ✅ Finalized (tidak diubah).
+  - `plan/plan-refactor-teruskan-tahap4-v1.0.md` — **BARU**, status Planned (3 phase: hardening correctness/security, structural remedies, docs/cleanups).
+- **Achieved Milestones:**
+  - Review terverifikasi-langsung (bukan hanya laporan sub-agent): 10/10 AC **COVERED**; REQ-004..010, CON-001, REQ-010, non-stacking, ownership, idempotensi, all-or-nothing benar. Suite `650 tests / 2574 assertions` hijau.
+  - **SPEC-01 [REQUIRED] celah nyata**: `resolveTeruskan()` meloloskan image/document/sticker (`Inbox.php:2776`, `TIPE_TERUSKAN_DIIZINKAN :90`) tetapi `kirimKeConversation()` (jalur `/inbox/kirim`) **tidak** membatasi sumber = `text`; sumber media ber-caption diteruskan sebagai **teks tanpa lampiran**. Mirror guard ADA di jalur media (`:1130`), tak ada di jalur teks. Melanggar REQ-006/CON-002/GUD-001 untuk panggilan API langsung.
+  - **SEC-02 [REQUIRED]**: cap `maxMediaUploadMb` dilewati di mode Teruskan (`:1058-1060`); byte live-fetch (`bacaByteMediaTeruskan :2840`) di-`base64_encode` (`:1198`) tanpa cek panjang → risiko memori/DoS.
+  - **SEC-03 [REQUIRED]**: caption turunan `$sumber['text']` (`:1185`) tak divalidasi ulang ≤1024 (cek `:1048` hanya untuk caption browser).
+  - **[REQUIRED] ARCH-04**: daftar tipe forwardable terduplikasi server (`Inbox.php:82`) vs view (`index.php:2111`) — bahaya drift rute.
+  - **[OPTIONAL]** ARCH-01 (param 6/10 di `callGatewaySend`/`SendMedia`), ARCH-02 (method ~340/255 baris), ARCH-03 (`kirimKeConversation` menerima `$text` lalu membuangnya), PERF-01 (modal tujuan hanya page 1), PERF-02 (~60s sinkron).
+  - **[NIT]** SMELL-01/02/04, SEC-07; **[FYI]** SEC-04/05/06.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Jangan menambah guard visibilitas/ownership pada percakapan SUMBER Teruskan.** `REQ-007`/`AC-004` **sengaja** hanya mengecek `cekOwnership()` pada percakapan TUJUAN; `apiMessages()` (`:344`) & `media()` (`:464`) memang baca terbuka sehingga ini laten, bukan eskalasi. Perubahan hanya boleh lewat amendment spec. (Ini mengoreksi usulan awal sub-agent yang salah menandainya [CRITICAL].)
+- **Decisions Made:**
+  - Review diverifikasi ulang terhadap kode, bukan menerima klasifikasi sub-agent apa adanya (beberapa severity dikoreksi: SEC-01 turun ke [FYI], ARCH-01/02/03 turun ke [OPTIONAL]).
+  - Remediasi dipisah 3 phase dengan gate APPROVAL per phase; Phase 1 (REQ-101, SEC-201, SEC-202, TEST-501) bersifat wajib, Phase 2/3 disarankan.
+- **Next Action / Pending:**
+  - **Closing sequence sesi ini**: checkpoint ini → **commit** (plan refactor + memory) → **push** `origin/v2.3` → prompt sesi berikutnya.
+  - **Eksekusi**: `/sdlc-write-code` untuk Phase 1 `@plan/plan-refactor-teruskan-tahap4-v1.0.md`.
+  - `v2.3` lokal masih **ahead dari `origin/v2.3`, belum di-push**.
+  - Reviewer questions Phase 2 yang kini terjawab: byte Teruskan melewati `maxMediaUploadMb` = **SEC-02 dikonfirmasi defect**; `media_confirmed_gone_at` tidak ditulis saat live-fetch 410 = **diterima apa adanya** (latch milik `Inbox::media()`); ~60s sinkron = **PERF-02**.
+  - Carried forward (tidak berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md` belum diperbarui untuk Teruskan; kebijakan retensi folder media; GW-25/C3; E-07.
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6nn Code Review Teruskan) /sdlc-code-review ran the Two-Axis review for the Teruskan AuliaPos feature (fixed point 2eca592 -> HEAD 40caf14, branch v2.3) and produced a separate refactoring plan at plan/plan-refactor-teruskan-tahap4-v1.0.md (status Planned, 3 phases with per-phase APPROVAL gates). All 10 AC are COVERED and the suite is green (650/2574), but one real server-enforcement hole was confirmed from code: resolveTeruskan allows media source types yet the TEXT endpoint /inbox/kirim does not restrict source to text, so a media source with a caption is forwarded as caption-only without the attachment (violates REQ-006/CON-002/GUD-001; the mirror guard does exist on /inbox/kirim-media at Inbox.php:1130). Two more REQUIRED hardening items: SEC-02 unbounded live-fetch bytes (upload cap skipped at :1058-1060, base64 at :1198 with no length check) and SEC-03 source-derived caption not re-validated to <=1024. ARCH-04 duplicated forwardable-type list server (:82) vs view (:2111). Corrected the sub-agent's over-classification: source-not-authorization-scoped is NOT a defect (REQ-007/AC-004 intentionally check the TARGET only; reads are globally open) so it is recorded as FYI and must not be "fixed" without a spec change. Next: /sdlc-write-code Phase 1 of the refactor plan; v2.3 still unpushed. -->
+
+
+---
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6oo — `/sdlc-write-code` eksekusi Phase 1 & 2 `plan-refactor-teruskan-tahap4-v1.0.md`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — Phase 1 & Phase 2 plan refactor **SELESAI**; TASK-107 & TASK-207 disetujui owner. Phase 3 (DOC-401/402, CLN-401/402, PERF-01) **belum** dimulai.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-tahap4-v1.0.md` — Status: 🔄 In Progress (Phase 1 & 2 selesai; Phase 3 pending)
+  - `spec/spec-design-teruskan.md` (v1.2) — Status: ✅ Finalized (belum disentuh)
+- **Achieved Milestones:**
+  - **Phase 1** (REQ-101/SEC-201/SEC-202/TEST-501): guard `message_type !== 'text'` di cabang Teruskan `kirimKeConversation` + const `PESAN_TERUSKAN_HARUS_MEDIA`; caption sumber >1024 → 400 pakai const bersama `PESAN_CAPTION_TERLALU_PANJANG` (literal `:1048` diganti const, single source); `bacaByteMediaTeruskan()` batasi `maxMediaUploadMb*1024*1024` di jalur disk & live-fetch sebelum `base64_encode` → 400 `PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL`; 3 test penjaga (media-source via `/inbox/kirim`, caption >1024, live-fetch oversize). Suite `653 tests / 2594 assertions`, exit 0.
+  - **Phase 2** (PRN-301..304): daftar tipe forwardable jadi satu sumber kebenaran server → view (`tipeTeruskanLampiran`, nama `JALUR_MEDIA_TERUSKAN` dipertahankan agar screen-test lama tetap hijau); `kirimTeruskanTeks()` entry point baru + `kirimKeConversation(array,string)` tanpa flag/dead `$text`; `App\Libraries\InboxOutgoingRequest` DTO (factory `teks()`/`media()`, konstruktor privat menolak `quoted`+`forward`) dan `callGatewaySend()`/`callGatewaySendMedia()` terima 1 DTO; `kirimMedia()` dipecah `kirimMediaBiasa()`/`kirimTeruskanMedia()`, helper `resolveForwardMediaSource()`, `kirimMediaViaGateway()`, `pastikanGatewaySiap()`. Suite `661 tests / 2626 assertions`, exit 0.
+  - Semua test double Gateway (8 titik di 6 file) dimigrasi ke signature DTO; assertion source-scrape `InboxOutgoingOperationIdTest` disesuaikan; 5 unit test DTO + 3 test `resolveForwardMediaSource()` (disk → live-fetch → permanen-gone) ditambahkan.
+- **Dead-Ends (Do NOT Repeat):**
+  - Lihat Knowledge Base / checkpoint 6nn: jangan menambah guard visibilitas/ownership pada percakapan SUMBER Teruskan (REQ-007/AC-004 sengaja cek TUJUAN saja).
+- **Decisions Made:**
+  - Pesan error batas byte jalur disk lokal memakai `PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL` yang sudah ada (ikut RISK-103); menunggu keputusan owner bila mau pesan ukuran khusus.
+  - DTO tunggal `InboxOutgoingRequest` (union teks/media) dipilih sesuai PRN-303, bukan dua kelas terpisah.
+  - Urutan lama jalur media dipertahankan: resolveTeruskan → type-guard → cek Gateway → caption/byte.
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — guard dua arah, batas byte, caption; split entry point teks & media; DTO call sites; `pastikanGatewaySiap()`; `resolveForwardMediaSource()`; kirim `tipeTeruskanLampiran` ke view.
+  - `app/Libraries/InboxOutgoingRequest.php` — **BARU**, DTO request kirim (PRN-303).
+  - `app/Views/inbox/index.php` — `JALUR_MEDIA_TERUSKAN` diambil dari server (PRN-301).
+  - `tests/session/InboxTeruskanTest.php`, `tests/session/InboxTeruskanMediaTest.php` — test penjaga + resolver + migrasi spy.
+  - `tests/unit/InboxOutgoingRequestTest.php` — **BARU**, unit DTO (5 test).
+  - `tests/session/InboxBalasPesanTest.php`, `InboxBalasPesanMediaTest.php`, `InboxBalasPesanHardeningTest.php`, `InboxGrupTahap1Test.php`, `InboxOutgoingIdempotencyTest.php`; `tests/database/InboxOutgoingOperationIdTest.php` — signature spy/assertion disesuaikan.
+- **Next Action / Pending:**
+  - Closing sequence sesi ini: checkpoint ini → **commit** → **push** `origin/v2.3` → prompt Phase 3.
+  - Pertimbangkan update `docs/ARCHITECTURE.md` untuk library baru `InboxOutgoingRequest.php` (mandat Living Architecture Map) — belum dilakukan.
+  - **Phase 3 plan**: DOC-401 (`cekOwnership` `file:line` → `app/Controllers/Inbox.php:796`), DOC-402 (`forward_marker_applied` boleh `null`), CLN-401 (rename `buatOperationIdBalasan`→`buatOperationId`, predikat `bolehDiteruskan` bersama), CLN-402 (`is_forwarded` di-cast bool di `apiMessages()`), PERF-01 (paginasi modal tujuan, opsional).
+  - `v2.3` lokal masih **ahead dari `origin/v2.3`, belum di-push**.
+  - Carried forward (tidak berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; kebijakan retensi folder media; GW-25/C3; E-07.
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6oo Write-Code Refactor Tahap 4, Phase 1+2) /sdlc-write-code executed Phase 1 and Phase 2 of plan/plan-refactor-teruskan-tahap4-v1.0.md. Phase 1 closed the server-enforcement hole (text endpoint now rejects non-text sources, PESAN_TERUSKAN_HARUS_MEDIA), bounded forwarded media bytes to maxMediaUploadMb on both disk and live-fetch paths, and re-validated source captions to <=1024 via the shared PESAN_CAPTION_TERLALU_PANJANG const; suite 653/2594 exit 0. Phase 2 removed the structural smells: forwardable-type list now single-sourced from server to view (tipeTeruskanLampiran), forward text moved to its own kirimTeruskanTeks() entry point (kirimKeConversation no longer takes a flag or discards $text), a new InboxOutgoingRequest DTO enforces quoted XOR forward and both gateway methods take one DTO argument, and kirimMedia() was split into kirimMediaBiasa()/kirimTeruskanMedia() plus resolveForwardMediaSource(), kirimMediaViaGateway() and pastikanGatewaySiap(); suite 661/2626 exit 0. All 8 gateway test doubles across 6 files were migrated to the DTO signature, plus 5 new DTO unit tests and 3 resolveForwardMediaSource tests. TASK-107 and TASK-207 approved by owner. Next: Phase 3 (DOC-401/402, CLN-401/402, optional PERF-01), consider updating docs/ARCHITECTURE.md for the new library, then commit and push origin/v2.3 which is still unpushed. -->
 
 ---

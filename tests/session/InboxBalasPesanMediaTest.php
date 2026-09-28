@@ -1,6 +1,7 @@
 <?php
 
 use App\Controllers\Inbox;
+use App\Libraries\InboxOutgoingRequest;
 use CodeIgniter\HTTP\Files\FileCollection;
 use CodeIgniter\HTTP\Files\UploadedFile;
 use CodeIgniter\HTTP\IncomingRequest;
@@ -405,9 +406,9 @@ final class InboxBalasPesanMediaSpy extends Inbox
     {
     }
 
-    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySendMedia(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
-        $this->capturedQuoted = $quoted;
+        $this->capturedQuoted = $request->quoted;
 
         return [
             'ok'            => true,

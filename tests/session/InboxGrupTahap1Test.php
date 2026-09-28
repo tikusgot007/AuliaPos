@@ -2,6 +2,7 @@
 
 use Config\Inbox as GatewayInboxConfig;
 use App\Controllers\Inbox;
+use App\Libraries\InboxOutgoingRequest;
 use CodeIgniter\HTTP\Files\FileCollection;
 use CodeIgniter\HTTP\Files\UploadedFile;
 use CodeIgniter\HTTP\IncomingRequest;
@@ -540,16 +541,16 @@ final class InboxGrupTestUploadedMedia extends UploadedFile
 
 final class InboxGrupKirimSpy extends Inbox
 {
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
         return [
             'ok'            => true,
             'wa_message_id' => 'wa-grup-test-' . bin2hex(random_bytes(4)),
-            'quote_applied' => (bool) $quoted,
+            'quote_applied' => (bool) $request->quoted,
         ];
     }
 
-    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySendMedia(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
         return [
             'ok'            => true,
@@ -558,7 +559,7 @@ final class InboxGrupKirimSpy extends Inbox
             'error_code'    => null,
             'state'         => 'sent',
             'replayed'      => false,
-            'quote_applied' => (bool) $quoted,
+            'quote_applied' => (bool) $request->quoted,
         ];
     }
 }

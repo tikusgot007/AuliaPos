@@ -1,6 +1,7 @@
 <?php
 
 use App\Controllers\Inbox;
+use App\Libraries\InboxOutgoingRequest;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\Response;
 use CodeIgniter\HTTP\URI;
@@ -339,6 +340,36 @@ final class InboxTeruskanTest extends CIUnitTestCase
         $this->assertSame(0, $this->countOutgoing($conversationId));
     }
 
+    public function testSumberLampiranLewatEndpointKirimDitolakDengan400(): void
+    {
+        // REQ-101/TEST-501: penegakan server dua arah. Sumber lampiran bisa
+        // punya caption (kolom `text`) sehingga terlihat forwardable di jalur
+        // teks -- server WAJIB tetap menolaknya; lampiran hanya boleh lewat
+        // `/inbox/kirim-media`, cermin dari guard TIPE_TERUSKAN_LAMPIRAN.
+        $conversationId = $this->seedConversation();
+
+        foreach (['image', 'document'] as $tipe) {
+            $sourceId = $this->seedMessage($conversationId, [
+                'direction'       => 'incoming',
+                'message_type'    => $tipe,
+                'text'            => 'caption dari ' . $tipe,
+                'media_mime_type' => $tipe === 'image' ? 'image/jpeg' : 'application/pdf',
+            ]);
+
+            $controller = $this->controller([
+                'conversation_id'         => $conversationId,
+                'forward_from_message_id' => $sourceId,
+            ]);
+            $response = $controller->kirim();
+            $body     = $this->body($controller);
+
+            $this->assertSame(400, $response->getStatusCode(), "REQ-101: {$tipe} ditolak lewat /inbox/kirim.");
+            $this->assertStringContainsString('lewat jalur media', $body['message']);
+            $this->assertNull($controller->capturedForward, 'Gateway tidak boleh dipanggil.');
+            $this->assertSame(0, $this->countOutgoing($conversationId), "Tidak ada baris messages baru untuk {$tipe}.");
+        }
+    }
+
     public function testSumberTanpaTeksDitolakDengan400(): void
     {
         // Melindungi dari pengiriman pesan kosong (CON-002 spirit): sumber
@@ -627,10 +658,17 @@ final class InboxTeruskanTest extends CIUnitTestCase
 
     private function invoke(Inbox $controller, int $conversationId, string $text, ?int $forwardFromMessageId = null): \CodeIgniter\HTTP\ResponseInterface
     {
-        $method = (new \ReflectionClass($controller))->getMethod('kirimKeConversation');
+        // PRN-302: dua aksi = dua entry point. Teruskan pakai
+        // kirimTeruskanTeks(); kirim biasa pakai kirimKeConversation().
+        $namaMethod = $forwardFromMessageId !== null ? 'kirimTeruskanTeks' : 'kirimKeConversation';
+        $method     = (new \ReflectionClass($controller))->getMethod($namaMethod);
         $method->setAccessible(true);
 
-        return $method->invoke($controller, $this->conversation($conversationId), $text, $forwardFromMessageId);
+        $conversation = $this->conversation($conversationId);
+
+        return $forwardFromMessageId !== null
+            ? $method->invoke($controller, $conversation, $forwardFromMessageId)
+            : $method->invoke($controller, $conversation, $text);
     }
 
     private function body(Inbox $controller): array
@@ -739,11 +777,11 @@ final class InboxTeruskanSpy extends Inbox
     {
     }
 
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
-        $this->capturedForward = $forward;
-        $this->capturedQuoted   = $quoted;
-        $this->capturedText     = $text;
+        $this->capturedForward = $request->forward ? true : null;
+        $this->capturedQuoted   = $request->quoted;
+        $this->capturedText     = (string) $request->text;
 
         return [
             'ok'                      => true,

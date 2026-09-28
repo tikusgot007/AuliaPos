@@ -1,6 +1,7 @@
 <?php
 
 use App\Controllers\Inbox;
+use App\Libraries\InboxOutgoingRequest;
 use CodeIgniter\HTTP\Files\FileCollection;
 use CodeIgniter\HTTP\Files\UploadedFile;
 use CodeIgniter\HTTP\IncomingRequest;
@@ -30,6 +31,12 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
 
     /** @var string|null Nilai $_ENV['inbox.mediaStoragePath'] sebelum test. */
     private ?string $prevMediaStoragePath = null;
+
+    /** @var string|null Nilai $_ENV['inbox.maxMediaUploadMb'] sebelum test. */
+    private ?string $prevMaxMediaUploadMb = null;
+
+    /** Spy terakhir dari panggilResolveForwardMediaSource(). */
+    private ?InboxTeruskanMediaSpy $spy = null;
 
     protected function setUp(): void
     {
@@ -69,6 +76,12 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
             unset($_ENV['inbox.mediaStoragePath']);
         } else {
             $_ENV['inbox.mediaStoragePath'] = $this->prevMediaStoragePath;
+        }
+
+        if ($this->prevMaxMediaUploadMb === null) {
+            unset($_ENV['inbox.maxMediaUploadMb']);
+        } else {
+            $_ENV['inbox.maxMediaUploadMb'] = $this->prevMaxMediaUploadMb;
         }
 
         unset($_SESSION);
@@ -465,6 +478,161 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
     }
 
     // ------------------------------------------------------------------
+    // SEC-202: caption turunan sumber divalidasi ulang
+    // ------------------------------------------------------------------
+
+    public function testCaptionSumberMelebihiBatasDitolak400(): void
+    {
+        // SEC-202: jalur Teruskan melewati validasi caption browser, jadi
+        // caption dari pesan sumber (>1024) WAJIB divalidasi ulang di server,
+        // sebelum byte dibaca maupun Gateway dipanggil.
+        $tujuan = $this->seedConversation('628222222222@s.whatsapp.net', 7);
+        $sumber = $this->seedMessage($tujuan, [
+            'direction'            => 'incoming',
+            'message_type'         => 'image',
+            'text'                 => str_repeat('a', 1025),
+            'media_local_filename' => 'panjang.jpg',
+            'media_metadata'       => json_encode(['direct_path' => '/gw', 'media_key_base64' => 'kk']),
+        ]);
+        file_put_contents($this->mediaDir . DIRECTORY_SEPARATOR . 'panjang.jpg', 'BYTE');
+
+        $controller = $this->kirimTeruskan($tujuan, $sumber);
+        $body       = $this->body($controller);
+
+        $this->assertSame(400, $this->statusCode($controller));
+        $this->assertStringContainsString('Caption terlalu panjang', $body['message']);
+        $this->assertFalse($controller->gatewaySendMediaCalled, 'Gateway tidak boleh dipanggil.');
+        $this->assertSame(0, $this->countOutgoing($tujuan), 'Tidak ada baris yang ditulis.');
+    }
+
+    // ------------------------------------------------------------------
+    // SEC-201: byte live-fetch dibatasi sebelum base64_encode
+    // ------------------------------------------------------------------
+
+    public function testByteLiveFetchMelebihiBatasDitolak400(): void
+    {
+        // SEC-201: byte hasil live-fetch yang melebihi `maxMediaUploadMb`
+        // harus ditolak sebelum di-base64-encode, bukan diteruskan ke memori
+        // tak terbatas. Batas di-set kecil supaya test tidak mengalokasi 15MB.
+        $this->prevMaxMediaUploadMb = $_ENV['inbox.maxMediaUploadMb'] ?? null;
+        $_ENV['inbox.maxMediaUploadMb'] = '1';
+
+        $tujuan = $this->seedConversation('628222222222@s.whatsapp.net', 7);
+        $sumber = $this->seedMessage($tujuan, [
+            'direction'      => 'incoming',
+            'message_type'   => 'image',
+            'text'           => 'foto besar',
+            'media_metadata' => json_encode(['direct_path' => '/gw', 'media_key_base64' => 'kk']),
+        ]);
+
+        $controller = $this->controller([
+            'conversation_id'         => $tujuan,
+            'forward_from_message_id' => $sumber,
+        ]);
+        $controller->gatewayMediaResponse = [
+            'ok'     => true,
+            'binary' => str_repeat('b', 1024 * 1024 + 1),
+        ];
+
+        $controller->kirimMedia();
+        $body = $this->body($controller);
+
+        $this->assertSame(400, $this->statusCode($controller));
+        $this->assertStringContainsString('Gagal mengambil lampiran', $body['message']);
+        $this->assertSame(1, $controller->gatewayMediaDownloadCalls, 'Live-fetch tetap dicoba.');
+        $this->assertFalse($controller->gatewaySendMediaCalled, 'Kirim ke Gateway tidak boleh terjadi.');
+        $this->assertSame(0, $this->countOutgoing($tujuan), 'Tidak ada baris yang ditulis.');
+    }
+
+    // ------------------------------------------------------------------
+    // PRN-304: resolveForwardMediaSource() -- urutan disk -> live-fetch -> gone
+    // ------------------------------------------------------------------
+
+    public function testResolveForwardMediaSourcePakaiDiskTanpaLiveFetch(): void
+    {
+        $sumber = [
+            'id'                   => 1,
+            'message_type'         => 'image',
+            'text'                 => 'caption',
+            'media_local_filename' => 'ada.jpg',
+            'media_mime_type'      => 'image/jpeg',
+            'media_filename'       => 'ada.jpg',
+            'media_size'           => 3,
+            'media_metadata'       => null,
+        ];
+        file_put_contents($this->mediaDir . DIRECTORY_SEPARATOR . 'ada.jpg', 'ABC');
+
+        $resolved = $this->panggilResolveForwardMediaSource($sumber);
+
+        $this->assertNull($resolved['error']);
+        $this->assertSame('image', $resolved['media']['type']);
+        $this->assertSame('caption', $resolved['media']['caption']);
+        $this->assertSame(base64_encode('ABC'), $resolved['media']['base64']);
+        $this->assertSame(0, $this->spy->gatewayMediaDownloadCalls, 'Disk lokal: live-fetch tidak dipanggil.');
+    }
+
+    public function testResolveForwardMediaSourceLiveFetchSaatDiskKosong(): void
+    {
+        $sumber = [
+            'id'                   => 2,
+            'message_type'         => 'image',
+            'text'                 => 'caption',
+            'media_local_filename' => null,
+            'media_mime_type'      => null,
+            'media_filename'       => null,
+            'media_size'           => null,
+            'media_metadata'       => json_encode(['direct_path' => '/gw', 'media_key_base64' => 'kk']),
+        ];
+
+        $resolved = $this->panggilResolveForwardMediaSource($sumber, ['ok' => true, 'binary' => 'GATEWAY']);
+
+        $this->assertNull($resolved['error']);
+        $this->assertSame(base64_encode('GATEWAY'), $resolved['media']['base64']);
+        $this->assertSame(1, $this->spy->gatewayMediaDownloadCalls, 'Disk kosong: live-fetch dipanggil.');
+    }
+
+    public function testResolveForwardMediaSourcePermanenGoneTidakHubungiGateway(): void
+    {
+        $sumber = [
+            'id'                      => 3,
+            'message_type'            => 'image',
+            'text'                    => 'caption',
+            'media_local_filename'    => null,
+            'media_mime_type'         => null,
+            'media_confirmed_gone_at' => date('Y-m-d H:i:s'),
+            'media_metadata'          => json_encode(['direct_path' => '/gw', 'media_key_base64' => 'kk']),
+        ];
+
+        $resolved = $this->panggilResolveForwardMediaSource($sumber);
+
+        $this->assertNotNull($resolved['error']);
+        $this->assertNull($resolved['media']);
+        $this->assertSame(0, $this->spy->gatewayMediaDownloadCalls, 'Media hilang permanen: jangan hubungi Gateway.');
+    }
+
+    /**
+     * Panggil private `resolveForwardMediaSource()` langsung lewat reflection.
+     *
+     * @param array<string, mixed>      $sumber
+     * @param array<string, mixed>|null $gatewayResponse
+     *
+     * @return array{error: ?string, media: ?array<string, mixed>}
+     */
+    private function panggilResolveForwardMediaSource(array $sumber, ?array $gatewayResponse = null): array
+    {
+        $this->spy = $this->controller();
+
+        if ($gatewayResponse !== null) {
+            $this->spy->gatewayMediaResponse = $gatewayResponse;
+        }
+
+        $method = (new \ReflectionClass($this->spy))->getMethod('resolveForwardMediaSource');
+        $method->setAccessible(true);
+
+        return $method->invoke($this->spy, new GatewayInboxConfig(), $sumber);
+    }
+
+    // ------------------------------------------------------------------
     // REQ-007: ownership tujuan + REQ-010: idempotensi
     // ------------------------------------------------------------------
 
@@ -682,16 +850,16 @@ final class InboxTeruskanMediaSpy extends Inbox
     /** @var array<string, mixed> */
     public array $gatewayMediaResponse = ['ok' => true, 'binary' => 'GATEWAY-BYTES'];
 
-    protected function callGatewaySendMedia(GatewayInboxConfig $config, string $chatId, string $mediaType, string $mediaBase64, ?string $mimetype, ?string $fileName, string $caption, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
+    protected function callGatewaySendMedia(GatewayInboxConfig $config, InboxOutgoingRequest $request): array
     {
         $this->gatewaySendMediaCalled = true;
-        $this->capturedForward        = $forward;
-        $this->capturedQuoted         = $quoted;
-        $this->capturedCaption        = $caption;
-        $this->capturedBase64         = $mediaBase64;
-        $this->capturedType           = $mediaType;
-        $this->capturedMime           = $mimetype;
-        $this->capturedFileName       = $fileName;
+        $this->capturedForward        = $request->forward ? true : null;
+        $this->capturedQuoted         = $request->quoted;
+        $this->capturedCaption        = $request->caption;
+        $this->capturedBase64         = (string) $request->mediaBase64;
+        $this->capturedType           = $request->mediaType;
+        $this->capturedMime           = $request->mimetype;
+        $this->capturedFileName       = $request->fileName;
 
         return [
             'ok'                     => true,
