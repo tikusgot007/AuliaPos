@@ -105,7 +105,7 @@ Decision log: `docs/decisions/2026-09-19-tahap-0-baseline.md`, commit `4062833`,
 Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dijalankan ulang di Aan-PC; `phpunit` di sini menampilkan ringkasan berbeda, `8 PASS, 0 FAIL`, sehingga angka 82/144 tidak bisa dicocokkan):
 - [x] Test unit AuliaPos: 82 test + 144 assertion PASS (dilaporkan)
 - [x] Test database: 61/61 PASS (dilaporkan; jalan di SQLite, bukan MySQL — limitation tercatat)
-- [ ] Test session: 63 PASS, **2 ERROR** belum diperbaiki (`no such table: db_closing_kas` di `LaporanBulananExcludeBatalTest`)
+- [x] Test session: **2 ERROR lama sudah tidak ada** — diverifikasi 28 Sep 2026: `LaporanBulananExcludeBatalTest` lulus `OK (2 tests, 4 assertions)` dan suite penuh hijau. Catatan "63 PASS, 2 ERROR (`no such table: db_closing_kas`)" sudah basi, jangan dibaca sebagai status terkini
 - [x] Smoke test incoming/outgoing/fromMe: semua lolos (dilaporkan)
 - [x] Verifikasi ulang kasus dekripsi gagal (`AC0B72AD…`) di kondisi bersih: **tidak ada bug sistemik di kondisi normal** (16/16 fromMe sukses, 19/19 incoming/sticker burst sukses)
 - [x] Hipotesis "gagal tepat setelah restart Gateway" diuji lewat M1 Ticket 01 skenario 2 (21 Sep). **Hasil: pola pesan hilang saat restart terkonfirmasi, tetapi mekanisme "dekripsi gagal" dibantah.** Penyebab yang ditemukan: pesan offline (`append`) dibuang oleh `connectionManager.js:385`. Lihat `docs/decisions/2026-09-21-m1-ticket01-baseline.md`
@@ -275,10 +275,10 @@ Dokumen acuan M3 Fase 1 (semuanya sudah dilewati; disimpan sebagai jejak):
 - [ ] **B1.** (25 Sep) **Tolak `q` non-UTF-8 dengan HTTP 400** di batas input `app/Controllers/Inbox.php` — byte rusak menjadi 500 di bawah `DBDebug = true`. Asal: `plan-refactor-m3-fase1e-message-search-v1.0.md` TASK-301 (`[OPTIONAL]`, ditolak pemilik 25 Sep). Test: `?q=%FF` → 400, kata kunci multi-byte valid (`é`) → 200. **Tidak mendesak.**
 - [ ] **B2.** (25 Sep) **Pindahkan `potong()` ke sesudah paginasi** supaya `match_snippet` tidak dihitung untuk baris yang dibuang paginasi. Perilaku wajib byte-identical, jadi seluruh suite jadi bukti regresi. Asal TASK-302. **Tidak mendesak** (median AC-016 436–1010 ms jauh di bawah target 3000 ms).
 - [ ] **B3.** (25 Sep) **`SeedFase1ePerf` memverifikasi hitungannya sendiri** lewat `countAllResults()` + catat komposisi fixture. Asal TASK-303. **Tidak mendesak** (perkakas ukur internal).
-- [ ] **B4.** Perbaiki **2 ERROR test session Tahap 0** (`no such table: db_closing_kas` di `LaporanBulananExcludeBatalTest`).
-- [ ] **B5.** Putuskan nasib **`G:\arsip-gateway\`** — per 28 Sep folder ini **tidak ada** di disk; verifikasi lalu coret.
-- [ ] **B6.** `docs/CHAT.md:323` **catatan kaki usang** (temuan `SPEC-02` dari review read-auth; informational, tidak ada plan yang menugaskan).
-- [ ] **B7.** **Sinkronisasi TODO group-rename** + **BACKLOG pencarian `group_name`**.
+- [x] **B4.** ~~Perbaiki 2 ERROR test session Tahap 0~~ — **DIBATALKAN: sudah tidak ada.** Diverifikasi 28 Sep 2026: `vendor/bin/phpunit --filter LaporanBulananExcludeBatalTest` → `OK (2 tests, 4 assertions)`. Error `no such table: db_closing_kas` (20 Sep) sudah hilang; **tidak ada pekerjaan yang diperlukan**.
+- [x] **B5.** ~~Putuskan nasib `G:\arsip-gateway\`~~ — **SELESAI: dicoret.** Diverifikasi 28 Sep 2026 (`Test-Path`): folder `G:\arsip-gateway` **tidak ada**, dan drive `G:\` sendiri juga tidak ada di mesin ini. Tidak ada yang perlu diputuskan.
+- [x] **B6.** Catatan kaki `docs/CHAT.md` §13 (baris 323/331) **sudah diperbarui** 28 Sep 2026: frasa "mengikuti aturan visibility inbox yang sudah ada" diganti penjelasan eksplisit **baca terbuka** (ALT-003/AUTHZ-02, `REQ-001` di `spec/spec-design-inbox-read-authorization.md`) — kepemilikan hanya membatasi operasi tulis, bukan visibilitas baca.
+- [x] **B7.** **Selesai** 28 Sep 2026 — dua item out-of-scope dari `spec/spec-design-grup-tahap2-identitas.md` §14 kini tercatat eksplisit di grup **D** di bawah.
 - [ ] **B8.** **PRD Section 4 note (baris 158–165)** & ketidakcocokan fase **AC GH-012** — dibawa sejak beberapa sesi, belum ditindaklanjuti.
 
 ### C. Risiko Gateway yang masih terbuka (dari Ticket 01/02)
@@ -287,6 +287,13 @@ Dokumen acuan M3 Fase 1 (semuanya sudah dilewati; disimpan sebagai jejak):
 - [ ] **C2. Risiko P0 #4** — retry pesan masuk tanpa batas percobaan dan tanpa dead-letter (dari kode, belum diamati jangka panjang).
 - [ ] **C3. Risiko P0 #5 / GW-25** — error dekripsi + `message_timestamp` bergeser (sebaran 28–58 detik); penyebab belum terbukti, butuh nomor uji kedua. **ESC-001..004 (GW-11 / GW-25) tetap OPEN** — sumber timestamp dikunci di luar repo ini.
 - [ ] **C4. E-02 dan E-07** — butuh verifikasi dengan WhatsApp nyata dulu sebelum diputuskan menjadi task baru.
+
+### D. Keputusan produk tertunda (bukan bug, bukan pekerjaan teknis)
+
+> Dicatat 28 Sep 2026 supaya tidak hilang saat dokumen ini disinkronkan. Keduanya berasal dari `spec/spec-design-grup-tahap2-identitas.md` §14 dan **sengaja di luar lingkup** PRD Inbox saat ini (PRD tidak memintanya) — butuh keputusan produk sendiri bila suatu saat diperlukan, bukan perbaikan bug.
+
+- [ ] **D1. Sinkronisasi ganti-nama grup** — setelah `conversations.group_name` terisi pertama kali, nama grup berikutnya dari WhatsApp **tidak menimpanya** (`REQ-006` write-once). Kalau admin grup mengganti nama di WhatsApp, Inbox tetap menampilkan nama lama. Sumber: `spec-design-grup-tahap2-identitas.md` §12 (Edge case) dan §14 (TODO).
+- [ ] **D2. Pencarian percakapan lewat nama grup asli** — `group_name` **tidak** termasuk `SEARCH_COLUMNS`, jadi grup tidak bisa ditemukan lewat nama aslinya (grup masih bisa ditemukan lewat `whatsapp_name` atau isi pesan). Sumber: `spec-design-grup-tahap2-identitas.md` §1.1, §13, dan §14 (BACKLOG, T7).
 
 > **Catatan 25 Sep — batas yang perlu diketahui saat membaca ini.** Regresi pada pengaman putaran daftar Inbox (`app/Views/inbox/index.php`) **tidak akan menggagalkan test otomatis**, karena proyek ini tidak punya test runner JavaScript. Yang menjaganya: harness `build/check-round-guard.php` (di luar repo, gitignored — jalankan manual) dan checklist browser. Kalau bikin perubahan pada `muatUlangDaftarConversation()`, jalankan keduanya.
 

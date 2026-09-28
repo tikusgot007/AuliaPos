@@ -1069,3 +1069,46 @@
 <!-- checkpoint-tail: 2026-09-28 Code Janitor rewrote docs/TODO-CHAT.md (+145/-107) after 3 days of staleness: added a new "Status Sekarang (28 September 2026)" section (2-repo table AuliaPos v2.3 bbb91c4 / WA-Gateway master a2ba409, 4 completed Inbox features, 574-test baseline, honest "Gateway process status unverified — pm2 not on PATH") and fully rewrote "Yang Menggantung" into 3 groups (A next-direction incl. Teruskan Tahap 4 needing a plan; B B1–B8 small non-blocking items incl. the old Fase 1e TODO 11–13; C C1–C4 Gateway risks P0 #3/#4/#5 + ESC-001..004). Supporting sections refreshed (header, roadmap, baseline repo v2.2→v2.3 + gateway 21a4cb6→a2ba409, environment, M1 Wave 2 done, M2 atomicity nuance, M3 WARNING block replaced with current phase map, reference files). Two stale facts corrected: the Gateway checkout IS at C:\projects\WA-Gateway (C:\home no longer exists — check disk every session), and npx --no-install markdownlint-cli is NO LONGER available (DE-24 superseded; never read a 0-byte redirect as "clean lint"). Mojibake recurred 3x in long Indonesian prose and a duplicate ### WA-Gateway heading was self-introduced then caught by grepping headings. Not committed. Next: commit → push → Teruskan Tahap 4 via /sdlc-plan-tasks. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Code Janitor — sapuan B1–B8 + panduan verifikasi C1)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Ad-hoc maintenance (`/code-janitor`, Broom Rule). Bukan tahap SDLC formal.
+- **Konteks pemicu:** Owner memilih dua arah dari daftar "Yang Menggantung": "bersih-bersih item kecil (B1–B8)", lalu "tutup P0 #3 (C1)".
+- **Active Artifacts:**
+  - `docs/prosedur-verifikasi-p0-3-idempotensi-outgoing.md` — ✅ dibuat (prosedur C1: AC-027 + AC-042).
+  - `build/suspend-gateway.ps1` — ✅ dibuat (alat bantu lokal, **gitignored**).
+  - `docs/TODO-CHAT.md`, `docs/CHAT.md`, `app/Commands/SeedFase1ePerf.php` — ✅ disunting.
+- **Achieved Milestones:**
+  - **Empat item B tuntas, semuanya setelah diverifikasi lebih dulu:** B3 (`SeedFase1ePerf` kini mencetak jumlah **terverifikasi** dari DB + komposisi fixture, dan keluar `EXIT_ERROR` kalau tidak cocok), B6 (`docs/CHAT.md` §13 catatan kaki usang → baca-terbuka `REQ-001`), B7 (2 item out-of-scope spec Grup Tahap 2 §14 → grup **D** baru di TODO-CHAT), B5 (`G:\arsip-gateway` dicoret).
+  - **B4 DIBATALKAN karena sudah beres:** `LaporanBulananExcludeBatalTest` lulus `OK (2 tests, 4 assertions)`; error `no such table: db_closing_kas` dari 20 Sep sudah hilang. Ini contoh baru dari kelas "temuan audit tidak memverifikasi dirinya sendiri" yang sudah ada di KB — terbukti lagi hari ini, dan sengaja **tidak** diremediasi sia-sia.
+  - **Panduan C1 dibuat** (owner yang menjalankan): Skenario A (bekukan Gateway ~25 detik → AuliaPos timeout di detik ke-10 → kirim ulang di dalam lease 35 detik) dengan **Gerbang Keabsahan** (percobaan hanya sah kalau UI benar-benar menampilkan timeout), Skenario B lewat `curl` langsung (UI memang membuang `operation_id` setelah sukses), daftar bukti per percobaan, dan batas jujur ASSUMPTION-009.
+  - Verifikasi: `vendor/bin/phpunit --no-coverage` → **574 tests, 2201 assertions, OK, exit 0** — baseline sama, nol regresi.
+- **Corrected Facts:**
+  - **Seluruh drive `G:\` tidak ada di mesin ini**, bukan hanya `G:\arsip-gateway` — B5 tidak butuh keputusan apa pun.
+  - **WA-Gateway TIDAK sedang berjalan.** Port 3000 kosong; dua proses `node.exe` yang hidup adalah **9router** (`...\npm\node_modules\9router\...`), BUKAN Gateway. Jangan pernah memakainya sebagai bukti Gateway hidup.
+  - **Checkout `C:\projects\WA-Gateway` belum bisa langsung jalan:** tidak ada `node_modules`, `.env`, `auth/`, maupun `data/` (isinya hanya `src/`, `test/`, `public/`, `android/`, `supervisor/`, `scripts/`, `node.exe`, `.env.example`, `README.md`). Untuk C1 perlu `npm install` + copy `.env` + penautan WhatsApp. Node terpasang **v22.23.2** (spec: minimal 20; Node 24 tidak didukung) → cocok.
+  - **Timeout kirim AuliaPos terkonfirmasi di kode:** teks 10 detik (`app/Controllers/Inbox.php:2655`), media 30 detik (`:2758`); lease Gateway 35.000 ms.
+  - **`/build/` gitignored** (`.gitignore:31`) — alat bantu lokal di sana tidak ikut commit, pola yang sama dengan `build/check-round-guard.php`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Memakai proses `node.exe` sebagai bukti Gateway hidup** — di mesin ini 9router juga `node.exe`, jadi `Get-Process node` menjawab "ada node" walau Gateway mati. Cek **port 3000** atau CommandLine yang memuat `src/app/index.js`.
+  - (Kelas lama yang tetap berlaku, lihat KB) membaca hasil audit lalu langsung meremediasi tanpa memverifikasi ulang — B4 hari ini adalah contoh kelima.
+- **Updated Files:**
+  - `app/Commands/SeedFase1ePerf.php` — `isiData()` memanggil `cetakJumlahTerverifikasi()` (baru) + `cetakKomposisiFixture()` (baru).
+  - `docs/CHAT.md` — §13 catatan kaki (baris 331) diganti: baca terbuka, kepemilikan hanya membatasi tulis (ALT-003/AUTHZ-02).
+  - `docs/TODO-CHAT.md` — B4/B5/B6/B7 ditandai selesai + bukti; baris 108 (Tahap 0, "2 ERROR") dikoreksi; grup **D** baru ditambahkan.
+  - `docs/prosedur-verifikasi-p0-3-idempotensi-outgoing.md` — **baru**.
+  - `build/suspend-gateway.ps1` — **baru**, gitignored.
+- **Decisions Made:**
+  - **B2 tidak dikerjakan (rekomendasi, menunggu keputusan owner).** Pindahkan `potong()` ke sesudah paginasi memang bisa byte-identical, tapi jebakannya nyata: `potong()` memperlakukan `\f` sebagai spasi (regex `\s` PCRE) sedangkan `trim()` PHP tidak, sehingga pengecekan pengganti yang naif akan mengubah perilaku di kasus tepi itu. Untungnya hanya melewati baris di luar halaman, sementara ukurannya 436–1010 ms dari target 3000 ms → menambah kompleksitas di controller yang sudah lewat review tanpa untung terukur.
+  - **B1 tetap tidak dikerjakan** — pemilik menolaknya 25 Sep (`TASK-301` ditandai `[OPTIONAL]`); tidak dibuka kembali tanpa perintah eksplisit.
+  - **B8 tidak dikerjakan di sesi ini** — menyunting PRD adalah wilayah `/sdlc-draft-prd`; audit konsistensi sudah menandainya `[Assumed / Backlog]` (non-blocking).
+  - **C1 tetap OPEN dan TIDAK diklaim lulus.** Yang bisa dikerjakan tanpa manusia sudah dikerjakan; sisanya butuh Gateway hidup + HP penerima + pengamatan manusia.
+- **Next Action / Pending:**
+  - Closing sequence #3: checkpoint ini → **commit** (4 berkas: 3 diubah + 1 panduan baru) → **push** `origin/v2.3` → prompt sesi berikutnya.
+  - **Owner menjalankan C1**: `npm install` + `.env` (`CI4_GATEWAY_TOKEN` harus sama dengan `inbox.gatewayToken` AuliaPos) + penautan WhatsApp di `C:\projects\WA-Gateway`, lalu ikuti `docs/prosedur-verifikasi-p0-3-idempotensi-outgoing.md` minimal 3× untuk Skenario A. Hasil dicatat sebagai decision log baru di `docs/decisions/`; baru setelah itu P0 #3 boleh ditutup.
+  - Masih terbuka: C2 (P0 #4 retry masuk tanpa batas/dead-letter), C3 (P0 #5 / GW-25 error dekripsi + timestamp bergeser; ESC-001..004), C4 (E-02/E-07). B1/B2/B8 menunggu keputusan owner. Arah besar berikutnya: **Teruskan (Tahap 4) via `/sdlc-plan-tasks`**.
+
+<!-- checkpoint-tail: 2026-09-28 B1–B8 sweep closed 4 items only after verifying them first (B3 SeedFase1ePerf now prints DB-verified counts and fails on mismatch; B6 CHAT.md §13 stale footnote → open-read REQ-001; B7 two out-of-scope items into new TODO group D; B5 G:\arsip-gateway struck) and DEBUNKED B4 (LaporanBulananExcludeBatalTest passes OK 2 tests — the db_closing_kas error is long gone), a fresh instance of the KB rule "audit findings are not self-verifying". B2 (potong() after pagination — the \f vs trim() trap) and B8 (PRD note, phase boundary) deliberately deferred to the owner. C1 verification guide authored (docs/prosedur-verifikasi-p0-3-idempotensi-outgoing.md) plus a local helper build/suspend-gateway.ps1 (NtSuspendProcess; refuses when the gateway is absent and ignores the two 9router node processes). Hard blocker recorded: the Gateway is NOT running (port 3000 free) and C:\projects\WA-Gateway has no node_modules/.env/auth/data, so C1 needs npm install + WhatsApp pairing by the owner; P0 #3 stays OPEN. Suite green 574/2201 exit 0. Not committed yet. Next: commit → push → owner runs C1. -->
+
+---

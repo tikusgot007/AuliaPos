@@ -328,7 +328,7 @@ Ringkasan hak akses lintas fitur (tidak ada role baru — tetap 2 level: staff v
 | Hapus | Tidak | Tidak | Ya |
 | Takeover | — | — | Ya |
 
-\* mengikuti aturan visibility inbox yang sudah ada.
+\* Baca terbuka untuk semua staff yang sudah login — kepemilikan (`assigned_to`) hanya membatasi operasi tulis, bukan visibilitas baca (ALT-003/AUTHZ-02; lihat `spec/spec-design-inbox-read-authorization.md`, `REQ-001`).
 
 **Role "Shift Leader" belum termasuk** dalam spesifikasi ini — kalau/ketika dibutuhkan, mengikuti aturan cross-version di `USER-SHIFT.md`, bukan definisi lokal baru di sini.
 

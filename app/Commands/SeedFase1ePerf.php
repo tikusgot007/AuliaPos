@@ -156,12 +156,80 @@ class SeedFase1ePerf extends BaseCommand
         $jumlahPesan      = $this->isiPesan($db, $petaConversation);
 
         CLI::write('Selesai dalam ' . round(microtime(true) - $waktuMulai, 1) . ' detik.', 'green');
-        CLI::write('conversations terisi : ' . number_format(count($petaConversation), 0, ',', '.'));
-        CLI::write('messages terisi      : ' . number_format($jumlahPesan, 0, ',', '.'));
+        CLI::write('conversations ditulis : ' . number_format(count($petaConversation), 0, ',', '.'));
+        CLI::write('messages ditulis      : ' . number_format($jumlahPesan, 0, ',', '.'));
 
+        $terverifikasi = $this->cetakJumlahTerverifikasi($db);
+        $this->cetakKomposisiFixture();
         $this->cetakJumlahKataKunci($db);
 
-        return EXIT_SUCCESS;
+        return $terverifikasi ? EXIT_SUCCESS : EXIT_ERROR;
+    }
+
+    /**
+     * Reads the fixture back from the database and compares it with the
+     * designed size, so the printed evidence is verified instead of merely
+     * attempted (TASK-303). `insertBatch()` reports affected rows, but the
+     * only way to prove what really landed is to count the marked rows again.
+     *
+     * A mismatch fails the command on purpose: this tool exists to produce
+     * trustworthy measurement evidence, and counts that silently drift would
+     * make every number derived from them worthless.
+     */
+    private function cetakJumlahTerverifikasi(BaseConnection $db): bool
+    {
+        $conversationTerverifikasi = (int) $db->table('conversations')
+            ->like('chat_id', self::PREFIX_CHAT_ID, 'after')
+            ->countAllResults();
+
+        $pesanTerverifikasi = (int) $db->table('messages')
+            ->like('wa_message_id', self::PREFIX_WA_ID, 'after')
+            ->countAllResults();
+
+        $conversationSeharusnya = self::JUMLAH_CONVERSATION;
+        $pesanSeharusnya        = self::JUMLAH_CONVERSATION * self::PESAN_PER_CONVERSATION;
+
+        CLI::write('Jumlah terverifikasi (dibaca ulang dari ' . $db->getDatabase() . '):');
+        CLI::write(
+            '  conversations : ' . number_format($conversationTerverifikasi, 0, ',', '.')
+            . ' (seharusnya ' . number_format($conversationSeharusnya, 0, ',', '.') . ')'
+        );
+        CLI::write(
+            '  messages      : ' . number_format($pesanTerverifikasi, 0, ',', '.')
+            . ' (seharusnya ' . number_format($pesanSeharusnya, 0, ',', '.') . ')'
+        );
+
+        if ($conversationTerverifikasi === $conversationSeharusnya && $pesanTerverifikasi === $pesanSeharusnya) {
+            CLI::write('  COCOK: jumlah di database tepat sama dengan rancangan fixture.', 'green');
+
+            return true;
+        }
+
+        CLI::error(
+            'TIDAK COCOK: jumlah fixture di ' . $db->getDatabase() . ' berbeda dari rancangan. '
+            . 'Penyebab tersering: database perf ini masih menyimpan fixture dari sesi sebelumnya '
+            . '(command ini menambah baris, tidak mengosongkan tabel). '
+            . 'Kosongkan dulu baris ber-marker `' . self::PREFIX_CHAT_ID . '`/`' . self::PREFIX_WA_ID
+            . '`, lalu jalankan ulang sebelum mengukur.'
+        );
+
+        return false;
+    }
+
+    /**
+     * Describes what the generated fixture is made of, so the measurement log
+     * stays readable without reverse-engineering the row count. The real
+     * volumes are the measured keyword counts printed right after this block.
+     */
+    private function cetakKomposisiFixture(): void
+    {
+        CLI::write('Komposisi fixture yang dirancang generator:');
+        CLI::write('  ' . self::JUMLAH_CONVERSATION . ' conversation x ' . self::PESAN_PER_CONVERSATION . ' pesan per conversation');
+        CLI::write('  - 1 catatan internal per conversation (p=25)');
+        CLI::write('  - pesan media ber-`text` NULL pada p kelipatan 17');
+        CLI::write('  - pesan memuat "' . self::KATA_UMUM . '" pada p kelipatan 10 (non-internal)');
+        CLI::write('  - pesan memuat "' . self::KATA_LANGKA . '" tepat 1 (conversation 1500, p=42)');
+        CLI::write('  - huruf "' . self::KATA_SATU_HURUF . '" ada di hampir semua pesan');
     }
 
     /**
