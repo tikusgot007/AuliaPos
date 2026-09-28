@@ -1504,3 +1504,45 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6jj Teruskan AuliaPos Phase 1) /sdlc-write-code executed Phase 1 of plan-feature-teruskan-auliapos-v1.0.md in the AuliaPos repo: TASK-001 migration messages.is_forwarded (applied live + test DB resynced), TASK-002 controller forward path (resolveTeruskan with server-side forwardability guards, CON-001 forward+quoted -> 400, callGatewaySend(forward:true) never with quoted, row written is_forwarded=1 with all quoted_* NULL, withForwardMarker for success+replay), TASK-003 view (renderAksiTeruskan/renderAksiPesan, #modalTeruskan picker limited to existing conversations, composer locked, separate operation-id key on #formTeruskan, label built solely from is_forwarded). TASK-004 verified: 621 tests / 2409 assertions exit 0, plus full manual browser checklist passed (AC-001, AC-002 UI+server, AC-005 403, AC-004 success) with live DB evidence rows 900075/900076/900077. Two dead-ends found on the way: label CSS needed display:block (inline-block concatenated "Diteruskan"+body text) and native tooltips never show on disabled buttons. Next: Phase 2 (TASK-006..008, media forwarding via /inbox/kirim-media) in a NEW session, plan to be attached. -->
 
 ---
+
+## Session Checkpoint: 2026-09-28 (Phase 6kk - Teruskan AuliaPos Phase 2)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (Phase 2 of the Teruskan AuliaPos plan) - code complete, formal review NOT yet run
+- **Active Artifacts:**
+  - `spec/spec-design-teruskan.md` - Status: Finalized (v1.2, GH-016)
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md` - Status: In Progress (TASK-001..007 done; TASK-008 automated green, manual browser pending; TASK-009 APPROVAL pending)
+- **Achieved Milestones:**
+  - TASK-006: `Inbox::kirimMedia()` gained a Teruskan branch (forward_from_message_id) - upload validation skipped, `resolveTeruskan()` after `cekOwnership()` of the TARGET only, never `resolveKutipan()` (so all `quoted_*` NULL and no `quoted` in payload), media_type/mimetype/file_name/caption copied from the SOURCE row, new row `is_forwarded=1`, `media_path`/`media_local_filename` NULL, gateway `media_ref` persisted.
+  - New private helper `Inbox::bacaByteMediaTeruskan()` implements ASSUMPTION-011: local disk (`InboxMediaStorage::read`) first, then Gateway live-fetch (`callGatewayMediaDownload`); `media_confirmed_gone_at` set OR metadata empty -> 400 without touching the Gateway; CON-002 all-or-nothing on any failure; 410 distinguished from transient (503/504) in the cashier-facing message.
+  - `Inbox::callGatewaySendMedia()` gained optional `?bool $forward = null` (adds `forward: true`, never with `quoted`) and now returns `forward_marker_applied`; `kirimMedia()` and its replay path wrap the response with `withForwardMarker()`.
+  - TASK-007: `teruskanPesan()` in `app/Views/inbox/index.php` routes by source `message_type` - text -> `/inbox/kirim`, image|document|sticker -> `/inbox/kirim-media` with a FormData of exactly conversation_id + forward_from_message_id + operation_id (no file, no caption); `#btnBatalKutipan` (new id) is disabled while the picker is open and restored on close.
+  - TASK-008 automated VERIFY: full suite `vendor/bin/phpunit --no-coverage` -> OK (643 tests, 2531 assertions), exit 0; `--filter InboxTeruskan` -> OK (56 tests, 289 assertions). Manual browser checklist still OWNER-PENDING.
+  - Plan file updated: TASK-006/007 marked done, TASK-008 marked in-progress, plus a NOTE block with the automated evidence.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** creating the helper table `db_users` (raw `CREATE TABLE IF NOT EXISTS`) on the default `tests` (SQLite `:memory:`) connection from a new session test file and leaving it behind.
+  - **Reason:** a later `DatabaseTestTrait` test in the same process (InboxTeruskanScreenTest) runs the full migration set, and `CreateTagihanFilterTables` creates `db_users` without IF NOT EXISTS -> `table db_users already exists`. A `--filter` run that did not include the old Phase-1 file exposed it; the full suite only passed by ordering luck.
+  - **Correct Solution:** DROP the helper table in `tearDown()` of the new test (`db_connect()->query('DROP TABLE db_users')`). NOTE: `db_connect()->forge()` does NOT exist in CI4 4.7 - `forge()` throws "Call to undefined method". Use raw SQL.
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` - `kirimMedia()` forward branch, `bacaByteMediaTeruskan()`, `callGatewaySendMedia(?_bool $forward)` + `forward_marker_applied`, constants `PESAN_TERUSKAN_MEDIA_TIDAK_TERSEDIA` / `PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL` / `TIPE_TERUSKAN_LAMPIRAN`.
+  - `app/Views/inbox/index.php` - `teruskanPesan()` route branch + `JALUR_MEDIA_TERUSKAN`, `#btnBatalKutipan` freeze/restore in `bukaPemilihTeruskan()`/`tutupPemilihTeruskan()`.
+  - `tests/session/InboxTeruskanMediaTest.php` - NEW (18 tests: local-disk forward, live-fetch fallback, gone-metadata 400, live-fetch 410/503 400, document/sticker, quoted_* NULL, single marker, CON-001, type guards, ownership 403, replay).
+  - `tests/session/InboxTeruskanScreenTest.php` - +4 tests (media route without `media` field, text route unchanged, active quote never sent, attachment+quote-cancel frozen).
+  - `tests/session/InboxGrupTahap1Test.php`, `tests/session/InboxOutgoingIdempotencyTest.php`, `tests/session/InboxBalasPesanMediaTest.php` - spy signature updated with `?_bool $forward = null`.
+  - `tests/database/InboxOutgoingOperationIdTest.php` - static call-string assertion updated to `$captionUntukGateway, $operationId, $quotedPayload, $isForward ? true : null`.
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md` - TASK-006/007 done, TASK-008 note, evidence block.
+- **Decisions Made:**
+  - Media endpoint rejects a `text` source with the existing `PESAN_TERUSKAN_TIPE_TIDAK_DIDUKUNG` (GUD-001: the UI auto-route is not the only guard).
+  - Live-fetch failures are reported with two distinct messages: 410 -> "sudah tidak tersedia", 503/504/other -> "Gagal mengambil lampiran... Coba lagi".
+  - This session deliberately does NOT write `media_confirmed_gone_at` on a live-fetch 410 during Teruskan (that latch is owned by `Inbox::media()`); flagged to the formal review as an open question.
+- **Next Action / Pending:**
+  - **STOP** - awaiting owner approval for TASK-009 (Slice B correct) before Phase 3.
+  - Then run `/sdlc-code-review` in a NEW session (session-lock), attaching `@spec/spec-design-teruskan.md` + `@plan/plan-feature-teruskan-auliapos-v1.0.md` + the changed code/tests. NOT a Kilo `/review`.
+  - Manual browser checklist TASK-008 (forward a real photo; forward a `media_confirmed_gone_at` photo -> clear error, nothing sent; Gateway log shows `forward: true` accepted and `forward_marker_applied` reported).
+  - Carried to the reviewer as questions (do not treat as confirmed defects): forwarded-source bytes bypass `maxMediaUploadMb`; no `media_confirmed_gone_at` write on 410 in the Teruskan path; worst case ~60s synchronous (30s live-fetch + 30s send).
+  - Explicitly NOT a defect: a cashier can forward a message from a conversation they do not own - `REQ-007`/`AC-004` define ownership checks on the TARGET conversation only.
+  - Carried forward (unchanged): `docs/peta-kemajuan-inbox.html` has been modified since before this session and is NOT committed; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md` not yet updated for Teruskan.
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6kk Teruskan AuliaPos Phase 2) /sdlc-write-code executed TASK-006..008 of plan-feature-teruskan-auliapos-v1.0.md in the AuliaPos repo (branch v2.3): kirimMedia() forward branch + bacaByteMediaTeruskan() (local disk then Gateway live-fetch, CON-002 all-or-nothing), callGatewaySendMedia(forward) + forward_marker_applied, view route text vs /inbox/kirim-media with no upload, script-freeze of attachment + quote-cancel during the picker. TASK-008 automated green: 643 tests / 2531 assertions exit 0, filtered 56/289. Manual browser checklist and TASK-009 approval are pending; formal /sdlc-code-review goes in a NEW session. Dead-end: a new session test must DROP the raw db_users table in tearDown or a later migrating test fails with "table db_users already exists" (and CI4 4.7 has no forge()). -->
+
+---
