@@ -1951,3 +1951,35 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6vv Write-Code Media-Bound Phase 3) /sdlc-write-code executed Phase 3 of plan/plan-refactor-teruskan-media-bound-v1.0.md and the plan is ready to close (only the TASK-728 approval gate remains). Extracted the pure Inbox::akumulasiChunk() used by CURLOPT_WRITEFUNCTION with 5 unit tests; DELETED the fragile static substring guard and replaced it with a real behavioural test (tests/session/InboxMediaDownloadTransferBoundTest.php) that runs actual cURL against a php -S loopback server streaming WITHOUT Content-Length (512KB vs 256KB bound -> 413, 64KB -> 200); mapped 413 to an explicit 'terlalu_besar' category and the label "Lampiran terlalu besar untuk ditampilkan (batas NMB)" in the view, bound passed from the controller as BATAS_MEDIA_UNDUH_MB, and re-synced the VERBATIM JS copy tests/js/media-inbox-retry.check.js (15 PASS); the KB had no bolehDiteruskan entry (only historical checkpoints) so a canonical KB bullet for aksiPesanTersedia() was added instead of rewriting history; docs/adr/ recorded in docs/ARCHITECTURE.md tree + section 13. Verify: suite OK 677/2688 exit 0, both node checks pass. Dead-end: loopback tests need a separate process (proc_open php -S + fsockopen readiness poll) because an in-process stream_socket_server deadlocks a blocking cURL, and the router must receive the byte count via the URL path since callGatewayMediaDownload posts no query. Next: close the plan after owner approval (TASK-728); manual live-Gateway check still owner-run. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6ww — `/sdlc-code-review` Two-Axis `plan-refactor-teruskan-media-bound-v1.0.md`, commit `d29e346`→`2053f63`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review`) — plan v1.0 terverifikasi patuh; **1 temuan `[REQUIRED]`** memicu plan refactor baru v1.1.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.0.md` — ✅ Completed (base review; Phase 1/2/3 diverifikasi).
+  - `plan/plan-refactor-teruskan-media-bound-v1.1.md` — ⏳ **Planned (NEW)** hasil review ini; menunggu `/sdlc-write-code`.
+  - `spec/spec-design-teruskan.md` — v1.3 (tidak disentuh; Axis B nol mismatch).
+- **Achieved Milestones:**
+  - Verifikasi ulang: suite `OK (677 tests, 2688 assertions)` exit 0; loopback bound `OK (2 tests, 7 assertions)`; unit `akumulasiChunk` `OK (5 tests, 12 assertions)`; `node tests/js/media-inbox-retry.check.js` 15 PASS; `node tests/js/operation-id-composer.check.js` OK; `CURLOPT_MAXFILESIZE` absen di `app/`.
+  - Phase 1 (`413` deterministik) OK: `curl_errno` dibaca sebelum `curl_close`; cabang `413` didahulukan atas `$execResult === false`; loopback test tanpa `Content-Length` membuktikan.
+  - Phase 2 OK: `callGatewayMediaDownload(..., ?int $maxBytes = null)` default `maxMediaDownloadMb`; `bacaByteMediaTeruskan()` memasok `maxMediaUploadMb`; `maxMediaUploadMb` tetap 15 (CON-703, dikunci `InboxMediaBoundConfigTest`).
+  - Phase 3 OK: `akumulasiChunk()` murni; label `413` eksplisit via `BATAS_MEDIA_UNDUH_MB` dari server.
+  - **Temuan `[REQUIRED]` PERF-01:** prefetch webhook (`InboxGatewayApi.php:358`) memakai default batas unduh (100MB) → buffer+disk ingest boundary tak terpercaya naik 15MB→100MB (×6.7, DoS memori/disk). **[OPTIONAL] CLN-01:** `413` diperlakukan retryable (`mediaSementara`, 3×). **[NIT] TEST-01:** `InboxMediaBoundConfigTest::testDefaultUnduhDanUnggahTerpisah` tak isolasi env ambien.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Range review eksklusif:** `git diff d29e346..2053f63` TIDAK memuat commit Phase 1 (`d29e346` itu sendiri); untuk memverifikasi Phase 1 pakai diff `1c826f4..2053f63` atau baca kode HEAD. Jangan simpulkan Phase 1 absen hanya karena range dua-titik.
+  - **`git show <sha> -- file` di shell ini bisa memotong body diff** ("diff body omitted"); verifikasi lewat `read` kode HEAD + `--testdox`.
+- **Updated Files:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.1.md` — NEW (plan remediasi, 2 phase: bound ingest terpisah + latch `413`).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+  - Tidak ada perubahan kode produksi/test pada sesi review ini.
+- **Decisions Made:**
+  - Prefetch ingest = sumbu batas ketiga tersendiri (`maxMediaPrefetchMb`, default 15) — jangan pakai ulang batas unduh 100MB atau batas unggah.
+  - `413` deterministik → non-retryable via reuse `cobaan = MEDIA_COBAAN_MAKS` (bukan pindah ke latch `kadaluarsa`), label eksplisit dipertahankan.
+- **Next Action / Pending:**
+  - Jalankan `/sdlc-write-code` atas `@plan/plan-refactor-teruskan-media-bound-v1.1.md` (Phase 1 TASK-801..806, Phase 2 TASK-811..815).
+  - Manual live-Gateway (owner-run, belum dijalankan): media masuk >15MB tampil; Teruskan >15MB ditolak.
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` errno 1118; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6ww Code-Review Media-Bound) /sdlc-code-review Two-Axis over d29e346..2053f63 (v2.3): Axis B zero spec mismatch; Axis A found one [REQUIRED] PERF-01 — the webhook prefetch path (InboxGatewayApi.php:358) calls callGatewayMediaDownload() with no bound so it now inherits the display cap maxMediaDownloadMb=100MB instead of the prior 15MB, buffering+decrypting+saving to disk up to 100MB per inbound message at an unauthenticated trust boundary (~6.7x DoS surface; RISK-702 only capped overrun, not peak buffer). Also [OPTIONAL] CLN-01 (413 treated as retryable, 3 pointless re-transfers) and [NIT] TEST-01 (config test not env-isolated). Verified re-run: suite OK 677/2688 exit 0, loopback bound 2/7, akumulasiChunk 5/12, both node checks pass, CURLOPT_MAXFILESIZE absent. Produced NEW plan/plan-refactor-teruskan-media-bound-v1.1.md (did not overwrite v1.0) with Phase 1 dedicated maxMediaPrefetchMb ingest bound + Phase 2 deterministic-413 latch and test hygiene. Next: /sdlc-write-code on v1.1; manual live-Gateway check still owner-run. -->
+
