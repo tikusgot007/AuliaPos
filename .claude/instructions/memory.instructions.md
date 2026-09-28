@@ -2175,5 +2175,74 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 7aa Write-Code Media-Bound v1.3) /sdlc-write-code executed BOTH phases of plan/plan-refactor-teruskan-media-bound-v1.3.md and closed it (owner approved). Phase 1 (REQUIRED defects): batasiEnvMb() now clamps the fallback to the upper bound (min($default,$maks)) so maxMediaPrefetchMb <= maxMediaDownloadMb holds even when the prefetch env is unset (was GREEN after RED 15!==10); mbKeByte() is overflow-safe returning PHP_INT_MAX for absurd values instead of a TypeError/HTTP 500 (RED TypeError before); the loopback test splits hentikanProses() (process only) from bersihkanServerDir() (tearDown only) so the retry can actually succeed (stable 5x, no skip); the RISK-901 config test now isolates all three env keys. Phase 2: bersihkanSementaraSetelahReconnect() keeps nonRetryable (413) entries on reconnect (JS 18->19 PASS); the mbKeByte helper moved out of the Controller into NEW app/Libraries/InboxMediaBound.php with 4 call-sites updated and no stale Inbox::mbKeByte left; InboxMbKeByteTest calls it directly (no reflection); a misleading guard test renamed; rekamEnv()/pulihkanEnv() snapshot and restore each env channel as it was; docs/ARCHITECTURE.md documents the three media-bound axes and the nonRetryable retention; TASK-1107 (log dedupe) skipped [-] because a per-key static would hide warnings across requests. Verify: suite OK (687 tests, 2728 assertions) exit 0, node media-inbox-retry 19 PASS, node operation-id-composer OK. Spec/PRD/ADR/plan v1.1/v1.2/WA-Gateway untouched; no suppressions or test-skips. Next: closing sequence (commit -> push -> next-session prompt); plan v1.3 not yet code-reviewed; manual live-Gateway check owner-run. -->
 ---
 
+## 📝 Session Checkpoint: 2026-09-28
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (Code) — remediasi review v1.4 selesai, plan ditutup `Completed`.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.4.md` — ✅ **Completed** (TASK-1207 disetujui owner 2026-09-28).
+  - `spec/spec-design-teruskan.md` — v1.3 (tidak disentuh, CON-1008).
+- **Achieved Milestones:**
+  - **TASK-1200 DECISION GATE:** owner memilih **opsi (a) plafon kebijakan**.
+  - **SEC-01 ditutup:** guard overflow `mbKeByte()` berubah dari gagal-terbuka (`PHP_INT_MAX`) menjadi gagal-terbatas. `app/Libraries/InboxMediaBound.php` kini punya `private const BYTES_PER_MB = 1024 * 1024;` (CLN-1006) + `private const CEILING_MB = 4096;`; `mbKeByte()` mengembalikan `CEILING_MB * BYTES_PER_MB` untuk `$mb > CEILING_MB`. Nilai 0/1/15/100 tetap identik.
+  - **TASK-1203:** `tests/unit/InboxMbKeByteTest.php` — `testNilaiRaksasaGagalAmanKeIntMax()` → `testNilaiRaksasaDibatasiPlafonKebijakan()` (asseri `4096*1024*1024` DAN `< PHP_INT_MAX`); +`testPlafonKebijakanMembatasiNilaiDiAtasBatas()` (4096 lolos, 4097 & 100000 dipotong).
+  - **TASK-1204:** `tests/unit/InboxMediaBoundConfigTest.php` — +`testPrefetchEnvTidakSahJatuhKeBatasUnduh()`: env prefetch `0` + unduh 10 → prefetch 10 (clamp fallback di cabang `$nilai < 1`).
+  - **TASK-1205 `[-]`:** CLN-1008 tidak berlaku — `serverDir` di-assign sekali di `mulaiServer()` (`InboxPrefetchIngestBoundTest.php:198`), di luar loop retry `:222`, jadi tidak ada dir percobaan pertama yang bocor.
+  - **VERIFY (TASK-1206):** full suite `OK (689 tests, 2736 assertions)` exit 0 (dari 687/2728; +2 test, tidak ada turun); `--filter InboxMbKeByteTest` `OK (3 tests, 10 assertions)`; `--filter InboxMediaBoundConfigTest` `OK (9 tests, 31 assertions)` bersih & kotor (`maxMediaDownloadMb=5`, `maxMediaPrefetchMb=7`); `tests/session/InboxPrefetchIngestBoundTest.php` `OK (2 tests, 11 assertions)` (start sungguhan, bukan skip); `node media-inbox-retry.check.js` 19 PASS; `node operation-id-composer.check.js` OK; grep bersih `self::mbKeByte`/`Inbox::mbKeByte`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Opsi (b) `PHP_INT_MAX` + komentar risiko DITOLAK owner:** reviewer menilai gagal-terbuka = kelas salah-konfigurasi DoS (nilai besar yang tak memicu overflow, mis. 100000 MB, tetap menonaktifkan batas). Plafon kebijakan dipilih.
+  - **`$env:` PowerShell tidak bisa menyetel env bernama titik** (`inbox.maxMediaDownloadMb`) — error "property cannot be found". Pakai `cmd /c "set inbox.maxMediaDownloadMb=5&& ... vendor\bin\phpunit ..."`.
+  - **markdownlint MD013/MD060 adalah gaya lama seluruh plan** (plan v1.3 untouched pun 168 temuan; tabel & tabel-prosa sudah panjang sejak awal) — jangan dianggap regresi baru. Yang relevan hanya MD032; sudah dibereskan di v1.4.
+- **Updated Files:**
+  - `app/Libraries/InboxMediaBound.php` — `CEILING_MB` + `BYTES_PER_MB` + guard clamp ke plafon.
+  - `tests/unit/InboxMbKeByteTest.php` — asersi plafon (2 test).
+  - `tests/unit/InboxMediaBoundConfigTest.php` — test cabang invalid-value.
+  - `plan/plan-refactor-teruskan-media-bound-v1.4.md` — checkbox, Execution Log, status `Completed`.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Plafon kebijakan **4096 MB** di titik konversi (`InboxMediaBound`), bukan di `Config\Inbox` (`ALT-1200` diterima; `ALT-1203` ditolak).
+  - Tidak ada ADR baru: keputusan plafon belum lolos Triple Gate; didokumentasikan di plan + komentar helper.
+- **Next Action / Pending:**
+  - **Closing sequence:** checkpoint ini → tawarkan commit → tawarkan push → prompt sesi berikutnya.
+  - `plan-refactor-teruskan-media-bound-v1.4.md` belum di-`/sdlc-code-review`.
+  - Manual live-Gateway (owner-run, **belum** dijalankan): media masuk >15MB tampil; Teruskan >15MB ditolak.
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit (sync via skill `update-peta-kemajuan`); `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` errno 1118; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 7bb Write-Code Media-Bound v1.4) /sdlc-write-code executed plan/plan-refactor-teruskan-media-bound-v1.4.md and closed it (owner approved TASK-1207). Owner chose DECISION GATE option (a): add a policy ceiling. InboxMediaBound now has private const BYTES_PER_MB = 1024*1024 (CLN-1006, kills the duplicated literal) and private const CEILING_MB = 4096; the overflow guard returns CEILING_MB*BYTES_PER_MB instead of PHP_INT_MAX, so a mistyped media-bound env (including large non-overflow values like 100000 MB that previously silently disabled the DoS control) fails bounded, not open, while keeping the SEC-1001 no-TypeError/HTTP-500 guarantee. Tests: InboxMbKeByteTest renamed to testNilaiRaksasaDibatasiPlafonKebijakan (asserts 4096*1024*1024 and < PHP_INT_MAX) plus testPlafonKebijakanMembatasiNilaiDiAtasBatas (4096 passthrough, 4097/100000 capped); InboxMediaBoundConfigTest gained testPrefetchEnvTidakSahJatuhKeBatasUnduh (prefetch env 0 + download 10 -> prefetch 10) proving the min(default,maks) fallback also holds on the $nilai<1 branch. TASK-1205 skipped [-]: serverDir is assigned once outside the retry loop, so no first-attempt temp dir leaks. Verify: suite OK (689 tests, 2736 assertions) exit 0 (up from 687/2728), InboxMbKeByteTest 3/10, config test 9/31 clean and dirty, prefetch loopback 2/11 real start, node media-inbox-retry 19 PASS, operation-id-composer OK, grep clean of self::mbKeByte/Inbox::mbKeByte. Spec/PRD/ADR/plan v1.1/v1.2/v1.3/WA-Gateway untouched; no suppressions or test-skips; no new ADR. Next: closing sequence (commit -> push -> next-session prompt); plan v1.4 not yet code-reviewed; manual live-Gateway check owner-run. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-28
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (Code Review) — `/sdlc-code-review` Two-Axis atas eksekusi plan v1.4 (review post-execution pertama).
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.4.md` — ✅ Completed; ✅ sudah di-`/sdlc-code-review` (2026-09-28).
+  - `spec/spec-design-teruskan.md` — v1.3 (tidak disentuh, CON-1008).
+- **Achieved Milestones:**
+  - Two-Axis review atas `bd18124` → working tree (branch `v2.3`). Axis A: remediasi inti SEC-01 benar (gagal-terbuka → gagal-terbatas). Axis B: 0 mismatch spec.
+  - Temuan: 0 CRITICAL, 0 REQUIRED; 4 temuan rendah — `[OPTIONAL] A-01` pesan batas menyesatkan + clamp senyap (`Inbox.php:1173` lapor nilai mentah sementara cap 4096MB, `index.php:2120` bound UI pakai nilai mentah, `mbKeByte` clamp tanpa log); `[OPTIONAL] A-02` portabilitas 32-bit (`4096*1024*1024` > PHP_INT_MAX 32-bit → `TypeError`; lingkungan 64-bit `PHP_INT_SIZE=8` jadi tak aktif); `[FYI] A-03` `mbKeByte()` terima int negatif; `[NIT] A-04` nilai plafon terduplikasi literal di test.
+  - Verdict: **Merge/commit** (tak ada blocker). Phase 2 (plan refactor) dilewati.
+  - Verifikasi ulang bukti: `--filter InboxMbKeByteTest` 3/10 OK, `--filter InboxMediaBoundConfigTest` 9/31 OK, `media-inbox-retry.check.js` 19 PASS, `PHP_INT_SIZE=8`. TASK-1205 `[-]` sah (`serverDir` di-assign di luar loop retry).
+- **Dead-Ends (Do NOT Repeat):**
+  - Tidak ada dead-end baru (lihat checkpoint 7bb).
+- **Updated Files:**
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Status plan v1.4 = "sudah di-review"; tidak ada plan refactor baru (0 CRITICAL/REQUIRED).
+  - A-01..A-04 ditawarkan sebagai backlog opsional (belum diimplementasikan, menunggu keputusan owner).
+- **Next Action / Pending:**
+  - **Closing sequence:** checkpoint ini → tawarkan commit → tawarkan push → prompt sesi berikutnya.
+  - Perubahan v1.4 masih **uncommitted** (working tree kotor, branch `v2.3`; plan v1.4 `??`).
+  - Opsional backlog: A-01 (log/clamp konsisten), A-02 (32-bit), A-03, A-04.
+  - Manual live-Gateway (owner-run, **belum** dijalankan): media masuk >15MB tampil; Teruskan >15MB ditolak.
+  - Carried forward: `docs/peta-kemajuan-inbox.html` termodifikasi & belum commit; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` errno 1118; data uji DB live (`900075`-`900080`).
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 7bc Review Code-Review Media-Bound v1.4) /sdlc-code-review ran the first post-execution Two-Axis review of plan/plan-refactor-teruskan-media-bound-v1.4.md (fixed point bd18124 -> dirty tree, branch v2.3). Axis A: the SEC-01 remediation is correct — mbKeByte() is now fail-BOUNDED (CEILING_MB=4096) not fail-open, PHP_INT_MAX is gone from production code, BYTES_PER_MB kills the duplicated literal. Axis B: zero spec mismatches (spec v1.3 has no media-bound numbers; CON-1008 honored — spec/PRD/ADR/plan v1.1-v1.3/WA-Gateway untouched, confirmed via git status). Zero CRITICAL/REQUIRED; 4 low-severity findings: [OPTIONAL] A-01 the ceiling is invisible at the report layer (Inbox.php:1173 error says the raw maxMediaUploadMb e.g. 100000MB while the actual cap is 4096MB; index.php:2120 client bound uses the raw value; the clamp logs nothing), [OPTIONAL] A-02 32-bit portability (CEILING_MB*BYTES_PER_MB = 4294967296 overflows 32-bit PHP_INT_MAX -> TypeError/HTTP 500; not live because env is 64-bit PHP_INT_SIZE=8), [FYI] A-03 mbKeByte() still accepts negative ints, [NIT] A-04 the ceiling literal is duplicated in tests. Verdict: merge/commit, no refactoring plan generated (Phase 2 skipped). Evidence re-verified: InboxMbKeByteTest 3/10 OK, InboxMediaBoundConfigTest 9/31 OK, node media-inbox-retry 19 PASS, PHP_INT_SIZE=8; TASK-1205 [-] is valid (serverDir assigned outside the retry loop, InboxPrefetchIngestBoundTest.php:198). v1.4 changes still uncommitted; A-01..A-04 left as optional backlog. Next: closing sequence (commit -> push -> next-session prompt). -->
+
+---
+
 
 

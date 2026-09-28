@@ -344,6 +344,55 @@ final class InboxMediaBoundConfigTest extends CIUnitTestCase
     }
 
     /**
+     * TEST-1008/SEC-901: cabang nilai-tidak-sah (`$nilai < 1`) pada
+     * `batasiEnvMb()` juga WAJIB memakai clamp fallback `min($default,
+     * $maks)` -- bukan hanya cabang `$nilai > $maks`. Env prefetch `0`
+     * (tidak sah) dengan batas unduh 10 harus menghasilkan prefetch 10,
+     * membuktikan invarian prefetch <= unduh berlaku di KEDUA cabang.
+     */
+    public function testPrefetchEnvTidakSahJatuhKeBatasUnduh(): void
+    {
+        $prevUpload   = $this->rekamEnv('inbox.maxMediaUploadMb');
+        $prevDownload = $this->rekamEnv('inbox.maxMediaDownloadMb');
+        $prevPrefetch = $this->rekamEnv('inbox.maxMediaPrefetchMb');
+
+        unset(
+            $_ENV['inbox.maxMediaUploadMb'],
+            $_SERVER['inbox.maxMediaUploadMb'],
+            $_ENV['inbox.maxMediaDownloadMb'],
+            $_SERVER['inbox.maxMediaDownloadMb'],
+            $_ENV['inbox.maxMediaPrefetchMb'],
+            $_SERVER['inbox.maxMediaPrefetchMb']
+        );
+        putenv('inbox.maxMediaUploadMb');
+        putenv('inbox.maxMediaDownloadMb');
+        putenv('inbox.maxMediaPrefetchMb');
+
+        try {
+            $_ENV['inbox.maxMediaDownloadMb'] = '10';
+            $_ENV['inbox.maxMediaPrefetchMb'] = '0';
+
+            $config = new InboxConfig();
+
+            $this->assertSame(10, $config->maxMediaDownloadMb, 'Batas unduh 10 dibaca.');
+            $this->assertSame(
+                10,
+                $config->maxMediaPrefetchMb,
+                'TEST-1008: env prefetch tidak sah (0) -> fallback min(default 15, batas unduh 10) = 10.'
+            );
+            $this->assertLessThanOrEqual(
+                $config->maxMediaDownloadMb,
+                $config->maxMediaPrefetchMb,
+                'TEST-1008: invarian maxMediaPrefetchMb <= maxMediaDownloadMb berlaku di cabang invalid-value.'
+            );
+        } finally {
+            $this->pulihkanEnv('inbox.maxMediaUploadMb', $prevUpload);
+            $this->pulihkanEnv('inbox.maxMediaDownloadMb', $prevDownload);
+            $this->pulihkanEnv('inbox.maxMediaPrefetchMb', $prevPrefetch);
+        }
+    }
+
+    /**
      * REQ-901/TEST-1002 (CS-04): rekam nilai env ambien PER KANAL yang dibaca
      * `env()` CI4 (`$_ENV`, `$_SERVER`, `getenv()`) supaya `pulihkanEnv()`
      * dapat memulihkannya persis ke kanal asalnya -- bukan menulis ulang ke
