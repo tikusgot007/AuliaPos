@@ -632,6 +632,35 @@ final class InboxTeruskanTest extends CIUnitTestCase
         $this->assertNotNull($controller->capturedQuoted);
     }
 
+    public function testApiMessagesMengembalikanPenandaTeruskanSebagaiBool(): void
+    {
+        // CLN-402: `is_forwarded` dinormalkan ke bool di apiMessages() --
+        // view tidak boleh menebak true/1/"1" (pola yang sama dengan
+        // is_internal). Sumber incoming tetap false, hasil Teruskan true.
+        $conversationId = $this->seedConversation();
+        $sourceId       = $this->seedMessage($conversationId, [
+            'direction'    => 'incoming',
+            'message_type' => 'text',
+            'text'         => 'pesan yang diteruskan',
+        ]);
+
+        $controller = $this->controller();
+        $this->teruskan($controller, $conversationId, $sourceId);
+
+        $response = $this->controller()->apiMessages($conversationId);
+        $body     = json_decode($response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        $masuk  = array_values(array_filter($body['messages'], fn ($m) => $m['direction'] === 'incoming'))[0] ?? null;
+        $keluar = array_values(array_filter($body['messages'], fn ($m) => $m['direction'] === 'outgoing'))[0] ?? null;
+
+        $this->assertNotNull($masuk, 'Sumber incoming harus ada di thread.');
+        $this->assertNotNull($keluar, 'Hasil Teruskan harus ada di thread.');
+        $this->assertIsBool($masuk['is_forwarded'], 'Pesan biasa harus bool, bukan 0/"0".');
+        $this->assertFalse($masuk['is_forwarded'], 'Pesan biasa bukan hasil Teruskan.');
+        $this->assertIsBool($keluar['is_forwarded'], 'CLN-402: hasil Teruskan harus bool, bukan 1/"1".');
+        $this->assertTrue($keluar['is_forwarded'], 'Hasil Teruskan wajib bertanda true.');
+    }
+
     // ------------------------------------------------------------------
     // Helper
     // ------------------------------------------------------------------

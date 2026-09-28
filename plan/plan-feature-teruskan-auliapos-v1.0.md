@@ -12,7 +12,7 @@ tags: [feature, inbox, whatsapp, teruskan, tahap4, auliapos]
 
 ![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
-Rincian eksekusi **sisi AuliaPos** untuk `spec/spec-design-teruskan.md` (v1.2, GH-016): kasir dapat meneruskan satu pesan (teks/media) dari satu percakapan ke percakapan lain yang **sudah ada**, dengan penanda "Diteruskan" yang tidak pernah ikut membawa kutipan pesan asalnya. Teruskan menyentuh **dua repo**, sehingga ada **dua plan terpisah** (pola Tahap 3, `spec-index.md`): plan ini untuk AuliaPos, dan `plan/plan-feature-teruskan-wa-gateway-v1.0.md` untuk `tikusgot007/WA-Gateway`. Prasyarat: **Tahap 1, 2, dan 3 sudah rilis** (`plan/plan-feature-grup-tahap1-v1.0.md`, `plan/plan-feature-grup-tahap2-auliapos-v1.0.md`, `plan/plan-feature-balas-pesan-auliapos-v1.0.md`).
+Rincian eksekusi **sisi AuliaPos** untuk `spec/spec-design-teruskan.md` (v1.3, GH-016): kasir dapat meneruskan satu pesan (teks/media) dari satu percakapan ke percakapan lain yang **sudah ada**, dengan penanda "Diteruskan" yang tidak pernah ikut membawa kutipan pesan asalnya. Teruskan menyentuh **dua repo**, sehingga ada **dua plan terpisah** (pola Tahap 3, `spec-index.md`): plan ini untuk AuliaPos, dan `plan/plan-feature-teruskan-wa-gateway-v1.0.md` untuk `tikusgot007/WA-Gateway`. Prasyarat: **Tahap 1, 2, dan 3 sudah rilis** (`plan/plan-feature-grup-tahap1-v1.0.md`, `plan/plan-feature-grup-tahap2-auliapos-v1.0.md`, `plan/plan-feature-balas-pesan-auliapos-v1.0.md`).
 
 > [!NOTE]
 > **Keputusan pemilik (2026-09-28, sesi `/sdlc-plan-tasks`) — tiga hal di luar teks spec, dicatat sebagai `ASSUMPTION-011` s.d. `ASSUMPTION-013`:**
@@ -37,7 +37,7 @@ Rincian eksekusi **sisi AuliaPos** untuk `spec/spec-design-teruskan.md` (v1.2, G
 - **REQ-004**: UI thread pesan menyediakan aksi **"Teruskan"** pada bubble. Untuk pesan bertipe **audio/video**, aksi ini **tetap dirender** dalam keadaan **disabled** (tidak dapat diklik) dengan label alasan **"Teruskan — audio/video tidak dapat diteruskan"** — bukan disembunyikan (pola `disabled` `CON-002` Grup Tahap 1, bukan pola sembunyikan `CON-001`). Penonaktifan UI bukan satu-satunya pengaman (lihat GUD-001).
 - **REQ-005**: Memilih "Teruskan" membuka pemilih **percakapan yang sudah ada** (pencarian/daftar percakapan, memakai `GET /inbox/api/conversations?q=&page=` yang sudah ada, `app/Controllers/Inbox.php:110-207`) — **tidak ada** opsi "buat percakapan baru".
 - **REQ-006 (forwardability per jenis pesan)**: teks selalu forwardable; gambar/dokumen/stiker forwardable **jika** byte-nya masih bisa diperoleh (dis lokal, atau live-fetch dari Gateway); gambar/dokumen/stiker yang file-nya sudah hilang **ditolak**; audio/video **tidak pernah** forwardable.
-- **REQ-007**: `cekOwnership()` (`app/Controllers/Inbox.php:755`) diperiksa **hanya** terhadap percakapan **tujuan**. Percakapan sumber **tidak** melalui pengecekan kepemilikan.
+- **REQ-007**: `cekOwnership()` (`app/Controllers/Inbox.php:820`) diperiksa **hanya** terhadap percakapan **tujuan**. Percakapan sumber **tidak** melalui pengecekan kepemilikan.
 - **REQ-008**: Pesan hasil Teruskan disimpan sebagai baris `messages` **baru** di percakapan tujuan dengan kolom baru **`is_forwarded = true`**; label "Diteruskan" di UI dibangun dari kolom ini, **independen** dari `forward_marker_applied` yang dilaporkan Gateway.
 - **REQ-009 (non-stacking)**: Meneruskan pesan yang punya `quoted_*` terisi atau `is_forwarded = 1` **menyalin hanya `text`/media pesan itu sendiri**; **seluruh** kolom `quoted_*` pada baris baru **wajib NULL**; `is_forwarded` tetap `true` tunggal — tidak ada penghitung berlapis, tidak ada kolom "jumlah forward".
 - **REQ-010**: Pengiriman Teruskan **memakai ulang** idempotensi `operation_id`/`gateway_operation_id` yang sudah ada (`MessageModel::findByOperationIdIncludingDeleted()`, `app/Models/MessageModel.php:182`) — tidak ada mekanisme baru.
@@ -188,7 +188,7 @@ Rincian eksekusi **sisi AuliaPos** untuk `spec/spec-design-teruskan.md` (v1.2, G
 
 ## 8. Related Specifications / Further Reading
 
-- [`spec-design-teruskan.md`](../spec/spec-design-teruskan.md) (v1.2)
+- [`spec-design-teruskan.md`](../spec/spec-design-teruskan.md) (v1.3)
 - [`spec-design-balas-pesan.md`](../spec/spec-design-balas-pesan.md) — interaksi non-stacking/no-quote-carried-over
 - [`spec-design-grup-tahap1-tab-inbox.md`](../spec/spec-design-grup-tahap1-tab-inbox.md) — pola `CON-002` (opsi disabled + alasan)
 - [`plan-feature-teruskan-wa-gateway-v1.0.md`](./plan-feature-teruskan-wa-gateway-v1.0.md) — repo kedua (blocking, naik lebih dulu)

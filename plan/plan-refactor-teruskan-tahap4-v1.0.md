@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-09-28
 last_updated: 2026-09-28
 owner: AuliaPos Inbox module
-status: "Planned"
+status: "Completed"
 tags: ["refactor", "clean-code", "architecture", "security", "teruskan", "tahap4"]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-yellow)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 Refactoring plan hasil `/sdlc-code-review` atas fitur **Teruskan** (Tahap 4, sisi AuliaPos) dengan fixed point `2eca592` → HEAD `40caf14` (branch `v2.3`). Review menemukan fungsionalitas inti sudah patuh spec (10/10 AC terpenuhi, non-stacking, ownership, idempotensi, all-or-nothing benar), tetapi ada **satu celah penegakan server** (media-source bisa diteruskan lewat jalur teks sebagai caption-only), **dua celah validasi batas** (byte live-fetch tak dibatasi, panjang caption sumber tak divalidasi ulang), dan sejumlah **code smell struktural** (parameter flag bertambah, method panjang, daftar tipe terduplikasi antar-layer).
 
@@ -25,7 +25,7 @@ Plan ini **tidak mengubah requirement**. Semua remediasi adalah implementasi ula
 - **PRN-302**: Signature `kirimKeConversation(array, string $text, ?int)` yang membuang `$text` di mode Teruskan adalah Flag Argument + dead input; harus dihilangkan. Ref: review ARCH-03.
 - **PRN-303**: Pertumbuhan parameter `?bool $forward = null` di `callGatewaySend`/`callGatewaySendMedia` (6 & 10 parameter) adalah Long Parameter List; eksklusivitas `quoted`/`forward` harus ditegakkan di satu tipe, bukan di ingatan pemanggil. Ref: review ARCH-01.
 - **PRN-304**: `kirimMedia()` (~340 baris) dan `kirimKeConversation()` (~255 baris) melayani dua use case (kirim biasa vs Teruskan) — Divergent Change / Long Method. Ref: review ARCH-02.
-- **DOC-401**: Rujukan `file:line` `cekOwnership()` di spec/plan basi (`:727`/`:755`; aktual `app/Controllers/Inbox.php:796`). Ref: SPEC-02.
+- **DOC-401**: Rujukan `file:line` `cekOwnership()` di spec/plan basi (`:727`/`:755`; aktual saat review `app/Controllers/Inbox.php:796`, kini `:820` setelah refactor Phase 1-2 plan ini). Ref: SPEC-02.
 - **DOC-402**: `forward_marker_applied` bisa `null` saat rollout parsial — di luar enum spec `"native" | "text_fallback"`. Ref: SPEC-03.
 - **CLN-401**: Duplikasi predikat kelayakan di view (`renderAksiBalas` vs `bolehDiteruskan`) dan nama generator menyesatkan (`buatOperationIdBalasan` dipakai Teruskan). Ref: SMELL-01, SMELL-02.
 - **CLN-402**: Normalisasi `is_forwarded` ke bool di `apiMessages()` seperti `is_internal` (`Inbox.php:363-365`). Ref: SMELL-04.
@@ -72,13 +72,25 @@ Plan ini **tidak mengubah requirement**. Semua remediasi adalah implementasi ula
 
 | Task ID  | Description (Include Exact File Paths & Micro-Testing)                                                                                          | Ref ID            | Completed | Date |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | :-------: | :--: |
-| TASK-301 | `spec/spec-design-teruskan.md` (`REQ-007`, line 82) & `plan/plan-feature-teruskan-auliapos-v1.0.md` (Section 1 `REQ-007`) — perbarui `file:line` `cekOwnership()` menjadi `app/Controllers/Inbox.php:796`. | DOC-401           |    [ ]    |      |
-| TASK-302 | `spec/spec-design-teruskan.md` (`REQ-003`) — dokumentasikan `null` sebagai nilai sah ketiga `forward_marker_applied` (rollout parsial), atau nyatakan field boleh absen. Tanpa perubahan kode wajib. | DOC-402           |    [ ]    |      |
-| TASK-303 | `app/Views/inbox/index.php` — `renderAksiBalas()` (`:2204-2212`) memanggil `bolehDiteruskan(m)`/predikat bersama untuk kelayakan; rename `buatOperationIdBalasan()` → `buatOperationId()` (pemanggil `ambilOperationIdTeruskan` `:3263`). | CLN-401           |    [ ]    |      |
-| TASK-304 | `app/Controllers/Inbox.php` — di `apiMessages()` (`:363-365`) cast `is_forwarded` ke bool bersama `is_internal`, sehingga view tidak perlu menebak `true/1/"1"`. | CLN-402           |    [ ]    |      |
-| TASK-305 | `app/Views/inbox/index.php` — modal pemilih tujuan (`muatDaftarTujuanTeruskan()` `:2399`) dukung paginasi (reuse loader halaman rekursif) atau tampilkan afordansi "cari untuk melihat semua" yang jelas saat hasil page 1 penuh. Opsional, hanya bila owner menghendaki cakupan >50 percakapan. | PERF-01           |    [ ]    |      |
-| TASK-306 | **VERIFY**: `vendor/bin/phpunit --no-coverage` (exit 0) + lint markdown pada spec/plan yang diubah + manual: label "Diteruskan" & UI aksi tetap benar. | -                 |    [ ]    |      |
-| TASK-307 | **APPROVAL**: 🛑 Tunggu konfirmasi eksplisit owner untuk menutup plan.                                                                      | -                 |    [ ]    |      |
+| TASK-301 | `spec/spec-design-teruskan.md` (`REQ-007`, line 82) & `plan/plan-feature-teruskan-auliapos-v1.0.md` (Section 1 `REQ-007`) — perbarui `file:line` `cekOwnership()` menjadi `app/Controllers/Inbox.php:820` (posisi bergeser dari `:796` setelah Phase 1-2 plan ini); perbarui juga rujukan yang sama di `spec/spec-design-teruskan.md` Section 8 (line 184). | DOC-401           |    [x]    | 2026-09-28 |
+| TASK-302 | `spec/spec-design-teruskan.md` (`REQ-003`) — dokumentasikan `null` sebagai nilai sah ketiga `forward_marker_applied` (rollout parsial), atau nyatakan field boleh absen. Tanpa perubahan kode wajib. | DOC-402           |    [x]    | 2026-09-28 |
+| TASK-303 | `app/Views/inbox/index.php` — `renderAksiBalas()` (`:2204-2212`) memanggil `bolehDiteruskan(m)`/predikat bersama untuk kelayakan; rename `buatOperationIdBalasan()` → `buatOperationId()` (pemanggil `ambilOperationIdTeruskan` `:3263`). | CLN-401           |    [x]    | 2026-09-28 |
+| TASK-304 | `app/Controllers/Inbox.php` — di `apiMessages()` (`:363-365`) cast `is_forwarded` ke bool bersama `is_internal`, sehingga view tidak perlu menebak `true/1/"1"`. | CLN-402           |    [x]    | 2026-09-28 |
+| TASK-305 | `app/Views/inbox/index.php` — modal pemilih tujuan (`muatDaftarTujuanTeruskan()` `:2399`) dukung paginasi (reuse loader halaman rekursif) atau tampilkan afordansi "cari untuk melihat semua" yang jelas saat hasil page 1 penuh. Opsional, hanya bila owner menghendaki cakupan >50 percakapan. | PERF-01           |    [-]    | 2026-09-28 |
+| TASK-306 | **VERIFY**: `vendor/bin/phpunit --no-coverage` (exit 0) + lint markdown pada spec/plan yang diubah + manual: label "Diteruskan" & UI aksi tetap benar. | -                 |    [x]    | 2026-09-28 |
+| TASK-307 | **APPROVAL**: 🛑 Tunggu konfirmasi eksplisit owner untuk menutup plan.                                                                      | -                 |    [x]    | 2026-09-28 |
+
+> [!NOTE]
+> **Bukti eksekusi Phase 3 (2026-09-28).**
+>
+> - **TASK-301 (DOC-401)**: `spec/spec-design-teruskan.md` `REQ-007` (line 82) **dan** Section 8 (line 184) kini menunjuk `app/Controllers/Inbox.php:820`; `plan/plan-feature-teruskan-auliapos-v1.0.md` Section 1 `REQ-007` juga ke `:820`. **Deviasi terdokumentasi**: plan semula menetapkan `:796` (posisi fungsi saat review, HEAD `40caf14`); setelah Phase 1-2 plan ini menambah baris di `Inbox.php`, posisi aktual menjadi `:820` — yang benar diverifikasi ulang dengan `Select-String 'private function cekOwnership'` sebelum menulis dokumen.
+> - **TASK-302 (DOC-402)**: `REQ-003` menyatakan `forward_marker_applied: "native" | "text_fallback" | null` dan menjelaskan `null`/field absen sebagai nilai sah (Gateway lama / rollout parsial) tanpa efek ke label UI. Spec dinaikkan **v1.2 → v1.3** + catatan revisi; rujukan versi di `plan-feature-teruskan-auliapos-v1.0.md`, `plan-feature-teruskan-wa-gateway-v1.0.md`, dan plan ini diselaraskan.
+> - **TASK-303 (CLN-401)**: `renderAksiBalas()` kini memakai predikat bersama `bolehDiteruskan(m)` (satu sumber kelayakan, komentar diperbarui); `buatOperationIdBalasan()` → `buatOperationId()` di view (5 kemunculan) **dan** di salinan VERBATIM `tests/js/operation-id-composer.check.js` (5 kemunculan) — `node tests/js/operation-id-composer.check.js` lulus.
+> - **TASK-304 (CLN-402)**: `apiMessages()` menormalkan `is_forwarded` ke `bool` bersama `is_internal`; test penjaga baru `InboxTeruskanTest::testApiMessagesMengembalikanPenandaTeruskanSebagaiBool` memastikan tipe `bool` untuk baris biasa (`false`) dan hasil Teruskan (`true`).
+> - **TASK-305 (PERF-01)**: **dilewati atas keputusan owner 2026-09-28** — modal pemilih tujuan tetap page 1 + pencarian server. Tidak ada kode JS baru; perilaku yang sudah teruji tidak berubah.
+> - **TASK-306 (VERIFY, otomatis + lint)**: `vendor/bin/phpunit --no-coverage` → **OK (662 tests, 2633 assertions), exit 0** (sebelum Phase 3: 661/2626); `--filter InboxTeruskan` → **OK (70 tests, 373 assertions)**; `node tests/js/operation-id-composer.check.js` → lulus. Lint delta (markdownlint-cli 0.49.1, dibandingkan dengan salinan `HEAD` dari keempat dokumen): MD013 323 → 330 (+7, kelas yang sudah ada di repo), MD028 7 → 8 (+1, preseden DE-49: dua alert `[!NOTE]` yang berdampingan memang menghasilkan satu MD028 dan sengaja dibiarkan), MD060 142 → 140 (−2). Tidak ada kelas aturan baru. **Manual dikonfirmasi owner 2026-09-28**: blok aksi (Balas/Teruskan) dan label "Diteruskan" tetap tampil benar di layar Inbox.
+>
+> - **TASK-307 (APPROVAL)**: disetujui eksplisit oleh owner 2026-09-28 — plan ini **Completed** (Phase 1, 2, dan 3 selesai; PERF-01 sengaja dilewati).
 
 ## 3. Structural Remedies & Alternatives
 
@@ -122,7 +134,7 @@ Plan ini **tidak mengubah requirement**. Semua remediasi adalah implementasi ula
 
 ## 8. Related Specifications / Further Reading
 
-- [`spec-design-teruskan.md`](../spec/spec-design-teruskan.md) (v1.2)
+- [`spec-design-teruskan.md`](../spec/spec-design-teruskan.md) (v1.3)
 - [`plan-feature-teruskan-auliapos-v1.0.md`](./plan-feature-teruskan-auliapos-v1.0.md)
 - [`spec-design-balas-pesan.md`](../spec/spec-design-balas-pesan.md) — pola `resolveKutipan` & eksklusivitas kutipan
 - [`spec-design-grup-tahap1-tab-inbox.md`](../spec/spec-design-grup-tahap1-tab-inbox.md) — pola `CON-002` (opsi disabled + alasan)

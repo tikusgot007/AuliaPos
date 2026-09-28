@@ -1,8 +1,8 @@
 ---
 title: Teruskan (Forward) — Lintas Repo
-version: 1.2
+version: 1.3
 date_created: 2026-09-26
-last_updated: 2026-09-27
+last_updated: 2026-09-28
 owner: AuliaPos Inbox module
 tags: [inbox, chat, whatsapp, teruskan, tahap4, wa-gateway]
 ---
@@ -48,6 +48,9 @@ Audiens: developer WA-Gateway dan AuliaPos, serta agent `/sdlc-plan-tasks`.
 > [!NOTE]
 > **Catatan revisi v1.2 (2026-09-27):** spec ini diamandemen dari v1.1 sebagai tindak lanjut `docs/audit/consistency-audit-balas-pesan-teruskan-2026-09-27-reaudit.md` (Iteration 2, Readiness Score 79/100; Critical Flaw Veto **YES**). **Critical Blocker:** kontradiksi `REQ-004`/`AC-002` (audio/video: "tidak dirender sama sekali") vs Resolved Item #7 `docs/audit/clarification-report-whatsapp-grup-balas-teruskan-spec-2026-09-26.md` (opsi harus **tetap tampil disabled berlabel alasan**). Perubahan: (1) aksi "Teruskan" pada audio/video kini **tetap tampil disabled berlabel alasan** (bukan disembunyikan), mengikuti pola `CON-002` di `spec-design-grup-tahap1-tab-inbox.md`; (2) `AC-002`, Section 7, dan Section 13 diselaraskan dengan perilaku disabled tersebut; (3) `REQ-007`/Section 8 memperbarui rujukan `file:line` `cekOwnership()` ke `app/Controllers/Inbox.php:727` (Minor Gap audit: drift `file:line`, dari semula `693`). Tidak ada keputusan arsitektur baru dan tidak ada ADR baru.
 
+> [!NOTE]
+> **Catatan revisi v1.3 (2026-09-28):** amandemen kecil dari `plan/plan-refactor-teruskan-tahap4-v1.0.md` (`DOC-401`, `DOC-402`) setelah `/sdlc-code-review` Tahap 4. Perubahan: (1) `REQ-003` kini menyatakan `null`/field absen sebagai **nilai sah ketiga** `forward_marker_applied` (Gateway versi lama / rollout parsial) — tanpa perubahan perilaku UI, karena label tetap dibangun dari kolom `is_forwarded` (`REQ-008`); (2) rujukan `file:line` `cekOwnership()` di `REQ-007` dan Section 8 diperbarui ke `app/Controllers/Inbox.php:820` (posisi fungsi bergeser setelah refactor Phase 1-2 di plan yang sama). Tidak ada requirement baru, tidak ada keputusan arsitektur baru, dan tidak ada ADR baru.
+
 ## 2. Definitions
 
 Mengikuti `CONTEXT.md`: **Teruskan** — mengirim ulang isi satu pesan (teks/media) dari satu percakapan ke percakapan lain yang sudah ada, disertai penanda bahwa pesan tersebut diteruskan. `_Avoid_`: Forward, Kirim Ulang (lihat entri lengkap di `CONTEXT.md`).
@@ -64,7 +67,7 @@ Istilah tambahan:
 - **REQ-001**: `POST {gatewayBaseUrl}/send` menerima field opsional baru `forward` (boolean, default `false`). Saat `true`, Gateway mencoba menandai pesan sebagai forwarded native lewat Baileys.
 - **REQ-001a (Teruskan pada jalur media — Resolved Item #6 Clarification Report Spec)**: `POST {gatewayBaseUrl}/send-media` menerima field opsional `forward` (boolean, default `false`) dengan struktur & aturan **identik** REQ-001. Ini adalah jalur yang dipakai untuk **meneruskan lampiran** (gambar/dokumen/stiker, REQ-006) — AuliaPos mengambil berkas dari penyimpanan lokalnya dan mengirimkannya lewat mekanisme base64 yang sudah ada, tanpa menyalin berkas menjadi salinan baru (PRD Section 8.2). Lihat Section 4.1.1 untuk contoh payload.
 - **REQ-002**: Jika native-forward berhasil dibentuk, Gateway **tidak** menambah teks apa pun ke isi pesan (marker murni dari metadata WhatsApp). Jika gagal/tidak tersedia (ASSUMPTION-005), Gateway menyisipkan prefix teks **"↪️ Diteruskan: "** ke `text` sebelum dikirim (untuk pesan teks); untuk pesan media, prefix disisipkan ke `caption`. Berlaku sama di jalur `/send` maupun `/send-media` (REQ-001a).
-- **REQ-003**: Response **kedua** endpoint (`/send` dan `/send-media`) menyertakan field `forward_marker_applied: "native" | "text_fallback"` — supaya AuliaPos tahu cara apa yang dipakai (untuk keperluan log/debug, tidak memengaruhi UI kasir yang tetap menampilkan penanda "Diteruskan" sendiri di AuliaPos terlepas dari metode Gateway — lihat REQ-007). `forward_marker_applied` berlaku sama di kedua endpoint (REQ-001a).
+- **REQ-003**: Response **kedua** endpoint (`/send` dan `/send-media`) menyertakan field `forward_marker_applied: "native" | "text_fallback" | null` — supaya AuliaPos tahu cara apa yang dipakai (untuk keperluan log/debug, tidak memengaruhi UI kasir yang tetap menampilkan penanda "Diteruskan" sendiri di AuliaPos terlepas dari metode Gateway — lihat REQ-007). `forward_marker_applied` berlaku sama di kedua endpoint (REQ-001a). **Nilai `null` — atau field yang tidak disertakan sama sekali — adalah nilai sah ketiga** dan berarti Gateway yang menjawab belum mendukung `forward` (versi lama / rollout parsial). AuliaPos memperlakukannya sebagai "tidak dilaporkan", tetap menyimpan baris pesan, dan tetap menampilkan label "Diteruskan" dari kolom `is_forwarded` (REQ-008); kirim **tidak boleh** digagalkan hanya karena nilai ini `null`.
 - **CON-001**: Field `forward` **tidak pernah** dikombinasikan dengan field `quoted` (`spec-design-balas-pesan.md` Section 4.1) dalam satu request — baik di `/send` maupun `/send-media` — meneruskan dan membalas-dengan-kutip adalah dua aksi terpisah yang tidak bisa digabung dalam satu kirim (konsisten dengan resolusi Clarification Report: kutipan tidak ikut terbawa saat Teruskan). Larangan ini **tidak** menghalangi Teruskan lampiran media: pesan hasil Teruskan tetap dikirim lewat `/send-media` dengan `forward: true` dan tanpa `quoted`.
 
 ### Sisi AuliaPos (UI, aturan forwardability, ownership, non-stacking)
@@ -79,7 +82,7 @@ Istilah tambahan:
   | Gambar / Dokumen / Stiker dengan file tidak tersedia | **Tidak** — aksi ditolak, bukan dikirim tanpa lampiran |
   | Audio / Video | **Tidak pernah** — limitasi permanen (`docs/CHAT.md` §6.2), tidak bergantung status file |
 - **CON-002 (All-or-nothing)**: Jika pesan gambar/dokumen/stiker yang dipilih ternyata filenya sudah tidak tersedia saat aksi kirim benar-benar dijalankan (race condition antara pilih dan kirim), seluruh aksi Teruskan **dibatalkan** dengan pesan error jelas ke kasir — **tidak** mengirim pesan teks kosong atau caption tanpa lampiran sebagai gantinya.
-- **REQ-007**: `cekOwnership()` (`app/Controllers/Inbox.php:727`) diperiksa **hanya** terhadap `conversation_id` **tujuan** — percakapan sumber (tempat pesan asli berada) **tidak** melewati pengecekan kepemilikan ini sama sekali, sesuai resolusi Clarification Report.
+- **REQ-007**: `cekOwnership()` (`app/Controllers/Inbox.php:820`) diperiksa **hanya** terhadap `conversation_id` **tujuan** — percakapan sumber (tempat pesan asli berada) **tidak** melewati pengecekan kepemilikan ini sama sekali, sesuai resolusi Clarification Report.
 - **REQ-008**: Pesan hasil Teruskan disimpan sebagai baris `messages` baru pada percakapan tujuan, dengan kolom penanda baru `is_forwarded = true` (lihat Section 4.2) — AuliaPos menampilkan label "Diteruskan" di UI berdasarkan kolom ini, **independen** dari `forward_marker_applied` yang dilaporkan Gateway (REQ-003) — supaya kasir tetap melihat label konsisten di AuliaPos meskipun metode Gateway di baliknya berbeda-beda.
 - **REQ-009 (Non-stacking & no-quote-carried-over)**: Saat meneruskan pesan yang **sendiri** merupakan hasil Balas Pesan (punya `quoted_*` terisi) atau hasil Teruskan sebelumnya (`is_forwarded = true`):
   - Hanya `text`/media pesan itu sendiri yang disalin ke pesan Teruskan baru.
@@ -181,7 +184,7 @@ Field `forward` di endpoint ini memakai struktur & aturan yang sama seperti Sect
 
 ## 8. Code Style & Conventions
 
-Penerapan `cekOwnership()` hanya di sisi tujuan mengikuti pola pemanggilan fungsi yang sudah ada (`app/Controllers/Inbox.php:727`), dipanggil dengan `conversation_id` tujuan secara eksplisit — bukan menambah parameter baru ke `cekOwnership()` itu sendiri (fungsi tidak diubah, hanya konteks pemanggilannya di endpoint baru).
+Penerapan `cekOwnership()` hanya di sisi tujuan mengikuti pola pemanggilan fungsi yang sudah ada (`app/Controllers/Inbox.php:820`), dipanggil dengan `conversation_id` tujuan secara eksplisit — bukan menambah parameter baru ke `cekOwnership()` itu sendiri (fungsi tidak diubah, hanya konteks pemanggilannya di endpoint baru).
 
 ## 9. Implementation Boundaries
 

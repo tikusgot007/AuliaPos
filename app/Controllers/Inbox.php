@@ -383,6 +383,9 @@ class Inbox extends BaseController
 
         foreach ($messages as &$message) {
             $message['is_internal'] = (bool) ($message['is_internal'] ?? false);
+            // CLN-402: penanda Teruskan ikut dinormalkan ke bool, supaya view
+            // tidak perlu menebak true/1/"1" (pola yang sama dengan is_internal).
+            $message['is_forwarded'] = (bool) ($message['is_forwarded'] ?? false);
         }
         unset($message);
 

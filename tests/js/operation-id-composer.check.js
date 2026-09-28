@@ -53,7 +53,7 @@ global.document = {
 global.window = {};
 
 // --- Fungsi yang disalin VERBATIM dari app/Views/inbox/index.php -------
-function buatOperationIdBalasan() {
+function buatOperationId() {
     if (window.crypto && typeof window.crypto.randomUUID === 'function') {
         return window.crypto.randomUUID();
     }
@@ -69,11 +69,11 @@ function buatOperationIdBalasan() {
 
 function ambilOperationIdBalasan() {
     const form = document.getElementById('formBalas');
-    if (!form) return buatOperationIdBalasan();
+    if (!form) return buatOperationId();
 
     let kunci = form.getAttribute('data-operation-id');
     if (!kunci) {
-        kunci = buatOperationIdBalasan();
+        kunci = buatOperationId();
         form.setAttribute('data-operation-id', kunci);
     }
     return kunci;
@@ -146,14 +146,14 @@ function resetComposer() {
 // --- 1. Pembuatan kunci ------------------------------------------------
 global.window = { crypto: { randomUUID: () => '11111111-2222-3333-4444-555555555555' } };
 assert.strictEqual(
-    buatOperationIdBalasan(),
+    buatOperationId(),
     '11111111-2222-3333-4444-555555555555',
     'crypto.randomUUID() harus dipakai kalau tersedia'
 );
 
 // Tanpa crypto -> fallback hex 32 karakter (<= 64, batas REQ-020).
 global.window = {};
-const fallback = buatOperationIdBalasan();
+const fallback = buatOperationId();
 assert.ok(/^[0-9a-f]{32}$/.test(fallback), 'fallback harus hex 32 karakter, dapat: ' + fallback);
 
 // --- 2. Siklus hidup kunci ---------------------------------------------

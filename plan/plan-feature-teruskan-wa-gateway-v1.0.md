@@ -12,7 +12,7 @@ tags: [feature, whatsapp, teruskan, tahap4, wa-gateway]
 
 ![Status: Planned](https://img.shields.io/badge/status-Planned-lightgrey)
 
-Rincian eksekusi **sisi WA-Gateway** (`tikusgot007/WA-Gateway`, repo terpisah) untuk `spec/spec-design-teruskan.md` (v1.2, GH-016). Plan AuliaPos ada di `plan/plan-feature-teruskan-auliapos-v1.0.md`; plan ini adalah pasangannya dan **wajib naik lebih dulu** (`EXT-001`).
+Rincian eksekusi **sisi WA-Gateway** (`tikusgot007/WA-Gateway`, repo terpisah) untuk `spec/spec-design-teruskan.md` (v1.3, GH-016). Plan AuliaPos ada di `plan/plan-feature-teruskan-auliapos-v1.0.md`; plan ini adalah pasangannya dan **wajib naik lebih dulu** (`EXT-001`).
 
 > [!IMPORTANT]
 > **Cara kerja repo (pola `fix/media-download-classification`, sudah dipakai dua kali sebelumnya).** Working copy `C:\projects\WA-Gateway` adalah folder **LIVE** (branch `master` @ `1591512`, proses berjalan). **JANGAN** mengedit di sana. Buat worktree terpisah:
@@ -114,7 +114,7 @@ Rincian eksekusi **sisi WA-Gateway** (`tikusgot007/WA-Gateway`, repo terpisah) u
 
 ## 8. Related Specifications / Further Reading
 
-- [`spec-design-teruskan.md`](../spec/spec-design-teruskan.md) (v1.2)
+- [`spec-design-teruskan.md`](../spec/spec-design-teruskan.md) (v1.3)
 - [`spec-design-balas-pesan.md`](../spec/spec-design-balas-pesan.md) — preseden kontrak `quoted`/`quote_applied` yang ditiru
 - [`plan-feature-teruskan-auliapos-v1.0.md`](./plan-feature-teruskan-auliapos-v1.0.md) — pasangan (naik setelah plan ini)
 - [`plan-feature-balas-pesan-wa-gateway-v1.0.md`](./plan-feature-balas-pesan-wa-gateway-v1.0.md) — pola plan Gateway yang diikuti

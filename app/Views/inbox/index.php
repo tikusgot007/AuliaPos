@@ -2207,10 +2207,7 @@
        Mengembalikan TOMBOL saja -- wadah `.bubble-aksi` dirakit
        renderAksiPesan() supaya Balas dan Teruskan berada di satu blok aksi. */
     function renderAksiBalas(m) {
-        const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
-        const belumTerkirim = m.direction === 'outgoing' && m.send_status !== 'sent';
-
-        if (internal || belumTerkirim) return '';
+        if (!bolehDiteruskan(m)) return '';
 
         return '<button type="button" class="btn btn-outline-success btn-sm" onclick="pilihKutipan(' + m.id + ')">' +
             '<i class="fas fa-reply"></i> Balas</button>';
@@ -2310,9 +2307,11 @@
     // TERUSKAN (Tahap 4, REQ-004/REQ-005/REQ-008)
     // ================================================================
 
-    /* Sumber yang tidak punya tombol Teruskan sama sekali: catatan internal
-       (isi untuk toko) dan outgoing yang belum terkirim (tidak pernah sampai
-       ke siapa pun). Aturan yang sama ditegakkan server (GUD-001). */
+    /* Kelayakan aksi per-pesan (CLN-401) -- dipakai bersama oleh Balas dan
+       Teruskan supaya tidak ada dua salinan predikat yang bisa menyimpang.
+       Sumber yang tidak layak: catatan internal (isi untuk toko) dan outgoing
+       yang belum terkirim (tidak pernah sampai ke siapa pun). Aturan yang sama
+       ditegakkan server (GUD-001). */
     function bolehDiteruskan(m) {
         const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
         const belumTerkirim = m.direction === 'outgoing' && m.send_status !== 'sent';
@@ -3226,7 +3225,7 @@
     // - dibuang setelah kirim BERHASIL atau setelah isi composer berubah
     //   (pesan berbeda = operasi berbeda);
     // - dibuat baru saat Gateway menolak dengan OPERATION_ID_REUSED.
-    function buatOperationIdBalasan() {
+    function buatOperationId() {
         if (window.crypto && typeof window.crypto.randomUUID === 'function') {
             return window.crypto.randomUUID();
         }
@@ -3242,11 +3241,11 @@
 
     function ambilOperationIdBalasan() {
         const form = document.getElementById('formBalas');
-        if (!form) return buatOperationIdBalasan();
+        if (!form) return buatOperationId();
 
         let kunci = form.getAttribute('data-operation-id');
         if (!kunci) {
-            kunci = buatOperationIdBalasan();
+            kunci = buatOperationId();
             form.setAttribute('data-operation-id', kunci);
         }
         return kunci;
@@ -3265,11 +3264,11 @@
     // tidak ada kunci yang dibuat server).
     function ambilOperationIdTeruskan() {
         const form = document.getElementById('formTeruskan');
-        if (!form) return buatOperationIdBalasan();
+        if (!form) return buatOperationId();
 
         let kunci = form.getAttribute('data-operation-id');
         if (!kunci) {
-            kunci = buatOperationIdBalasan();
+            kunci = buatOperationId();
             form.setAttribute('data-operation-id', kunci);
         }
         return kunci;

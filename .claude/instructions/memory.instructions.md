@@ -1684,3 +1684,50 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6oo Write-Code Refactor Tahap 4, Phase 1+2) /sdlc-write-code executed Phase 1 and Phase 2 of plan/plan-refactor-teruskan-tahap4-v1.0.md. Phase 1 closed the server-enforcement hole (text endpoint now rejects non-text sources, PESAN_TERUSKAN_HARUS_MEDIA), bounded forwarded media bytes to maxMediaUploadMb on both disk and live-fetch paths, and re-validated source captions to <=1024 via the shared PESAN_CAPTION_TERLALU_PANJANG const; suite 653/2594 exit 0. Phase 2 removed the structural smells: forwardable-type list now single-sourced from server to view (tipeTeruskanLampiran), forward text moved to its own kirimTeruskanTeks() entry point (kirimKeConversation no longer takes a flag or discards $text), a new InboxOutgoingRequest DTO enforces quoted XOR forward and both gateway methods take one DTO argument, and kirimMedia() was split into kirimMediaBiasa()/kirimTeruskanMedia() plus resolveForwardMediaSource(), kirimMediaViaGateway() and pastikanGatewaySiap(); suite 661/2626 exit 0. All 8 gateway test doubles across 6 files were migrated to the DTO signature, plus 5 new DTO unit tests and 3 resolveForwardMediaSource tests. TASK-107 and TASK-207 approved by owner. Next: Phase 3 (DOC-401/402, CLN-401/402, optional PERF-01), consider updating docs/ARCHITECTURE.md for the new library, then commit and push origin/v2.3 which is still unpushed. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6pp — `/sdlc-write-code` Phase 3 `plan-refactor-teruskan-tahap4-v1.0.md`; plan COMPLETED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — **Phase 3 plan refactor Teruskan SELESAI**; seluruh plan (Phase 1, 2, 3) **Completed** dan disetujui owner (TASK-307). Tidak ada fase lanjutan yang terutang dari plan ini.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-tahap4-v1.0.md` — ✅ **Completed** (frontmatter `status: Completed`, badge hijau, TASK-301..307 tercentang, TASK-305 `[-]` dilewati, blok bukti Phase 3 lengkap).
+  - `spec/spec-design-teruskan.md` — **v1.3** (amandemen kecil: `REQ-003` nilai `null` sah + refresh `file:line`).
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md`, `plan/plan-feature-teruskan-wa-gateway-v1.0.md` — Completed, hanya rujukan versi spec diselaraskan ke v1.3.
+- **Achieved Milestones:**
+  - **TASK-303 (CLN-401)**: `app/Views/inbox/index.php` — `renderAksiBalas()` kini memakai predikat bersama `bolehDiteruskan(m)` (satu sumber kelayakan; komentar predikat diperbarui); `buatOperationIdBalasan()` → `buatOperationId()` (5 kemunculan) **dan** salinan VERBATIM di `tests/js/operation-id-composer.check.js` (5 kemunculan) — `node tests/js/operation-id-composer.check.js` lulus.
+  - **TASK-304 (CLN-402)**: `app/Controllers/Inbox.php` `apiMessages()` menormalkan `is_forwarded` ke `bool` bersama `is_internal`; test penjaga baru `InboxTeruskanTest::testApiMessagesMengembalikanPenandaTeruskanSebagaiBool` (baris biasa `false`, hasil Teruskan `true`, keduanya `bool`).
+  - **TASK-301 (DOC-401)**: rujukan `cekOwnership()` diperbarui ke `app/Controllers/Inbox.php:820` di spec `REQ-007` (line 82) **dan** spec Section 8 (line 184) **dan** `plan-feature-teruskan-auliapos-v1.0.md` Section 1 `REQ-007`. **Deviasi terdokumentasi**: plan menetapkan `:796` (posisi saat review, HEAD `40caf14`); setelah Phase 1-2 menambah baris di `Inbox.php`, posisi aktual `:820` — diverifikasi ulang dengan `Select-String 'private function cekOwnership'` sebelum menulis dokumen.
+  - **TASK-302 (DOC-402)**: `REQ-003` kini `forward_marker_applied: "native" | "text_fallback" | null`, dengan penjelasan `null`/field absen = Gateway lama / rollout parsial, tanpa efek ke label UI (label tetap dari `is_forwarded`). Spec **v1.2 → v1.3** + catatan revisi.
+  - **TASK-305 (PERF-01)**: **dilewati atas keputusan eksplisit owner** — modal pemilih tujuan tetap page 1 + pencarian server; tidak ada kode JS baru.
+  - **TASK-306 (VERIFY)**: `vendor/bin/phpunit --no-coverage` → **OK (662 tests, 2633 assertions), exit 0** (sebelum Phase 3: 661/2626); `--filter InboxTeruskan` → **OK (70 tests, 373 assertions)**. Lint delta 4 dokumen (markdownlint-cli 0.49.1 vs salinan `HEAD`): MD013 323→330 (+7), MD028 7→8 (+1, preseden DE-49), MD060 142→140 (−2) — **tidak ada kelas aturan baru**. Manual dikonfirmasi owner: blok aksi Balas/Teruskan dan label "Diteruskan" tetap tampil benar.
+  - **TASK-307 (APPROVAL)**: disetujui eksplisit owner 2026-09-28.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** memakai `npx --no-install markdownlint-cli ...` seperti catatan DE-24.
+  - **Reason:** paket tidak ada di cache lokal lagi → `npm error npx canceled due to missing packages and no YES option: ["markdownlint-cli@0.49.1"]` (output 231 byte berisi error, bukan hasil lint — hampir terbaca sebagai "clean lint", kelas yang sama dengan DE-34).
+  - **Correct Solution:** `npx --yes markdownlint-cli@0.49.1 <files>` (varian `@versi` + `--yes` terpasang dan jalan). Jangan membaca file output kosong/berisi error sebagai lint bersih.
+  - **Attempted:** membaca baris `file:line` dari teks plan lalu menulisnya apa adanya ke dokumen.
+  - **Reason:** plan ditulis pada HEAD `40caf14`; Phase 1-2 plan yang sama menggeser posisi fungsi (`:796` → `:817` → `:820`), jadi angka di plan sudah basi saat dieksekusi.
+  - **Correct Solution:** untuk task "refresh `file:line`", ukur ulang posisi nyata **pada akhir** perubahan kode (`Select-String 'private function <nama>'`) lalu tulis angka hasil ukur; catat deviasi dari teks plan di blok bukti.
+- **Updated Files:**
+  - `app/Views/inbox/index.php` — predikat bersama di `renderAksiBalas()`, komentar `bolehDiteruskan()`, rename `buatOperationId()`.
+  - `app/Controllers/Inbox.php` — cast `is_forwarded` ke bool di `apiMessages()` (line 386).
+  - `tests/js/operation-id-composer.check.js` — salinan VERBATIM ikut di-rename.
+  - `tests/session/InboxTeruskanTest.php` — +1 test penjaga CLN-402.
+  - `spec/spec-design-teruskan.md` — v1.3 (frontmatter, `REQ-003`, `REQ-007`, Section 8, catatan revisi v1.3).
+  - `plan/plan-refactor-teruskan-tahap4-v1.0.md` — TASK-301..307, blok bukti Phase 3, status Completed.
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md`, `plan/plan-feature-teruskan-wa-gateway-v1.0.md` — rujukan versi spec v1.3 + `file:line` `cekOwnership`.
+- **Decisions Made:**
+  - **TASK-305 (PERF-01) dilewati** atas keputusan owner; alasannya dicatat di plan (bukan dihapus dari plan).
+  - Spec dinaikkan **v1.3** untuk amandemen kecil (nilai `null` sah) dan rujukan versi di seluruh dokumen Teruskan diselaraskan — konsekuensi yang disengaja dari bump versi, bukan scope creep.
+  - Kolom `Completed` pada tabel plan memakai `[-]` untuk task yang sengaja dilewati (bukan `[x]` palsu, bukan `[ ]` yang terbaca "belum dikerjakan").
+- **Next Action / Pending:**
+  - **Closing sequence**: checkpoint ini → **commit** (kode + test + spec + plan) → **push** `origin/v2.3` → prompt sesi berikutnya.
+  - `docs/peta-kemajuan-inbox.html` **tetap termodifikasi sejak sebelum sesi ini dan TIDAK di-commit** (skill `update-peta-kemajuan`: jangan commit tanpa diminta) — perlu di-sync setelah commit Teruskan.
+  - **Belum pernah dijalankan untuk Teruskan Tahap 4**: `/sdlc-code-review` formal atas **refactor Phase 1-3** (review Teruskan Tahap 4 sendiri sudah selesai dan dipakai sebagai input plan ini).
+  - Pertimbangkan `docs/ARCHITECTURE.md` untuk library baru `app/Libraries/InboxOutgoingRequest.php` (mandat Living Architecture Map; masih terutang sejak Phase 2).
+  - Carried forward (tidak berubah): `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md` belum diperbarui untuk Teruskan; kebijakan retensi folder media; GW-25/C3; E-07.
+  - Data uji sisa di DB live (sengaja, pesan WhatsApp-nya benar-benar terkirim): baris `900075`/`900076` (conv `900021`), `900077` (conv `900020`, dipegang user 4 `epo`), `900080` (conv `900021`).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6pp Write-Code Refactor Tahap 4 Phase 3 — plan COMPLETED) /sdlc-write-code executed Phase 3 of plan/plan-refactor-teruskan-tahap4-v1.0.md and closed the whole plan. CLN-401 shared the per-message eligibility predicate (renderAksiBalas now calls bolehDiteruskan) and renamed buatOperationIdBalasan -> buatOperationId in the view plus its VERBATIM copy in tests/js/operation-id-composer.check.js; CLN-402 normalised messages.is_forwarded to bool in apiMessages() with a new guard test; DOC-401 refreshed the cekOwnership file:line to app/Controllers/Inbox.php:820 in spec REQ-007 + Section 8 + the AuliaPos plan (the plan's stated :796 was stale because Phase 1-2 of the same plan shifted the function -- always re-measure the line at the END of code changes); DOC-402 bumped spec-design-teruskan.md to v1.3 stating null/absent forward_marker_applied is a legal third value (legacy/partial-rollout Gateway) and aligned the version cites in three plans. TASK-305 (PERF-01 target-picker pagination) was explicitly skipped by owner decision and marked [-] rather than checked. Verification: full suite OK 662 tests / 2633 assertions exit 0 (was 661/2626), filtered InboxTeruskan OK 70/373, node JS check passed, lint delta MD013 +7 / MD028 +1 (accepted DE-49 pattern) / MD060 -2 with no new rule class. New dead-end: npx --no-install markdownlint-cli now fails with "canceled due to missing packages" -- use npx --yes markdownlint-cli@0.49.1 and never read an error-bearing output file as clean lint. Next: commit + push origin/v2.3, then optionally sync the progress map and update docs/ARCHITECTURE.md for InboxOutgoingRequest.php. -->
+
+---
