@@ -1802,3 +1802,43 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6rr Write-Code Teruskan Tahap 4 Follow-up) `/sdlc-write-code` executed all three phases of plan/plan-refactor-teruskan-tahap4-followup-v1.0.md and CLOSED the plan (Completed): Phase 1 hygiene (dead $operationId, stale log context -> kirimTeruskanTeks, dedicated oversize message PESAN_TERUSKAN_MEDIA_TERLALU_BESAR, caption gate !$isForward, sticker in reject loop), Phase 2 single-source (TIPE_TERUSKAN_DIIZINKAN derived via spread from TIPE_TERUSKAN_LAMPIRAN + new reflection subset test; predicate renamed bolehDiteruskan -> aksiPesanTersedia), Phase 3 partial per owner (callGatewayMediaDownload now streams with CURLOPT_WRITEFUNCTION/MAXFILESIZE and returns 413 on overflow, mapped to the oversize message; ADR 0002 records the spec-sanctioned source-visibility risk acceptance; PRN-602 extraction TASK-623/624 deliberately SKIPPED). Suite green: 662/2637 -> 665/2649 -> 667/2659 exit 0. Spec NOT touched. Major environment finding: MariaDB errno 1118 "Row size too large 8126" on ALTER messages because the table stores ROW_FORMAT only implicitly (CREATE_OPTIONS empty) even though innodb_default_row_format=dynamic; fixed by pinning ROW_FORMAT=DYNAMIC on aulia_inboxdb_test.messages only (live still implicit -> future prod migration risk, separate task). Next: commit + push origin/v2.3 (exclude docs/peta-kemajuan-inbox.html), manual WhatsApp smoke pending a live Gateway. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6ss — `/sdlc-code-review` Two-Axis atas commit remediasi Teruskan Tahap 4 follow-up `ec523fb..1c826f4`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review`) — review Two-Axis **SELESAI**. Keputusan owner: hasil review dilaporkan + plan refactor baru dibuat, **belum ada eksekusi kode**. Spec **tidak disentuh**.
+- **Active Artifacts:**
+  - `spec/spec-design-teruskan.md` — v1.3 (input review, tidak diubah).
+  - `plan/plan-refactor-teruskan-tahap4-followup-v1.0.md` — ✅ Completed (objek review, HEAD `1c826f4`).
+  - `docs/adr/0002-teruskan-source-visibility-risk-acceptance.md` — Accepted (diverifikasi selaras REQ-007/AC-004).
+  - `plan/plan-refactor-teruskan-media-bound-v1.0.md` — ⏳ **Planned** (BARU, hasil review ini; 3 phase).
+- **Achieved Milestones:**
+  - Diff `ec523fb..1c826f4` branch `v2.3`, 1 commit, 9 file (+426/-28): `Inbox.php`, view, ADR 0002, plan follow-up, 3 test + 1 unit test baru, `memory.instructions.md`.
+  - **Axis B (spec): 0 mismatch, 0 regresi.** Phase 1/2/3 terverifikasi: dead `$operationId` dihapus (pembacaan tunggal `Inbox.php:1339`), komentar+`$konteks` `kirimTeruskanTeks`, `PESAN_TERUSKAN_MEDIA_TERLALU_BESAR`, gate caption `!$isForward`, `sticker` di loop test, `TIPE_TERUSKAN_DIIZINKAN` turunan spread (nilai final identik), rename `aksiPesanTersedia` bersih (0 sisa `bolehDiteruskan` di kode; JS check lulus), TASK-623/624 `[-]` memang opsional. ADR 0002 selaras spec.
+  - **Axis A: 3 REQUIRED (semua dari satu perubahan):**
+    - **ARCH-201**: `maxMediaUploadMb` (batas unggah KELUAR, `docs/CHAT.md`) dipakai ulang sebagai batas unduh/tampilan di `callGatewayMediaDownload()` (`Inbox.php:658`) → media masuk > 15MB pada `GET /inbox/media/(:num)` kini `413` (regresi perilaku endpoint publik; melanggar REQ-701, spec bisu soal batas media masuk).
+    - **COR-201**: `CURLOPT_MAXFILESIZE` (`:684`) memicu `CURLE_FILESIZE_EXCEEDED` (63) sebelum callback menulis saat `Content-Length` ada → `$overflow` tetap false → jatuh ke cabang `502 "Tidak bisa menghubungi Gateway"`, bukan `413`. Hasil bergantung transport.
+    - **TEST-201**: bound SEC-602 tak diuji perilaku — `testLiveFetchDibatalkanDiTransfer413Ditolak400` memakai spy `gatewayMediaResponse` (melewati cURL), dan `testUnduhanGatewayDibatasiSelamaTransferDiSumber` hanya assert substring sumber (rapuh).
+  - Sisa: `[OPTIONAL] UX-201` (413 → kategori `'lain'` generik di `kategoriStatusMedia()`), `[NIT] TEST-202/CLN-201`, `[FYI] ARCH-202/SCOPE-201/SPEC-201/SPEC-202`.
+  - Verifikasi independen: `vendor/bin/phpunit --no-coverage` → **OK (667 tests, 2659 assertions), exit 0** direproduksi lokal (PHP 8.2.12); `node tests/js/operation-id-composer.check.js` lulus.
+- **Dead-Ends (Do NOT Repeat):**
+  - **`CURLOPT_MAXFILESIZE` + `CURLOPT_WRITEFUNCTION` bersama menghasilkan dua jalur klasifikasi berbeda** (`errno 63` → 502 vs abort callback → 413). Jangan pasang keduanya sebagai "pengaman berlapis"; pakai satu mekanisme (callback + `curl_errno`) agar deterministik.
+  - **`npx` di PowerShell diblokir execution policy** (`npx.ps1 cannot be loaded ... running scripts is disabled`). Solusi: panggil `npx.cmd --yes <paket>@<versi> <file>`.
+  - Rujuk DE 6pp: jangan membaca output berisi error sebagai "lint bersih".
+- **Updated Files:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.0.md` — **BARU** (Planned): 3 phase — (1) klasifikasi overflow deterministik (buang MAXFILESIZE, pakai `curl_errno`), (2) bound per-pemanggil (`InboxConfig::$maxMediaDownloadMb` vs `maxMediaUploadMb`), (3) hardening test/UX/docs. Traceability REQ-701/SEC-701/COR-701/PRN-701/TEST-701/CLN-701/CON-701/702.
+- **Decisions Made:**
+  - Temuan dicatat sebagai **plan refactor terpisah** (`plan-refactor-teruskan-media-bound-v1.0.md`), bukan mengedit plan follow-up yang sudah Completed (anti-overwrite).
+  - Rekomendasi review: **jangan merge** sebelum ARCH-201/COR-201 diberesi, atau owner eksplisit menerima regresi + perubahan perilaku `GET /inbox/media` yang belum disahkan spec.
+  - ADR 0002 && spec §10 ("Tidak ada ADR baru") = gap traceability disengaja (CON-602 melarang edit spec) — dicatat, tidak diperbaiki.
+  - **Keputusan owner 2026-09-28**: pilih **opsi B** (label `413` eksplisit di klien) dan naikkan batas **unduh/tampilan** ke **100MB** via `maxMediaDownloadMb` baru — **bukan** `maxMediaUploadMb` (tetap 15; Gateway default menolak >20MB). Dikunci di plan sebagai CON-703 + RISK-703 + ALT-702/ALT-704; TASK-724 jadi WAJIB.
+- **Next Action / Pending:**
+  - **Closing sequence sesi ini**: checkpoint ini → **commit** (`plan/plan-refactor-teruskan-media-bound-v1.0.md`; uncommitted) → **push** `origin/v2.3` → prompt sesi berikutnya.
+  - Handoff bila owner setuju remediasi: `/sdlc-write-code` @plan/plan-refactor-teruskan-media-bound-v1.0.md
+  - Keputusan owner atas 3 temuan `[REQUIRED]` masih terbuka (perbaiki vs terima).
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit; `docs/ARCHITECTURE.md` belum diperbarui untuk `app/Libraries/InboxOutgoingRequest.php` + direktori `docs/adr/`; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` (errno 1118, tugas terpisah); data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat dan cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6ss Code-Review Remediasi Teruskan Tahap 4 Follow-up) /sdlc-code-review ran a Two-Axis review over ec523fb..1c826f4 (branch v2.3, 1 commit, 9 files). Axis B: PASS - Phase 1/2/3 all verified (dead $operationId gone, $konteks kirimTeruskanTeks, oversize message, caption gate, sticker test, derived constant via spread with identical final value, clean aksiPesanTersedia rename, ADR 0002 aligned with REQ-007/AC-004, TASK-623/624 legitimately skipped). Axis A: 3 REQUIRED from one change - (ARCH-201) the outgoing-upload cap maxMediaUploadMb is reused as the inbound download/display cap inside callGatewayMediaDownload() so GET /inbox/media/:id now 413s inbound media over 15MB; (COR-201) CURLOPT_MAXFILESIZE can pre-empt with CURLE_FILESIZE_EXCEEDED (63) so an oversize download surfaces as 502 "cannot reach Gateway" instead of 413; (TEST-201) the SEC-602 bound is never tested behaviorally (spy bypasses cURL; the other test only asserts source substrings). Also OPTIONAL UX-201 (413 maps to generic 'lain' in kategoriStatusMedia) plus NIT/FYI. Suite OK 667/2659 exit 0 reproduced locally. Wrote separate plan plan/plan-refactor-teruskan-media-bound-v1.0.md (Planned, 3 phases). Recommended: do NOT merge until ARCH-201/COR-201 fixed or explicitly accepted. New dead-end: never combine CURLOPT_MAXFILESIZE with CURLOPT_WRITEFUNCTION (two divergent failure classifications); use npx.cmd (npx.ps1 blocked by PowerShell execution policy). Next: commit the new plan, push origin/v2.3; owner chose option B (explicit 413 label) plus a new 100MB maxMediaDownloadMb display cap (upload cap stays 15, Gateway default rejects >20MB). -->
+
+---
