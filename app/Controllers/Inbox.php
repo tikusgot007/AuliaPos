@@ -649,12 +649,14 @@ class Inbox extends BaseController
             'mimetype'          => $mimetype,
         ]);
 
-        // SEC-602: batasi transfer SELAMA unduhan, bukan setelah seluruh
-        // respons ter-buffer. `CURLOPT_MAXFILESIZE` hanya dihormati saat
-        // `Content-Length` tersedia (RISK-601), jadi pengaman utama adalah
-        // `CURLOPT_WRITEFUNCTION` yang menghitung byte dan membatalkan
+        // SEC-602/COR-701: batasi transfer SELAMA unduhan, bukan setelah
+        // seluruh respons ter-buffer. Satu-satunya sumber sinyal overflow
+        // adalah `CURLOPT_WRITEFUNCTION` yang menghitung byte dan membatalkan
         // transfer begitu melewati batas -- mencegah respons Gateway besar
-        // menghabiskan memori sebelum sempat dicek.
+        // menghabiskan memori sebelum sempat dicek. Opsi MAXFILESIZE bawaan
+        // cURL SENGAJA dibuang: ia hanya dihormati saat `Content-Length`
+        // tersedia dan bisa mendahului WRITEFUNCTION sehingga "terlalu besar"
+        // salah terklasifikasi `502` (ALT-701).
         $maxBytes = $config->maxMediaUploadMb * 1024 * 1024;
         $body     = '';
         $overflow = false;
@@ -681,7 +683,6 @@ class Inbox extends BaseController
 
                 return strlen($chunk);
             },
-            CURLOPT_MAXFILESIZE    => $maxBytes,
             // Lebih lama dari kirim teks -- unduh+dekripsi file butuh
             // waktu lebih, terutama untuk dokumen berukuran besar.
             CURLOPT_TIMEOUT        => $timeoutSeconds,
@@ -689,14 +690,20 @@ class Inbox extends BaseController
         ]);
 
         $execResult  = curl_exec($ch);
+        // Dibaca SEBELUM curl_close(): errno adalah bukti transfer dihentikan
+        // oleh bound (CURLE_WRITE_ERROR) walau `$execResult` berupa `false`
+        // dan Gateway tidak mengirim `Content-Length`.
+        $curlErrno   = curl_errno($ch);
         $curlError   = curl_error($ch);
         $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
         curl_close($ch);
 
-        // Transfer dibatalkan karena melewati batas (SEC-602): pesan eksplisit
-        // supaya tidak tertukar dengan kegagalan Gateway biasa.
-        if ($overflow) {
+        // Transfer dibatalkan karena melewati batas (SEC-602/COR-701): pesan
+        // eksplisit supaya tidak tertukar dengan kegagalan Gateway biasa.
+        // Klasifikasi deterministik lewat sinyal overflow ATAU errno batas,
+        // bukan lewat `Content-Length` yang bisa saja absen.
+        if ($overflow || $curlErrno === CURLE_WRITE_ERROR) {
             return ['ok' => false, 'status' => 413, 'error' => 'Lampiran dari WhatsApp melebihi batas ukuran.'];
         }
 

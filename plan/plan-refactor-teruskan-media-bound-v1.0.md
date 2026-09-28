@@ -41,10 +41,10 @@ Rencana ini **tidak mengubah requirement apa pun** dan **tidak menyentuh `spec/s
 
 | Task ID  | Description (Include Exact File Paths & Micro-Testing)                                                                                                                                                       | Ref ID  | Completed | Date |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | :-------: | :--: |
-| TASK-701 | `app/Controllers/Inbox.php` — `callGatewayMediaDownload()`: hapus `CURLOPT_MAXFILESIZE` (penyebab pre-emption tak deterministik), andalkan `CURLOPT_WRITEFUNCTION` sebagai satu-satunya sumber sinyal overflow. | COR-701 |    [ ]    |      |
-| TASK-702 | `app/Controllers/Inbox.php` — simpan `curl_errno($ch)` sebelum `curl_close()`; klasifikasikan `413` bila `$overflow === true` ATAU `$curlErrno === CURLE_WRITE_ERROR`. Jangan biarkan cabang `$execResult === false` mengembalikan `502` saat transfer dihentikan oleh bound. | COR-701 |    [ ]    |      |
-| TASK-703 | **Micro-Test**: `tests/session/InboxTeruskanMediaTest.php` — tambah test yang memverifikasi `413` dipertahankan walau `gatewayMediaResponse` tidak menyetel `Content-Length` (guard regresi klasifikasi). | COR-701 |    [ ]    |      |
-| TASK-704 | **VERIFY**: `vendor/bin/phpunit --no-coverage` (exit 0) + `--filter "InboxTeruskan\|InboxMedia"` hijau. | -       |    [ ]    |      |
+| TASK-701 | `app/Controllers/Inbox.php` — `callGatewayMediaDownload()`: hapus `CURLOPT_MAXFILESIZE` (penyebab pre-emption tak deterministik), andalkan `CURLOPT_WRITEFUNCTION` sebagai satu-satunya sumber sinyal overflow. | COR-701 |    [x]    | 2026-09-28 |
+| TASK-702 | `app/Controllers/Inbox.php` — simpan `curl_errno($ch)` sebelum `curl_close()`; klasifikasikan `413` bila `$overflow === true` ATAU `$curlErrno === CURLE_WRITE_ERROR`. Jangan biarkan cabang `$execResult === false` mengembalikan `502` saat transfer dihentikan oleh bound. | COR-701 |    [x]    | 2026-09-28 |
+| TASK-703 | **Micro-Test**: `tests/session/InboxTeruskanMediaTest.php` — tambah test yang memverifikasi `413` dipertahankan walau `gatewayMediaResponse` tidak menyetel `Content-Length` (guard regresi klasifikasi). | COR-701 |    [x]    | 2026-09-28 |
+| TASK-704 | **VERIFY**: `vendor/bin/phpunit --no-coverage` (exit 0) + `--filter "InboxTeruskan\|InboxMedia"` hijau. | -       |    [x]    | 2026-09-28 |
 | TASK-705 | **APPROVAL**: 🛑 Tunggu konfirmasi eksplisit owner sebelum Phase 2.                                                                                                                                    | -       |    [ ]    |      |
 
 ### Implementation Phase 2: Per-Caller Download Bound (Architecture)
@@ -117,3 +117,8 @@ Rencana ini **tidak mengubah requirement apa pun** dan **tidak menyentuh `spec/s
 - [`plan-refactor-teruskan-tahap4-followup-v1.0.md`](./plan-refactor-teruskan-tahap4-followup-v1.0.md) — plan yang direview (Completed)
 - [`docs/adr/0002-teruskan-source-visibility-risk-acceptance.md`](../docs/adr/0002-teruskan-source-visibility-risk-acceptance.md)
 - `docs/CHAT.md` §Limitasi Media (definisi `maxMediaUploadMb` sebagai batas keluar)
+
+## 9. Execution Log
+
+- **Date:** 2026-09-28 — branch `v2.3`; executor `/sdlc-write-code`.
+- **Phase 1 (Deterministic Overflow Classification):** TASK-701 removes `CURLOPT_MAXFILESIZE`; TASK-702 stores `curl_errno` before `curl_close` and returns `413` for `$overflow || $curlErrno === CURLE_WRITE_ERROR` before the `$execResult === false` branch; TASK-703 adds `testKlasifikasiTerlaluBesarTetap413TanpaContentLength`. The pre-existing static guard `testUnduhanGatewayDibatasiSelamaTransferDiSumber` was updated minimally (asserts `WRITEFUNCTION` present, cURL MAXFILESIZE option absent, `CURLE_WRITE_ERROR` present) to keep the suite green; TASK-723 will replace it with a behavioural test. `vendor/bin/phpunit --no-coverage` → `OK (668 tests, 2665 assertions)` exit 0; `--filter InboxTeruskan` → `OK (76 tests, 405 assertions)`; `--filter InboxMedia` → `OK (8 tests, 31 assertions)`. Awaiting owner approval (TASK-705).

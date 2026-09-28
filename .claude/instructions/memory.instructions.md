@@ -1842,3 +1842,35 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6ss Code-Review Remediasi Teruskan Tahap 4 Follow-up) /sdlc-code-review ran a Two-Axis review over ec523fb..1c826f4 (branch v2.3, 1 commit, 9 files). Axis B: PASS - Phase 1/2/3 all verified (dead $operationId gone, $konteks kirimTeruskanTeks, oversize message, caption gate, sticker test, derived constant via spread with identical final value, clean aksiPesanTersedia rename, ADR 0002 aligned with REQ-007/AC-004, TASK-623/624 legitimately skipped). Axis A: 3 REQUIRED from one change - (ARCH-201) the outgoing-upload cap maxMediaUploadMb is reused as the inbound download/display cap inside callGatewayMediaDownload() so GET /inbox/media/:id now 413s inbound media over 15MB; (COR-201) CURLOPT_MAXFILESIZE can pre-empt with CURLE_FILESIZE_EXCEEDED (63) so an oversize download surfaces as 502 "cannot reach Gateway" instead of 413; (TEST-201) the SEC-602 bound is never tested behaviorally (spy bypasses cURL; the other test only asserts source substrings). Also OPTIONAL UX-201 (413 maps to generic 'lain' in kategoriStatusMedia) plus NIT/FYI. Suite OK 667/2659 exit 0 reproduced locally. Wrote separate plan plan/plan-refactor-teruskan-media-bound-v1.0.md (Planned, 3 phases). Recommended: do NOT merge until ARCH-201/COR-201 fixed or explicitly accepted. New dead-end: never combine CURLOPT_MAXFILESIZE with CURLOPT_WRITEFUNCTION (two divergent failure classifications); use npx.cmd (npx.ps1 blocked by PowerShell execution policy). Next: commit the new plan, push origin/v2.3; owner chose option B (explicit 413 label) plus a new 100MB maxMediaDownloadMb display cap (upload cap stays 15, Gateway default rejects >20MB). -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6tt — `/sdlc-write-code` Phase 1 `plan-refactor-teruskan-media-bound-v1.0.md`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — **Phase 1 selesai**; berhenti di gate TASK-705 (menunggu persetujuan owner). Phase 2 & 3 belum dimulai.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.0.md` — Status: 🔄 In Progress (Phase 1 TASK-701..704 `[x]`, TASK-705 pending; Execution Log §9 ditambahkan).
+  - `spec/spec-design-teruskan.md` — v1.3 (tidak disentuh, CON-701).
+- **Achieved Milestones:**
+  - **TASK-701 (COR-701):** `app/Controllers/Inbox.php` `callGatewayMediaDownload()` — `CURLOPT_MAXFILESIZE` dibuang; `CURLOPT_WRITEFUNCTION` jadi satu-satunya sumber sinyal overflow (ALT-701: dua mekanisme = dua klasifikasi divergen).
+  - **TASK-702 (COR-701):** `curl_errno($ch)` disimpan SEBELUM `curl_close()`; klasifikasi `413` bila `$overflow || $curlErrno === CURLE_WRITE_ERROR`, ditempatkan SEBELUM cabang `$execResult === false` supaya abort bound tidak lagi jatuh ke `502`.
+  - **TASK-703:** `tests/session/InboxTeruskanMediaTest.php` — `testKlasifikasiTerlaluBesarTetap413TanpaContentLength` (respons `['ok'=>false,'status'=>413]` tanpa `error`/hint ukuran tetap → pesan "terlalu besar").
+  - **Guard statis lama** `testUnduhanGatewayDibatasiSelamaTransferDiSumber` disesuaikan minimal: assert `WRITEFUNCTION` ada, opsi cURL MAXFILESIZE absen, `CURLE_WRITE_ERROR` ada. TASK-723 Phase 3 akan menggantinya dengan test perilaku.
+  - **VERIFY (TASK-704):** full suite `OK (668 tests, 2665 assertions)` exit 0; `--filter InboxTeruskan` `OK (76 tests, 405 assertions)`; `--filter InboxMedia` `OK (8 tests, 31 assertions)`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **`assertStringNotContainsString('CURLOPT_MAXFILESIZE', <source>)` gagal karena komentar penjelasan di sumber memuat token itu.** Solusi: jangan menulis token yang dilarang di komentar bila ada guard statis "tidak boleh ada token X", atau guard pola pemakaian (`=> $maxBytes`), bukan sekadar nama konstanta.
+  - **`--filter "A|B"` di shell ini (cmd/PowerShell) memecah pipe** → jalankan filter terpisah (kelas DE-19/25/6rr).
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — buang MAXFILESIZE, `curl_errno` + klasifikasi 413 deterministik.
+  - `tests/session/InboxTeruskanMediaTest.php` — +1 test klasifikasi; guard statis disesuaikan.
+  - `plan/plan-refactor-teruskan-media-bound-v1.0.md` — TASK-701..704 `[x]`, Execution Log §9.
+- **Decisions Made:**
+  - Satu mekanisme klasifikasi overflow (WRITEFUNCTION + `curl_errno`), bukan MAXFILESIZE + callback (ALT-701 diterapkan).
+  - Guard statis dipertahankan sementara sampai TASK-723 menggantinya dengan test perilaku loopback (bukan dihapus diam-diam).
+- **Next Action / Pending:**
+  - **Phase 2** (TASK-711..716): `InboxConfig::$maxMediaDownloadMb = 100` (baca `env('inbox.maxMediaDownloadMb')`), `callGatewayMediaDownload(..., ?int $maxBytes = null)` default batas unduh; `bacaByteMediaTeruskan()` memasok `maxMediaUploadMb` (batas unggah, tetap 15 — CON-703); `media()` + prefetch `InboxGatewayApi::messages()` pakai default unduh; test "media masuk >15MB tapi <=100MB tetap tampil, jalur Teruskan tetap tolak".
+  - **Phase 3** (TASK-721..728): ekstraksi `akumulasiChunk()` murni + unit test, ganti guard statis dengan test perilaku loopback (TASK-723), label `413` eksplisit di `kategoriStatusMedia()` (opsi B, WAJIB), rename KB `bolehDiteruskan()`→`aksiPesanTersedia()`, catat `docs/adr/` di `docs/ARCHITECTURE.md`.
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` (errno 1118, tugas terpisah); data uji sisa DB live (`900075`/`900076`/`900077`/`900080`); manual WhatsApp smoke butuh Gateway hidup.
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6tt Write-Code Media-Bound Phase 1) /sdlc-write-code executed Phase 1 of plan/plan-refactor-teruskan-media-bound-v1.0.md: callGatewayMediaDownload() dropped CURLOPT_MAXFILESIZE and now classifies overflow deterministically via WRITEFUNCTION signal OR curl_errno() === CURLE_WRITE_ERROR read before curl_close(), checked before the $execResult === false branch so a bound abort no longer becomes 502; added testKlasifikasiTerlaluBesarTetap413TanpaContentLength and minimally adjusted the old static guard. Suite OK 668/2665 exit 0, filtered InboxTeruskan 76/405, InboxMedia 8/31. Stopped at TASK-705 awaiting owner approval. Dead-end: a static "must not contain TOKEN" guard trips on the token appearing in an explanatory comment - reword the comment or assert the usage pattern. Next: Phase 2 (maxMediaDownloadMb=100 download cap vs maxMediaUploadMb=15 upload cap, CON-703) after approval. -->
+
+---

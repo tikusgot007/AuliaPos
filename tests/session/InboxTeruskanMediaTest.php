@@ -578,16 +578,50 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
         $this->assertSame(0, $this->countOutgoing($tujuan), 'Tidak ada baris yang ditulis.');
     }
 
+    public function testKlasifikasiTerlaluBesarTetap413TanpaContentLength(): void
+    {
+        // COR-701: "terlalu besar" TIDAK boleh bergantung pada `Content-Length`
+        // dari Gateway. Respons yang hanya membawa sinyal status 413 -- tanpa
+        // header ukuran, tanpa pesan error -- tetap harus dipetakan ke pesan
+        // khusus "terlalu besar", bukan pesan gagal-ambil generik.
+        $tujuan = $this->seedConversation('628222222222@s.whatsapp.net', 7);
+        $sumber = $this->seedMessage($tujuan, [
+            'direction'      => 'incoming',
+            'message_type'   => 'image',
+            'text'           => 'foto besar',
+            'media_metadata' => json_encode(['direct_path' => '/gw', 'media_key_base64' => 'kk']),
+        ]);
+
+        $controller = $this->controller([
+            'conversation_id'         => $tujuan,
+            'forward_from_message_id' => $sumber,
+        ]);
+        // Tanpa `error`, tanpa `content_length`: klasifikasi harus murni dari
+        // status 413, bukan dari hint ukuran apa pun.
+        $controller->gatewayMediaResponse = ['ok' => false, 'status' => 413];
+
+        $controller->kirimMedia();
+        $body = $this->body($controller);
+
+        $this->assertSame(400, $this->statusCode($controller));
+        $this->assertStringContainsString('terlalu besar', $body['message']);
+        $this->assertFalse($controller->gatewaySendMediaCalled, 'Kirim ke Gateway tidak boleh terjadi.');
+        $this->assertSame(0, $this->countOutgoing($tujuan), 'Tidak ada baris yang ditulis.');
+    }
+
     public function testUnduhanGatewayDibatasiSelamaTransferDiSumber(): void
     {
-        // Guard statis (SEC-602): pengecekan ukuran harus terjadi SAAT byte
-        // mengalir, bukan setelah respons penuh ter-buffer. Mengunci
-        // keberadaan WRITEFUNCTION + MAXFILESIZE di sumber, karena test
+        // Guard statis (SEC-602/COR-701): pengecekan ukuran harus terjadi SAAT
+        // byte mengalir, bukan setelah respons penuh ter-buffer. Mengunci
+        // keberadaan WRITEFUNCTION + klasifikasi errno di sumber, karena test
         // perilaku di atas memakai spy yang melewati cURL sungguhan.
+        // `CURLOPT_MAXFILESIZE` sengaja dibuang (ALT-701) supaya tidak ada dua
+        // jalur klasifikasi yang bergantung `Content-Length`.
         $sumber = file_get_contents(APPPATH . 'Controllers/Inbox.php');
 
         $this->assertStringContainsString('CURLOPT_WRITEFUNCTION', $sumber);
-        $this->assertStringContainsString('CURLOPT_MAXFILESIZE', $sumber);
+        $this->assertStringNotContainsString('CURLOPT_MAXFILESIZE', $sumber, 'ALT-701: hanya satu mekanisme klasifikasi.');
+        $this->assertStringContainsString('CURLE_WRITE_ERROR', $sumber, 'COR-701: errno batas sebagai sinyal deterministik.');
         $this->assertStringContainsString("'status' => 413", $sumber, 'Transfer berlebih harus menghasilkan sinyal 413.');
     }
 
