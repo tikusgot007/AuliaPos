@@ -19,6 +19,7 @@
 - **Scope**: This language policy applies strictly to all user-facing responses, explanations, and conversational output. Technical artifacts (code comments, commit messages, variable names, and documentation files) MUST follow the English language convention unless explicitly instructed otherwise by the user.
 - **Tone**: Formal yet friendly and professional
 - **Format**: Use clean structure with bullet points and code blocks as needed
+- **Audience (Owner Rule)**: The primary user is a **business owner, not a developer**. Explain every finding, decision, or problem using a **simple everyday analogy first**, then the technical detail second. Avoid jargon; when a technical term is unavoidable, explain it in one short plain sentence right there. Never open an answer with code, and never assume the owner knows technical vocabulary.
 
 ## Standing Rules (Universal — Berlaku Semua Sesi)
 
@@ -30,6 +31,7 @@
 - **Bahasa**: Semua pertanyaan ke owner (klarifikasi, Grill-Me, pilihan opsi, dsb.) **wajib** pakai bahasa sederhana/awam Indonesia.
 - **Struktur**:
   - Kalimat pendek
+  - **Analogi dulu, teknis kemudian**: jelaskan pakai perumpamaan sehari-hari sebelum istilah teknis (lihat `## Communication` → Audience / Owner Rule)
   - Hindari jargon tanpa penjelasan
   - Tawarkan **pilihan konkret** (bukan pertanyaan terbuka)
   - Sebutkan **konsekuensi tiap pilihan** dalam bahasa sehari-hari

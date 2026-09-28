@@ -2021,3 +2021,30 @@
 
 <!-- checkpoint-tail: 2026-09-28 (Phase 6xx Write-Code Media-Bound v1.1) /sdlc-write-code executed BOTH phases of plan/plan-refactor-teruskan-media-bound-v1.1.md and closed it (owner approved). Phase 1: added Config\Inbox::$maxMediaPrefetchMb=15 (+env inbox.maxMediaPrefetchMb) as a third, dedicated INGEST bound and made InboxGatewayApi::messages() prefetch pass maxBytes: maxMediaPrefetchMb*1024*1024 explicitly instead of inheriting the 100MB display cap (was the [REQUIRED] PERF-01 review finding). Phase 2: catatKegagalanMedia() now sets cobaan=MEDIA_COBAAN_MAKS for kategori==='terlalu_besar' so a 413 becomes non-retryable while keeping the explicit "Lampiran terlalu besar..." label (stays in mediaSementara, not moved to the kadaluarsa latch); verbatim JS copy re-synced (+1 check, 16 PASS); testDefaultUnduhDanUnggahTerpisah() env-isolated. New tests/session/InboxPrefetchIngestBoundTest.php runs real cURL against a php -S loopback (256KB within a 1MB bound -> saved; 2MB -> not saved, proving it is not using 100MB). Verify: suite OK (681 tests, 2704 assertions) exit 0 (baseline 677/2688), node media-inbox-retry 16 PASS. Dead-end: InboxHandoffTest leaves transStatus=false on the SHARED inbox connection, so transactional tests running after it in the full suite false-fail with "Gagal menyimpan pesan (transaksi database gagal)" while passing alone — CI4 transBegin() does NOT reset transStatus, so call db_connect('inbox')->resetTransStatus() in setUp. Spec/PRD/ADR untouched, WA-Gateway untouched. Next: closing sequence (commit -> push -> next-session prompt); plan v1.1 not yet code-reviewed; manual live-Gateway check owner-run. -->
 
+---
+
+## 📝 Session Checkpoint: 2026-09-28 (Governance - Aturan Komunikasi Owner: analogi dulu)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Governance / konfigurasi AI. Tidak ada artefak PRD/Spec/Plan yang disentuh.
+- **Active Artifacts:** tidak ada yang berubah.
+- **Achieved Milestones:**
+  - Owner (pemilik usaha, bukan developer) meminta semua penjelasan ke dirinya memakai analogi sederhana lebih dulu.
+  - `AGENTS.md` `## Communication` ditambah bullet **Audience (Owner Rule)**: analogi sehari-hari dulu, detail teknis kemudian; hindari jargon; istilah teknis tak terhindarkan dijelaskan 1 kalimat; jangan buka jawaban dengan kode; jangan anggap owner paham istilah teknis.
+  - `AGENTS.md` `## Standing Rules` §1 ditambah sub-bullet **"Analogi dulu, teknis kemudian"** yang menunjuk ke Audience Rule.
+- **Dead-Ends (Do NOT Repeat):** tidak ada.
+- **Updated Files:**
+  - `AGENTS.md` - `## Communication` (+1 bullet) dan `## Standing Rules` §1 (+1 sub-bullet); surgical edit, tidak ada baris lain berubah.
+  - `.claude/instructions/memory.instructions.md` - checkpoint ini.
+- **Decisions Made:**
+  - Aturan komunikasi owner ditaruh di `AGENTS.md` (permanen, dibaca semua tool: Kilo, Claude Code, Cline), bukan hanya di memory.
+- **Next Action / Pending:**
+  - Closing sequence: tawarkan commit -> push -> prompt sesi berikutnya.
+  - `plan-refactor-teruskan-media-bound-v1.1.md` belum di-`/sdlc-code-review`.
+  - Manual live-Gateway (owner-run, belum dijalankan): media masuk >15MB tampil; Teruskan >15MB ditolak.
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit (sync via skill `update-peta-kemajuan`); `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` errno 1118; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
+
+<!-- checkpoint-tail: 2026-09-28 (Governance Comms Rule) Owner (business owner, not developer) asked that all explanations lead with a simple everyday analogy before technical detail. Added AGENTS.md ## Communication "Audience (Owner Rule)" bullet + ## Standing Rules §1 sub-bullet "Analogi dulu, teknis kemudian" pointing at it. Rules live in AGENTS.md (permanent, read by all tools), memory records the change. No PRD/Spec/Plan/code touched. Next: closing sequence (commit -> push -> next-session prompt); plan-refactor-teruskan-media-bound-v1.1.md still not code-reviewed; manual live-Gateway check owner-run. -->
+
+---
+
