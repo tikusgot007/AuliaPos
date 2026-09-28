@@ -6,6 +6,16 @@
 //   2. Gateway balas 410 -> media_confirmed_gone_at diisi.
 //   3. Gateway balas gagal SELAIN 410 (mis. 502) -> media_confirmed_gone_at
 //      TETAP NULL (bukan kegagalan permanen, masih layak dicoba lagi).
+//   4. Gateway balas 503 (tidak bisa dihubungi) -> 503 diteruskan,
+//      media_confirmed_gone_at TETAP NULL.
+//   5. Gateway balas 504 (timeout unduhan) -> 504 diteruskan,
+//      media_confirmed_gone_at TETAP NULL.
+//
+// Skenario 4 & 5 ditambah plan-bugfix-inbox-media-unavailable-v1.0
+// (TASK-006/REQ-001): signal 503/504 inilah yang akan dikirim Gateway
+// setelah pemetaan errornya dibetulkan. Kalau suatu saat dipetakan
+// menjadi 410 lagi, media utuh akan diblacklist permanen -- dua skenario
+// ini yang akan menangkapnya lebih awal di sisi CI4.
 //
 // Inbox::media() sendiri butuh $this->request/$this->response (CI4
 // Controller) + MessageModel (koneksi DB 'inbox') sehingga tidak bisa
@@ -103,6 +113,34 @@ $hasil3 = putuskanAksiMedia(
 check('Skenario 3: Gateway dihubungi', true, $hasil3['called_gateway'], $pass, $fail);
 check('Skenario 3: media_confirmed_gone_at TETAP NULL', false, $hasil3['confirmed_gone_set'], $pass, $fail);
 check('Skenario 3: http status 502 diteruskan apa adanya', 502, $hasil3['http_status'], $pass, $fail);
+
+// ---------------------------------------------------------------
+// Skenario 4: Gateway TIDAK bisa dihubungi (503) -> diteruskan
+// apa adanya, media_confirmed_gone_at TETAP NULL. Status 503
+// inilah yang dikirim Gateway untuk error sementara (reconnect,
+// socket belum terbuka, kedip jaringan) SETELAH pemetaan error
+// di ci4Routes.js dibetulkan -- sebelumnya semuanya jadi 410.
+// ---------------------------------------------------------------
+$hasil4 = putuskanAksiMedia(
+    ['media_local_filename' => null, 'media_confirmed_gone_at' => null],
+    fn () => ['ok' => false, 'status' => 503, 'error' => 'Gateway sedang tidak bisa dihubungi.']
+);
+check('Skenario 4: Gateway dihubungi', true, $hasil4['called_gateway'], $pass, $fail);
+check('Skenario 4: media_confirmed_gone_at TETAP NULL', false, $hasil4['confirmed_gone_set'], $pass, $fail);
+check('Skenario 4: http status 503 diteruskan apa adanya', 503, $hasil4['http_status'], $pass, $fail);
+
+// ---------------------------------------------------------------
+// Skenario 5: Gateway timeout mengunduh media (504) -> status
+// 504 diteruskan, TIDAK diturunkan jadi 410 dan TIDAK ditulis
+// sebagai media hilang permanen.
+// ---------------------------------------------------------------
+$hasil5 = putuskanAksiMedia(
+    ['media_local_filename' => null, 'media_confirmed_gone_at' => null],
+    fn () => ['ok' => false, 'status' => 504, 'error' => 'Gateway melewati batas waktu saat mengunduh media.']
+);
+check('Skenario 5: Gateway dihubungi', true, $hasil5['called_gateway'], $pass, $fail);
+check('Skenario 5: media_confirmed_gone_at TETAP NULL', false, $hasil5['confirmed_gone_set'], $pass, $fail);
+check('Skenario 5: http status 504 diteruskan apa adanya', 504, $hasil5['http_status'], $pass, $fail);
 
 echo "\n== $pass PASS, $fail FAIL ==\n";
 exit($fail > 0 ? 1 : 0);

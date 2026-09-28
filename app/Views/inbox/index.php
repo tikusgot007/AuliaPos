@@ -861,7 +861,22 @@
     // ================================================================
     let conversationAktif = null;
     let conversationUntukHapus = null; // target hapus dari row daftar kiri, terpisah dari conversationAktif
-    const mediaGagal = new Set(); // id pesan yang medianya sudah dipastikan gagal dimuat -- reset tiap reload halaman (cukup untuk 1 sesi kerja, tidak perlu persisten di frontend).
+    // id pesan yang medianya sudah dipastikan PERMANEN gagal (410 dari
+    // Gateway) -- tidak pernah dicoba lagi selama halaman ini terbuka.
+    // Kunci SELALU String(id) supaya konsisten dengan nilai yang dibaca
+    // ulang dari atribut DOM setelah kegagalan (lihat tanganiMediaGagal()).
+    // Reset tiap reload halaman (cukup untuk 1 sesi kerja, tidak perlu
+    // persisten di frontend).
+    const mediaGagal = new Set();
+
+    // Kegagalan SEMENTARA per id pesan: { kategori, cobaan, terakhirMs }.
+    // Dipisah dari mediaGagal supaya foto yang cuma kesulitan sesaat tetap
+    // dicoba lagi (plan-bugfix-inbox-media-unavailable-v1.0, REQ-003/REQ-004),
+    // dengan jumlah percobaan DAN jeda waktu dibatasi supaya media yang
+    // benar-benar rusak tidak memicu request tiap siklus polling 4 detik.
+    const mediaSementara = new Map();
+    const MEDIA_COBAAN_MAKS = 3;
+    const MEDIA_JEDA_COBAAN_MS = 30000;
     let gatewayTerhubung = true; // Tahap F -- optimistic default sebelum poll pertama datang
     let daftarConversation = <?= json_encode($conversations) ?>;
     // Queue View: tab aktif hanya memilih hasil dari queue_status yang
@@ -2126,16 +2141,145 @@
         document.getElementById('kutipanAktif').style.display = 'none';
     }
 
+    // ================================================================
+    // KEGAGALAN MEDIA (plan-bugfix-inbox-media-unavailable-v1.0)
+    // ================================================================
+    // Sebelum ini SATU latch (mediaGagal) menandai media gagal SELAMANYA dan
+    // SELALU menyebut "kemungkinan sudah kadaluarsa" -- padahal <img onerror>
+    // tidak bisa membedakan "Gateway tidak bisa dihubungi" dari "media
+    // kadaluarsa". Fungsi-fungsi di bawah memisahkan keduanya:
+    //   - 'kadaluarsa' (410)                -> latch permanen, tanpa percobaan ulang
+    //   - 'sementara'  (502/503/504/jaringan) -> dicoba lagi, jumlah + jeda dibatasi
+    //   - 'lain'                            -> pesan generik, tetap dicoba (dibatasi)
+    // Jalur sukses TIDAK tersentuh: pemeriksaan status hanya jalan SETELAH error.
+
+    function kategoriStatusMedia(status) {
+        if (status === 410) return 'kadaluarsa';
+        if (status === 502 || status === 503 || status === 504) return 'sementara';
+        return 'lain';
+    }
+
+    function htmlMediaTidakTersedia(kategori, jenis) {
+        const ikon = jenis === 'sticker' ? 'fa-icons' : 'fa-image';
+        const label = jenis === 'sticker' ? 'Sticker' : 'Gambar';
+
+        if (kategori === 'kadaluarsa') {
+            // Teks lama dipertahankan apa adanya (REQ-002/CON-002).
+            return '<div class="inbox-media-unavailable"><i class="fas ' + ikon + '"></i> ' +
+                label + ' tidak tersedia (kemungkinan sudah kadaluarsa)</div>';
+        }
+
+        if (kategori === 'sementara') {
+            return '<div class="inbox-media-unavailable"><i class="fas fa-wifi"></i> ' +
+                'Gateway belum bisa dihubungi — akan dicoba lagi</div>';
+        }
+
+        return '<div class="inbox-media-unavailable"><i class="fas ' + ikon + '"></i> ' +
+            label + ' tidak tersedia</div>';
+    }
+
+    // Masih boleh dicoba lagi? Dibatasi JUMLAH dan JEDA (REQ-004) -- tanpa
+    // jeda, siklus polling 4 detik akan menembak request terus-menerus.
+    function bolehCobaLagiMedia(entri) {
+        return entri.cobaan < MEDIA_COBAAN_MAKS &&
+            (Date.now() - entri.terakhirMs) >= MEDIA_JEDA_COBAAN_MS;
+    }
+
+    // 'kadaluarsa' pindah ke latch permanen; kategori lain masuk buku
+    // percobaan terbatas.
+    function catatKegagalanMedia(kunci, kategori) {
+        if (kategori === 'kadaluarsa') {
+            mediaGagal.add(kunci);
+            mediaSementara.delete(kunci);
+            return;
+        }
+
+        const lama = mediaSementara.get(kunci);
+
+        mediaSementara.set(kunci, {
+            kategori: kategori,
+            cobaan: lama ? lama.cobaan : 0,
+            terakhirMs: Date.now()
+        });
+    }
+
+    // Dipanggil dari <img onerror>. Ganti gambar yang gagal dengan placeholder
+    // SEKARANG (supaya tidak muncul ikon gambar rusak), lalu periksa status
+    // HTTP-nya sekali lewat fetch() untuk mengetahui penyebab sebenarnya
+    // (REQ-002), baru perbarui teksnya.
+    function tanganiMediaGagal(imgEl, kunci) {
+        const jenis = (imgEl && imgEl.getAttribute('data-media-jenis')) || 'image';
+        const entri = mediaSementara.get(kunci);
+
+        // Kategori belum diketahui pada detik pertama kegagalan, jadi pakai
+        // kategori terakhir yang sudah terbukti kalau ada, atau pesan generik
+        // ('lain') -- JANGAN mengklaim "Gateway belum bisa dihubungi" sebelum
+        // diperiksa. Teks yang benar muncul begitu probe di bawah selesai.
+        gantiMediaDenganPlaceholder(imgEl, kunci, jenis, entri ? entri.kategori : 'lain');
+
+        // Hanya SATU request tambahan, dan hanya di jalur gagal (RISK-002) --
+        // jalur sukses beserta caching ETag-nya tidak tersentuh (CON-004).
+        fetch('<?= base_url('/inbox/media/') ?>' + kunci, {
+                method: 'GET'
+            })
+            .then(function(res) {
+                catatKegagalanMedia(kunci, kategoriStatusMedia(res.status));
+                // Isinya tidak dibutuhkan -- hentikan unduhannya.
+                if (res.body && typeof res.body.cancel === 'function') res.body.cancel();
+            })
+            .catch(function() {
+                // Jaringan mati / Gateway tidak menjawab sama sekali.
+                catatKegagalanMedia(kunci, 'sementara');
+            })
+            .then(function() {
+                perbaruiPlaceholderMedia(kunci, jenis);
+            });
+    }
+
+    function gantiMediaDenganPlaceholder(imgEl, kunci, jenis, kategori) {
+        if (!imgEl || !imgEl.parentNode) return;
+
+        const pembungkus = document.createElement('div');
+        pembungkus.innerHTML = htmlMediaTidakTersedia(kategori, jenis);
+
+        const pengganti = pembungkus.firstChild;
+        pengganti.setAttribute('data-media-pesan', kunci);
+        imgEl.parentNode.replaceChild(pengganti, imgEl);
+    }
+
+    function perbaruiPlaceholderMedia(kunci, jenis) {
+        const el = document.querySelector('[data-media-pesan="' + kunci + '"]');
+        if (!el) return;
+
+        let kategori = 'lain';
+        if (mediaGagal.has(kunci)) {
+            kategori = 'kadaluarsa';
+        } else {
+            const entri = mediaSementara.get(kunci);
+            if (entri) kategori = entri.kategori;
+        }
+
+        el.outerHTML = htmlMediaTidakTersedia(kategori, jenis);
+    }
+
     function renderIsiPesan(m) {
         const urlMedia = '<?= base_url('/inbox/media/') ?>' + m.id;
 
         if (m.message_type === 'image') {
-            // Tahap E: sekali gagal, JANGAN buat tag <img> lagi sama
-            // sekali untuk pesan ini -- mencegah polling 4 detik terus
-            // meminta ulang media yang sudah dipastikan kadaluarsa.
-            if (mediaGagal.has(m.id)) {
-                return '<div class="inbox-media-unavailable"><i class="fas fa-image"></i> Gambar tidak tersedia (kemungkinan sudah kadaluarsa)</div>' +
-                    (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+            const kunci = String(m.id);
+            const caption = m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '';
+
+            // Tahap E: permanen (410) -- JANGAN buat tag <img> lagi untuk
+            // pesan ini sama sekali, mencegah polling 4 detik terus meminta
+            // ulang media yang sudah dipastikan kadaluarsa.
+            if (mediaGagal.has(kunci)) {
+                return htmlMediaTidakTersedia('kadaluarsa', 'image') + caption;
+            }
+            // Kegagalan sementara: tampilkan placeholder yang jujur,
+            // KECUALI jatah percobaan ulangnya sudah waktunya (REQ-003/REQ-004).
+            const entriSementara = mediaSementara.get(kunci);
+            if (entriSementara && !bolehCobaLagiMedia(entriSementara)) {
+                return htmlMediaTidakTersedia(entriSementara.kategori, 'image') + caption;
             }
             // Tahap F -- jangan buat <img> sama sekali kalau sudah TAHU
             // bakal gagal (belum ada di disk lokal DAN Gateway terputus)
@@ -2144,30 +2288,45 @@
             // kadaluarsa, Tahap E) supaya kasir tidak bingung 2 penyebab
             // berbeda dikira sama.
             if (!gatewayTerhubung && !m.media_local_filename) {
-                return '<div class="inbox-media-unavailable"><i class="fas fa-wifi"></i> Gateway terputus -- gambar belum bisa dimuat, coba lagi nanti</div>' +
-                    (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+                return '<div class="inbox-media-unavailable"><i class="fas fa-wifi"></i> Gateway terputus -- gambar belum bisa dimuat, coba lagi nanti</div>' + caption;
             }
-            // onerror: media bisa saja sudah kadaluarsa di server WhatsApp
-            // (lihat catatan desain -- kita cuma simpan referensi, bukan
-            // file permanen) -- tampilkan placeholder yang jelas, bukan
-            // ikon "broken image" generik browser.
-            return '<img src="' + urlMedia + '" alt="Gambar" class="inbox-media-image" ' +
-                'onerror="mediaGagal.add(\'' + m.id + '\'); this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-image&quot;></i> Gambar tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">' +
-                (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+            // Percobaan ulang: hitung + catat waktunya SEKARANG, supaya
+            // kegagalan berikutnya tidak memicu request tiap 4 detik.
+            if (entriSementara) {
+                entriSementara.cobaan += 1;
+                entriSementara.terakhirMs = Date.now();
+            }
+            // onerror: penyebab sebenarnya BELUM diketahui -- <img> tidak
+            // membawa status HTTP apa pun. tanganiMediaGagal() yang
+            // memeriksanya sekali dan memilih pesan yang jujur.
+            return '<img src="' + urlMedia + '" alt="Gambar" class="inbox-media-image" data-media-jenis="image" ' +
+                'onload="mediaSementara.delete(\'' + kunci + '\')" ' +
+                'onerror="tanganiMediaGagal(this, \'' + kunci + '\')">' + caption;
         }
 
         if (m.message_type === 'sticker') {
             // Sticker TIDAK PERNAH punya caption di WhatsApp -- beda dari
             // image/document, tidak perlu render m.text sama sekali.
-            if (mediaGagal.has(m.id)) {
-                return '<div class="inbox-media-unavailable"><i class="fas fa-icons"></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>';
+            const kunci = String(m.id);
+
+            if (mediaGagal.has(kunci)) {
+                return htmlMediaTidakTersedia('kadaluarsa', 'sticker');
+            }
+            const entriSementara = mediaSementara.get(kunci);
+            if (entriSementara && !bolehCobaLagiMedia(entriSementara)) {
+                return htmlMediaTidakTersedia(entriSementara.kategori, 'sticker');
             }
             // Tahap F -- lihat catatan sama di blok image di atas.
             if (!gatewayTerhubung && !m.media_local_filename) {
                 return '<div class="inbox-media-unavailable"><i class="fas fa-wifi"></i> Gateway terputus -- sticker belum bisa dimuat, coba lagi nanti</div>';
             }
-            return '<img src="' + urlMedia + '" alt="Sticker" class="inbox-media-sticker" ' +
-                'onerror="mediaGagal.add(\'' + m.id + '\'); this.outerHTML=\'<div class=&quot;inbox-media-unavailable&quot;><i class=&quot;fas fa-icons&quot;></i> Sticker tidak tersedia (kemungkinan sudah kadaluarsa)</div>\'">';
+            if (entriSementara) {
+                entriSementara.cobaan += 1;
+                entriSementara.terakhirMs = Date.now();
+            }
+            return '<img src="' + urlMedia + '" alt="Sticker" class="inbox-media-sticker" data-media-jenis="sticker" ' +
+                'onload="mediaSementara.delete(\'' + kunci + '\')" ' +
+                'onerror="tanganiMediaGagal(this, \'' + kunci + '\')">';
         }
 
         if (m.message_type === 'document') {
@@ -2972,9 +3131,16 @@
 
         perbaruiUIGateway();
 
-        // Baru saja RECONNECT (bukan pertama kali load) -- muat ulang pesan
-        // supaya gambar yang tadinya diblokir otomatis dicoba lagi tanpa
-        // kasir harus pindah-balik conversation manual.
+        // Baru saja RECONNECT (bukan pertama kali load) -- lupakan semua
+        // kegagalan SEMENTARA supaya foto langsung dicoba lagi tanpa
+        // menunggu jeda 30 detik (REQ-003). Kegagalan PERMANEN (410,
+        // mediaGagal) SENGAJA tidak disentuh (CON-002).
+        if (!sebelumnya && gatewayTerhubung) {
+            mediaSementara.clear();
+        }
+
+        // Lalu muat ulang pesan supaya gambar yang tadinya diblokir otomatis
+        // dicoba lagi tanpa kasir harus pindah-balik conversation manual.
         if (!sebelumnya && gatewayTerhubung && conversationAktif) {
             muatUlangPesan(false);
         }
