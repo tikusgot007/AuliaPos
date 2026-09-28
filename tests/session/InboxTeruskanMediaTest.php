@@ -35,6 +35,9 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
     /** @var string|null Nilai $_ENV['inbox.maxMediaUploadMb'] sebelum test. */
     private ?string $prevMaxMediaUploadMb = null;
 
+    /** @var string|null Nilai $_ENV['inbox.maxMediaDownloadMb'] sebelum test. */
+    private ?string $prevMaxMediaDownloadMb = null;
+
     /** Spy terakhir dari panggilResolveForwardMediaSource(). */
     private ?InboxTeruskanMediaSpy $spy = null;
 
@@ -66,7 +69,8 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
         // test TIDAK bergantung ke .env mesin mana pun (pola InboxMediaAuthTest).
         $this->mediaDir = sys_get_temp_dir() . '/aulia_inbox_forward_' . bin2hex(random_bytes(4));
         mkdir($this->mediaDir, 0775, true);
-        $this->prevMediaStoragePath = $_ENV['inbox.mediaStoragePath'] ?? null;
+        $this->prevMediaStoragePath    = $_ENV['inbox.mediaStoragePath'] ?? null;
+        $this->prevMaxMediaDownloadMb  = $_ENV['inbox.maxMediaDownloadMb'] ?? null;
         $_ENV['inbox.mediaStoragePath'] = $this->mediaDir;
     }
 
@@ -82,6 +86,12 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
             unset($_ENV['inbox.maxMediaUploadMb']);
         } else {
             $_ENV['inbox.maxMediaUploadMb'] = $this->prevMaxMediaUploadMb;
+        }
+
+        if ($this->prevMaxMediaDownloadMb === null) {
+            unset($_ENV['inbox.maxMediaDownloadMb']);
+        } else {
+            $_ENV['inbox.maxMediaDownloadMb'] = $this->prevMaxMediaDownloadMb;
         }
 
         unset($_SESSION);
@@ -540,8 +550,39 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
         $this->assertSame(400, $this->statusCode($controller));
         $this->assertStringContainsString('terlalu besar', $body['message'], 'CLN-603: pesan khusus lampiran terlalu besar, bukan gagal-ambil.');
         $this->assertSame(1, $controller->gatewayMediaDownloadCalls, 'Live-fetch tetap dicoba.');
+        $this->assertSame(1024 * 1024, $controller->capturedDownloadMaxBytes, 'TASK-713: jalur Teruskan tetap memakai batas unggah keluar.');
         $this->assertFalse($controller->gatewaySendMediaCalled, 'Kirim ke Gateway tidak boleh terjadi.');
         $this->assertSame(0, $this->countOutgoing($tujuan), 'Tidak ada baris yang ditulis.');
+    }
+
+    public function testMediaMasukBesarTetapTampilSaatDalamBatasUnduh(): void
+    {
+        // REQ-701/PRN-701: batas unduh/tampilan (`maxMediaDownloadMb`)
+        // TERPISAH dari batas unggah keluar (`maxMediaUploadMb`). Media
+        // masuk yang lebih besar dari batas unggah kasir tetap boleh
+        // ditampilkan lewat GET /inbox/media -- TIDAK boleh jadi 413 hanya
+        // karena konstanta unggah dipakai ulang.
+        $_ENV['inbox.maxMediaUploadMb']   = '1';
+        $_ENV['inbox.maxMediaDownloadMb'] = '5';
+
+        $tujuan = $this->seedConversation('628222222222@s.whatsapp.net', 7);
+        $sumber = $this->seedMessage($tujuan, [
+            'direction'            => 'incoming',
+            'message_type'         => 'image',
+            'media_local_filename' => null,
+            'media_metadata'       => json_encode(['direct_path' => '/gw', 'media_key_base64' => 'kk']),
+        ]);
+
+        $controller = $this->controller();
+        // 2MB: di atas batas unggah (1MB), di bawah batas unduh (5MB).
+        $binary = str_repeat('b', 2 * 1024 * 1024);
+        $controller->gatewayMediaResponse = ['ok' => true, 'binary' => $binary];
+
+        $response = $controller->media($sumber);
+
+        $this->assertSame(200, $response->getStatusCode(), 'Media dalam batas unduh tetap tampil (bukan 413).');
+        $this->assertSame($binary, (string) $response->getBody());
+        $this->assertSame(5 * 1024 * 1024, $controller->capturedDownloadMaxBytes, 'Jalur tampil memakai batas UNDUH (maxMediaDownloadMb).');
     }
 
     public function testLiveFetchDibatalkanDiTransfer413Ditolak400(): void
@@ -928,6 +969,9 @@ final class InboxTeruskanMediaSpy extends Inbox
     /** Berapa kali jalur live-fetch Gateway dipanggil. */
     public int $gatewayMediaDownloadCalls = 0;
 
+    /** Batas byte terakhir yang dipasok ke unduhan Gateway (PRN-701). */
+    public ?int $capturedDownloadMaxBytes = null;
+
     /** @var array<string, mixed> */
     public array $gatewayMediaResponse = ['ok' => true, 'binary' => 'GATEWAY-BYTES'];
 
@@ -954,9 +998,12 @@ final class InboxTeruskanMediaSpy extends Inbox
         ];
     }
 
-    public function callGatewayMediaDownload(GatewayInboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30): array
+    public function callGatewayMediaDownload(GatewayInboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30, ?int $maxBytes = null): array
     {
         $this->gatewayMediaDownloadCalls++;
+        // Cermin resolusi default di produksi (PRN-701): panggilan tanpa
+        // `$maxBytes` eksplisit memakai batas UNDUH, bukan batas unggah.
+        $this->capturedDownloadMaxBytes = $maxBytes ?? $config->maxMediaDownloadMb * 1024 * 1024;
 
         return $this->gatewayMediaResponse;
     }

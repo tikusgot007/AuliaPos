@@ -230,7 +230,7 @@ final class InboxMediaTransientSpy extends Inbox
     /** @var array<string, mixed> Respons Gateway yang dikembalikan stub. */
     public array $gatewayResponse = ['ok' => false, 'status' => 503, 'error' => 'Gateway belum bisa dihubungi.'];
 
-    public function callGatewayMediaDownload(GatewayInboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30): array
+    public function callGatewayMediaDownload(GatewayInboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30, ?int $maxBytes = null): array
     {
         $this->gatewayMediaDownloadCalls++;
 

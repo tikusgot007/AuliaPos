@@ -62,6 +62,20 @@ class Inbox extends BaseConfig
     public int $maxMediaUploadMb = 15;
 
     /**
+     * Batas ukuran media MASUK yang boleh diunduh / ditampilkan lewat
+     * `GET /inbox/media/(:num)` (jalur baca live-fetch), dalam MB.
+     *
+     * TERPISAH dari `maxMediaUploadMb` di atas: yang itu batas KELUAR
+     * (kasir upload dari POS, dibatasi <= default Gateway 20MB). Media
+     * masuk dari pelanggan bisa jauh lebih besar dan tetap layak
+     * ditampilkan ke kasir, jadi batas unduh SENGAJA lebih longgar.
+     * JANGAN dipakai untuk membatasi kirim/Teruskan keluar.
+     *
+     * Diisi lewat .env: inbox.maxMediaDownloadMb (opsional, default 100).
+     */
+    public int $maxMediaDownloadMb = 100;
+
+    /**
      * Folder penyimpanan permanen media inbox (gambar/dokumen/sticker),
      * SENGAJA di luar direktori aplikasi -- lihat catatan di
      * InboxMediaStorage. Kosong = fitur nonaktif, semua media otomatis
@@ -80,7 +94,8 @@ class Inbox extends BaseConfig
         $this->slaGreenMinutes   = (int) (env('inbox.slaGreenMinutes') ?? $this->slaGreenMinutes);
         $this->slaYellowMinutes  = (int) (env('inbox.slaYellowMinutes') ?? $this->slaYellowMinutes);
         $this->gatewayBaseUrl   = rtrim((string) (env('inbox.gatewayBaseUrl') ?? ''), '/');
-        $this->maxMediaUploadMb = (int) (env('inbox.maxMediaUploadMb') ?? $this->maxMediaUploadMb);
+        $this->maxMediaUploadMb   = (int) (env('inbox.maxMediaUploadMb') ?? $this->maxMediaUploadMb);
+        $this->maxMediaDownloadMb = (int) (env('inbox.maxMediaDownloadMb') ?? $this->maxMediaDownloadMb);
         $this->mediaStoragePath = (string) (env('inbox.mediaStoragePath') ?? '');
     }
 }

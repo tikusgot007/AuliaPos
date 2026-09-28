@@ -636,9 +636,16 @@ class Inbox extends BaseController
      * TIDAK bergantung pada state/session controller, aman dipanggil
      * lintas controller.
      *
+     * PRN-701: `$maxBytes` dipasok PEMANGGIL. Default null = batas UNDUH
+     * /tampilan media masuk (`maxMediaDownloadMb`), dipakai `Inbox::media()`
+     * dan prefetch pesan masuk. Jalur kirim/Teruskan memanggil dengan
+     * batas unggah KELUAR (`maxMediaUploadMb`) supaya bound SEC-602 tidak
+     * melemah. Satu sumbu batas, bukan konstanta yang dipakai ulang lintas
+     * arah transfer.
+     *
      * @return array{ok: bool, binary?: string, status?: int, error?: string}
      */
-    public function callGatewayMediaDownload(InboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30): array
+    public function callGatewayMediaDownload(InboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30, ?int $maxBytes = null): array
     {
         $url = $config->gatewayBaseUrl . '/media/download';
 
@@ -657,7 +664,7 @@ class Inbox extends BaseController
         // cURL SENGAJA dibuang: ia hanya dihormati saat `Content-Length`
         // tersedia dan bisa mendahului WRITEFUNCTION sehingga "terlalu besar"
         // salah terklasifikasi `502` (ALT-701).
-        $maxBytes = $config->maxMediaUploadMb * 1024 * 1024;
+        $maxBytes ??= $config->maxMediaDownloadMb * 1024 * 1024;
         $body     = '';
         $overflow = false;
 
@@ -3028,9 +3035,15 @@ class Inbox extends BaseController
      */
     private function bacaByteMediaTeruskan(InboxConfig $config, array $sumber): array
     {
-        // SEC-201: byte Teruskan (disk maupun live-fetch) WAJIB dibatasi
-        // SEBELUM di-base64-encode, supaya tidak ada jalur memori tak
-        // terbatas. Batas ini sama dengan batas unggahan kasir.
+        // SEC-201/SEC-701: byte Teruskan (disk maupun live-fetch) WAJIB
+        // dibatasi SEBELUM di-base64-encode, supaya tidak ada jalur memori
+        // tak terbatas. Batas di jalur KIRIM ini tetap batas unggahan
+        // KELUAR (`maxMediaUploadMb`), BUKAN batas unduh/tampilan -- supaya
+        // Teruskan tidak pernah mengirim lampiran yang akan ditolak Gateway
+        // (CON-703). Batas yang sama dipasok ke `callGatewayMediaDownload()`
+        // agar transfer dibatalkan saat mengalir (SEC-602), dan cek panjang
+        // pasca-fetch di bawah tetap dipertahankan sebagai pertahanan
+        // berlapis.
         $maxBytes = $config->maxMediaUploadMb * 1024 * 1024;
 
         // 1. Disk lokal dulu (murah). read() fail-safe: null kalau tidak ada.
@@ -3067,7 +3080,7 @@ class Inbox extends BaseController
             return ['error' => self::PESAN_TERUSKAN_MEDIA_TIDAK_TERSEDIA, 'binary' => null];
         }
 
-        $hasil = $this->callGatewayMediaDownload($config, $mediaRef, $sumber['media_mime_type'] ?: null);
+        $hasil = $this->callGatewayMediaDownload($config, $mediaRef, $sumber['media_mime_type'] ?: null, maxBytes: $maxBytes);
 
         if (!$hasil['ok']) {
             // CON-002: live-fetch gagal -> seluruh aksi dibatalkan. 410 (media

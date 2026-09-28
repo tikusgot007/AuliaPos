@@ -251,7 +251,7 @@ final class InboxMediaAuthSpy extends Inbox
      */
     public array $gatewayResponse = ['ok' => true, 'binary' => 'GATEWAY-BYTES'];
 
-    public function callGatewayMediaDownload(GatewayInboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30): array
+    public function callGatewayMediaDownload(GatewayInboxConfig $config, array $mediaRef, ?string $mimetype, int $timeoutSeconds = 30, ?int $maxBytes = null): array
     {
         $this->gatewayMediaDownloadCalls++;
 

@@ -1874,3 +1874,38 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6tt Write-Code Media-Bound Phase 1) /sdlc-write-code executed Phase 1 of plan/plan-refactor-teruskan-media-bound-v1.0.md: callGatewayMediaDownload() dropped CURLOPT_MAXFILESIZE and now classifies overflow deterministically via WRITEFUNCTION signal OR curl_errno() === CURLE_WRITE_ERROR read before curl_close(), checked before the $execResult === false branch so a bound abort no longer becomes 502; added testKlasifikasiTerlaluBesarTetap413TanpaContentLength and minimally adjusted the old static guard. Suite OK 668/2665 exit 0, filtered InboxTeruskan 76/405, InboxMedia 8/31. Stopped at TASK-705 awaiting owner approval. Dead-end: a static "must not contain TOKEN" guard trips on the token appearing in an explanatory comment - reword the comment or assert the usage pattern. Next: Phase 2 (maxMediaDownloadMb=100 download cap vs maxMediaUploadMb=15 upload cap, CON-703) after approval. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6uu — `/sdlc-write-code` Phase 2 `plan-refactor-teruskan-media-bound-v1.0.md`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — **Phase 1 & 2 selesai**; berhenti di gate TASK-716 (menunggu persetujuan owner). Phase 3 belum dimulai.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.0.md` — Status: 🔄 In Progress (Phase 1 & 2 `[x]`; Phase 3 pending).
+  - `spec/spec-design-teruskan.md` — v1.3 (tidak disentuh, CON-701).
+- **Achieved Milestones:**
+  - **TASK-711 (PRN-701/CON-703):** `app/Config/Inbox.php` — properti baru `public int $maxMediaDownloadMb = 100` (batas media MASUK yang boleh diunduh/ditampilkan) + `env('inbox.maxMediaDownloadMb')`. `maxMediaUploadMb` tetap 15 (tidak disentuh).
+  - **TASK-712:** `Inbox::callGatewayMediaDownload(..., ?int $maxBytes = null)` dengan `$maxBytes ??= $config->maxMediaDownloadMb * 1024 * 1024`. `Inbox::media()` dan prefetch `InboxGatewayApi::messages()` memanggil tanpa bound (pakai batas unduh).
+  - **TASK-713 (SEC-701):** `bacaByteMediaTeruskan()` memasok `maxBytes: $maxBytes` (= `maxMediaUploadMb`, batas unggah keluar) dan tetap menjalankan cek pasca-fetch `strlen($binaryLive) > $maxBytes`.
+  - **TASK-714:** `InboxTeruskanMediaTest::testMediaMasukBesarTetapTampilSaatDalamBatasUnduh` (env upload 1MB / download 5MB; body 2MB → `GET /inbox/media` `200`, spy mencatat bound 5MB); `testByteLiveFetchMelebihiBatasDitolak400` kini juga meng-assert bound = 1MB (jalur Teruskan tetap batas unggah). Unit baru `tests/unit/InboxMediaBoundConfigTest.php` mengunci default 15/100 + env override (RISK-703).
+  - **VERIFY (TASK-715):** full suite `OK (671 tests, 2674 assertions)` exit 0; `--filter InboxTeruskanMediaTest` `OK (28 tests, 152 assertions)`; `--filter InboxMediaBoundConfigTest` `OK (2 tests, 4 assertions)`. Manual live-Gateway (media >15MB tampil; Teruskan >15MB ditolak "terlalu besar") belum dijalankan (butuh Gateway hidup).
+  - Tiga test double `callGatewayMediaDownload()` (Auth/Transient/TeruskanMedia) dimigrasi ke signature 5-arg (RISK-701).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Spy `callGatewayMediaDownload()` yang meng-override method produksi melewati resolusi `$maxBytes ??= ...`,** jadi meng-assert arg mentah `null` bukan bukti batas default. Solusi: spy meniru satu baris resolusi default produksi saat mencatat, atau uji perilaku loopback (Phase 3 TASK-723).
+  - **Menambah parameter opsional ke method produksi yang di-override test double = fatal "Declaration must be compatible"**; wajib migrasikan SEMUA override sekaligus (grep `function callGatewayMediaDownload`).
+- **Updated Files:**
+  - `app/Config/Inbox.php` — `maxMediaDownloadMb` + env.
+  - `app/Controllers/Inbox.php` — param `$maxBytes` + default unduh; Teruskan memasok batas unggah.
+  - `tests/session/InboxTeruskanMediaTest.php` — +1 test, capture bound, env download tracking, signature spy.
+  - `tests/session/InboxMediaAuthTest.php`, `InboxMediaTransientFailureTest.php` — signature spy.
+  - `tests/unit/InboxMediaBoundConfigTest.php` — NEW (2 test).
+- **Decisions Made:**
+  - Batas unduh (100MB) diterapkan lewat `maxMediaDownloadMb`; batas unggah keluar TETAP 15MB (CON-703).
+  - Bound dipasok pemanggil (`?int $maxBytes = null`), bukan konstanta global di method.
+- **Next Action / Pending:**
+  - **Phase 3** (TASK-721..728): ekstraksi `akumulasiChunk()` murni + unit test, ganti guard statis dengan test perilaku loopback (TASK-723), label `413` eksplisit di `kategoriStatusMedia()` (opsi B, WAJIB), rename KB `bolehDiteruskan()`→`aksiPesanTersedia()`, catat `docs/adr/` di `docs/ARCHITECTURE.md`.
+  - Manual live-Gateway check Phase 2 masih owner-run.
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` (errno 1118); data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6uu Write-Code Media-Bound Phase 2) /sdlc-write-code executed Phase 2 of plan/plan-refactor-teruskan-media-bound-v1.0.md: added Config\Inbox::$maxMediaDownloadMb = 100 (env inbox.maxMediaDownloadMb) as the inbound download/display cap while maxMediaUploadMb stays 15 (CON-703), gave callGatewayMediaDownload(..., ?int $maxBytes = null) a resolved default of the download cap (media() and the InboxGatewayApi prefetch call with no bound), and made bacaByteMediaTeruskan() pass the upload cap explicitly while keeping the post-fetch length check (SEC-701). Tests: testMediaMasukBesarTetapTampilSaatDalamBatasUnduh (2MB body, upload 1MB / download 5MB -> 200 and spy records 5MB), the Teruskan oversize test now also asserts the 1MB upload bound, plus a new tests/unit/InboxMediaBoundConfigTest.php locking the 15/100 defaults and env override. All three callGatewayMediaDownload() test doubles migrated to the 5-arg signature. Suite OK 671/2674 exit 0. Dead-end: adding an optional param to a production method that test doubles override requires migrating every override or PHP fatals with "Declaration must be compatible"; also a spy that overrides the method skips the production `$maxBytes ??=` default so assert the resolved value only if the spy mirrors it. Stopped at TASK-716 awaiting owner approval; Phase 3 (pure akumulasiChunk + loopback behavioural test + explicit 413 label + docs) remains. -->
+
+---
