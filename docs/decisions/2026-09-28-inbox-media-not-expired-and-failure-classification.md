@@ -140,7 +140,8 @@ Start-up evidence (live `logs/gateway.log`, UTC, PID `21048`):
 `06:01:15.277` `Status koneksi berubah menjadi: connected` (`number: 6281913500707`).
 
 `package.json` / `package-lock.json` unchanged, so no `npm ci` was required, and `auth/` was not
-touched.
+touched. Pushed the same day: `66bff03..1591512` (`master -> master`), so the fix exists on the
+remote and not only on this machine.
 
 **Post-deploy proof that the new classification is live** (tools/build probe against the live
 Gateway, `06:02:18` UTC):
