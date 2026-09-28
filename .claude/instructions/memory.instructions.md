@@ -1456,3 +1456,51 @@
 <!-- checkpoint-tail: 2026-09-28 (Penutup insiden) Owner personally checked the AuliaPos inbox and confirmed no leftover fake conversations from either test-into-live-folder incident (3 rows then 29 rows, both already cleaned on the Gateway side this same session). The pending inbox-check item from the prior checkpoint is now resolved with no further action needed; the Teruskan Gateway plan is fully closed with zero residue. Next session starts plan-feature-teruskan-auliapos-v1.0.md Phase 1 since EXT-001 is satisfied. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6jj — `/sdlc-write-code` eksekusi Phase 1 plan Teruskan AuliaPos: TASK-001..004 selesai & terverifikasi, TASK-005 disetujui owner)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — Phase 1 dari `plan/plan-feature-teruskan-auliapos-v1.0.md` **SELESAI** (Slice A: Teruskan pesan TEKS). Phase 2 (TASK-006..009, Teruskan lampiran) **belum** dimulai.
+- **Active Artifacts:**
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md` — Status: 🔄 In Progress (Phase 1 ✅ TASK-001..004 tercentang + blok bukti verifikasi; TASK-005 disetujui owner)
+  - `spec/spec-design-teruskan.md` (v1.2) — Status: ✅ Finalized (tidak diubah sesi ini)
+  - `plan/plan-feature-teruskan-wa-gateway-v1.0.md` — Status: ✅ Completed (EXT-001 terpenuhi: commit `4a766d2` ter-deploy ke master)
+- **Achieved Milestones:**
+  - **TASK-001** migrasi `app/Database/Migrations/2026-09-28-000001_AddIsForwardedToMessages.php` (kolom `is_forwarded TINYINT(1) NOT NULL DEFAULT 0`, idempoten, `down()` drop) + `'is_forwarded'` masuk `MessageModel::$allowedFields`; diterapkan ke `aulia_inboxdb` dan skema `aulia_inboxdb_test` di-resync dari live.
+  - **TASK-002** `Inbox::kirim()`/`kirimKeConversation()`: `forward_from_message_id` (teks browser diabaikan, isi diambil dari DB server), `forward`+`quoted` saling-menolak → `400` (CON-001, dicek sesudah `cekOwnership()`), `resolveTeruskan()` baru (lookup soft-delete-inclusive; tolak catatan internal / outgoing belum terkirim / audio-video / tipe di luar {text,image,document,sticker}), `callGatewaySend(..., ?bool $forward)` mengirim `"forward": true` tanpa `quoted`, simpan `is_forwarded => 1` dengan seluruh `quoted_*` NULL, helper `withForwardMarker()` untuk jalur sukses **dan** replay.
+  - **TASK-003** `app/Views/inbox/index.php`: `renderAksiTeruskan()` + `renderAksiPesan()` (Balas & Teruskan satu blok aksi), modal `#modalTeruskan` (pemilih percakapan yang sudah ada via `GET /inbox/api/conversations?q=&page=`, tanpa opsi buat-baru, badge "percakapan ini"), composer dikunci selama pemilih terbuka, `renderLabelDiteruskan()` dari `is_forwarded` saja.
+  - **TASK-004** verifikasi: `vendor/bin/phpunit --no-coverage` → **621 tests, 2409 assertions, exit 0**; filter Phase 1 → 43 tests hijau; semua checklist manual browser LULUS (AC-001, AC-002 UI+server, AC-005 403, AC-004 sukses) dengan bukti baris DB live `900075`, `900076`, `900077` (semua `is_forwarded=1`, `quoted_*` NULL, `gateway_operation_id` baru per percobaan).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** label "Diteruskan" dengan `.inbox-forward-label { display: inline-block; }`.
+  - **Reason:** inline-block membuat label mengalir sebaris dengan isi pesan sehingga terbaca `DiteruskanHalo, …` di bubble (ditemukan pada uji manual, bukan oleh test otomatis).
+  - **Correct Solution:** `display: block;` + test penjaga `InboxTeruskanScreenTest::testLabelDiteruskanBerdiriDiBarisnyaSendiri`. Pola umum: label/meta di dalam bubble WAJIB block-level karena `renderIsiPesan()` mengembalikan teks mentah tanpa pembungkus.
+  - **Attempted:** mengandalkan atribut `title` pada tombol `disabled` untuk menjelaskan alasan penonaktifan.
+  - **Reason:** browser tidak memicu event mouse pada elemen `disabled`, jadi tooltip native tidak pernah tampil (terkonfirmasi owner saat uji manual).
+  - **Correct Solution:** taruh alasan pada label tombol yang terlihat (yang memang diminta AC-002/GH-016); jangan jadikan tooltip sebagai satu-satunya kanal alasan.
+  - **Attempted:** menambah parameter opsional ke-6 pada `Inbox::callGatewaySend()` (dan `callGatewaySendMedia()` di Phase 2) tanpa menyentuh test lama.
+  - **Reason:** PHP menuntut signature anak kompatibel dengan induk → 5 spy test yang meng-override method itu fatal, dan `InboxOutgoingOperationIdTest` meng-assert string pemanggilan persis.
+  - **Correct Solution:** perbarui semua spy (tambah `?bool $forward = null`) dan assertion string pemanggilnya sebagai bagian task yang sama; anggarkan biaya ini setiap kali menambah parameter pada seam yang di-spy.
+- **Updated Files:**
+  - `app/Database/Migrations/2026-09-28-000001_AddIsForwardedToMessages.php` — baru: kolom `is_forwarded` + guard idempoten.
+  - `app/Models/MessageModel.php` — `'is_forwarded'` masuk `$allowedFields`.
+  - `app/Controllers/Inbox.php` — 7 konstanta pesan `400` Teruskan, `TIPE_TERUSKAN_DIIZINKAN`, `kirim()`/`kirimKeConversation()` jalur Teruskan, `resolveTeruskan()`, `withForwardMarker()`, `callGatewaySend()` + parameter `forward`.
+  - `app/Views/inbox/index.php` — CSS `.inbox-forward-label`/`.teruskan-*`, modal `#modalTeruskan` + `#formTeruskan`, `bolehDiteruskan()`/`renderAksiTeruskan()`/`renderAksiPesan()`/`renderLabelDiteruskan()`/`bukaPemilihTeruskan()`/`tutupPemilihTeruskan()`/`muatDaftarTujuanTeruskan()`/`pilihTujuanTeruskan()`/`teruskanPesan()`/`kirimTeruskan()`/`ambilOperationIdTeruskan()`/`buangOperationIdTeruskan()`, listener `hidden.bs.modal`.
+  - `tests/database/IsForwardedMigrationTest.php` — baru (10 test: bentuk kolom, default 0, round-trip up/down, tanpa indeks/FK/kolom penghitung).
+  - `tests/session/InboxTeruskanTest.php` — baru (19 test: payload, penyimpanan, CON-001, penolakan per tipe, ownership, replay `operation_id`).
+  - `tests/session/InboxTeruskanScreenTest.php` — baru (15 test: tombol disabled audio/video, modal & pencarian, composer terkunci, request tanpa `text`, label dari `is_forwarded`, guard `display: block`).
+  - `tests/database/InboxOutgoingOperationIdTest.php` + 4 spy test (`InboxBalasPesanTest`, `InboxBalasPesanHardeningTest`, `InboxGrupTahap1Test`, `InboxOutgoingIdempotencyTest`) — signature spy + assertion string pemanggilan disesuaikan.
+  - `docs/ARCHITECTURE.md` — paragraf kontrak endpoint Teruskan (`forward_from_message_id`, mutually exclusive dengan `quoted_message_id`, `is_forwarded`, `forward_marker_applied`).
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md` — TASK-001..004 ✅ + blok NOTE bukti verifikasi.
+- **Decisions Made:**
+  - **Kunci idempotensi Teruskan hidup di form sendiri** (`#formTeruskan` + `ambilOperationIdTeruskan()`/`buangOperationIdTeruskan()`), **tidak** memakai ulang `formBalas`: bila kunci balasan yang belum selesai dipakai Teruskan ke percakapan yang sama, Gateway/AuliaPos dapat membacanya sebagai replay sehingga pesan Teruskan tidak pernah terkirim. Mekanisme tetap sama (REQ-010), tidak ada kunci yang dibuat server.
+  - `resolveTeruskan()` memakai pesan `400` **spesifik per penyebab** (bukan pesan generik seperti `resolveKutipan()`), karena sumber lintas-percakapan justru sah (REQ-007) sehingga tidak ada oracle lintas-percakapan yang perlu disamarkan; `log_message()` tetap mencatat sebabnya.
+  - Guard tambahan di luar teks task: sumber tanpa teks → `400 "Pesan sumber tidak punya teks untuk diteruskan."` (mencegah pesan kosong terkirim — semangat CON-002). Di Phase 1 ini yang muncul bila kasir menekan Teruskan pada bubble media, karena routing ke `/inbox/kirim-media` baru dikerjakan TASK-007.
+- **Next Action / Pending:**
+  - **Sesi BARU** untuk Phase 2 (`TASK-006..008` — Teruskan lampiran gambar/dokumen/stiker lewat `/inbox/kirim-media` dengan `forward: true`, all-or-nothing saat media hilang) — wajib sesi terpisah karena aturan session-lock persona SDLC; lampirkan `@plan/plan-feature-teruskan-auliapos-v1.0.md`.
+  - **Sisa data uji di DB live (sengaja tidak dibersihkan, keputusan owner terbuka)**: baris `900075`, `900076` (percakapan `900021`) dan `900077` (percakapan `900020`) — pesan WhatsApp-nya sudah terkirim sungguhan; percakapan `900020` kini dipegang user 4 (`epo`/Sayiful) dan mungkin perlu di-"Lepas".
+  - Catatan operasional uji manual: akun `aan` (id 3) ber-role **admin** sehingga selalu lolos `cekOwnership()` — pengujian AC-005 (403) WAJIB memakai sesi kasir non-admin (mis. `epo`).
+  - Carried forward (tidak berubah): `docs/peta-kemajuan-inbox.html` sudah termodifikasi sejak sebelum sesi ini dan belum di-commit; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md` belum diperbarui untuk Teruskan; kebijakan retensi folder media; GW-25/C3; E-07.
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6jj Teruskan AuliaPos Phase 1) /sdlc-write-code executed Phase 1 of plan-feature-teruskan-auliapos-v1.0.md in the AuliaPos repo: TASK-001 migration messages.is_forwarded (applied live + test DB resynced), TASK-002 controller forward path (resolveTeruskan with server-side forwardability guards, CON-001 forward+quoted -> 400, callGatewaySend(forward:true) never with quoted, row written is_forwarded=1 with all quoted_* NULL, withForwardMarker for success+replay), TASK-003 view (renderAksiTeruskan/renderAksiPesan, #modalTeruskan picker limited to existing conversations, composer locked, separate operation-id key on #formTeruskan, label built solely from is_forwarded). TASK-004 verified: 621 tests / 2409 assertions exit 0, plus full manual browser checklist passed (AC-001, AC-002 UI+server, AC-005 403, AC-004 success) with live DB evidence rows 900075/900076/900077. Two dead-ends found on the way: label CSS needed display:block (inline-block concatenated "Diteruskan"+body text) and native tooltips never show on disabled buttons. Next: Phase 2 (TASK-006..008, media forwarding via /inbox/kirim-media) in a NEW session, plan to be attached. -->
+
+---
