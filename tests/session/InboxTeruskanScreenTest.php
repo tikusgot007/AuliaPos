@@ -98,7 +98,7 @@ final class InboxTeruskanScreenTest extends CIUnitTestCase
         // Aturan yang sama dengan tombol Balas: catatan internal bukan pesan
         // pelanggan, dan outgoing yang belum terkirim tidak pernah sampai.
         $body = $this->halamanInbox();
-        $fungsi = $this->badanFungsi($body, 'bolehDiteruskan');
+        $fungsi = $this->badanFungsi($body, 'aksiPesanTersedia');
 
         $this->assertStringContainsString('m.is_internal', $fungsi);
         $this->assertStringContainsString("m.direction === 'outgoing' && m.send_status !== 'sent'", $fungsi);

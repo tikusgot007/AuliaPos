@@ -1731,3 +1731,74 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6pp Write-Code Refactor Tahap 4 Phase 3 — plan COMPLETED) /sdlc-write-code executed Phase 3 of plan/plan-refactor-teruskan-tahap4-v1.0.md and closed the whole plan. CLN-401 shared the per-message eligibility predicate (renderAksiBalas now calls bolehDiteruskan) and renamed buatOperationIdBalasan -> buatOperationId in the view plus its VERBATIM copy in tests/js/operation-id-composer.check.js; CLN-402 normalised messages.is_forwarded to bool in apiMessages() with a new guard test; DOC-401 refreshed the cekOwnership file:line to app/Controllers/Inbox.php:820 in spec REQ-007 + Section 8 + the AuliaPos plan (the plan's stated :796 was stale because Phase 1-2 of the same plan shifted the function -- always re-measure the line at the END of code changes); DOC-402 bumped spec-design-teruskan.md to v1.3 stating null/absent forward_marker_applied is a legal third value (legacy/partial-rollout Gateway) and aligned the version cites in three plans. TASK-305 (PERF-01 target-picker pagination) was explicitly skipped by owner decision and marked [-] rather than checked. Verification: full suite OK 662 tests / 2633 assertions exit 0 (was 661/2626), filtered InboxTeruskan OK 70/373, node JS check passed, lint delta MD013 +7 / MD028 +1 (accepted DE-49 pattern) / MD060 -2 with no new rule class. New dead-end: npx --no-install markdownlint-cli now fails with "canceled due to missing packages" -- use npx --yes markdownlint-cli@0.49.1 and never read an error-bearing output file as clean lint. Next: commit + push origin/v2.3, then optionally sync the progress map and update docs/ARCHITECTURE.md for InboxOutgoingRequest.php. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6qq — `/sdlc-code-review` Two-Axis atas refactor Teruskan Tahap 4 Phase 1-3; plan follow-up baru dibuat)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Review (`/sdlc-code-review`) — review Two-Axis **SELESAI**. Tidak ada blocker merge. Rencana refactoring lanjutan (terpisah) dibuat; spec **tidak diubah** (perintah owner).
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-tahap4-v1.0.md` — ✅ Completed (objek review, HEAD `ec523fb`).
+  - `spec/spec-design-teruskan.md` — v1.3 (tidak diubah sesi ini).
+  - `plan/plan-refactor-teruskan-tahap4-followup-v1.0.md` — ⏳ **Planned** (BARU, hasil review ini; 3 phase).
+- **Achieved Milestones:**
+  - Diff `40caf14...ec523fb` branch `v2.3`, **linear** (`merge-base == 40caf14`), 18 file, +1120/-284 (`Inbox.php` +606, DTO baru 75, view +32, test/plan/spec sisanya).
+  - Dua sub-agent paralel read-only: Standards+Security dan Spec-Compliance.
+  - **Axis A**: 0 CRITICAL, 0 REQUIRED fungsional. [OPTIONAL] SEC-401 = celah visibilitas sumber **disahkan spec** (REQ-007/AC-004) → butuh risk-acceptance, bukan guard kode. [OPTIONAL] SEC-201b = unduhan live-fetch tak dibatasi selama transfer (`CURLOPT_RETURNTRANSFER`; cek `strlen` sesudah buffer). Sisa NIT/FYI: dead `$operationId`, flag arg, log context, pesan error oversize, nama predikat, test `sticker`, konstanta tipe bisa drift, orkestrasi replay terduplikasi.
+  - **Axis B**: **0 mismatch spec**, 0 regresi; REQ-001..010/CON-001/002/GUD-001/AC-001..010 patuh; klaim Phase 3 plan cocok kode. Balas Pesan, kirim biasa, idempotensi `operation_id` aman.
+  - Verifikasi independen langsung: `TIPE_TERUSKAN_LAMPIRAN:98` ⊂ `TIPE_TERUSKAN_DIIZINKAN:106`; dead `$operationId` di `Inbox.php:1052-1053` (dibaca ulang `:1300`); DTO invariant `InboxOutgoingRequest.php:37-39`; `resolveTeruskan()` (`:2928`) tanpa cek kepemilikan sumber.
+  - Suite: `vendor/bin/phpunit --no-coverage` → **OK (662 tests, 2633 assertions), exit 0**.
+- **Dead-Ends (Do NOT Repeat):**
+  - Tidak ada dead-end baru. Rujuk KB/checkpoint 6pp (DE: `npx --no-install markdownlint-cli` gagal; ukur `file:line` di AKHIR perubahan).
+- **Updated Files:**
+  - `plan/plan-refactor-teruskan-tahap4-followup-v1.0.md` — **BARU**: 3 phase (Hygiene, Single-Source/Naming, Hardening opsional), traceability REQ-601/SEC-601/602/CLN-601..605/PRN-601..603/TEST-601/602/CON-601/602.
+- **Decisions Made:**
+  - Spec & dokumen requirement **TIDAK diubah** (perintah eksplisit owner "jangan ubah spec").
+  - Temuan dicatat sebagai **plan refactoring terpisah** (`-followup-`), bukan mengedit plan lama (anti-overwrite).
+  - SEC-401 diselesaikan lewat **ADR risk-acceptance** (opsional, hanya bila owner setuju), **bukan** guard kepemilikan sumber — guard akan melanggar REQ-007/AC-004.
+  - Phase 3 follow-up (SEC-602 + ekstraksi PRN-602) ditandai opsional/boleh dilewati.
+- **Next Action / Pending:**
+  - **Closing sequence**: checkpoint ini → **commit** → **push** `origin/v2.3` → prompt sesi berikutnya.
+  - Handoff bila plan disetujui: `/sdlc-write-code` @plan/plan-refactor-teruskan-tahap4-followup-v1.0.md
+  - Carried forward (dari 6pp, belum berubah): `docs/peta-kemajuan-inbox.html` belum di-sync/di-commit; `docs/ARCHITECTURE.md` belum diperbarui untuk `app/Libraries/InboxOutgoingRequest.php` (mandat Living Architecture Map); `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md` belum diperbarui untuk Teruskan; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6qq Code-Review Refactor Tahap 4) /sdlc-code-review ran a Two-Axis review over the Teruskan Tahap 4 refactor (40caf14...ec523fb, branch v2.3, linear). Axis A: zero CRITICAL/REQUIRED; the two-way server guard (kirim.php:2602 non-text reject, kirim-media:1223 non-attachment reject), byte bound before base64 (:2993 disk, :3042 live-fetch), caption re-validation (:1266), DTO quoted-XOR-forward invariant (InboxOutgoingRequest.php:37-39), single-source type list, is_forwarded bool cast, and buatOperationId rename are all correct with no bypass. Only noteworthy: SEC-401 source-visibility IDOR is spec-sanctioned (REQ-007/AC-004) so it needs recorded risk acceptance, not a code guard; SEC-201b curl download is unbounded during transfer. Axis B: no spec mismatch, no regression on Balas/plain-send/idempotency; suite OK 662/2633 exit 0. Wrote a separate follow-up plan plan/plan-refactor-teruskan-tahap4-followup-v1.0.md (Planned, 3 phases) and did NOT touch the spec. Next: commit + push origin/v2.3; optionally /sdlc-write-code the follow-up plan. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6rr — `/sdlc-write-code` eksekusi `plan-refactor-teruskan-tahap4-followup-v1.0.md` Phase 1-3 → plan Completed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code (`/sdlc-write-code`). Plan follow-up Teruskan Tahap 4 **ditutup** (`status: Completed`, semua checkbox `[x]`, TASK-623/624 `[-]` dilewati). Spec/PRD tidak disentuh.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-tahap4-followup-v1.0.md` — ✅ Completed (Section 9 Execution Log ditambahkan).
+  - `spec/spec-design-teruskan.md` — v1.3 (input, tidak diubah).
+  - `docs/adr/0002-teruskan-source-visibility-risk-acceptance.md` — NEW (Accepted).
+- **Achieved Milestones:**
+  - **Phase 1 (hygiene):** TASK-601 hapus `$operationId` mati; TASK-602 konteks `kirimTeruskanTeks` (`$konteks` dinamis) + komentar basi; TASK-603 `PESAN_TERUSKAN_MEDIA_TERLALU_BESAR` (2 cabang oversize); TASK-604 gate caption `!$isForward`; TASK-605 `sticker` di loop test. Suite `OK (662/2637)`.
+  - **Phase 2 (single-source/naming):** TASK-611 `TIPE_TERUSKAN_DIIZINKAN = ['text', ...self::TIPE_TERUSKAN_LAMPIRAN]` (spread; `array_merge` ilegal di const-expr); TASK-612 `tests/unit/InboxTeruskanTipeKonstantaTest.php` (3 test, refleksi privat); TASK-613 rename `bolehDiteruskan()` → `aksiPesanTersedia()` (view + screen test; JS check lulus). Suite `OK (665/2649)`.
+  - **Phase 3 (parsial atas keputusan owner):** TASK-621 `callGatewayMediaDownload()` kini pakai `CURLOPT_WRITEFUNCTION` (abort saat lewat `maxMediaUploadMb`) + `CURLOPT_MAXFILESIZE`; overflow → `status 413`; `bacaByteMediaTeruskan()` `match` 413 → pesan "terlalu besar". TASK-622 2 test (perilaku 413→400 + guard statis). TASK-623/624 (ekstraksi PRN-602) DILEWATI. TASK-625 ADR 0002. Suite `OK (667/2659)` exit 0.
+  - Efek samping terungkap: `GET /inbox/media/(:num)` kini bisa balas **HTTP 413** untuk file melebihi batas (semua pemanggil `callGatewayMediaDownload()`).
+- **Dead-Ends (Do NOT Repeat):**
+  - **`ALTER TABLE` MariaDB gagal `errno 1118 "Row size too large ... 8126"` walau `@@innodb_default_row_format=dynamic`.** Penyebab: tabel `messages` menyimpan row format hanya sebagai *implicit default* (`CREATE_OPTIONS` kosong), sehingga MariaDB memakai batas in-row COMPACT 8126 untuk ALTER/DROP. Bukti: probe manual `DROP COLUMN` pun gagal; setelah `ALTER TABLE ... ROW_FORMAT=DYNAMIC` (eksplisit) semua ALTER hijau. Solusi lokal: pin row format di `aulia_inboxdb_test.messages`. Risiko live: skema live masih implicit → migrasi produksi berikutnya bisa kena; perlu tugas terpisah. Cek `information_schema.TABLES.CREATE_OPTIONS`, bukan hanya `ROW_FORMAT`.
+  - **`--filter "A|B"` di PowerShell merusak parsing** (module-not-found) → jalankan filter terpisah (kelas DE-19/DE-25).
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — hygiene, derivasi konstanta, bound transfer + mapping 413.
+  - `app/Views/inbox/index.php` — rename predikat.
+  - `tests/session/InboxTeruskanTest.php`, `InboxTeruskanMediaTest.php`, `InboxTeruskanScreenTest.php` — test.
+  - `tests/unit/InboxTeruskanTipeKonstantaTest.php` — NEW.
+  - `docs/adr/0002-teruskan-source-visibility-risk-acceptance.md` — NEW.
+  - `plan/plan-refactor-teruskan-tahap4-followup-v1.0.md` — Completed + Execution Log.
+- **Decisions Made:**
+  - Phase 3 dijalankan **parsial**: SEC-602 (bound transfer) + ADR SEC-601; ekstraksi PRN-602 (TASK-623/624) ditolak/ditunda (YAGNI, berisiko menyentuh dua jalur kirim).
+  - Celah visibilitas sumber Teruskan resmi **diterima sebagai risiko** (ADR 0002), tanpa guard kode (spec REQ-007/AC-004).
+  - Tidak menambah guard ownership sumber; tidak mengubah spec.
+- **Next Action / Pending:**
+  - Commit + push `origin/v2.3` (menunggu perintah owner; `docs/peta-kemajuan-inbox.html` sengaja dikecualikan — `M` sejak sebelum sesi, bukan hasil sesi ini).
+  - Verifikasi manual tertunda (butuh Gateway hidup): label "Diteruskan" WhatsApp + smoke Teruskan teks/lampiran, Balas, kirim biasa.
+  - **Tugas terpisah yang direkomendasikan:** pin `ROW_FORMAT=DYNAMIC` (migrasi/DDL atau ALTER pada DB live `aulia_inboxdb`) untuk mencegah kegagalan migrasi produksi (errno 1118).
+  - Carried forward (dari 6qq, belum berubah): `docs/ARCHITECTURE.md` belum diperbarui untuk `app/Libraries/InboxOutgoingRequest.php` (+ ADR 0002 baru); `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md` belum diperbarui untuk Teruskan; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`); `docs/peta-kemajuan-inbox.html` belum di-sync.
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat dan cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6rr Write-Code Teruskan Tahap 4 Follow-up) `/sdlc-write-code` executed all three phases of plan/plan-refactor-teruskan-tahap4-followup-v1.0.md and CLOSED the plan (Completed): Phase 1 hygiene (dead $operationId, stale log context -> kirimTeruskanTeks, dedicated oversize message PESAN_TERUSKAN_MEDIA_TERLALU_BESAR, caption gate !$isForward, sticker in reject loop), Phase 2 single-source (TIPE_TERUSKAN_DIIZINKAN derived via spread from TIPE_TERUSKAN_LAMPIRAN + new reflection subset test; predicate renamed bolehDiteruskan -> aksiPesanTersedia), Phase 3 partial per owner (callGatewayMediaDownload now streams with CURLOPT_WRITEFUNCTION/MAXFILESIZE and returns 413 on overflow, mapped to the oversize message; ADR 0002 records the spec-sanctioned source-visibility risk acceptance; PRN-602 extraction TASK-623/624 deliberately SKIPPED). Suite green: 662/2637 -> 665/2649 -> 667/2659 exit 0. Spec NOT touched. Major environment finding: MariaDB errno 1118 "Row size too large 8126" on ALTER messages because the table stores ROW_FORMAT only implicitly (CREATE_OPTIONS empty) even though innodb_default_row_format=dynamic; fixed by pinning ROW_FORMAT=DYNAMIC on aulia_inboxdb_test.messages only (live still implicit -> future prod migration risk, separate task). Next: commit + push origin/v2.3 (exclude docs/peta-kemajuan-inbox.html), manual WhatsApp smoke pending a live Gateway. -->
+
+---

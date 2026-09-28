@@ -94,6 +94,13 @@ class Inbox extends BaseController
      */
     private const PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL = 'Gagal mengambil lampiran dari WhatsApp. Coba lagi sebentar lagi.';
 
+    /**
+     * Pesan `400` Teruskan lampiran saat byte sumber (berkas disk lokal atau
+     * hasil live-fetch Gateway) melebihi batas unggahan -- beda dari kegagalan
+     * mengambil lampiran, supaya kasir tahu lampirannya memang terlalu besar.
+     */
+    private const PESAN_TERUSKAN_MEDIA_TERLALU_BESAR = 'Lampiran terlalu besar untuk diteruskan.';
+
     /** `message_type` sumber yang diteruskan lewat jalur `/inbox/kirim-media`. */
     private const TIPE_TERUSKAN_LAMPIRAN = ['image', 'document', 'sticker'];
 
@@ -102,8 +109,11 @@ class Inbox extends BaseController
      * gambar/dokumen/stiker HANYA kalau byte-nya masih bisa diperoleh --
      * ketersediaan file media diperiksa terpisah di jalur media (CON-002).
      * Audio/video tidak pernah masuk daftar ini.
+     *
+     * PRN-601: DITURUNKAN dari `TIPE_TERUSKAN_LAMPIRAN` supaya kedua daftar
+     * tidak bisa menyimpang -- menambah tipe lampiran cukup di satu tempat.
      */
-    private const TIPE_TERUSKAN_DIIZINKAN = ['text', 'image', 'document', 'sticker'];
+    private const TIPE_TERUSKAN_DIIZINKAN = ['text', ...self::TIPE_TERUSKAN_LAMPIRAN];
 
     /**
      * Kolom yang dicocokkan parameter `q` (REQ-013, CL-015): semua nama/nomor
@@ -639,6 +649,16 @@ class Inbox extends BaseController
             'mimetype'          => $mimetype,
         ]);
 
+        // SEC-602: batasi transfer SELAMA unduhan, bukan setelah seluruh
+        // respons ter-buffer. `CURLOPT_MAXFILESIZE` hanya dihormati saat
+        // `Content-Length` tersedia (RISK-601), jadi pengaman utama adalah
+        // `CURLOPT_WRITEFUNCTION` yang menghitung byte dan membatalkan
+        // transfer begitu melewati batas -- mencegah respons Gateway besar
+        // menghabiskan memori sebelum sempat dicek.
+        $maxBytes = $config->maxMediaUploadMb * 1024 * 1024;
+        $body     = '';
+        $overflow = false;
+
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
@@ -647,20 +667,40 @@ class Inbox extends BaseController
                 'Content-Type: application/json',
                 'Authorization: Bearer ' . $config->gatewayToken,
             ],
-            CURLOPT_RETURNTRANSFER => true,
+            // WRITEFUNCTION menggantikan RETURNTRANSFER: body diakumulasi
+            // manual supaya batas byte bisa ditegakkan sambil mengalir.
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_WRITEFUNCTION  => function ($handle, string $chunk) use (&$body, &$overflow, $maxBytes): int {
+                if (strlen($body) + strlen($chunk) > $maxBytes) {
+                    $overflow = true;
+
+                    return 0; // membatalkan transfer (CURLE_WRITE_ERROR)
+                }
+
+                $body .= $chunk;
+
+                return strlen($chunk);
+            },
+            CURLOPT_MAXFILESIZE    => $maxBytes,
             // Lebih lama dari kirim teks -- unduh+dekripsi file butuh
             // waktu lebih, terutama untuk dokumen berukuran besar.
             CURLOPT_TIMEOUT        => $timeoutSeconds,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
 
-        $rawResponse = curl_exec($ch);
+        $execResult  = curl_exec($ch);
         $curlError   = curl_error($ch);
         $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
         curl_close($ch);
 
-        if ($rawResponse === false) {
+        // Transfer dibatalkan karena melewati batas (SEC-602): pesan eksplisit
+        // supaya tidak tertukar dengan kegagalan Gateway biasa.
+        if ($overflow) {
+            return ['ok' => false, 'status' => 413, 'error' => 'Lampiran dari WhatsApp melebihi batas ukuran.'];
+        }
+
+        if ($execResult === false) {
             return ['ok' => false, 'status' => 502, 'error' => 'Tidak bisa menghubungi Gateway: ' . $curlError];
         }
 
@@ -672,13 +712,13 @@ class Inbox extends BaseController
         $isJsonError = $httpCode >= 400 || str_contains((string) $contentType, 'application/json');
 
         if ($isJsonError) {
-            $json = json_decode($rawResponse, true);
+            $json = json_decode($body, true);
             $message = is_array($json) ? ($json['message'] ?? 'Gateway menolak permintaan media.') : ('HTTP ' . $httpCode);
 
             return ['ok' => false, 'status' => $httpCode ?: 502, 'error' => $message];
         }
 
-        return ['ok' => true, 'binary' => $rawResponse];
+        return ['ok' => true, 'binary' => $body];
     }
 
     /**
@@ -979,7 +1019,7 @@ class Inbox extends BaseController
         // `text` dari browser -- teks diambil server dari baris sumber
         // (Section 9 "Always do": mencegah kasir memalsukan isi pesan) --
         // jadi validasi `text` kosong/terlalu panjang di bawah sengaja
-        // dilewati, dan teks aslinya diisi `kirimKeConversation()` dari DB.
+        // dilewati, dan teks aslinya diisi `kirimTeruskanTeks()` dari DB.
         $forwardFromMessageId = (int) ($this->request->getPost('forward_from_message_id') ?? 0);
         $forwardFromMessageId = $forwardFromMessageId > 0 ? $forwardFromMessageId : null;
 
@@ -1047,11 +1087,6 @@ class Inbox extends BaseController
         $caption        = trim((string) ($this->request->getPost('caption') ?? ''));
         $file           = $this->request->getFile('media');
 
-        // M1 Wave 2 (TASK-017): kunci idempotensi milik frontend, diteruskan
-        // apa adanya ke Gateway (REQ-039). Tidak pernah dibuat di sini.
-        $operationId = (string) ($this->request->getPost('operation_id') ?? '');
-        $operationId = $operationId === '' ? null : $operationId;
-
         // Teruskan lampiran (Tahap 4, TASK-006): ID LOKAL `messages.id` pesan
         // sumber. Mode ini TIDAK menerima unggahan kasir -- byte diambil server
         // dari baris sumber (disk lokal, lalu live-fetch Gateway,
@@ -1077,7 +1112,11 @@ class Inbox extends BaseController
             ]);
         }
 
-        if ($caption !== '' && strlen($caption) > 1024) {
+        // Validasi caption browser DILEWATI di mode Teruskan: caption diambil
+        // server dari baris sumber (lihat catatan di bawah), jadi nilai
+        // kiriman browser tidak pernah dipakai. Caption sumber divalidasi
+        // ulang terpisah di jalur media (SEC-202).
+        if (!$isForward && $caption !== '' && strlen($caption) > 1024) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
                 'message' => self::PESAN_CAPTION_TERLALU_PANJANG,
@@ -2659,7 +2698,10 @@ class Inbox extends BaseController
         // Supaya kalau Gateway jelas-jelas offline, kasir langsung tahu
         // dalam waktu singkat -- tidak menunggu timeout HTTP penuh.
         $config = new InboxConfig();
-        $gagal  = $this->pastikanGatewaySiap($config, 'kirimKeConversation');
+        // Konteks log mengikuti aksi pemanggil (CLN-602): jalur Teruskan teks
+        // harus terbaca sebagai `kirimTeruskanTeks`, bukan jalur kirim biasa.
+        $konteks = $isForward ? 'kirimTeruskanTeks' : 'kirimKeConversation';
+        $gagal   = $this->pastikanGatewaySiap($config, $konteks);
         if ($gagal !== null) {
             return $gagal;
         }
@@ -2674,7 +2716,7 @@ class Inbox extends BaseController
         );
 
         if (!$result['ok']) {
-            return $this->gatewayFailureResponse($result, $conversationId, 'kirimKeConversation', 'Gagal mengirim pesan: ');
+            return $this->gatewayFailureResponse($result, $conversationId, $konteks, 'Gagal mengirim pesan: ');
         }
 
         // --- Sukses: BARU sekarang simpan sebagai outgoing 'sent' ----------
@@ -2993,7 +3035,7 @@ class Inbox extends BaseController
                 if (strlen($binary) > $maxBytes) {
                     log_message('warning', "Inbox::bacaByteMediaTeruskan byte disk melebihi batas. message_id={$sumber['id']} size=" . strlen($binary) . " max={$maxBytes}");
 
-                    return ['error' => self::PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL, 'binary' => null];
+                    return ['error' => self::PESAN_TERUSKAN_MEDIA_TERLALU_BESAR, 'binary' => null];
                 }
 
                 return ['error' => null, 'binary' => $binary];
@@ -3028,9 +3070,11 @@ class Inbox extends BaseController
             log_message('warning', "Inbox::bacaByteMediaTeruskan live-fetch gagal. message_id={$sumber['id']} status={$status} error=" . ($hasil['error'] ?? '-'));
 
             return [
-                'error'  => $status === 410
-                    ? self::PESAN_TERUSKAN_MEDIA_TIDAK_TERSEDIA
-                    : self::PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL,
+                'error'  => match ($status) {
+                    410     => self::PESAN_TERUSKAN_MEDIA_TIDAK_TERSEDIA,
+                    413     => self::PESAN_TERUSKAN_MEDIA_TERLALU_BESAR,
+                    default => self::PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL,
+                },
                 'binary' => null,
             ];
         }
@@ -3042,7 +3086,7 @@ class Inbox extends BaseController
         if (strlen($binaryLive) > $maxBytes) {
             log_message('warning', "Inbox::bacaByteMediaTeruskan byte live-fetch melebihi batas. message_id={$sumber['id']} size=" . strlen($binaryLive) . " max={$maxBytes}");
 
-            return ['error' => self::PESAN_TERUSKAN_MEDIA_GAGAL_DIAMBIL, 'binary' => null];
+            return ['error' => self::PESAN_TERUSKAN_MEDIA_TERLALU_BESAR, 'binary' => null];
         }
 
         return ['error' => null, 'binary' => $hasil['binary']];

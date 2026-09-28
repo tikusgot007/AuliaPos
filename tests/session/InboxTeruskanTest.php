@@ -348,7 +348,7 @@ final class InboxTeruskanTest extends CIUnitTestCase
         // `/inbox/kirim-media`, cermin dari guard TIPE_TERUSKAN_LAMPIRAN.
         $conversationId = $this->seedConversation();
 
-        foreach (['image', 'document'] as $tipe) {
+        foreach (['image', 'document', 'sticker'] as $tipe) {
             $sourceId = $this->seedMessage($conversationId, [
                 'direction'       => 'incoming',
                 'message_type'    => $tipe,

@@ -2207,7 +2207,7 @@
        Mengembalikan TOMBOL saja -- wadah `.bubble-aksi` dirakit
        renderAksiPesan() supaya Balas dan Teruskan berada di satu blok aksi. */
     function renderAksiBalas(m) {
-        if (!bolehDiteruskan(m)) return '';
+        if (!aksiPesanTersedia(m)) return '';
 
         return '<button type="button" class="btn btn-outline-success btn-sm" onclick="pilihKutipan(' + m.id + ')">' +
             '<i class="fas fa-reply"></i> Balas</button>';
@@ -2219,7 +2219,7 @@
        (AC-002/GH-016) -- bukan disembunyikan; server tetap menolak percobaan
        langsung ke endpoint (GUD-001). */
     function renderAksiTeruskan(m) {
-        if (!bolehDiteruskan(m)) return '';
+        if (!aksiPesanTersedia(m)) return '';
 
         if (m.message_type === 'audio' || m.message_type === 'video') {
             return '<button type="button" class="btn btn-outline-secondary btn-sm" disabled' +
@@ -2307,12 +2307,14 @@
     // TERUSKAN (Tahap 4, REQ-004/REQ-005/REQ-008)
     // ================================================================
 
-    /* Kelayakan aksi per-pesan (CLN-401) -- dipakai bersama oleh Balas dan
-       Teruskan supaya tidak ada dua salinan predikat yang bisa menyimpang.
+    /* Kelayakan aksi per-pesan (CLN-401/CLN-604) -- dipakai bersama oleh Balas
+       dan Teruskan supaya tidak ada dua salinan predikat yang bisa menyimpang.
+       Namanya sengaja netral (`aksiPesanTersedia`), bukan nama salah satu aksi
+       saja, karena predikat yang sama menggerbangi "Balas" DAN "Teruskan".
        Sumber yang tidak layak: catatan internal (isi untuk toko) dan outgoing
        yang belum terkirim (tidak pernah sampai ke siapa pun). Aturan yang sama
        ditegakkan server (GUD-001). */
-    function bolehDiteruskan(m) {
+    function aksiPesanTersedia(m) {
         const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
         const belumTerkirim = m.direction === 'outgoing' && m.send_status !== 'sent';
 

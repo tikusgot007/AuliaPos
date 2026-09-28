@@ -538,10 +538,57 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
         $body = $this->body($controller);
 
         $this->assertSame(400, $this->statusCode($controller));
-        $this->assertStringContainsString('Gagal mengambil lampiran', $body['message']);
+        $this->assertStringContainsString('terlalu besar', $body['message'], 'CLN-603: pesan khusus lampiran terlalu besar, bukan gagal-ambil.');
         $this->assertSame(1, $controller->gatewayMediaDownloadCalls, 'Live-fetch tetap dicoba.');
         $this->assertFalse($controller->gatewaySendMediaCalled, 'Kirim ke Gateway tidak boleh terjadi.');
         $this->assertSame(0, $this->countOutgoing($tujuan), 'Tidak ada baris yang ditulis.');
+    }
+
+    public function testLiveFetchDibatalkanDiTransfer413Ditolak400(): void
+    {
+        // SEC-602: bila unduhan live-fetch dibatalkan karena melewati batas
+        // SELAMA transfer, Gateway melaporkan 413; jalur Teruskan harus
+        // menampilkan pesan "terlalu besar" (bukan "gagal ambil"), tanpa
+        // baris tersimpan dan tanpa kirim ke Gateway.
+        $tujuan = $this->seedConversation('628222222222@s.whatsapp.net', 7);
+        $sumber = $this->seedMessage($tujuan, [
+            'direction'      => 'incoming',
+            'message_type'   => 'image',
+            'text'           => 'foto besar',
+            'media_metadata' => json_encode(['direct_path' => '/gw', 'media_key_base64' => 'kk']),
+        ]);
+
+        $controller = $this->controller([
+            'conversation_id'         => $tujuan,
+            'forward_from_message_id' => $sumber,
+        ]);
+        $controller->gatewayMediaResponse = [
+            'ok'     => false,
+            'status' => 413,
+            'error'  => 'Lampiran dari WhatsApp melebihi batas ukuran.',
+        ];
+
+        $controller->kirimMedia();
+        $body = $this->body($controller);
+
+        $this->assertSame(400, $this->statusCode($controller));
+        $this->assertStringContainsString('terlalu besar', $body['message']);
+        $this->assertSame(1, $controller->gatewayMediaDownloadCalls, 'Live-fetch tetap dicoba.');
+        $this->assertFalse($controller->gatewaySendMediaCalled, 'Kirim ke Gateway tidak boleh terjadi.');
+        $this->assertSame(0, $this->countOutgoing($tujuan), 'Tidak ada baris yang ditulis.');
+    }
+
+    public function testUnduhanGatewayDibatasiSelamaTransferDiSumber(): void
+    {
+        // Guard statis (SEC-602): pengecekan ukuran harus terjadi SAAT byte
+        // mengalir, bukan setelah respons penuh ter-buffer. Mengunci
+        // keberadaan WRITEFUNCTION + MAXFILESIZE di sumber, karena test
+        // perilaku di atas memakai spy yang melewati cURL sungguhan.
+        $sumber = file_get_contents(APPPATH . 'Controllers/Inbox.php');
+
+        $this->assertStringContainsString('CURLOPT_WRITEFUNCTION', $sumber);
+        $this->assertStringContainsString('CURLOPT_MAXFILESIZE', $sumber);
+        $this->assertStringContainsString("'status' => 413", $sumber, 'Transfer berlebih harus menghasilkan sinyal 413.');
     }
 
     // ------------------------------------------------------------------
