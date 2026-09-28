@@ -353,6 +353,65 @@
         padding: 1px 6px;
     }
 
+    /* Teruskan (Tahap 4): tombol kedua di blok aksi yang SAMA dengan "Balas". */
+    .bubble-aksi .btn + .btn {
+        margin-left: 4px;
+    }
+
+    /* REQ-008: label "Diteruskan" dibangun dari kolom `is_forwarded` saja.
+       `display: block` WAJIB: dengan `inline-block` label mengalir sebaris
+       dengan isi pesan (terbaca "DiteruskanHalo, ..." pada uji manual
+       2026-09-28). Label harus berdiri di barisnya sendiri di atas isi. */
+    .inbox-forward-label {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #6c757d;
+        margin-bottom: 4px;
+    }
+
+    /* Pemilih percakapan tujuan Teruskan (REQ-005). */
+    .teruskan-sumber {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 8px 10px;
+        background: #f8f9fa;
+    }
+
+    .teruskan-sumber-judul {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #6c757d;
+        margin-bottom: 2px;
+    }
+
+    .teruskan-daftar-tujuan {
+        max-height: 260px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+    }
+
+    .teruskan-tujuan-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-bottom: 1px solid #f1f3f5;
+        background: transparent;
+        padding: 8px 10px;
+        font-size: 0.85rem;
+    }
+
+    .teruskan-tujuan-item:hover {
+        background: #f1f3f5;
+    }
+
+    .teruskan-tujuan-item.terpilih {
+        background: #cfe2ff;
+        font-weight: 600;
+    }
+
     .inbox-media-image {
         max-width: 100%;
         max-height: 300px;
@@ -787,6 +846,62 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-primary" id="btnKirimHandoff">
                         <i class="fas fa-share-square"></i> Serahkan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL TERUSKAN (Tahap 4, TASK-003)             -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalTeruskan" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-share"></i> Teruskan Pesan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <!-- data-operation-id (pola formBalas, M1 Wave 2): kunci
+                 idempotensi milik frontend untuk satu percobaan Teruskan.
+                 SENGAJA dipisah dari formBalas supaya kunci balasan yang
+                 belum selesai tidak pernah dipakai ulang oleh aksi Teruskan
+                 (bisa terbaca sebagai replay bila tujuannya sama). -->
+            <form id="formTeruskan" data-operation-id="" onsubmit="return kirimTeruskan(event)">
+                <div class="modal-body">
+                    <!-- Cuplikan pesan sumber: hanya untuk memastikan kasir
+                         memilih pesan yang benar. Isi yang benar-benar dikirim
+                         diambil server dari DB (Section 9 "Always do"), jadi
+                         TIDAK ada kolom yang bisa diedit kasir di sini. -->
+                    <div class="teruskan-sumber">
+                        <div class="teruskan-sumber-judul">Pesan yang diteruskan</div>
+                        <div class="inbox-kutipan-snippet" id="teruskanSumberCuplikan"></div>
+                    </div>
+
+                    <div class="alert alert-danger small d-none mt-3" id="teruskanAlert">
+                        <div id="teruskanAlertMessage"></div>
+                    </div>
+
+                    <label class="form-label mt-3">Kirim ke percakapan</label>
+                    <!-- REQ-005: memakai endpoint pencarian percakapan yang
+                         sudah ada. TIDAK ADA opsi "buat percakapan baru". -->
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" id="cariTujuanTeruskan"
+                            placeholder="Cari nama / nomor..."
+                            onkeydown="if (event.key === 'Enter') { event.preventDefault(); jalankanPencarianTujuanTeruskan(); }">
+                        <button class="btn btn-outline-secondary" type="button" onclick="jalankanPencarianTujuanTeruskan()">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <div id="daftarTujuanTeruskan" class="teruskan-daftar-tujuan">
+                        <div class="text-muted small p-2">Memuat percakapan...</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary" id="btnKirimTeruskan" disabled>
+                        <i class="fas fa-share"></i> Teruskan
                     </button>
                 </div>
             </form>
@@ -1979,6 +2094,17 @@
        renderPesan() supaya tidak menahan baris lama. */
     let pesanCached = {};
 
+    /* ================================================================
+       TERUSKAN (Tahap 4)
+       Aksi Teruskan mengirim pesan SUMBER ke percakapan TUJUAN yang sudah
+       ada. Yang disimpan di sini hanya ID pesan sumber + ID percakapan
+       tujuan pilihan kasir: isi pesan yang benar-benar dikirim SELALU
+       diambil server dari database-nya sendiri (Section 9 "Always do").
+       ================================================================ */
+    let pesanTeruskanId = null;   // messages.id pesan sumber
+    let tujuanTeruskan = null;    // conversation.id tujuan yang dipilih
+    let teruskanSedangKirim = false;
+
     function adaKutipan(m) {
         return m && m.quoted_wa_message_id !== null && m.quoted_wa_message_id !== undefined && m.quoted_wa_message_id !== '';
     }
@@ -2067,17 +2193,46 @@
 
     /* Aksi per-pesan (REQ-004): tombol "Balas". Tidak dirender untuk
        Internal Note (bukan percakapan dengan pelanggan) dan untuk pesan
-       outgoing yang belum terkirim (tidak ada yang bisa dibalas). */
+       outgoing yang belum terkirim (tidak ada yang bisa dibalas).
+       Mengembalikan TOMBOL saja -- wadah `.bubble-aksi` dirakit
+       renderAksiPesan() supaya Balas dan Teruskan berada di satu blok aksi. */
     function renderAksiBalas(m) {
         const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
         const belumTerkirim = m.direction === 'outgoing' && m.send_status !== 'sent';
 
         if (internal || belumTerkirim) return '';
 
-        return '<div class="bubble-aksi">' +
-            '<button type="button" class="btn btn-outline-success btn-sm" onclick="pilihKutipan(' + m.id + ')">' +
-            '<i class="fas fa-reply"></i> Balas</button>' +
-            '</div>';
+        return '<button type="button" class="btn btn-outline-success btn-sm" onclick="pilihKutipan(' + m.id + ')">' +
+            '<i class="fas fa-reply"></i> Balas</button>';
+    }
+
+    /* Aksi per-pesan (REQ-004/REQ-006): tombol "Teruskan". Sama seperti
+       Balas, tidak dirender untuk Internal Note dan outgoing belum terkirim.
+       Untuk audio/video tombol tetap DIRENDER tetapi disabled + alasan
+       (AC-002/GH-016) -- bukan disembunyikan; server tetap menolak percobaan
+       langsung ke endpoint (GUD-001). */
+    function renderAksiTeruskan(m) {
+        if (!bolehDiteruskan(m)) return '';
+
+        if (m.message_type === 'audio' || m.message_type === 'video') {
+            return '<button type="button" class="btn btn-outline-secondary btn-sm" disabled' +
+                ' title="Teruskan — audio/video tidak dapat diteruskan">' +
+                '<i class="fas fa-share"></i> Teruskan — audio/video tidak dapat diteruskan</button>';
+        }
+
+        return '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="bukaPemilihTeruskan(' + m.id + ')">' +
+            '<i class="fas fa-share"></i> Teruskan</button>';
+    }
+
+    /* Satu blok aksi per bubble: wadah tidak dirender sama sekali bila tidak
+       ada tombol yang tersedia, supaya bubble yang tidak punya aksi tampil
+       persis seperti sebelumnya. */
+    function renderAksiPesan(m) {
+        const tombol = renderAksiBalas(m) + renderAksiTeruskan(m);
+
+        if (tombol === '') return '';
+
+        return '<div class="bubble-aksi">' + tombol + '</div>';
     }
 
     /* Cuplikan singkat isi satu pesan untuk ditampilkan di area kutipan
@@ -2139,6 +2294,210 @@
     function batalkanKutipan() {
         kutipanAktif = null;
         document.getElementById('kutipanAktif').style.display = 'none';
+    }
+
+    // ================================================================
+    // TERUSKAN (Tahap 4, REQ-004/REQ-005/REQ-008)
+    // ================================================================
+
+    /* Sumber yang tidak punya tombol Teruskan sama sekali: catatan internal
+       (isi untuk toko) dan outgoing yang belum terkirim (tidak pernah sampai
+       ke siapa pun). Aturan yang sama ditegakkan server (GUD-001). */
+    function bolehDiteruskan(m) {
+        const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
+        const belumTerkirim = m.direction === 'outgoing' && m.send_status !== 'sent';
+
+        return !internal && !belumTerkirim;
+    }
+
+    /* REQ-008/AC-008: label "Diteruskan" dibangun dari kolom `is_forwarded`
+       SAJA -- tidak pernah dari `forward_marker_applied` milik Gateway, supaya
+       label tetap konsisten apa pun metode penanda yang dipakai Gateway.
+       Nilainya bisa datang sebagai true/1/"1" lewat json_encode (pola yang
+       sama dipakai is_internal). */
+    function renderLabelDiteruskan(m) {
+        const forwarded = m.is_forwarded === true || m.is_forwarded === 1 || m.is_forwarded === '1';
+
+        if (!forwarded) return '';
+
+        return '<div class="inbox-forward-label"><i class="fas fa-share"></i> Diteruskan</div>';
+    }
+
+    /* Buka pemilih percakapan tujuan. Composer dinonaktifkan selama pemilih
+       terbuka: isi pesan sumber tidak boleh diedit saat diteruskan (isi yang
+       benar-benar dikirim diambil server, bukan dari layar ini). */
+    function bukaPemilihTeruskan(messageId) {
+        const m = pesanCached[messageId];
+
+        if (!m) {
+            showToast('Pesan tidak ditemukan untuk diteruskan.', 'warning');
+            return;
+        }
+
+        pesanTeruskanId = messageId;
+        tujuanTeruskan = null;
+
+        document.getElementById('teruskanSumberCuplikan').textContent = cuplikanPesan(m);
+        document.getElementById('cariTujuanTeruskan').value = '';
+        document.getElementById('btnKirimTeruskan').disabled = true;
+        sembunyikanAlertTeruskan();
+
+        document.getElementById('teksBalasan').disabled = true;
+        document.getElementById('btnLampirkanMedia').disabled = true;
+        document.getElementById('btnKirimBalasan').disabled = true;
+
+        muatDaftarTujuanTeruskan('');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTeruskan')).show();
+    }
+
+    /* Dipanggil setiap dialog ditutup (tombol Batal, X, Esc, atau setelah
+       kirim sukses) lewat event `hidden.bs.modal` -- bukan hanya tombol
+       Batal -- supaya composer tidak pernah tertinggal dalam keadaan mati. */
+    function tutupPemilihTeruskan() {
+        pesanTeruskanId = null;
+        tujuanTeruskan = null;
+
+        if (conversationAktif) {
+            document.getElementById('teksBalasan').disabled = false;
+            document.getElementById('btnLampirkanMedia').disabled = false;
+            document.getElementById('btnKirimBalasan').disabled = false;
+        }
+    }
+
+    function jalankanPencarianTujuanTeruskan() {
+        muatDaftarTujuanTeruskan(document.getElementById('cariTujuanTeruskan').value);
+    }
+
+    /* REQ-005: pilihan HANYA percakapan yang sudah ada, memakai endpoint
+       pencarian percakapan yang sudah ada (GET /inbox/api/conversations?q=&page=).
+       TIDAK ADA opsi "buat percakapan baru" di alur ini. */
+    function muatDaftarTujuanTeruskan(kataKunci) {
+        const container = document.getElementById('daftarTujuanTeruskan');
+        if (!container) return;
+
+        container.innerHTML = '<div class="text-muted small p-2">Memuat percakapan...</div>';
+
+        const paramQ = kataKunci ? '&q=' + encodeURIComponent(kataKunci) : '';
+
+        fetch('<?= base_url('/inbox/api/conversations') ?>?page=1' + paramQ)
+            .then(function(res) {
+                return res.json();
+            })
+            .then(function(json) {
+                if (json.status !== 'success') throw new Error(json.message || 'Gagal memuat percakapan.');
+
+                if (!json.conversations.length) {
+                    container.innerHTML = '<div class="text-muted small p-2">Tidak ada percakapan yang cocok.</div>';
+                    return;
+                }
+
+                container.innerHTML = json.conversations.map(function(c) {
+                    const iniPercakapanIni = String(c.id) === String(conversationAktif);
+                    const terpilih = tujuanTeruskan !== null && String(c.id) === String(tujuanTeruskan);
+
+                    return '<button type="button" class="teruskan-tujuan-item' + (terpilih ? ' terpilih' : '') + '"' +
+                        ' onclick="pilihTujuanTeruskan(' + c.id + ', this)">' +
+                        '<span class="teruskan-tujuan-nama">' + escapeHtmlInbox(formatIdentitasCustomer(c)) + '</span>' +
+                        (iniPercakapanIni ?
+                            ' <span class="badge bg-light text-dark border">percakapan ini</span>' :
+                            '') +
+                        '</button>';
+                }).join('');
+            })
+            .catch(function(err) {
+                container.innerHTML = '<div class="text-danger small p-2">' + escapeHtmlInbox(err.message) + '</div>';
+            });
+    }
+
+    /* Section 12: percakapan tujuan boleh sama dengan sumber; baris yang
+       terpilih selalu ditandai jelas supaya kasir tidak salah percakapan. */
+    function pilihTujuanTeruskan(id, tombol) {
+        tujuanTeruskan = id;
+        document.getElementById('btnKirimTeruskan').disabled = false;
+
+        document.querySelectorAll('#daftarTujuanTeruskan .teruskan-tujuan-item').forEach(function(el) {
+            el.classList.remove('terpilih');
+        });
+
+        if (tombol) tombol.classList.add('terpilih');
+    }
+
+    function tampilkanAlertTeruskan(pesan) {
+        document.getElementById('teruskanAlertMessage').textContent = pesan;
+        document.getElementById('teruskanAlert').classList.remove('d-none');
+    }
+
+    function sembunyikanAlertTeruskan() {
+        const el = document.getElementById('teruskanAlert');
+        if (el) el.classList.add('d-none');
+    }
+
+    function kirimTeruskan(e) {
+        e.preventDefault();
+        teruskanPesan();
+        return false;
+    }
+
+    /* Kirim aksi Teruskan (REQ-010: memakai idempotensi `operation_id` yang
+       sudah ada; Section 9: `text` TIDAK PERNAH dikirim dari browser). */
+    function teruskanPesan() {
+        if (teruskanSedangKirim) return;
+
+        if (!pesanTeruskanId || !tujuanTeruskan) {
+            tampilkanAlertTeruskan('Pilih percakapan tujuan dulu.');
+            return;
+        }
+
+        if (!gatewayTerhubung) {
+            tampilkanAlertTeruskan('Gateway terputus -- pesan belum bisa dikirim sekarang.');
+            return;
+        }
+
+        teruskanSedangKirim = true;
+        const btn = document.getElementById('btnKirimTeruskan');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Mengirim...';
+        sembunyikanAlertTeruskan();
+
+        const tujuan = tujuanTeruskan;
+        const operationId = ambilOperationIdTeruskan();
+
+        fetch('<?= base_url('/inbox/kirim') ?>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'conversation_id=' + encodeURIComponent(tujuan) +
+                    '&forward_from_message_id=' + encodeURIComponent(pesanTeruskanId) +
+                    '&operation_id=' + encodeURIComponent(operationId)
+            })
+            .then(function(res) {
+                return res.json();
+            })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    // Operasi selesai: kunci dibuang supaya Teruskan berikutnya
+                    // memakai operasi baru.
+                    buangOperationIdTeruskan();
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTeruskan')).hide();
+                    showToast('Pesan diteruskan.', 'success');
+                    // ASSUMPTION-015: pindah ke thread tujuan supaya hasilnya
+                    // langsung terlihat, lalu segarkan daftar percakapan
+                    // (tujuan menjadi yang teratas).
+                    pilihConversation(tujuan);
+                    muatUlangDaftarConversation();
+                } else {
+                    tampilkanAlertTeruskan(json.message || 'Gagal meneruskan pesan.');
+                }
+            })
+            .catch(function(err) {
+                tampilkanAlertTeruskan('Gagal menghubungi server: ' + err.message);
+            })
+            .finally(function() {
+                teruskanSedangKirim = false;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-share"></i> Teruskan';
+            });
     }
 
     // ================================================================
@@ -2396,10 +2755,11 @@
             return '<div class="inbox-bubble ' + arah + '">' +
                 internalLabel +
                 senderLabel +
+                renderLabelDiteruskan(m) +
                 renderKotakKutipan(m) +
                 renderIsiPesan(m) +
                 penandaKutipan +
-                renderAksiBalas(m) +
+                renderAksiPesan(m) +
                 '<div class="bubble-meta">' + formatWaktuInbox(m.message_timestamp) + '</div>' +
                 '</div>';
         }).join('');
@@ -2581,6 +2941,7 @@
         container.insertAdjacentHTML('beforeend',
             '<div class="inbox-bubble outgoing">' +
             '<div class="bubble-sender">' + escapeHtmlInbox(m.sender_name) + '</div>' +
+            renderLabelDiteruskan(m) +
             renderKotakKutipan(m) +
             renderIsiPesan(m) +
             // Penanda kutipan gagal: bubble yang baru saja dikirim, jadi
@@ -2588,7 +2949,7 @@
             // (reaksi (a) REQ-006).
             (pesanTerkirimTanpaKutipan.has(m.id) ?
                 '<div class="penanda-tanpa-kutipan"><i class="fas fa-exclamation-triangle"></i> Terkirim tanpa kutipan</div>' : '') +
-            renderAksiBalas(m) +
+            renderAksiPesan(m) +
             '<div class="bubble-meta">' + formatWaktuInbox(m.message_timestamp) + '</div>' +
             '</div>');
         container.scrollTop = container.scrollHeight;
@@ -2850,6 +3211,29 @@
         if (form) form.setAttribute('data-operation-id', '');
     }
 
+    // Kunci idempotensi aksi Teruskan. Memakai pola yang sama dengan pasangan
+    // Balas di atas, tetapi hidup pada form-nya SENDIRI: kalau kunci balasan
+    // yang belum selesai dipakai ulang oleh Teruskan ke percakapan yang sama,
+    // Gateway/AuliaPos bisa membacanya sebagai replay dan pesan Teruskan tidak
+    // pernah benar-benar dikirim (REQ-010 tetap terjaga: mekanismenya sama,
+    // tidak ada kunci yang dibuat server).
+    function ambilOperationIdTeruskan() {
+        const form = document.getElementById('formTeruskan');
+        if (!form) return buatOperationIdBalasan();
+
+        let kunci = form.getAttribute('data-operation-id');
+        if (!kunci) {
+            kunci = buatOperationIdBalasan();
+            form.setAttribute('data-operation-id', kunci);
+        }
+        return kunci;
+    }
+
+    function buangOperationIdTeruskan() {
+        const form = document.getElementById('formTeruskan');
+        if (form) form.setAttribute('data-operation-id', '');
+    }
+
     function tampilkanStatusKirimBalasan(pesan, tipe) {
         const el = document.getElementById('statusKirimBalasan');
         if (!el) return;
@@ -3084,6 +3468,13 @@
     document.getElementById('teksBalasan').addEventListener('input', function() {
         buangOperationIdBalasan();
         sembunyikanStatusKirimBalasan();
+    });
+
+    // Teruskan (Tahap 4): bersihkan pilihan + pulihkan composer setiap dialog
+    // ditutup lewat cara apa pun (Batal, X, Esc, backdrop, atau setelah kirim
+    // sukses) -- bukan hanya tombol Batal.
+    document.getElementById('modalTeruskan').addEventListener('hidden.bs.modal', function() {
+        tutupPemilihTeruskan();
     });
 
     // ================================================================

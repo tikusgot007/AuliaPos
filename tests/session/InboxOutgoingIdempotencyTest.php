@@ -383,7 +383,7 @@ final class InboxGatewayIdempotencySpy extends Inbox
     {
     }
 
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
     {
         $this->capturedOperationId = $operationId;
         if ($operationId !== $this->expectedOperationId) {

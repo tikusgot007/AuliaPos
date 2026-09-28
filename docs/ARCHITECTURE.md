@@ -272,6 +272,14 @@ Current Inbox routes include:
 - Server resolves quote via `Inbox::resolveKutipan()` → writes 7 `quoted_*` columns.
 - Response includes `quote_applied: true|false` (mirrors Gateway `quote_applied`).
 
+**Forwarding a message (`POST /inbox/kirim`; media path in the `/send-media` plan phase):**
+- Request body includes optional `forward_from_message_id` (local `messages.id` of the source row).
+- `quoted_message_id` and `forward_from_message_id` are **mutually exclusive** in one request (`400`, CON-001).
+- Server reads the content from its own DB (`Inbox::resolveTeruskan()`), never from the browser payload, and enforces forwardability server-side: internal notes, unsent outgoing rows, `audio`/`video`, and any type outside `text|image|document|sticker` are rejected with `400`; `cekOwnership()` is checked on the **target** conversation only (REQ-007).
+- Stored as a new `messages` row with `is_forwarded = 1` and **all** `quoted_*` columns `NULL` (REQ-009); the Gateway call carries `forward: true` and never `quoted`.
+- Response includes `forward_marker_applied: "native"|"text_fallback"|null` (debug only — the cashier label is built from `is_forwarded`, REQ-008).
+- Idempotency reuses the existing `operation_id` / `gateway_operation_id` mechanism (REQ-010).
+
 **Incoming quote resolution (`InboxGatewayApi::resolveKutipanMasuk()`):**
 - Called on inbound webhook (`POST /api/inbox/gateway/messages`).
 - If quoted message found locally → builds snapshot from local row via `InboxQuoteSnapshotService` (ignores Gateway `snippet`).

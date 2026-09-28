@@ -27,11 +27,13 @@ final class InboxOutgoingOperationIdTest extends CIUnitTestCase
         $this->assertStringContainsString("getPost('operation_id')", $this->controllerSource);
         // Balas Pesan (Tahap 3) menambah satu parameter ADITIF pada
         // callGatewaySend(): argumen ke-5 adalah objek kutipan dari DB
-        // server. Yang dijaga guard ini tetap sama -- `operation_id` milik
-        // browser diteruskan apa adanya, tidak pernah dibuat di server --
-        // dan argumen kutipan pun bukan nilai yang dikarang controller.
+        // server. Teruskan (Tahap 4) menambah argumen ke-6: penanda forward
+        // (`true` hanya saat Teruskan, `null` saat kirim biasa). Yang dijaga
+        // guard ini tetap sama -- `operation_id` milik browser diteruskan apa
+        // adanya, tidak pernah dibuat di server -- dan argumen kutipan/
+        // forward pun bukan nilai yang dikarang controller.
         $this->assertStringContainsString(
-            "callGatewaySend(\$config, \$chatId, \$text, \$operationId, \$kutipan['quotedPayload'])",
+            "callGatewaySend(\$config, \$chatId, \$text, \$operationId, \$kutipan['quotedPayload'], \$forwardGateway)",
             $this->controllerSource
         );
         $this->assertStringContainsString("callGatewaySendMedia(\$config, \$conversation['chat_id']", $this->controllerSource);

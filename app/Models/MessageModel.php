@@ -72,6 +72,11 @@ class MessageModel extends Model
         // sticker/audio/video) -- UI memilih representasi kutipan per tipe,
         // bukan menebak dari `quoted_snippet`. NULL untuk teks/legacy.
         'quoted_media_type',
+        // Teruskan (Tahap 4, spec Section 4.2): penanda tunggal hasil aksi
+        // Teruskan. 0 = baris biasa, 1 = pesan diteruskan. Label "Diteruskan"
+        // dibangun dari kolom ini SAJA (REQ-008), bukan dari
+        // `forward_marker_applied` Gateway.
+        'is_forwarded',
         'deleted_at',
     ];
 

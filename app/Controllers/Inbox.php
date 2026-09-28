@@ -49,6 +49,29 @@ class Inbox extends BaseController
     private const PESAN_KUTIPAN_TIDAK_VALID = 'Pesan yang ingin dikutip tidak valid.';
 
     /**
+     * Pesan `400` aksi Teruskan (Tahap 4, REQ-006/GUD-001). Berbeda dari
+     * kutipan, tiap penyebab memakai pesan sendiri yang bisa dibaca kasir --
+     * sumber Teruskan BOLEH berada di percakapan lain (itulah arti aksi ini,
+     * REQ-007), jadi tidak ada oracle lintas-percakapan yang perlu disamarkan
+     * seperti pada `resolveKutipan()`.
+     */
+    private const PESAN_TERUSKAN_TIDAK_DITEMUKAN      = 'Pesan yang ingin diteruskan tidak ditemukan.';
+    private const PESAN_TERUSKAN_CATATAN_INTERNAL     = 'Catatan internal tidak bisa diteruskan.';
+    private const PESAN_TERUSKAN_BELUM_TERKIRIM       = 'Pesan ini belum terkirim, jadi tidak bisa diteruskan.';
+    private const PESAN_TERUSKAN_AUDIO_VIDEO          = 'Audio/video tidak dapat diteruskan.';
+    private const PESAN_TERUSKAN_TIPE_TIDAK_DIDUKUNG  = 'Jenis pesan ini tidak bisa diteruskan.';
+    private const PESAN_TERUSKAN_TANPA_TEKS           = 'Pesan sumber tidak punya teks untuk diteruskan.';
+    private const PESAN_TERUSKAN_DAN_KUTIPAN          = 'Tidak bisa menjawab sekaligus meneruskan. Pilih salah satu aksi.';
+
+    /**
+     * `message_type` yang boleh jadi sumber Teruskan (REQ-006): teks selalu,
+     * gambar/dokumen/stiker HANYA kalau byte-nya masih bisa diperoleh --
+     * ketersediaan file media diperiksa terpisah di jalur media (CON-002).
+     * Audio/video tidak pernah masuk daftar ini.
+     */
+    private const TIPE_TERUSKAN_DIIZINKAN = ['text', 'image', 'document', 'sticker'];
+
+    /**
      * Kolom yang dicocokkan parameter `q` (REQ-013, CL-015): semua nama/nomor
      * yang bisa tampil di daftar. Dicek per kolom, tidak pernah digabung.
      */
@@ -909,18 +932,29 @@ class Inbox extends BaseController
             ]);
         }
 
-        if ($text === '') {
-            return $this->response->setStatusCode(400)->setJSON([
-                'status'  => 'error',
-                'message' => 'Teks pesan tidak boleh kosong.',
-            ]);
-        }
+        // Teruskan (Tahap 4, spec Section 4.3): ID LOKAL `messages.id` pesan
+        // yang mau diteruskan ke percakapan ini. Mode Teruskan TIDAK mengirim
+        // `text` dari browser -- teks diambil server dari baris sumber
+        // (Section 9 "Always do": mencegah kasir memalsukan isi pesan) --
+        // jadi validasi `text` kosong/terlalu panjang di bawah sengaja
+        // dilewati, dan teks aslinya diisi `kirimKeConversation()` dari DB.
+        $forwardFromMessageId = (int) ($this->request->getPost('forward_from_message_id') ?? 0);
+        $forwardFromMessageId = $forwardFromMessageId > 0 ? $forwardFromMessageId : null;
 
-        if (strlen($text) > 4096) {
-            return $this->response->setStatusCode(400)->setJSON([
-                'status'  => 'error',
-                'message' => 'Teks pesan terlalu panjang (maksimal 4096 karakter).',
-            ]);
+        if ($forwardFromMessageId === null) {
+            if ($text === '') {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Teks pesan tidak boleh kosong.',
+                ]);
+            }
+
+            if (strlen($text) > 4096) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Teks pesan terlalu panjang (maksimal 4096 karakter).',
+                ]);
+            }
         }
 
         $conversationModel = new ConversationModel();
@@ -933,7 +967,7 @@ class Inbox extends BaseController
             ]);
         }
 
-        return $this->kirimKeConversation($conversation, $text);
+        return $this->kirimKeConversation($conversation, $text, $forwardFromMessageId);
     }
 
     /**
@@ -2240,8 +2274,16 @@ class Inbox extends BaseController
      * kirim di-dedupe lewat `gateway_operation_id` (AC-041). Kunci TIDAK
      * PERNAH dibuat di server (A-4) -- kalau kasir tidak mengirimkannya
      * (mis. halaman dimuat ulang), alur kirim berjalan seperti sebelumnya.
+     *
+     * Teruskan (Tahap 4): `$forwardFromMessageId` = ID LOKAL pesan sumber
+     * yang meneruskan operasi ini. Nilai ini dibaca `kirim()` dari request
+     * dan diteruskan apa adanya -- `mulaiPercakapan()` tidak punya aksi
+     * Teruskan sama sekali, jadi pemanggil itu selalu mengirim `null`.
+     * `null` = kirim biasa, jalur lama apa adanya. Begitu nilai ini ada,
+     * `text` dari browser DIABAIKAN dan diganti isi pesan sumber yang dibaca
+     * dari DB server (Section 9 "Always do").
      */
-    private function kirimKeConversation(array $conversation, string $text)
+    private function kirimKeConversation(array $conversation, string $text, ?int $forwardFromMessageId = null)
     {
         $conversationId = (int) $conversation['id'];
         $chatId         = $conversation['chat_id'];
@@ -2274,6 +2316,20 @@ class Inbox extends BaseController
         $quotedMessageId = (int) ($this->request->getPost('quoted_message_id') ?? 0);
         $quotedMessageId = $quotedMessageId > 0 ? $quotedMessageId : null;
 
+        // Teruskan (Tahap 4, CON-001): menjawab-dengan-kutipan dan meneruskan
+        // adalah dua aksi terpisah -- satu request tidak boleh jadi keduanya.
+        // Ditolak sebelum resolusi apa pun, jadi tidak ada kolom snapshot yang
+        // ditulis dan tidak ada baris pesan yang muncul. Diletakkan SESUDAH
+        // cekOwnership() di atas supaya 403 tetap menang (SEC-001).
+        $isForward = $forwardFromMessageId !== null;
+
+        if ($isForward && $quotedMessageId !== null) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => self::PESAN_TERUSKAN_DAN_KUTIPAN,
+            ]);
+        }
+
         $kutipan = $this->resolveKutipan($conversationId, $quotedMessageId);
 
         if ($kutipan['error'] !== null) {
@@ -2288,6 +2344,44 @@ class Inbox extends BaseController
         }
 
         $quoteSnapshot = $kutipan['snapshot'];
+
+        // Teruskan (Tahap 4): di mode Teruskan `resolveKutipan()` di atas
+        // selalu no-op (quoteSnapshot null), sehingga SETIAP kolom `quoted_*`
+        // pada baris baru terisi NULL dan payload Gateway tidak pernah
+        // membawa `quoted` (REQ-009 + CON-001) tanpa logika tambahan.
+        if ($isForward) {
+            $teruskan = $this->resolveTeruskan($conversationId, $forwardFromMessageId);
+
+            if ($teruskan['error'] !== null) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => $teruskan['error'],
+                ]);
+            }
+
+            // Isi pesan diambil dari DB SERVER, bukan dari kiriman browser --
+            // nilai `$text` yang dikirim kasir sengaja ditimpa di sini
+            // (Section 9 "Always do").
+            $text = (string) ($teruskan['source']['text'] ?? '');
+
+            if (trim($text) === '') {
+                // Melindungi dari pengiriman pesan kosong (CON-002 spirit):
+                // sumber tanpa teks tidak boleh jadi pesan teks kosong.
+                log_message('info', "Inbox::kirimKeConversation sumber Teruskan tanpa teks. conversation_id={$conversationId}, forward_from_message_id={$forwardFromMessageId}");
+
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => self::PESAN_TERUSKAN_TANPA_TEKS,
+                ]);
+            }
+
+            if (strlen($text) > 4096) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Teks pesan terlalu panjang (maksimal 4096 karakter).',
+                ]);
+            }
+        }
 
         // --- Cek Gateway usable DULU, sebelum mencoba HTTP call ------------
         // Supaya kalau Gateway jelas-jelas offline, kasir langsung tahu
@@ -2312,7 +2406,12 @@ class Inbox extends BaseController
             ]);
         }
 
-        $result = $this->callGatewaySend($config, $chatId, $text, $operationId, $kutipan['quotedPayload']);
+        // Aditif (CON-001/REQ-001): `forward` HANYA ikut saat Teruskan, dan
+        // TIDAK PERNAH bersama `quoted` -- kombinasi itu ditolak 400 di atas.
+        // Tanpa Teruskan, `null` membuat payload Gateway tidak berubah.
+        $forwardGateway = $isForward ? true : null;
+
+        $result = $this->callGatewaySend($config, $chatId, $text, $operationId, $kutipan['quotedPayload'], $forwardGateway);
 
         if (!$result['ok']) {
             return $this->gatewayFailureResponse($result, $conversationId, 'kirimKeConversation', 'Gagal mengirim pesan: ');
@@ -2349,9 +2448,13 @@ class Inbox extends BaseController
             // Replay adalah hasil kirim yang sama, jadi indikator kutipan
             // dilaporkan lagi -- Gateway menyimpannya pada baris operasinya
             // supaya tidak perlu mengira ulang atau mengirim ulang.
-            return $this->response->setStatusCode(200)->setJSON(
-                $this->withQuoteApplied($replayBody, $quoteSnapshot, $result)
+            $replayBody = $this->withForwardMarker(
+                $this->withQuoteApplied($replayBody, $quoteSnapshot, $result),
+                $isForward,
+                $result
             );
+
+            return $this->response->setStatusCode(200)->setJSON($replayBody);
         }
 
         $db->table('messages')->insert([
@@ -2376,6 +2479,10 @@ class Inbox extends BaseController
             // v1.7 (REQ-008c): tipe media sumber, dipakai UI untuk memilih
             // representasi kutipan (thumbnail/tautan/label).
             'quoted_media_type'        => $quoteSnapshot['quoted_media_type'] ?? null,
+            // Teruskan (Tahap 4, REQ-008): penanda TUNGGAL, bukan penghitung.
+            // `0` ditulis eksplisit pada jalur biasa supaya tidak bergantung
+            // pada nilai default kolom.
+            'is_forwarded'             => $isForward ? 1 : 0,
             'created_at'            => $now,
         ]);
 
@@ -2423,9 +2530,13 @@ class Inbox extends BaseController
         // `quote_applied:false` agar UI menampilkan "Terkirim tanpa kutipan"
         // -- bukan berpura-pura kutipan berhasil (ASSUMPTION-008: penanda ini
         // EPHEMERAL, tidak disimpan sebagai kolom).
-        return $this->response->setStatusCode(200)->setJSON(
-            $this->withQuoteApplied($body, $quoteSnapshot, $result)
+        $successBody = $this->withForwardMarker(
+            $this->withQuoteApplied($body, $quoteSnapshot, $result),
+            $isForward,
+            $result
         );
+
+        return $this->response->setStatusCode(200)->setJSON($successBody);
     }
 
     /**
@@ -2450,6 +2561,114 @@ class Inbox extends BaseController
         }
 
         return $body;
+    }
+
+    /**
+     * Teruskan (Tahap 4, REQ-003): lengkapi body respons dengan
+     * `forward_marker_applied` yang dilaporkan Gateway (`native` |
+     * `text_fallback`) -- HANYA ketika permintaan memang meminta Teruskan,
+     * supaya respons kirim biasa tidak berubah satu byte pun.
+     *
+     * Satu tempat untuk dua lokasi di `kirimKeConversation()` (sukses &
+     * replay `operation_id`), sama seperti `withQuoteApplied()` di atas.
+     *
+     * Field ini untuk log/debug saja: label "Diteruskan" di UI dibangun dari
+     * kolom `is_forwarded` (REQ-008), bukan dari nilai di sini -- jadi nilai
+     * yang hilang tidak boleh mengubah apa pun yang dilihat kasir.
+     *
+     * @param array<string, mixed> $body
+     * @param array<string, mixed> $result
+     *
+     * @return array<string, mixed>
+     */
+    private function withForwardMarker(array $body, bool $forwardDiminta, array $result): array
+    {
+        if (! $forwardDiminta) {
+            return $body;
+        }
+
+        $marker = $result['forward_marker_applied'] ?? null;
+
+        if ($marker === null) {
+            // Rollout parsial (EXT-001): Gateway versi lama tidak mengirim
+            // field ini sama sekali. Dilaporkan apa adanya ke log; pesan
+            // tetap terkirim dan label AuliaPos tetap tampil.
+            log_message('warning', 'Inbox::withForwardMarker Gateway tidak melaporkan forward_marker_applied (Gateway versi lama?).');
+        }
+
+        $body['forward_marker_applied'] = $marker;
+
+        return $body;
+    }
+
+    /**
+     * Teruskan (Tahap 4, spec Section 4.3): resolve pesan sumber dari
+     * `forward_from_message_id` milik kasir, lalu pastikan pesan itu memang
+     * BOLEH diteruskan sebelum Gateway dipanggil (GUD-001: aturan forwardability
+     * ditegakkan di server, bukan hanya di UI).
+     *
+     * Berbeda dengan `resolveKutipan()`, pesan sumber DI BOLEH berada di
+     * percakapan lain -- itulah justru arti aksi Teruskan (REQ-007: ownership
+     * diperiksa HANYA pada percakapan tujuan, dan `cekOwnership()` sudah
+     * menjalankannya sebelum method ini dipanggil). Karena itu tidak ada guard
+     * lintas-percakapan di sini.
+     *
+     * Aturan REQ-006 per `message_type`:
+     *  - catatan internal          -> 400 (ASSUMPTION-012: isi untuk toko,
+     *    bukan pesan pelanggan; meneruskannya membocorkan isi internal).
+     *  - outgoing belum terkirim   -> 400 (cermin aturan tombol "Balas":
+     *    pesan yang tidak pernah sampai ke siapa pun tidak boleh ikut
+     *    diteruskan).
+     *  - audio / video             -> 400, tidak berlaku apa pun status filenya
+     *    (limitasi permanen `docs/CHAT.md` §6.2).
+     *  - tipe di luar teks/gambar/dokumen/stiker -> 400.
+     *  - teks, gambar, dokumen, stiker -> LULUS; ketersediaan byte media
+     *    diperiksa terpisah di jalur media (CON-002).
+     *
+     * @return array{error: ?string, source: ?array<string, mixed>}
+     */
+    private function resolveTeruskan(int $conversationIdTujuan, ?int $forwardFromMessageId): array
+    {
+        if ($forwardFromMessageId === null) {
+            return ['error' => null, 'source' => null];
+        }
+
+        // Lookup WAJIB soft-delete-inclusive, pola yang sama seperti
+        // resolveKutipan() -- `MessageModel::find()` polos DILARANG karena
+        // `useSoftDeletes` menyaring baris itu tanpa suara (ARCH-001,
+        // Dependency Rule). Pesan sumber yang sudah di-soft-delete tetap
+        // bisa diteruskan, persis seperti masih bisa dikutip (AC-004).
+        $sumber = (new MessageModel())->findByIdIncludingDeleted($forwardFromMessageId);
+
+        if ($sumber === null) {
+            log_message('info', "Inbox::resolveTeruskan sumber tidak ditemukan. conversation_id={$conversationIdTujuan}, forward_from_message_id={$forwardFromMessageId}");
+
+            return ['error' => self::PESAN_TERUSKAN_TIDAK_DITEMUKAN, 'source' => null];
+        }
+
+        $tipe     = (string) ($sumber['message_type'] ?? 'text');
+        $internal = ! empty($sumber['is_internal']);
+        $gagal    = ($sumber['direction'] ?? null) === 'outgoing' && ($sumber['send_status'] ?? null) !== 'sent';
+
+        if ($internal) {
+            $error = self::PESAN_TERUSKAN_CATATAN_INTERNAL;
+        } elseif ($gagal) {
+            $error = self::PESAN_TERUSKAN_BELUM_TERKIRIM;
+        } elseif ($tipe === 'audio' || $tipe === 'video') {
+            $error = self::PESAN_TERUSKAN_AUDIO_VIDEO;
+        } elseif (! in_array($tipe, self::TIPE_TERUSKAN_DIIZINKAN, true)) {
+            $error = self::PESAN_TERUSKAN_TIPE_TIDAK_DIDUKUNG;
+        } else {
+            $error = null;
+        }
+
+        if ($error !== null) {
+            log_message('warning', "Inbox::resolveTeruskan ditolak. conversation_id={$conversationIdTujuan}, forward_from_message_id={$forwardFromMessageId}, message_type={$tipe}, is_internal=" . ($internal ? '1' : '0') . ", send_status=" . ($sumber['send_status'] ?? '-') . ", alasan={$error}");
+
+            return ['error' => $error, 'source' => null];
+        }
+
+        return ['error' => null, 'source' => $sumber];
     }
 
     /**
@@ -2616,10 +2835,13 @@ class Inbox extends BaseController
      * @param array<string, mixed>|null $quoted objek kutipan Balas Pesan
      *        (spec Section 4.1). null = pesan biasa, Gateway berperilaku
      *        seperti sebelumnya.
+     * @param bool|null $forward true = aksi Teruskan (spec Section 4.1).
+     *        Tidak pernah `true` bersamaan dengan `$quoted` (CON-001).
+     *        null = kirim biasa, payload tidak berubah.
      *
-     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, quote_applied?: bool, error?: string}
+     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, quote_applied?: bool, forward_marker_applied?: ?string, error?: string}
      */
-    protected function callGatewaySend(InboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null): array
+    protected function callGatewaySend(InboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
     {
         $url = $config->gatewayBaseUrl . '/send';
 
@@ -2639,6 +2861,13 @@ class Inbox extends BaseController
         // mengutip. Tanpa itu Gateway tidak mengubah apa pun.
         if ($quoted !== null) {
             $payloadData['quoted'] = $quoted;
+        }
+
+        // Teruskan (REQ-001): hanya ikut saat kasir benar-benar meneruskan.
+        // Gateway yang belum understands `forward` mengabaikan field tak
+        // dikenal, jadi request biasa tidak tersentuh.
+        if ($forward === true) {
+            $payloadData['forward'] = true;
         }
 
         $payload = json_encode($payloadData);
@@ -2681,6 +2910,11 @@ class Inbox extends BaseController
                 // penanda "Terkirim tanpa kutipan" yang jujur, bukan
                 // kutipan yang dikira berhasil padahal tidak sampai.
                 'quote_applied' => (bool) ($json['quote_applied'] ?? false),
+                // Teruskan (REQ-003): metode penanda yang benar-benar dipakai
+                // Gateway. Absen = Gateway versi lama (rollout parsial),
+                // dilaporkan apa adanya lewat withForwardMarker(); label UI
+                // tetap dibangun dari kolom `is_forwarded` (REQ-008).
+                'forward_marker_applied' => $json['forward_marker_applied'] ?? null,
                 'http_code'     => $httpCode,
             ];
         }

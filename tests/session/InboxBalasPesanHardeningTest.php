@@ -352,7 +352,7 @@ final class InboxBalasPesanHardeningTest extends CIUnitTestCase
 
 final class InboxHardeningSpy extends Inbox
 {
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
     {
         return [
             'ok'            => true,
@@ -370,7 +370,7 @@ final class InboxHardeningSpy extends Inbox
  */
 final class InboxHardeningAmbiguousSpy extends Inbox
 {
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
     {
         return [
             'ok'         => false,

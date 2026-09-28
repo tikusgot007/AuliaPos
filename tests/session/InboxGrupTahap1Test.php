@@ -540,7 +540,7 @@ final class InboxGrupTestUploadedMedia extends UploadedFile
 
 final class InboxGrupKirimSpy extends Inbox
 {
-    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null): array
+    protected function callGatewaySend(GatewayInboxConfig $config, string $chatId, string $text, ?string $operationId = null, ?array $quoted = null, ?bool $forward = null): array
     {
         return [
             'ok'            => true,
