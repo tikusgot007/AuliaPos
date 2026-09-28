@@ -2115,6 +2115,10 @@
        menyimpang. */
     const JALUR_MEDIA_TERUSKAN = <?= json_encode($tipeTeruskanLampiran) ?>;
 
+    /* CLN-701: batas unduh/tampilan media masuk dari server (satu sumber),
+       dipakai label eksplisit saat `GET /inbox/media` menjawab 413. */
+    const BATAS_MEDIA_UNDUH_MB = <?= json_encode($maxMediaDownloadMb) ?>;
+
     function adaKutipan(m) {
         return m && m.quoted_wa_message_id !== null && m.quoted_wa_message_id !== undefined && m.quoted_wa_message_id !== '';
     }
@@ -2561,6 +2565,10 @@
 
     function kategoriStatusMedia(status) {
         if (status === 410) return 'kadaluarsa';
+        // CLN-701 (opsi B): 413 = lampiran melebihi batas unduh/tampilan --
+        // kategori eksplisit supaya kasir tahu ADA lampiran besar yang tidak
+        // bisa ditampilkan, bukan "tidak tersedia" generik.
+        if (status === 413) return 'terlalu_besar';
         if (status === 502 || status === 503 || status === 504) return 'sementara';
         return 'lain';
     }
@@ -2573,6 +2581,11 @@
             // Teks lama dipertahankan apa adanya (REQ-002/CON-002).
             return '<div class="inbox-media-unavailable"><i class="fas ' + ikon + '"></i> ' +
                 label + ' tidak tersedia (kemungkinan sudah kadaluarsa)</div>';
+        }
+
+        if (kategori === 'terlalu_besar') {
+            return '<div class="inbox-media-unavailable"><i class="fas fa-file-circle-exclamation"></i> ' +
+                'Lampiran terlalu besar untuk ditampilkan (batas ' + BATAS_MEDIA_UNDUH_MB + 'MB)</div>';
         }
 
         if (kategori === 'sementara') {

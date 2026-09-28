@@ -5,7 +5,8 @@
  * (plan-bugfix-inbox-media-unavailable-v1.0, TASK-015..018).
  *
  * Logic non-trivial yang diuji:
- *   - kategoriStatusMedia()   : 410 permanen; 502/503/504 sementara; sisanya 'lain'.
+ *   - kategoriStatusMedia()   : 410 permanen; 413 'terlalu_besar'; 502/503/504
+ *     sementara; sisanya 'lain'.
  *   - htmlMediaTidakTersedia(): teks JUJUR per kategori. Kasus utama: hanya
  *     kategori 'kadaluarsa' yang boleh menyebut "kadaluarsa" (REQ-002) --
  *     ini regresi persis yang dilaporkan kasir ("semua error disebut
@@ -31,6 +32,9 @@ const assert = require('assert');
 const MEDIA_COBAAN_MAKS = 3;
 const MEDIA_JEDA_COBAAN_MS = 30000;
 
+/* CLN-701: batas unduh/tampilan media masuk dari server (default 100MB). */
+const BATAS_MEDIA_UNDUH_MB = 100;
+
 let mediaGagal;
 let mediaSementara;
 
@@ -41,6 +45,8 @@ function resetState() {
 
 function kategoriStatusMedia(status) {
     if (status === 410) return 'kadaluarsa';
+    // CLN-701 (opsi B): 413 = lampiran melebihi batas unduh/tampilan.
+    if (status === 413) return 'terlalu_besar';
     if (status === 502 || status === 503 || status === 504) return 'sementara';
     return 'lain';
 }
@@ -52,6 +58,11 @@ function htmlMediaTidakTersedia(kategori, jenis) {
     if (kategori === 'kadaluarsa') {
         return '<div class="inbox-media-unavailable"><i class="fas ' + ikon + '"></i> ' +
             label + ' tidak tersedia (kemungkinan sudah kadaluarsa)</div>';
+    }
+
+    if (kategori === 'terlalu_besar') {
+        return '<div class="inbox-media-unavailable"><i class="fas fa-file-circle-exclamation"></i> ' +
+            'Lampiran terlalu besar untuk ditampilkan (batas ' + BATAS_MEDIA_UNDUH_MB + 'MB)</div>';
     }
 
     if (kategori === 'sementara') {
@@ -117,6 +128,18 @@ check('kategoriStatusMedia: status lain -> lain (bukan permanen)', () => {
     assert.strictEqual(kategoriStatusMedia(404), 'lain');
 });
 
+check('kategoriStatusMedia: 413 -> terlalu_besar (kategori eksplisit)', () => {
+    assert.strictEqual(kategoriStatusMedia(413), 'terlalu_besar');
+});
+
+check('teks: 413 menyebut "terlalu besar" + batas, BUKAN "tidak tersedia"', () => {
+    const html = htmlMediaTidakTersedia('terlalu_besar', 'image');
+
+    assert.ok(html.includes('terlalu besar'), 'harus menyebut "terlalu besar"');
+    assert.ok(html.includes(String(BATAS_MEDIA_UNDUH_MB) + 'MB'), 'harus menyebut batas dalam MB');
+    assert.ok(!html.includes('tidak tersedia (kemungkinan sudah kadaluarsa)'), 'bukan pesan kadaluarsa');
+});
+
 check('teks: hanya kategori kadaluarsa yang menyebut "kadaluarsa" (REQ-002)', () => {
     assert.ok(
         htmlMediaTidakTersedia('kadaluarsa', 'image').includes('kadaluarsa'),
@@ -146,7 +169,7 @@ check('teks: sticker memakai ikon/label sticker, bukan gambar', () => {
 });
 
 check('teks: kelas CSS inbox-media-unavailable dipertahankan semua kategori', () => {
-    ['kadaluarsa', 'sementara', 'lain'].forEach((kategori) => {
+    ['kadaluarsa', 'terlalu_besar', 'sementara', 'lain'].forEach((kategori) => {
         const html = htmlMediaTidakTersedia(kategori, 'image');
         assert.ok(
             html.includes('class="inbox-media-unavailable"'),

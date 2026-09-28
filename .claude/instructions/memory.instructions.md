@@ -69,6 +69,9 @@
 - **WA-Gateway pairing-code-null root cause (fixed at `3e356cd`):** a `logged_out` (401) disconnect left a **zombie `this.sock`**, so `requestPairingCode()` silently resolved to `null`; the fix cleans the zombie socket up and makes the request fast-fail. Read it as a class: a stale socket handle survives the logout and every later call answers "null" instead of erroring, so a null pairing code must not be treated as an Android-side problem before the socket state is checked.
 - **Carried-forward debts (do not re-litigate, do not silently fix):** F-2's real fix — reconciling sends that completed through the 409/504 path so they are recorded in `messages` — is a **Wave 3 candidate that needs `/sdlc-define-specs`**; `ASSUMPTION-007` (Wave 2 `outgoing_operations`) stays OPEN until a Wave-2 APK is installed on the physical device; the Android Ticket 04 verification covered only **2 of 8** JSON-recovery scenarios on real hardware (a disclosed limit — "8/8 tested on Android" is NOT a valid claim); the ESC-001..004 escalation to the WA Gateway owner (**GW-11 / GW-25**) stays OPEN because the timestamp source is fixed outside this repo; `docs/ARCHITECTURE.md` §11 still owes the `aulia_inboxdb_perf` + `aulia:seed-fase1e-perf` paragraph and is routed to `/sdlc-map-architecture`; `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` still owes its Q2 narrowing sentence plus the P-01..P-06 / 4096 / 409 text.
 
+- **Teruskan view predicate canonical name (CLN-401 follow-through):** the per-message eligibility predicate in `app/Views/inbox/index.php` is **`aksiPesanTersedia()`**, shared by `renderAksiBalas()` and the Teruskan action. The former name `bolehDiteruskan()` is **retired** — any checkpoint below that still mentions it is historical dated evidence, not the current API. [Verified 2026-09-28; KB previously had no entry, so older plans citing a "KB entry with `bolehDiteruskan()`" were referring to checkpoints]
+- **Media transfer has two separate byte caps (PRN-701/CON-703, 2026-09-28):** `maxMediaUploadMb` (default 15) is the **outbound upload/send** cap; `maxMediaDownloadMb` (default 100) is the **inbound download/display** cap for `GET /inbox/media/:id`. `Inbox::callGatewayMediaDownload(..., ?int $maxBytes = null)` takes the bound from the caller and defaults to the download cap; the Teruskan send path passes the upload cap explicitly. Never reuse the upload cap as a download/display cap — doing so 413s legitimately large inbound media (that was review finding ARCH-201).
+
 ### Dead-Ends (Do NOT Repeat)
 
 | # | Attempted | Why It Failed | Correct Solution |
@@ -1907,5 +1910,43 @@
   - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit; `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` (errno 1118); data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
 
 <!-- checkpoint-tail: 2026-09-28 (Phase 6uu Write-Code Media-Bound Phase 2) /sdlc-write-code executed Phase 2 of plan/plan-refactor-teruskan-media-bound-v1.0.md: added Config\Inbox::$maxMediaDownloadMb = 100 (env inbox.maxMediaDownloadMb) as the inbound download/display cap while maxMediaUploadMb stays 15 (CON-703), gave callGatewayMediaDownload(..., ?int $maxBytes = null) a resolved default of the download cap (media() and the InboxGatewayApi prefetch call with no bound), and made bacaByteMediaTeruskan() pass the upload cap explicitly while keeping the post-fetch length check (SEC-701). Tests: testMediaMasukBesarTetapTampilSaatDalamBatasUnduh (2MB body, upload 1MB / download 5MB -> 200 and spy records 5MB), the Teruskan oversize test now also asserts the 1MB upload bound, plus a new tests/unit/InboxMediaBoundConfigTest.php locking the 15/100 defaults and env override. All three callGatewayMediaDownload() test doubles migrated to the 5-arg signature. Suite OK 671/2674 exit 0. Dead-end: adding an optional param to a production method that test doubles override requires migrating every override or PHP fatals with "Declaration must be compatible"; also a spy that overrides the method skips the production `$maxBytes ??=` default so assert the resolved value only if the spy mirrors it. Stopped at TASK-716 awaiting owner approval; Phase 3 (pure akumulasiChunk + loopback behavioural test + explicit 413 label + docs) remains. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6vv — `/sdlc-write-code` Phase 3 `plan-refactor-teruskan-media-bound-v1.0.md`; plan siap ditutup)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — **Phase 1, 2, 3 selesai**; berhenti di gate TASK-728 (persetujuan owner untuk menutup plan).
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.0.md` — Status: 🔄 In Progress (semua TASK-7xx `[x]` kecuali TASK-728 approval).
+  - `spec/spec-design-teruskan.md` — v1.3 (tidak disentuh, CON-701).
+- **Achieved Milestones:**
+  - **TASK-721/TEST-701:** `Inbox::akumulasiChunk(string $body, string $chunk, int $maxBytes): array{body,overflow}` (private static, murni) dipanggil `CURLOPT_WRITEFUNCTION`.
+  - **TASK-722:** `tests/unit/InboxAkumulasiChunkTest.php` (5 test: tepat batas, batas+1, multi-chunk, chunk besar tunggal, chunk kosong) via reflection.
+  - **TASK-723:** test statis substring DIHAPUS dari `InboxTeruskanMediaTest.php`; diganti perilaku nyata `tests/session/InboxMediaDownloadTransferBoundTest.php` — cURL sungguhan ke loopback `php -S` (proc_open) yang mengalirkan body TANPA `Content-Length`: 512KB vs bound 256KB → `413`; 64KB → `200` utuh.
+  - **TASK-724 (opsi B, WAJIB):** `kategoriStatusMedia(413)` → `'terlalu_besar'`; label "Lampiran terlalu besar untuk ditampilkan (batas {maxMediaDownloadMb}MB)"; batas dikirim controller sebagai `BATAS_MEDIA_UNDUH_MB` (bukan hardcode); salinan VERBATIM `tests/js/media-inbox-retry.check.js` disinkronkan (+2 check → 15 PASS).
+  - **TASK-725:** KB TIDAK punya entri `bolehDiteruskan()` (hanya checkpoint historis) → ditambah bullet KB kanonik `aksiPesanTersedia()` (tidak menulis ulang sejarah).
+  - **TASK-726:** `docs/ARCHITECTURE.md` — `docs/adr/` ditambah di tree §3 + baris tabel §13.
+  - **VERIFY (TASK-727):** full suite `OK (677 tests, 2688 assertions)` exit 0; `node tests/js/operation-id-composer.check.js` OK; `node tests/js/media-inbox-retry.check.js` 15 PASS.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Test loopback butuh proses terpisah:** `stream_socket_server` se-proses deadlock dengan cURL yang blocking; pakai `proc_open([PHP_BINARY,'-S','127.0.0.1:PORT',$router])` + poll `fsockopen` sampai siap + `proc_terminate` di tearDown. Router menerima ukuran lewat segmen path (`/bytes/N/media/download`) karena `callGatewayMediaDownload()` mengirim POST tanpa query.
+  - **README/TASK-725 premis basi:** plan mengklaim ada "entri KB menyebut `bolehDiteruskan()`", padahal hanya ada di checkpoint historis (append-only, JANGAN ditulis ulang). Verifikasi dulu sebelum "memperbarui" memori.
+- **Updated Files:**
+  - `app/Controllers/Inbox.php` — `akumulasiChunk()` + WRITEFUNCTION delegasi; kirim `maxMediaDownloadMb` ke view.
+  - `app/Views/inbox/index.php` — `BATAS_MEDIA_UNDUH_MB`, kategori `terlalu_besar`, label 413.
+  - `tests/unit/InboxAkumulasiChunkTest.php` — NEW (5 test).
+  - `tests/session/InboxMediaDownloadTransferBoundTest.php` — NEW (2 test, loopback).
+  - `tests/session/InboxTeruskanMediaTest.php` — hapus guard statis.
+  - `tests/js/media-inbox-retry.check.js` — sinkronisasi verbatim + 2 check.
+  - `docs/ARCHITECTURE.md`, `plan/plan-refactor-teruskan-media-bound-v1.0.md`, `.claude/instructions/memory.instructions.md`.
+- **Decisions Made:**
+  - TASK-723 memilih **ganti** (bukan hapus) guard statis dengan test perilaku loopback.
+  - Label 413 memakai batas dari server (`BATAS_MEDIA_UNDUH_MB`), bukan angka hardcode di JS.
+- **Next Action / Pending:**
+  - **Closing sequence**: checkpoint ini → commit Phase 3 → push `origin/v2.3` → prompt penutupan plan (TASK-728).
+  - Manual live-Gateway: media masuk >15MB tampil; Teruskan >15MB ditolak (owner-run).
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit (sync via skill `update-peta-kemajuan`); `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` errno 1118; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`); layout ikon Font Awesome `fa-file-circle-exclamation` perlu dicek visual (kelas FA6; bundle lokal mungkin FA5).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6vv Write-Code Media-Bound Phase 3) /sdlc-write-code executed Phase 3 of plan/plan-refactor-teruskan-media-bound-v1.0.md and the plan is ready to close (only the TASK-728 approval gate remains). Extracted the pure Inbox::akumulasiChunk() used by CURLOPT_WRITEFUNCTION with 5 unit tests; DELETED the fragile static substring guard and replaced it with a real behavioural test (tests/session/InboxMediaDownloadTransferBoundTest.php) that runs actual cURL against a php -S loopback server streaming WITHOUT Content-Length (512KB vs 256KB bound -> 413, 64KB -> 200); mapped 413 to an explicit 'terlalu_besar' category and the label "Lampiran terlalu besar untuk ditampilkan (batas NMB)" in the view, bound passed from the controller as BATAS_MEDIA_UNDUH_MB, and re-synced the VERBATIM JS copy tests/js/media-inbox-retry.check.js (15 PASS); the KB had no bolehDiteruskan entry (only historical checkpoints) so a canonical KB bullet for aksiPesanTersedia() was added instead of rewriting history; docs/adr/ recorded in docs/ARCHITECTURE.md tree + section 13. Verify: suite OK 677/2688 exit 0, both node checks pass. Dead-end: loopback tests need a separate process (proc_open php -S + fsockopen readiness poll) because an in-process stream_socket_server deadlocks a blocking cURL, and the router must receive the byte count via the URL path since callGatewayMediaDownload posts no query. Next: close the plan after owner approval (TASK-728); manual live-Gateway check still owner-run. -->
 
 ---

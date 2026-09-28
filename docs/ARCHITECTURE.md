@@ -44,6 +44,7 @@ AuliaPos/
 │   ├── ThirdParty/        # Local third-party integration area
 │   └── Views/             # Server-rendered UI
 ├── docs/                  # Business and technical documentation
+│   └── adr/               # Architecture Decision Records (NNNN-slug.md)
 ├── public/                # Web root and static assets
 ├── tests/
 │   ├── database/          # Database/model/integration tests
@@ -497,6 +498,7 @@ The following constraints are important for subsequent Handoff and Collision Det
 | Inbox quote snapshot | `app/Services/InboxQuoteSnapshotService.php` |
 | Inbox media | `app/Libraries/InboxMediaStorage.php` |
 | Inbox UI | `app/Views/inbox/index.php` |
+| Architecture decisions | `docs/adr/` (numbered `NNNN-slug.md`, e.g. `0002-teruskan-source-visibility-risk-acceptance.md`) |
 | Production migrations | `app/Database/Migrations/` |
 | Test support | `tests/_support/` |
 | Database tests | `tests/database/` |

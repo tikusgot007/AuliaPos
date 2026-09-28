@@ -155,6 +155,10 @@ class Inbox extends BaseController
             // supaya rute otomatis UI dan guard server (TIPE_TERUSKAN_LAMPIRAN
             // di kirimMedia()) tidak bisa menyimpang.
             'tipeTeruskanLampiran' => self::TIPE_TERUSKAN_LAMPIRAN,
+            // CLN-701 (opsi B): batas unduh/tampilan media masuk, dipakai
+            // view untuk label eksplisit saat `GET /inbox/media` menjawab
+            // `413` (bukan "tidak tersedia" generik).
+            'maxMediaDownloadMb' => (new InboxConfig())->maxMediaDownloadMb,
         ];
 
         return view('layout/minimal', $data);
@@ -680,13 +684,14 @@ class Inbox extends BaseController
             // manual supaya batas byte bisa ditegakkan sambil mengalir.
             CURLOPT_RETURNTRANSFER => false,
             CURLOPT_WRITEFUNCTION  => function ($handle, string $chunk) use (&$body, &$overflow, $maxBytes): int {
-                if (strlen($body) + strlen($chunk) > $maxBytes) {
+                $hasil = self::akumulasiChunk($body, $chunk, $maxBytes);
+                $body  = $hasil['body'];
+
+                if ($hasil['overflow']) {
                     $overflow = true;
 
                     return 0; // membatalkan transfer (CURLE_WRITE_ERROR)
                 }
-
-                $body .= $chunk;
 
                 return strlen($chunk);
             },
@@ -733,6 +738,24 @@ class Inbox extends BaseController
         }
 
         return ['ok' => true, 'binary' => $body];
+    }
+
+    /**
+     * TEST-701: akumulasi SATU chunk body saat transfer media mengalir.
+     * Sengaja fungsi MURNI supaya batas byte bisa diuji langsung tanpa
+     * cURL. Mengembalikan `overflow = true` -- TANPA menambah chunk -- bila
+     * total akan melewati `$maxBytes`; callback cURL memakainya untuk
+     * membatalkan transfer (return 0 -> CURLE_WRITE_ERROR).
+     *
+     * @return array{body: string, overflow: bool}
+     */
+    private static function akumulasiChunk(string $body, string $chunk, int $maxBytes): array
+    {
+        if (strlen($body) + strlen($chunk) > $maxBytes) {
+            return ['body' => $body, 'overflow' => true];
+        }
+
+        return ['body' => $body . $chunk, 'overflow' => false];
     }
 
     /**

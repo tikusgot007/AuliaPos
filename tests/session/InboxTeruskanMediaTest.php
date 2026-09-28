@@ -650,21 +650,11 @@ final class InboxTeruskanMediaTest extends CIUnitTestCase
         $this->assertSame(0, $this->countOutgoing($tujuan), 'Tidak ada baris yang ditulis.');
     }
 
-    public function testUnduhanGatewayDibatasiSelamaTransferDiSumber(): void
-    {
-        // Guard statis (SEC-602/COR-701): pengecekan ukuran harus terjadi SAAT
-        // byte mengalir, bukan setelah respons penuh ter-buffer. Mengunci
-        // keberadaan WRITEFUNCTION + klasifikasi errno di sumber, karena test
-        // perilaku di atas memakai spy yang melewati cURL sungguhan.
-        // `CURLOPT_MAXFILESIZE` sengaja dibuang (ALT-701) supaya tidak ada dua
-        // jalur klasifikasi yang bergantung `Content-Length`.
-        $sumber = file_get_contents(APPPATH . 'Controllers/Inbox.php');
-
-        $this->assertStringContainsString('CURLOPT_WRITEFUNCTION', $sumber);
-        $this->assertStringNotContainsString('CURLOPT_MAXFILESIZE', $sumber, 'ALT-701: hanya satu mekanisme klasifikasi.');
-        $this->assertStringContainsString('CURLE_WRITE_ERROR', $sumber, 'COR-701: errno batas sebagai sinyal deterministik.');
-        $this->assertStringContainsString("'status' => 413", $sumber, 'Transfer berlebih harus menghasilkan sinyal 413.');
-    }
+    // Guard statis `testUnduhanGatewayDibatasiSelamaTransferDiSumber` DIPINDAH
+    // (TASK-723) ke test PERILAKU nyata: `InboxAkumulasiChunkTest` (unit murni
+    // batas byte) + `InboxMediaDownloadTransferBoundTest` (cURL sungguhan vs
+    // loopback server tanpa `Content-Length`). Substring sumber rapuh dan
+    // tidak membuktikan transfer benar-benar dibatalkan.
 
     // ------------------------------------------------------------------
     // PRN-304: resolveForwardMediaSource() -- urutan disk -> live-fetch -> gone
