@@ -1,8 +1,36 @@
 # Status Proyek — AuliaPos + WA-Gateway (Master Reference)
 
-**Terakhir diupdate:** 24 September 2026 WIB (koreksi janitor: status live Gateway, roadmap M1 dan M3, serta pemulihan 2 laporan klarifikasi M1 Wave 1 dari riwayat git — isi laporan tidak diubah), setelah **M1 Wave 1 ditutup** (deploy TASK-019, AC-001 nyata TASK-017 lulus 3/3, APPROVAL TASK-018). **Status M1 Wave 1:** TASK-001 s/d TASK-019 selesai mengikuti `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (21 komit M1 `065f683` berjalan di Gateway nyata sejak 23 Sep 16:40 WIB; plan refactor pasca `/sdlc-code-review` **selesai** — 9 komit `2ca3065`..`fb585f1`; semuanya (30 komit) masuk `origin/master` lewat **PR #4, merge commit `21a4cb6`** (23 Sep malam), branch fitur + worktree `C:\projects\WA-Gateway-m1` sudah dihapus; **folder live di-deploy ke `21a4cb6` pada 23 Sep 18:47 WIB** — sama dengan `origin/master`). Kode ad-hoc sandbox (E-03/E-04/E-05/E-09) sudah ditimpa/disesuaikan sesuai kontrak plan, dan E-01/E-06 diimplementasikan ulang sesuai plan — rincian dan penyimpangan dari spec: `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`. **Bukti AC-001 sudah nyata** (Gateway live, 3× `pm2 stop`: 30/30 pesan, 0 hilang, 0 duplikat); bukti AC-002–AC-018 tetap simulasi. **M1 Wave 1 ditutup 23 Sep** — bukti: `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md`. **Diverifikasi ulang 24 Sep 2026:** folder live `C:\projects\WA-Gateway` = `21a4cb6` = `origin/master`, PM2 `wa-gateway` status `online` (unstable restarts 0).
-**Cek centang:** 21 September 2026 ~14:30 WIB (diverifikasi langsung ke repo dan mesin Aan-PC) + **pembaruan 23 September 2026**: M1 Wave 1 ditutup dengan **bukti nyata** (Gateway live, 3× `pm2 stop`), bukan lagi hanya simulasi/mock. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[~]` = selesai sebagian, `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
+**Terakhir diupdate:** 28 September 2026 WIB. Pembaruan besar: seluruh fitur Inbox WhatsApp yang dimulai 26 September (**Grup Tahap 1**, **Grup Tahap 2**, **Balas Pesan Tahap 3**, **Inbox Read Authorization**) sudah **SELESAI penuh** dan sudah ter-*push* ke `origin/v2.3`. Lihat bagian "Status Sekarang" di bawah untuk ringkasannya.
+**Riwayat pembaruan sebelumnya:** 24 September 2026 (koreksi janitor: status live Gateway, roadmap M1 dan M3, pemulihan 2 laporan klarifikasi M1 Wave 1) — setelah **M1 Wave 1 ditutup** (deploy TASK-019, AC-001 nyata TASK-017 lulus 3/3, APPROVAL TASK-018). Bukti AC-001 sudah nyata (Gateway live, 3× `pm2 stop`: 30/30 pesan, 0 hilang, 0 duplikat); bukti AC-002–AC-018 tetap simulasi. Rincian: `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md`. M1 Wave 1 masuk `origin/master` lewat **PR #4, merge commit `21a4cb6`** (23 Sep malam).
+**Cek centang:** 21 September 2026 ~14:30 WIB (diverifikasi langsung ke repo dan mesin Aan-PC) + pembaruan 23, 24, dan 28 September 2026. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[~]` = selesai sebagian, `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
 **Cara pakai:** Sematkan/paste dokumen ini di awal sesi Claude Code baru sebagai context. Update bagian "Status Sekarang" dan "Yang Menggantung" setiap kali ada progres baru — dokumen ini gampang basi kalau kerja paralel jalan di beberapa sesi Claude Code sekaligus, jadi **selalu `git fetch` + cek HEAD nyata sebelum percaya isi dokumen ini secara buta**.
+
+---
+
+## Status Sekarang (28 September 2026)
+
+### Dua repo
+
+| Repo | Branch | HEAD | Status |
+| --- | --- | --- | --- |
+| AuliaPos | `v2.3` | `bbb91c4` | Bersih, sudah sinkron dengan `origin/v2.3` |
+| WA-Gateway | `master` | `a2ba409` | Bersih, sudah sinkron dengan `origin/master`, ada di `C:\projects\WA-Gateway` |
+
+> [!IMPORTANT]
+> Status proses Gateway **belum diverifikasi** saat pembaruan ini ditulis — `pm2` tidak ada di `PATH` shell yang dipakai, jadi jangan diasumsikan Gateway sedang online. Cek sendiri sebelum uji apa pun yang butuh Gateway hidup.
+
+### Fitur WhatsApp Inbox yang sudah SELESAI (26–28 September 2026)
+
+Keempat fitur berikut sudah thru **PRD → Spec → Plan → Kode → Review** dan sudah ter-*push*. Semuanya punya dokumen spec + plan sendiri di `/spec/` dan `/plan/`.
+
+- [x] **Grup Tahap 1** — tab **Grup** terpisah dari antrean kasir, penandaan grup, penonaktifan aksi yang tidak berlaku untuk grup, perbaikan badge `perlu_dibalas`. Spec `spec-design-grup-tahap1-tab-inbox.md` v1.2, plan `plan-feature-grup-tahap1-v1.0.md` Completed. Review commit `09a6f0e`: **clear to merge**.
+- [x] **Grup Tahap 2** — identitas pengirim per pesan (nomor telepon atau LID, tidak pernah JID mentah) + nama grup stabil sebagai judul percakapan. Spec `spec-design-grup-tahap2-identitas.md` v1.4, plan AuliaPos + Gateway Completed. Dilanjut **Sender Identity Hardening** (`plan-refactor-sender-identity-label-hardening-v1.0.md`) setelah review menemukan kebocoran JID mentah.
+- [x] **Balas Pesan Tahap 3 (GH-015)** — balas pesan **berkutipan asli WhatsApp**, untuk teks maupun lampiran, plus tampilan kutipan masuk dari pelanggan. Berlaku **dua repo**: AuliaPos (snapshot kutipan di 7 kolom `messages.quoted_*` + `InboxQuoteSnapshotService`) dan WA-Gateway (`quoted` opsional di `/send` + `/send-media`, `quote_applied` di respons). Spec `spec-design-balas-pesan.md` **v1.8**, plan AuliaPos + Gateway Completed, lalu **2 ronde review** + 2 plan remediasi (`plan-refactor-balas-pesan-tahap3-v1.0.md`, `plan-refactor-balas-pesan-tahap3-review2-v1.0.md`) yang menutup temuan keamanan (urutan guard otorisasi, IDOR media, cuplikan tanpa batas), **fidelitas tipe media** kutipan (`REQ-008c` + kolom `quoted_media_type`), dan kebersihan arsitektur. **Diverifikasi live** terhadap Baileys sungguhan (kotak kutipan native terlihat di WhatsApp), bukan simulasi saja.
+- [x] **Inbox Read Authorization (ALT-003/AUTHZ-02)** — keputusan **baca terbuka, tulis terbatas**: semua staff yang login boleh melihat semua percakapan, thread, dan media; operasi tulis tetap **terbatas ke pemegang/admin**; Internal Note terbuka. `GET /inbox/media/(:num)` **dibuka** (guard `cekOwnership()` dihapus), `GET /inbox/api/conversations/(:num)/messages` **tetap** `auth`-only tanpa guard kepemilikan. Spec `spec-design-inbox-read-authorization.md` v1.1, plan `plan-refactor-inbox-media-read-authorization-v1.0.md` Completed, review commit `1961bda`: **clear to merge**, 0 temuan CRITICAL/REQUIRED.
+
+### Baseline test terbaru
+
+- **574 test / 2201 assertion, OK, exit 0** (28 Sep 2026, `vendor/bin/phpunit --no-coverage`). Naik dari 573/2196 setelah 3 perbaikan kecil (`DOC-01`, `TEST-01`, paragraf perf-DB). Angka ini naik tiap sesi yang menambah test — jangan pakai angka beku sebagai gerbang.
 
 ---
 
@@ -13,18 +41,29 @@
 ## Roadmap Besar
 
 - [x] Tahap 0 — Baseline (DONE 20 Sep; decision log `docs/decisions/2026-09-19-tahap-0-baseline.md`)
-- [~] M1 — Reliability (Ticket 01 selesai; **Wave 1 = Ticket 02–04 SELESAI & LIVE 23 Sep** — AC-001 3/3 nyata **diukur pada** `065f683`; folder live sekarang **@ `21a4cb6`** (deploy 23 Sep 18:47 WIB, sama dengan `origin/master`); Ticket 05–16 belum)
-- [ ] M2 — State Consistency (belum mulai)
-- [~] M3 — Operational Workflow (**Fase 1 (1a–1d) + Fase 2a Handoff/Collision SELESAI & ter-merge di `v2.3` lewat PR #41 `ce94660`**; audit konsistensi Fase 1 (24 Sep) = 95/100; Fase 1e (GH-010) dan sisa M3 belum)
+- [~] M1 — Reliability (Ticket 01 selesai; **Wave 1 = Ticket 02–04 SELESAI & LIVE 23 Sep**; **Wave 2 (idempotensi outgoing) plan Completed 27 Sep**; Ticket 05–16 & sebagian Wave 2 belum — lihat butir M1 di bawah)
+- [ ] M2 — State Consistency (belum mulai; **tidak menjadi blocker** — Fase 2 M3 sudah dibuka lewat amendemen PRD, lihat catatan urutan di bawah)
+- [~] M3 — Operational Workflow (**Fase 1 (1a–1d) + Fase 1e (pencarian pesan) + Fase 2a (Handoff/Collision) SELESAI**; ditambah **Grup Tahap 1 & 2, Balas Pesan Tahap 3, Inbox Read Authorization** selesai Sep 2026; sisa M3 = Fase 2b auto-assignment + Fase 3 (menunggu M5))
 - [ ] M4 — POS / Customer Context (belum dibahas)
 - [ ] M5 — Intelligence / AI (belum dibahas)
+
+> **Catatan urutan (28 Sep 2026):** Aturan lama "M3 harus menunggu M2" sudah **tidak berlaku** untuk Handoff/Collision. PRD diamandemen ke v1.1 dan Fase 2a selesai memakai **conditional write sempit** (`WHERE id = ? AND assigned_to = ?` + `affectedRows()`), pola yang sama dengan `ambilPercakapan()` yang memang sudah atomic — jadi Fase 2a **tidak butuh M2 penuh**. **M2 sebagai program besar tetap belum dimulai:** `docs/ARCHITECTURE.md` §12 masih menandai jalur `lepas`/`tutup`/`snooze`/`tandaiDibaca`/`hapus` sebagai non-atomic.
+
+### Fitur WhatsApp Inbox (dipisah dari roadmap M3, 26–28 Sep 2026)
+
+PRD: `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — **v1.2**.
+
+- [x] **Tahap 1 — Grup di AuliaPos** (GH-011/GH-012)
+- [x] **Tahap 2 — Grup di WA-Gateway** (GH-013/GH-014)
+- [x] **Tahap 3 — Balas Pesan** (GH-015) — dua repo
+- [ ] **Tahap 4 — Teruskan** (GH-016) — dua repo. **Spec `spec-design-teruskan.md` SUDAH ada**, tapi **belum ada plan** (`plan/plan-feature-teruskan-*.md` tidak ada). Langkah berikutnya: `/sdlc-plan-tasks`.
 
 Urutan bergantung ke bawah: Tahap 0 → M1 → M2 → M3 → M4 → M5.
 
 ## Aturan Tetap (berlaku di semua tahap)
 
 - **Dokumentasi bukan source of truth.** Source code, migration, test, dan git diff adalah sumber kebenaran.
-- **Jangan loncat tahap.** Tiap tahap punya prasyarat dari tahap sebelumnya — terutama M3 yang sebagian bergantung keras pada M2 (lihat catatan di bagian M3).
+- **Jangan loncat tahap.** Tiap tahap punya prasyarat dari tahap sebelumnya. **Pengecualian yang sudah diputuskan:** prasyarat "M2 harus selesai" untuk Fase 2 M3 sudah dicabut (lihat catatan di bagian M3), jadi sebagian pekerjaan M3 berjalan lebih dulu.
 - **Klaim harus berbasis bukti nyata**, bukan asumsi. Kalau ada yang tidak bisa diverifikasi, catat sebagai limitation eksplisit, jangan ditutup-tutupi atau dipaksakan kesimpulan.
 
 ---
@@ -33,26 +72,26 @@ Urutan bergantung ke bawah: Tahap 0 → M1 → M2 → M3 → M4 → M5.
 
 ### AuliaPos
 - Repo: `tikusgot007/AuliaPos`
-- Branch: `v2.2`
-- HEAD terverifikasi (21 Sep): `d7abf1d` (merge PR #39, sebelum commit dokumen ini); pengecekan penuh terakhir di `0ee6a49` (#34). Sejak itu masuk plan/spec/handoff M1 Wave 1 (PR #35 s/d #39)
-- 37 commit masuk sejak HEAD lama (`07d30c8`) — mencakup merge Tahap 0 (PR #24, #25) + rangkaian spec/plan M3 Fase 1 (PR #26, #28, #29, #30, #31, #32, #33, #34)
-- Branch kerja M3 yang sudah ter-merge/selesai perannya: `claude/tahap-0-aulia-wa-handoff-ic861g`, `claude/cek-dulu-ubvqe2`, `claude/spec-operational-inbox-fase1-tuux4c`, `claude/m3-operational-inbox-plan-h244ji`, `claude/m3-inbox-plan-review-y9mbw3`
-- Tooling baru: `.claude/standards/` berisi skema SDLC (spec → clarification report → plan → ADR), `AGENTS.md` diganti "SDLC Orchestrator template"
+- Branch: **`v2.3`** (dulu dokumen ini menyebut `v2.2` — sudah usang)
+- HEAD terverifikasi **28 Sep 2026**: `bbb91c4` (3 perbaikan kecil: docblock `cekBukanGrup()`, test grup tertutup, paragraf perf-DB di `docs/ARCHITECTURE.md`), sinkron dengan `origin/v2.3`, working tree bersih
+- `origin/HEAD` masih menunjuk ke `v2.1` — **abaikan**, itu cuma alias default remote
+- Branch yang sudah selesai perannya: `claude/tahap-0-aulia-wa-handoff-ic861g`, `claude/cek-dulu-ubvqe2`, `claude/spec-operational-inbox-fase1-tuux4c`, `claude/m3-operational-inbox-plan-h244ji`, `claude/m3-inbox-plan-review-y9mbw3`, `feature/m3-operational-inbox-fase1a-task001` (merged via PR #41, dihapus 24 Sep)
+- Konfigurasi AI sekarang: `.claude/` adalah **satu-satunya** sumber config AI (Claude Code, Kilo, Cline). Folder `.agents/` **sudah dihapus**; `AGENTS.md` membuka dengan penunjuk ke `.claude/`
 
 ### WA-Gateway
 - Repo: `tikusgot007/WA-Gateway`
-- [x] Branch utama sekarang: `origin/master` @ `21a4cb6` (merge commit PR #4, 23 Sep malam; induk `e18f716` + `fb585f1`) — **satu-satunya branch di remote**. `master` lokal di folder live = `21a4cb6` (di-deploy 23 Sep 18:47 WIB, sama dengan `origin/master`). Branch `claude/android-app-p40bl1` **sudah tidak ada di remote** — kode `5b28eb6` masuk `master` lewat PR #1
-- [x] `5b28eb6c8a7e6e6c2e1d5b7d7261389f9309c295` adalah ancestor `master`, jadi baseline tetap valid
-- [ ] `master` sudah merge PR #1 dari `claude/android-app-p40bl1` + commit "Create node.exe" (packaging, di luar scope M1)
-- Branch lain yang muncul (`fix/lid-fromme-pushname-leak`, `claude/cek-bandingkan-mimac-fln1h4`) — dicek, **tidak relevan** dengan kerja saat ini (versi lama/terpisah, salah satunya referensi "AuliaPos v3.0")
-- [x] **`feature/stage-1-reliability` (dulu di worktree `C:\projects\WA-Gateway-m1`) berisi eksekusi plan resmi M1 Wave 1 Fase 1–3**: 21 commit di atas `e18f716` (8 pra-plan `3fd5f40`..`091fe19` + 13 plan `baf1896`..`065f683`) — plus 9 komit refactor `2ca3065`..`fb585f1`; keduanya **berjalan di folder live** sejak deploy `21a4cb6` (23 Sep 18:47 WIB). **Di-merge ke `master` lewat PR #4 (merge commit `21a4cb6`, 23 Sep malam)**; sesudahnya branch `feature/stage-1-reliability`, `claude/buka-todo-chat-omnc7k`, `claude/aulia-wa-status-master-xg4fcr` (skrip baseline Ticket 01, sengaja dibuang) dan worktree m1 **dihapus**. Kode ad-hoc sandbox sudah ditimpa sesuai kontrak plan (retry 50/200/800 ms + overflow 500 event, timeout LID 2 detik + cache negatif 60 detik, dst.); E-01 dan E-06 diimplementasikan ulang sesuai plan (`ownSentRegistry`, isolasi error tanpa pesan minimal). Bukti AC-002..AC-018 simulasi; **AC-001 nyata** 23 Sep. Rincian: `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`. Riwayat kerja ad-hoc dan konfliknya dengan plan: `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md`
+- Branch utama sekarang: `origin/master` @ `a2ba409` — **satu-satunya branch di remote**. HEAD terverifikasi **28 Sep 2026**: `a2ba409` = `origin/master`, sinkron, working tree bersih. Commit ini berisi **Balas Pesan (native reply quoting)** di `/send` + `/send-media`
+- **Lokasi checkout: `C:\projects\WA-Gateway`.** (Catatan 25 Sep pernah mencatat checkout pindah ke `C:\home\wa-gateway-review` — **itu sudah tidak berlaku lagi**; `C:\home` tidak ada per 28 Sep, dan `C:\projects\WA-Gateway` kembali ada di `a2ba409`). Selalu cek disk dulu sebelum percaya path yang ingatan
+- [x] `5b28eb6c8a7e6e6c2e1d5b7d7261389f9309c295` (PR #1, `claude/android-app-p40bl1` + "Create node.exe") adalah ancestor `master`, jadi baseline tetap valid
+- Branch lain yang pernah muncul (`fix/lid-fromme-pushname-leak`, `claude/cek-bandingkan-mimac-fln1h4`) — **tidak relevan** dengan kerja saat ini (versi lama/terpisah, salah satunya referensi "AuliaPos v3.0")
+- [x] **Riwayat M1 Wave 1 (referensi historis, bukan status):** branch `feature/stage-1-reliability` (dulu di worktree `C:\projects\WA-Gateway-m1`) berisi 21 commit di atas `e18f716` (8 pra-plan `3fd5f40`..`091fe19` + 13 plan `baf1896`..`065f683`) plus 9 komit refactor `2ca3065`..`fb585f1`; semua **di-merge ke `master` lewat PR #4 (merge commit `21a4cb6`, 23 Sep malam)** dan branch + worktree m1 **sudah dihapus**. Kode ad-hoc sandbox sudah ditimpa sesuai kontrak plan (retry 50/200/800 ms + overflow 500 event, timeout LID 2 detik + cache negatif 60 detik, dst.); E-01 dan E-06 diimplementasikan ulang sesuai plan (`ownSentRegistry`, isolasi error tanpa pesan minimal). Bukti AC-002..AC-018 simulasi; **AC-001 nyata** 23 Sep. Titik rollback: `065f683` (M1 tanpa refactor, sudah lulus AC-001 nyata) lalu `e18f716` (sebelum M1). Rincian: `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`; konflik kerja ad-hoc vs plan: `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md`
 
-### Environment aktif (hasil verifikasi terakhir)
-- [x] Gateway yang benar-benar jalan **sekarang**: `C:\projects\WA-Gateway` (branch `master` **@ `21a4cb6`** sejak 23 Sep 18:47 WIB — deploy fast-forward M1 + refactor; sebelumnya `065f683` sejak 16:40 WIB; PM2 `wa-gateway`, auto-start via registry `HKCU\...\Run`), nomor `6281913500707` (nomor uji), status `connected` (18:47:14 WIB, log tanpa warning/error/`[CRITICAL]`). Titik rollback: `065f683` (M1 tanpa refactor, sudah lulus AC-001 nyata) lalu `e18f716` (sebelum M1)
-- [x] Catatan lama menyebut `G:\wa-gateway-5b28eb6`. Folder itu masih ada, tetapi HEAD-nya sebenarnya `e18f716` (nama folder menyesatkan). Jangan jalankan bersamaan dengan yang di atas (port 3000 dan sesi WhatsApp bentrok)
-- [x] 3 folder Gateway lama di drive G sudah dirapikan: dipindah ke `G:\arsip-gateway\` (20 Sep) lengkap dengan `README.txt` berisi label dan peringatan
-- [x] Folder `htdocs\wa-gateway` (yang `.env`-nya sempat diubah) sudah bukan yang dipakai dan sudah diarsipkan sebagai `htdocs-wa-gateway-poc-2026-09-12`. Isi `.env` di dalamnya tidak saya periksa ulang
+### Environment aktif (hasil verifikasi 28 September 2026)
+- [~] **Status Gateway TIDAK diverifikasi** saat pembaruan ini ditulis. Yang pasti: checkout `C:\projects\WA-Gateway` ada di `master` @ `a2ba409` (sinkron dengan `origin/master`). Yang **tidak** bisa diklaim: apakah prosesnya sedang jalan — `pm2` tidak ada di `PATH` shell yang dipakai, jadi **status online/connected tidak boleh diasumsikan**. Cek sendiri (`pm2 list` dari shell yang punya PM2) sebelum uji apa pun yang butuh Gateway hidup
+- [x] Catatan lama menyebut `G:\wa-gateway-5b28eb6` dan folder arsip `G:\arsip-gateway\` (20 Sep). Per 28 Sep 2026 `G:\arsip-gateway` **tidak ada** di disk. Jangan jalankan checkout Gateway ganda bersamaan (port 3000 dan sesi WhatsApp bentrok)
+- [x] Folder `htdocs\wa-gateway` (yang `.env`-nya sempat diubah) sudah bukan yang dipakai dan sudah diarsipkan sebagai `htdocs-wa-gateway-poc-2026-09-12`. Isi `.env` di dalamnya tidak pernah diperiksa ulang
 - [x] Setup Aan-PC (21 Sep): XAMPP MySQL dan Apache sebagai Windows Service (Automatic), AuliaPos di `C:\xampp\htdocs\aulia` (HTTP 200), WA-Gateway di PM2
+- [x] **AuliaPos Inbox punya 3 database terpisah** yang tidak boleh dicampur: `aulia_inboxdb` (produksi), `aulia_inboxdb_test` (dipakai PHPUnit — semua test Inbox mengosongkan tabelnya di `setUp()`, jadi **jangan pernah jalanin 2 proses PHPUnit bersamaan**), `aulia_inboxdb_perf` (fixture 200.000 baris untuk ukur kecepatan pencarian, diisi lewat `php spark aulia:seed-fase1e-perf --dbgroup=inbox`, command ini menolak jalan kalau database aktif bukan `aulia_inboxdb_perf`). Resep provisioning ketiganya ada di `docs/ARCHITECTURE.md` §11
 - ~~Tes reboot sungguhan untuk auto-start PM2~~ — **dicoret 21 Sep: di luar scope pengembangan** (auto-start sudah terpasang dan disimulasikan dengan `pm2 kill`)
 
 ---
@@ -79,9 +118,10 @@ Hasil ringkas (item "dilaporkan" berasal dari decision log Tahap 0 dan tidak dij
 
 ---
 
-### M1 — Reliability 🚦 WAVE 1 SELESAI (ditutup 23 Sep) — Ticket 01 (pengukuran) selesai 21 Sep; Wave 1 (Ticket 02–04) selesai + live, AC-001 3/3 nyata; Ticket 05–16 (gelombang 2–3) belum
+### M1 — Reliability 🚦 WAVE 1 + WAVE 2 SELESAI — Ticket 01 (pengukuran) selesai 21 Sep; Wave 1 (Ticket 02–04) selesai + live, AC-001 3/3 nyata; **Wave 2 (idempotensi outgoing) plan Completed 27 Sep**; Ticket 05–16 belum
 
-**Status nyata (dicek 21 Sep)**: Ticket 01 dijalankan di Aan-PC pada 21 Sep. Hasil lengkap: `docs/decisions/2026-09-21-m1-ticket01-baseline.md`. Ticket 01 murni pengukuran (tanpa perbaikan kode). **Update 23 Sep:** Wave 1 sudah **dideploy ke folder live** (`065f683` — fast-forward + `pm2 restart`, TASK-019) dan **AC-001 diukur dengan Gateway nyata**: 3/3 percobaan `pm2 stop`, 30/30 pesan, 0 hilang, 0 duplikat → **risiko P0 #1 tertutup**. Risiko P0 #2 (JSON fallback), #3 (idempotensi `/send`), #4, dan #5 masih terbuka. Rincian: `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md`.
+**Status nyata (dicek 21 Sep, diperbarui 28 Sep)**: Ticket 01 dijalankan di Aan-PC pada 21 Sep. Hasil lengkap: `docs/decisions/2026-09-21-m1-ticket01-baseline.md`. Ticket 01 murni pengukuran (tanpa perbaikan kode). **Update 23 Sep:** Wave 1 sudah **dideploy ke folder live** (`065f683` — fast-forward + `pm2 restart`, TASK-019) dan **AC-001 diukur dengan Gateway nyata**: 3/3 percobaan `pm2 stop`, 30/30 pesan, 0 hilang, 0 duplikat → **risiko P0 #1 tertutup**. Risiko P0 #2 (JSON fallback), #3 (idempotensi `/send`), #4, dan #5 masih terbuka. Rincian: `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md`.
+- [x] **Wave 2 — Idempotensi outgoing (selesai 27 Sep 2026)**: spec `spec/spec-process-m1-wave2-outgoing-idempotency.md`, plan `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` **Completed** (Fase 1–5; `operation_id` dibuat di frontend, lease 35 detik, batas 5 percobaan kirim, dedupe via `findMessageByOperationId()`, penerjemahan jawaban Gateway `SEND_IN_PROGRESS`/`SEND_UNRESOLVED` → `uncertain: true`). Fase 5 **migrasi `aulia_inboxdb` nyata**. Klarifikasi plan 88/100 PROCEED. Plan bugfix `plan-bugfix-outgoing-idempotency-f1-f2-v1.0.md` (F-1/F-2) juga **Completed**.
 - [x] **`/sdlc-code-review` M1 (23 Sep)**: laporan `docs/audit/code-review-m1-wave1-2026-09-23.md` — verdict **0 P0 / 1 P1 / 14 P2**, 19/19 REQ terpenuhi, tidak ada temuan yang membatalkan AC-001; perbaikan dikumpulkan di `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` (plan refactor **Completed** — Fase 1 + Fase 2, TASK-101..209, 9 komit `2ca3065`..`fb585f1`, masuk `master` lewat PR #4 `21a4cb6`; CR-01/02/03/04/13/14/16 diperbaiki, backlog CR-05..CR-11 + CR-15; **di-deploy ke folder live 23 Sep 18:47 WIB**, bukti refactor = simulasi, AC-001 nyata belum diulang untuk `21a4cb6`).
 
 **Ticket 01 — Baseline Test** (rencana asli: `m1-ticket01-baseline-eksekusi.md`, di luar repo):
@@ -152,23 +192,27 @@ Fokus:
 - [ ] Audit transition
 - [ ] Health yang bisa dipercaya
 
-- [x] Risiko dikonfirmasi lewat analisis kode (saat menyusun blueprint M3): `cekOwnership()` di AuliaPos saat ini **read-then-write di level aplikasi, bukan atomic di database** — bukti nyata risiko P1 "ownership race" (`app/Controllers/Inbox.php`, `cekOwnership()` membaca `assigned_to` lalu memutuskan, tanpa transaksi/kunci)
-- [ ] Breakdown ticket detail M2 — menyusul setelah M1 selesai
+- [x] Risiko dikonfirmasi lewat analisis kode: `cekOwnership()` di AuliaPos adalah **read-then-write di level aplikasi, bukan atomic di database** — risiko P1 "ownership race" (`app/Controllers/Inbox.php`, `cekOwnership()` membaca `assigned_to` lalu memutuskan, tanpa transaksi/kunci)
+- [~] **Pengecualian yang sudah atomic**: `Inbox::ambilPercakapan()` (conditional UPDATE + `affectedRows()` → 409) dan jalur **Handoff** Fase 2a (pola `expected_owner` yang sama). Jadi bukan "semua ownership non-atomic" — yang masih **non-atomic**: `lepas`, `tutup`, `snooze`, `tandaiDibaca`, `hapus` (`docs/ARCHITECTURE.md` §12)
+- [ ] Breakdown ticket detail M2 — menyusul. (Catatan: M2 dulunya "prasyarat keras" Fase 2 M3, tapi prasyarat itu sudah dicabut; M2 sekarang murni melanjutkan sisa jalur non-atomic di atas)
 
 ---
 
-### M3 — Operational Inbox 🚦 FASE 1 (1a–1d) + FASE 2a SELESAI & TER-MERGE (PR #41, `v2.3`); FASE 1e SELESAI + DIREMEDIASI (25 Sep)
+### M3 — Operational Inbox 🚦 FASE 1 (1a–1e) + FASE 2a SELESAI & TER-MERGE (28 Sep 2026)
 
-> [!WARNING]
-> **Seksi ini belum disinkronkan (potret 21–23 Sep, sebelum eksekusi M3).** Status nyata per 24 Sep 2026: Fase 1 (1a–1d) dan Fase 2a (Handoff + Collision Detection) sudah dieksekusi dan ter-merge ke `v2.3` lewat PR #41 (`ce94660`); plan terkait berstatus `Completed` (`plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2, `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` rev 1.1, `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` rev 1.1). Audit konsistensi Fase 1 (24 Sep) = Readiness 95/100. Fase 1e (GH-010) sudah dieksekusi (25 Sep) dan **diremediasi** atas 2 temuan `[REQUIRED]` dari code review-nya — lihat `docs/walkthrough-m3-fase1e-message-search-2026-09-25.md` dan `docs/walkthrough-m3-fase1e-remediation-2026-09-25.md`; rencana remediasi `plan/plan-refactor-m3-fase1e-message-search-v1.0.md` berstatus `Completed` (Fase 3 ditolak, jadi 3 TODO — lihat "Yang Menggantung" butir 11–13). Sisa pekerjaan M3 belum. Jangan baca checklist "0 dari 14 task" di bawah sebagai status terkini.
+> [!NOTE]
+> **Seksi ini sudah disinkronkan 28 September 2026.** Fase 1 (1a–1d), **Fase 1e (pencarian teks pesan, GH-010)**, dan **Fase 2a (Handoff + Collision Detection)** sudah dieksekusi dan ter-merge ke `v2.3` (Fase 1/2a lewat PR #41 `ce94660`; Fase 1e + remediasi 25 Sep). Di atas itu, **Grup Tahap 1 & 2, Balas Pesan Tahap 3, dan Inbox Read Authorization** juga sudah selesai — lihat bagian "Status Sekarang". Plan-plan M3 yang relevan berstatus `Completed`. Yang **belum**: **Fase 2b (auto-assignment)** dan **Fase 3** (butuh M5).
+> Semua daftar "Riwayat (21 Sep)", checklist Ticket 01/02-16, dan keputusan desain di bawah adalah **potret historis yang sudah dilewati** — jangan dibaca sebagai status terkini. Status fase M3 ada di paragraf "Pembagian fase M3" di bawah.
 
-**Update penting (21 Sep)**: sesi Claude Code sudah menghasilkan spec + plan formal yang jauh melampaui blueprint awal kita, lewat proses SDLC terstruktur (spec → clarification report → remediasi → plan → clarification report kedua → resolusi). Semua 5 keputusan desain 🔶 yang saya tandai sebelumnya **sudah diresolusikan** (jadi "7 resolusi klarifikasi").
+**Riwayat (21 Sep)**: sesi Claude Code menghasilkan spec + plan formal M3 lewat proses SDLC terstruktur (spec → clarification report → remediasi → plan → clarification report kedua → resolusi). Semua keputusan desain 🔶 yang ditandai sebelumnya **sudah diresolusikan**.
 
-Dokumen yang kini jadi acuan resmi (menggantikan blueprint lama sebagai working reference). Semua file dicek ada di repo (`v2.2`):
-- [x] `spec/spec-design-m3-operational-inbox-fase1.md` — Readiness Score 96/100
+Dokumen acuan M3 Fase 1 (semuanya sudah dilewati; disimpan sebagai jejak):
+- [x] `spec/spec-design-m3-operational-inbox-fase1.md`
 - [x] `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md` — klarifikasi spec + remediasi
-- [x] `docs/adr/0001-reuse-response-state-for-queue-view-status.md` — keputusan status granular: **computed**, reuse `Inbox::attachResponseState()` yang sudah ada (persis rekomendasi blueprint awal, sekarang jadi ADR resmi)
-- [x] `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — Readiness Score 97/100, status: Planned, 14 task
+- [x] `docs/adr/0001-reuse-response-state-for-queue-view-status.md` — keputusan status granular: **computed**, reuse `Inbox::attachResponseState()` (ADR resmi)
+- [x] `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — **Completed** (14 task)
+- [x] `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` + `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` — **Completed**
+- [x] `plan/plan-refactor-m3-fase1e-message-search-v1.0.md` — **Completed** (Fase 3 ditolak → 3 TODO, lihat "Yang Menggantung" butir B1–B3)
 - [x] `docs/audit/clarification-report-m3-fase1-operational-inbox-plan-2026-09-21.md` — klarifikasi plan, 7 resolusi sudah ditulis ke TASK-002, 008, 011, 012
 
 **Keputusan desain yang sudah final (bukan lagi 🔶):**
@@ -178,38 +222,28 @@ Dokumen yang kini jadi acuan resmi (menggantikan blueprint lama sebagai working 
 - [x] 4. Internal Note → kolom `is_internal BOOLEAN` di `messages` (REQ-007), bukan tabel terpisah
 - [x] 5. @mention → **tidak masuk Fase 1** (disederhanakan, tidak disebut lagi di plan — kemungkinan didrop, perlu dikonfirmasi eksplisit kalau perlu dipastikan)
 
-**Pembagian fase (final, dari plan resmi). Dicek 21 Sep: `withComputedStatus` dan `is_internal` belum ada di `app/`, migration terbaru masih `2026-09-19-000004_AddMediaConfirmedGone.php`, jadi 0 dari 14 task dikerjakan.**
+**Pembagian fase M3 (status terkini 28 Sep):**
 
-Fase 1a — tanpa migration. Berhenti di TASK-006 (APPROVAL) menunggu konfirmasi Anda sebelum lanjut Fase 1b:
-- [ ] TASK-001 `ConversationModel::withComputedStatus()`
-- [ ] TASK-002 Panggil `withComputedStatus()` di `Inbox::apiConversations()`
-- [ ] TASK-003 Verifikasi Conversation Detail (thread dan action bar)
-- [ ] TASK-004 Verifikasi Snooze Dialog Fase 1a (hanya parameter `menit`)
-- [ ] TASK-005 VERIFY: test `tests/database/` untuk `withComputedStatus()`
-- [ ] TASK-006 APPROVAL: konfirmasi eksplisit sebelum Fase 1b
+- [x] **Fase 1a** — `ConversationModel::withComputedStatus()` + dipakai `Inbox::apiConversations()` (tanpa migration)
+- [x] **Fase 1b** — migration `messages.is_internal`, endpoint Internal Note (`Inbox::catatanInternal()`, High Risk RISK-001), `InboxSlaService`, filter/pencarian, Alasan Snooze
+- [x] **Fase 1c** — layar Inbox (`plan-refactor-m3-fase1c-inbox-screen-v1.0.md` Completed)
+- [x] **Fase 1d** — pencarian kolom identitas (filter-after-fetch di PHP, CON-003)
+- [x] **Fase 1e (GH-010)** — pencarian teks pesan + `match_snippet`; `InboxMatchSnippetService`; Spark command perf `aulia:seed-fase1e-perf`; AC-016 median 436/523/1010 ms (target ≤ 3 s). Diremediasi atas 2 temuan `[REQUIRED]` review — lihat `docs/walkthrough-m3-fase1e-message-search-2026-09-25.md` + `docs/walkthrough-m3-fase1e-remediation-2026-09-25.md`. **Fase 3 plan ditolak** → 3 TODO (butir B1–B3).
+- [x] **Fase 2a** — Handoff + Collision Detection (`conversation_handoffs`, conditional write `expected_owner`, 403/409/400)
+- [ ] **Fase 2b** — **Auto-assignment** (GH-008). Belum mulai; dipisah dari 2a karena lingkup berbeda.
+- [ ] **Fase 3** — intent filters, AI summary, suggested reply. **Tunggu M5**, tidak berubah.
 
-Fase 1b — migration `is_internal`, endpoint Internal Note, SLA Service, filter/pencarian, Alasan Snooze (disimpan sebagai Internal Note, bukan kolom baru — ALT-003 ditolak eksplisit). Berhenti di TASK-014 (APPROVAL):
-- [ ] TASK-007 Migration `messages.is_internal`
-- [ ] TASK-008 `Inbox::catatanInternal()` + route (**High Risk**, RISK-001)
-- [ ] TASK-009 VERIFY: test `tests/session/` endpoint Internal Note
-- [ ] TASK-010 `InboxSlaService` (pure function)
-- [ ] TASK-011 Perluas `apiConversations()` (filter, pencarian, SLA, `findAll(500)`)
-- [ ] TASK-012 Snooze Dialog: field Alasan opsional
-- [ ] TASK-013 VERIFY: test `tests/unit/` untuk `InboxSlaService`
-- [ ] TASK-014 APPROVAL: Fase 1a + 1b selesai, siap lanjut
+> **Prasyarat M2 sudah tidak dipakai untuk Fase 2.** PRD diamandemen ke **v1.1** (menambah GH-006 Handoff, GH-007 Collision Detection, GH-008 Auto-assignment) supaya Fase 2 bukan lagi *Orphaned Item*. Fase 2a selesai dengan pola *conditional write* sempit (`WHERE id = ? AND assigned_to = ?` → `affectedRows() === 0` = 409) yang tidak butuh M2 penuh. **M2 sebagai program besar tetap belum dimulai** — `docs/ARCHITECTURE.md` §12 masih mencatat jalur `lepas`/`tutup`/`snooze`/`tandaiDibaca`/`hapus` sebagai non-atomic; hanya `ambilPercakapan()` dan jalur Handoff yang atomic.
 
-Fase berikutnya:
-- [ ] **Fase 2** (Handoff, Collision detection) — **RISK-003 eksplisit menulis**: "terkunci menunggu M2, plan ini tidak menyentuh area itu sama sekali." Prinsip prasyarat M2 **dihormati secara tertulis** di plan resmi.
-- [ ] **Fase 3** — tunggu M5, tidak berubah.
+**Risiko teknis yang tercatat di plan Fase 1 (jejak historis):**
+- RISK-001 (High Risk): endpoint Internal Note rawan *silent violation* kalau ikut update `last_message_at`/`last_message_direction` — bisa merusak badge & Queue View tanpa error kelihatan. Mitigasi diterapkan: test assert kolom itu TIDAK berubah. **Invariant ini masih berlaku** (`catatanInternal()` tidak boleh memanggil `ConversationModel::update()`).
+- RISK-002: filter-after-fetch berpotensi lambat di data besar — **terbukti masih aman**: AC-016 median 436–1010 ms jauh di bawah target 3 s pada 200.000 pesan. `LIKE '%q%'` tetap tanpa index (RISK-007), dicatat sebagai risiko yang diterima.
 
-**Risiko teknis yang tercatat di plan (lebih detail dari blueprint awal):**
-- RISK-001 (High Risk): endpoint Internal Note rawan *silent violation* kalau accidentally ikut update `last_message_at`/`last_message_direction` — bisa merusak badge Tahap A & Queue View tanpa error kelihatan. Mitigasi: test wajib assert kolom itu TIDAK berubah, bukan cuma assert insert sukses.
-- RISK-002: `findAll(500)` di filter-after-fetch berpotensi lambat di data besar — diterima sebagai risiko, tidak dimitigasi di Fase 1 (dicatat, bukan diabaikan diam-diam).
-
-Migration baru yang dibutuhkan (final, dari plan):
-- `messages.is_internal BOOLEAN NOT NULL DEFAULT FALSE` (satu-satunya migration Fase 1, additive)
-- **Tidak ada** kolom `snooze_reason` (ditolak, pakai Internal Note)
-- Tabel `conversation_handoffs` untuk Fase 2 — belum masuk plan resmi, baru rencana blueprint awal, perlu dibuatkan spec/plan resmi sendiri saat M2 selesai
+**Migrasi yang ditambahkan M3 (semua additive):**
+- `messages.is_internal` (Fase 1b) — satu-satunya migrasi Fase 1
+- `conversation_handoffs` (Fase 2a) — `conversation_id BIGINT UNSIGNED`, `from_user_id` nullable, `initiated_by_user_id` NOT NULL; index `(conversation_id, created_at)` + `to_user_id`
+- 7 kolom `messages.quoted_*` + `quoted_source_message_id` + `quoted_media_type` (Balas Pesan Tahap 3)
+- **Tidak ada** kolom `snooze_reason` (ditolak; alasan snooze disimpan sebagai Internal Note)
 
 ---
 
@@ -227,40 +261,32 @@ Migration baru yang dibutuhkan (final, dari plan):
 
 ## Yang Menggantung — Action Items Konkret
 
-⚠️ **Keputusan prioritas yang perlu Anda ambil sekarang** (diperbarui 21 Sep setelah M1 Ticket 01 selesai): M3 plan sudah siap eksekusi (Readiness 97/100), dan pengukuran M1 sudah ada. Dua opsi:
-- **(A) Mulai perbaikan M1 dulu**, dimulai Ticket 02 (filter `type !== 'notify'`), karena kehilangan pesan sekarang terbukti nyata — sesuai urutan roadmap asli.
-- **(B) Mulai eksekusi M3 Fase 1a sekarang** (plan sudah matang, tidak menyentuh migration/M2), sambil perbaikan M1 menyusul paralel — valid karena Fase 1a memang didesain tidak bergantung M1/M2.
+> **Diperbarui 28 September 2026.** Keputusan prioritas lama "M1 dulu vs M3 duluan" sudah **tidak relevan** — M1 Wave 1 & 2 selesai, M3 Fase 1 (1a–1e) + Fase 2a selesai, dan empat fitur Inbox (Grup Tahap 1/2, Balas Pesan Tahap 3, Inbox Read Authorization) selesai. Seksi ini sekarang berisi pekerjaan yang **benar-benar masih terbuka**.
 
-Tidak ada jawaban "benar" secara teknis untuk A vs B — keduanya sah. Ini murni soal prioritas kapasitas Anda. Yang penting: **jangan biarkan perbaikan M1 tertunda tanpa batas** karena risiko P0 di baliknya (message loss, duplicate) kini terbukti nyata dan tetap aktif selama belum ditangani.
+### A. Pilihan arah berikutnya (per 28 Sep 2026)
 
-Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau Anda pilih A):
+- [ ] **A1. Fitur Teruskan (Tahap 4 / GH-016)** — fitur besar berikutnya yang tersisa dari PRD Inbox. Spec `spec-design-teruskan.md` **sudah ada**, tapi plan **belum** → langkah pertama `/sdlc-plan-tasks`. Dua repo.
+- [ ] **A2. M3 Fase 2b — Auto-assignment (GH-008)** — belum mulai; melengkapi M3 di samping Fase 2a yang sudah selesai.
+- [ ] **A3. M2 — State Consistency (program besar)** — jalur `lepas`/`tutup`/`snooze`/`tandaiDibaca`/`hapus` masih non-atomic (`docs/ARCHITECTURE.md` §12). **Bukan blocker lagi** untuk M3, tapi belum pernah dikerjakan.
+- [ ] **A4. M1 Ticket 05–16 (sisa gelombang reliability Gateway)** — khususnya Ticket 05 (uji pembeda penyebab error dekripsi, butuh nomor uji kedua) dan risiko P0 #3/#4/#5 (lihat seksi C).
 
-- [ ] 1. **Eksekusi M3 Fase 1a** sesuai `plan-feature-m3-operational-inbox-fase1-v1.0.md` TASK-001 s/d TASK-006 — plan sudah siap pakai, tinggal jalankan di Claude Code.
-- [ ] 2. **Approval checkpoint TASK-006** — review hasil Fase 1a sebelum izinkan lanjut Fase 1b.
-- [x] 3. **Jalankan M1 Ticket 01** (baseline test 4 skenario) — selesai 21 Sep, lihat `docs/decisions/2026-09-21-m1-ticket01-baseline.md`.
-  - [x] Baseline 1 versi asli selesai (45/45 sampai, 0 hilang, 0 duplikat; ada error dekripsi dan pergeseran urutan).
-  - [x] Uji UI Inbox saat Gateway bermasalah di tengah kirim selesai (lihat M1 di atas).
-  - [x] Semua sisa Ticket 01 selesai atau dicoret (penyebab error dekripsi diselidiki pasif, belum terbukti; percobaan 1 skenario 2 dicoret).
-- [x] 4. **Rapikan housekeeping environment** — Gateway aktif diberi label (lihat "Environment aktif"), 3 folder lama di drive G dipindah ke `G:\arsip-gateway\` (20 Sep), folder `htdocs\wa-gateway` diarsipkan.
-- [ ] 5. **Eksekusi M3 Fase 1b** (TASK-007 s/d TASK-014) setelah TASK-006 disetujui.
-- [x] 6. **M1 Gelombang 1 (Ticket 02-04) — SELESAI & LIVE 23 Sep** — eksekusi lewat `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (plan resmi, `/sdlc-write-code`, worktree `C:\projects\WA-Gateway-m1`), **BUKAN** melanjutkan kerja ad-hoc sandbox. Baca dulu `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md` untuk konteks lengkap (kerja ad-hoc E-03/E-04/E-05/E-09 yang sudah ter-merge ke `feature/stage-1-reliability` **sudah ditulis ulang/disesuaikan (lihat decision log 21 Sep malam)** sesuai TASK-001/002-004/013/015 plan resmi, bukan dipakai apa adanya). Langkah menggantung:
-  - [x] Worktree `C:\projects\WA-Gateway-m1` siap; Fase 1, 2, dan 3 (TASK-001 s/d TASK-016) dieksekusi lewat `/sdlc-write-code`, APPROVAL TASK-007 dan TASK-012 diberikan. 13 commit, sudah di-push ke `origin`. Lihat `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`
-  - [x] TASK-017 (AC-001, `pm2 stop` nyata) — **selesai 23 Sep: 3/3 percobaan, 30/30 pesan, 0 hilang, 0 duplikat**. Catatan: jendela ">21:00 atau <08:00" sudah dihapus oleh plan v1.2 (RISK-003 — tidak ada jendela wajib)
-    - **Sudah dijalankan** lewat TASK-019 (deploy fast-forward `e18f716`→`065f683` + `pm2 restart`); cara deploy ditetapkan oleh amandemen plan v1.2 (`docs/proposal-amandemen-plan-m1-wave1-2026-09-23.md`) dan prosedurnya ada di runbook `docs/runbooks/runbook-m1-wave1-task017-ac001-2026-09-23.md`
-  - [x] TASK-018 — **disetujui 23 Sep**; plan v1.2 diubah ke `status: 'Completed'` + badge brightgreen (commit AuliaPos `4d43c8d`); M1 Gelombang 1 ditutup
-  - [x] Push branch `feature/stage-1-reliability` ke `origin` (21 Sep malam, fast-forward `091fe19..065f683`, tanpa force)
-  - [x] Buat PR (`feature/stage-1-reliability` → `master`) — **PR #4 dibuat dan di-merge 23 Sep malam** dengan "Create a merge commit" (`21a4cb6`, bukan squash, supaya SHA bukti seperti `065f683` tetap di riwayat). `/sdlc-code-review` M1 dijalankan sebelumnya (laporan `docs/audit/code-review-m1-wave1-2026-09-23.md`, verdict **0 P0 / 1 P1 / 14 P2**, spec 19/19 REQ; plan perbaikan `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md` `Completed`). Isi: 30 komit (21 M1 + 9 refactor)
-  - [x] Deploy 9 komit refactor ke folder live — **selesai 23 Sep 18:47 WIB** (fast-forward `065f683` → `21a4cb6` + `pm2 restart`, dijalankan user): PM2 `online`, unstable restarts 0, `connected` dalam ±3 detik, log tanpa warning/error/`[CRITICAL]`, `package*.json` dan `auth/` tidak berubah
-  - [x] Verifikasi nyata ringan kode `21a4cb6` (23 Sep 18:49 WIB): 1 pesan dari HP tes (`lid`, `A5EBF828C6B1C88B79E5E9C0E5E27900`) diterima 18:49:53 dan diteruskan ke AuliaPos 18:49:58 (`duplicate:false`). Satu log error Baileys `Timed Out` (`executeInitQueries`/`fetchProps`, ±60 detik setelah `connected`) **sudah muncul di setiap start sejak 22 Sep**, termasuk kode pra-M1 — bukan akibat refactor. AC-001 penuh (`pm2 stop` + 10 pesan × 3) belum diulang untuk `21a4cb6`
-  - [ ] E-02 dan E-07 (di luar scope plan resmi juga) — butuh verifikasi dengan WhatsApp nyata dulu sebelum diputuskan jadi task baru
-  - [ ] Ticket 05, 06-08, 09-11, 12-16 (gelombang 2-3) belum dimulai, menyusul setelah gelombang 1
-- [ ] 7. **M2** dimulai setelah M1 selesai (atau tepatnya ticket-ticket kritis M1 seperti idempotency — konfirmasi urutan pasti saat M1 mendekati akhir).
-- [ ] 8. **Fase 2 M3** (Handoff, Collision detection) — **wajib** tunggu M2 selesai, ini sudah tertulis eksplisit di RISK-003 plan resmi, bukan lagi cuma catatan blueprint.
-- ~~9. (baru) Tes reboot sungguhan untuk auto-start PM2 di Aan-PC~~ — **dicoret 21 Sep: di luar scope pengembangan.**
-- [ ] 10. (baru) Perbaiki 2 ERROR test session Tahap 0 (`db_closing_kas`) dan putuskan apakah folder `G:\arsip-gateway\` sudah boleh dihapus.
-- [ ] 11. (baru 25 Sep) **Tolak `q` non-UTF-8 dengan HTTP 400** di batas input `app/Controllers/Inbox.php` — sekarang byte rusak menjadi 500 di bawah `DBDebug = true`. Asal: `plan/plan-refactor-m3-fase1e-message-search-v1.0.md` TASK-301 (`[OPTIONAL]`, ditolak pemilik proyek 25 Sep). Test yang diminta: `?q=%FF` → 400, kata kunci multi-byte valid (`é`) tetap 200. **Tidak mendesak:** tidak ada data berisiko, pemakai sudah melihat pesan error — hanya kode statusnya yang kurang tepat.
-- [ ] 12. (baru 25 Sep) **Pindahkan `potong()` ke sesudah paginasi** supaya `match_snippet` tidak dihitung untuk baris yang dibuang paginasi. Perilaku wajib byte-identical, jadi tidak perlu test baru (seluruh suite jadi bukti regresinya). Asal: plan yang sama, TASK-302. **Tidak mendesak:** median AC-016 (436 / 523 / 1010 ms) jauh di bawah target 3000 ms, jadi tidak ada masalah terukur yang diperbaiki.
-- [ ] 13. (baru 25 Sep) **`SeedFase1ePerf` memverifikasi hitungannya sendiri** lewat `countAllResults()` dan mencatat komposisi fixture yang benar-benar dipakai (1% Internal Note, teks ~55 karakter). Asal: plan yang sama, TASK-303. **Tidak mendesak:** ini perkakas ukur internal, bukan aplikasi kasir, dan skenario "gagal senyap" sudah dibuktikan tidak mungkin terjadi.
+### B. Pekerjaan kecil yang masih terbuka (non-blocking)
+
+- [ ] **B1.** (25 Sep) **Tolak `q` non-UTF-8 dengan HTTP 400** di batas input `app/Controllers/Inbox.php` — byte rusak menjadi 500 di bawah `DBDebug = true`. Asal: `plan-refactor-m3-fase1e-message-search-v1.0.md` TASK-301 (`[OPTIONAL]`, ditolak pemilik 25 Sep). Test: `?q=%FF` → 400, kata kunci multi-byte valid (`é`) → 200. **Tidak mendesak.**
+- [ ] **B2.** (25 Sep) **Pindahkan `potong()` ke sesudah paginasi** supaya `match_snippet` tidak dihitung untuk baris yang dibuang paginasi. Perilaku wajib byte-identical, jadi seluruh suite jadi bukti regresi. Asal TASK-302. **Tidak mendesak** (median AC-016 436–1010 ms jauh di bawah target 3000 ms).
+- [ ] **B3.** (25 Sep) **`SeedFase1ePerf` memverifikasi hitungannya sendiri** lewat `countAllResults()` + catat komposisi fixture. Asal TASK-303. **Tidak mendesak** (perkakas ukur internal).
+- [ ] **B4.** Perbaiki **2 ERROR test session Tahap 0** (`no such table: db_closing_kas` di `LaporanBulananExcludeBatalTest`).
+- [ ] **B5.** Putuskan nasib **`G:\arsip-gateway\`** — per 28 Sep folder ini **tidak ada** di disk; verifikasi lalu coret.
+- [ ] **B6.** `docs/CHAT.md:323` **catatan kaki usang** (temuan `SPEC-02` dari review read-auth; informational, tidak ada plan yang menugaskan).
+- [ ] **B7.** **Sinkronisasi TODO group-rename** + **BACKLOG pencarian `group_name`**.
+- [ ] **B8.** **PRD Section 4 note (baris 158–165)** & ketidakcocokan fase **AC GH-012** — dibawa sejak beberapa sesi, belum ditindaklanjuti.
+
+### C. Risiko Gateway yang masih terbuka (dari Ticket 01/02)
+
+- [ ] **C1. Risiko P0 #3** — duplicate-outgoing saat timeout. **Sudah ditangani Wave 2** (idempotensi `operation_id`), tapi **belum diverifikasi ulang end-to-end dengan Gateway nyata** setelah `a2ba409`.
+- [ ] **C2. Risiko P0 #4** — retry pesan masuk tanpa batas percobaan dan tanpa dead-letter (dari kode, belum diamati jangka panjang).
+- [ ] **C3. Risiko P0 #5 / GW-25** — error dekripsi + `message_timestamp` bergeser (sebaran 28–58 detik); penyebab belum terbukti, butuh nomor uji kedua. **ESC-001..004 (GW-11 / GW-25) tetap OPEN** — sumber timestamp dikunci di luar repo ini.
+- [ ] **C4. E-02 dan E-07** — butuh verifikasi dengan WhatsApp nyata dulu sebelum diputuskan menjadi task baru.
 
 > **Catatan 25 Sep — batas yang perlu diketahui saat membaca ini.** Regresi pada pengaman putaran daftar Inbox (`app/Views/inbox/index.php`) **tidak akan menggagalkan test otomatis**, karena proyek ini tidak punya test runner JavaScript. Yang menjaganya: harness `build/check-round-guard.php` (di luar repo, gitignored — jalankan manual) dan checklist browser. Kalau bikin perubahan pada `muatUlangDaftarConversation()`, jalankan keduanya.
 
@@ -276,15 +302,27 @@ Urutan prioritas realistis (dengan asumsi opsi B dipilih — sesuaikan kalau And
 - [ ] `Panduan_Layar_AuliaPos_M3.md` — desain 7 layar M3 awal (tidak ditemukan di Aan-PC; sudah digantikan spec resmi di repo, referensi historis)
 - [ ] `blueprint-m3-operational-inbox.md` — blueprint awal (tidak ditemukan di Aan-PC; sudah digantikan plan resmi di repo, referensi historis)
 
-**Di repo AuliaPos (branch `v2.2`, sudah ter-push, ini yang jadi acuan resmi sekarang). Semua dicek ada:**
+**Di repo AuliaPos (branch `v2.3`, sudah ter-push). Dokumen M1/M3 awal (semuanya sudah dilewati; disimpan sebagai jejak):**
 - [x] `docs/decisions/2026-09-19-tahap-0-baseline.md` — decision log Tahap 0 lengkap
-- [x] `docs/decisions/2026-09-21-m1-ticket01-baseline.md` — decision log M1 Ticket 01 (baru)
-- [x] `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` — laporan audit M1 Ticket 02 (baru)
-- [x] `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md` — eksekusi M1 Wave 1 Fase 1–3: commit, penyimpangan dari spec, bukti simulasi, batas bukti (baru)
-- [x] `spec/spec-design-m3-operational-inbox-fase1.md` — spec resmi M3 Fase 1
-- [x] `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — **plan eksekusi resmi, 14 task, siap jalan**
+- [x] `docs/decisions/2026-09-21-m1-ticket01-baseline.md` — decision log M1 Ticket 01
+- [x] `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` — laporan audit M1 Ticket 02
+- [x] `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md` — eksekusi M1 Wave 1 Fase 1–3: commit, penyimpangan dari spec, bukti simulasi, batas bukti
+- [x] `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md` — deploy M1 Wave 1 + bukti AC-001 nyata
+- [x] `docs/decisions/2026-09-25-ticket04-json-fallback-android-verifikasi-nyata.md` — verifikasi Android Ticket 04 (2/8 skenario)
+- [x] `spec/spec-design-m3-operational-inbox-fase1.md` — spec M3 Fase 1
+- [x] `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — **Completed** (14 task)
 - [x] `docs/adr/0001-reuse-response-state-for-queue-view-status.md` — ADR status granular
 - [x] `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md`
 - [x] `docs/audit/clarification-report-m3-fase1-operational-inbox-plan-2026-09-21.md`
 
-**Prinsip update dokumen ini ke depan**: kalau ada progres baru dari sesi Claude Code manapun, jalankan `git fetch` + `git log <base>..<HEAD_terbaru> --oneline` dulu untuk lihat commit yang masuk sebelum percaya status di dokumen ini — jangan asumsikan dokumen ini otomatis sinkron dengan kerja paralel.
+**Dokumen fitur Inbox 26–28 Sep 2026 (Grup / Balas Pesan / Read Auth):**
+- [x] `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — PRD v1.2 (GH-011..GH-016)
+- [x] `spec/spec-design-grup-tahap1-tab-inbox.md` — v1.2
+- [x] `spec/spec-design-grup-tahap2-identitas.md` — v1.4
+- [x] `spec/spec-design-balas-pesan.md` — **v1.8**
+- [x] `spec/spec-design-teruskan.md` — spec Teruskan (Tahap 4; **belum ada plan**)
+- [x] `spec/spec-design-inbox-read-authorization.md` — v1.1
+- [x] `plan/` berisi 23 plan; semua yang relevan berstatus `Completed` kecuali plan Teruskan yang belum dibuat
+- [x] `docs/ARCHITECTURE.md` — peta arsitektur (sudah termasuk Balas Pesan, Read Auth, §11 perf-DB)
+
+**Prinsip update dokumen ini ke depan**: kalau ada progres baru dari sesi manapun, jalankan `git fetch` + `git log <base>..<HEAD_terbaru> --oneline` dulu untuk lihat commit yang masuk sebelum percaya status di dokumen ini — jangan asumsikan dokumen ini otomatis sinkron dengan kerja paralel.

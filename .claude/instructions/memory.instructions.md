@@ -1035,3 +1035,37 @@
 <!-- checkpoint-tail: 2026-09-28 Code Janitor closed 3 long-carried-forward minor items in one Broom-Rule session: (1) Inbox.php:769-778 cekBukanGrup() docblock now lists all 8 guarded endpoints (was 6, missing Handoff/Tandai Dibaca from Phase 6y); (2) InboxGrupTahap1Test.php +1 test proving a closed group still gets 403 (not 409) on handoff attempts, confirming guard order; (3) docs/ARCHITECTURE.md Section 11 gained the long-owed aulia_inboxdb_perf + aulia:seed-fase1e-perf paragraph (owed since Fase 1e, referenced as carried-forward in ~15 prior checkpoints). Full suite green at 574 tests/2201 assertions (was 573/2196), zero regressions. No architectural decisions made — pure cleanup of items that were flagged but never executed. Not committed yet. Next: owner's choice — docs/TODO-CHAT.md is also very stale and could be the next small task, or start the bigger Teruskan (Tahap 4) feature. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Code Janitor — sinkronisasi `docs/TODO-CHAT.md`, dokumen status usang 3 hari)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Ad-hoc fix (`/code-janitor`, Broom Rule — single-file documentation update). Bukan tahap SDLC formal.
+- **Konteks pemicu:** Lanjutan langsung sesi yang sama. Setelah 3 perbaikan kecil, owner memilih arah "update dokumen status proyek (TODO-CHAT.md)" — dokumen itu terakhir diupdate 24 Sep dan belum mencatat kerja 26–28 Sep.
+- **Active Artifacts:**
+  - `docs/TODO-CHAT.md` — ✅ disinkronkan ke kondisi 28 Sep 2026 (belum di-commit).
+- **Achieved Milestones:**
+  - Seksi **"Status Sekarang (28 September 2026)"** BARU: tabel 2 repo (AuliaPos `v2.3` @ `bbb91c4`, WA-Gateway `master` @ `a2ba409`), 4 fitur Inbox selesai (Grup Tahap 1/2, Balas Pesan Tahap 3, Inbox Read Authorization), baseline **574 test / 2201 assertion**, dan peringatan jujur bahwa status **proses** Gateway belum diverifikasi (`pm2` tidak ada di `PATH`).
+  - Seksi **"Yang Menggantung"** ditulis ulang jadi 3 grup: **A** (arah berikutnya: Teruskan Tahap 4, M3 Fase 2b, M2, M1 Ticket 05–16), **B** (B1–B8 pekerjaan kecil non-blocking — termasuk 3 TODO Fase 1e yang tadinya bernomor butir 11–13), **C** (C1–C4 risiko Gateway P0 #3/#4/#5 + ESC-001..004).
+  - Penyegaran pendukung: header/tanggal/legenda, Roadmap Besar, Baseline Repository (AuliaPos `v2.2`→`v2.3`; WA-Gateway `21a4cb6`→`a2ba409`), Environment aktif, M1 (Wave 2 selesai), M2 (nuansa atomicity), M3 (blok WARNING "belum disinkronkan" diganti peta fase terkini 1a–1e/2a/2b/3), File-File Referensi.
+- **Corrected Facts (koreksi fakta yang salah di memori/dokumen):**
+  - **Checkout WA-Gateway ADA di `C:\projects\WA-Gateway` @ `a2ba409` (master), bukan `C:\home\`.** Memori 2026-09-25 mencatat tree `C:\home\`; hari ini `C:\home` **tidak ada** dan `C:\projects` ada. Ini **kebalikan lagi** dari catatan sebelumnya → bukti kuat bahwa path Gateway **harus dicek ke disk setiap sesi**, jangan dipercaya dari catatan mana pun.
+  - `G:\arsip-gateway\` **tidak ada** di disk per 28 Sep (dokumen lama mengklaim folder arsip ada).
+  - **`npx --no-install markdownlint-cli` TIDAK lagi tersedia** — paket tidak ada di cache, npx menolak ("canceled due to missing packages"). Ini **membatalkan DE-24** ("CLI IS available v0.49.1"); lint markdown otomatis tidak bisa dipakai sampai paket di-install ulang. Jangan baca file redirect 0-byte sebagai "lint bersih" (kelas DE-34) — verifikasi CLI-nya benar-benar jalan dulu.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Mojibake/kata asing nyasar saat menulis teks Indonesia panjang dalam satu sesi** — terulang **3×** sesi ini ("Antibody", "OMA", karakter CJK/Arab). Kelas ini sudah tercatat di checkpoint Phase 6o, tapi masih terulang. **Wajib** scan regex skrip asing + baca ulang paragraf setelah menulis.
+  - **Restrukturisasi besar pada satu file markdown berisiko menyisipkan seksi duplikat** — sempat membuat heading "### WA-Gateway" **dobel**; terdeteksi lewat grep heading lalu diperbaiki. Selalu grep `^#` setelah restrukturisasi besar.
+- **Updated Files:**
+  - `docs/TODO-CHAT.md` — disinkronkan (lihat di atas; +145 / −107 baris; 1 file).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Update diperluas dari yang diminta (mula-mula hanya "Status Sekarang" + "Yang Menggantung") ke **seluruh** dokumen, karena seksi lain akan langsung **bertentangan** dengan status baru kalau dibiarkan (mis. Baseline Repository `v2.2`, Roadmap M3 "belum", M2 "wajib tunggu M2"). Dokumen status harus koheren, bukan tambal sulam.
+  - Status **proses** Gateway tidak diklaim; ditulis eksplisit "belum diverifikasi" — konsisten dengan aturan tetap "Klaim harus berbasis bukti nyata".
+  - Lint markdown **tidak** dijadikan gerbang (CLI tidak tersedia); verifikasi diganti dengan cek manual (0 karakter asing, 0 baris kosong ganda, 0 trailing whitespace, struktur heading konsisten).
+- **Next Action / Pending:**
+  - `docs/TODO-CHAT.md` **belum di-commit** — lanjut closing sequence #3: commit → push → prompt sesi berikutnya.
+  - Arah berikutnya (dari "Yang Menggantung" A1): **Teruskan (Tahap 4, GH-016)** — spec `spec-design-teruskan.md` sudah ada, **plan belum** → `/sdlc-plan-tasks`.
+  - Carried forward non-blocking: `docs/CHAT.md:323` catatan kaki; TODO group-rename sync; BACKLOG `group_name`; PRD Section 4 note & GH-012 AC phase mismatch; `ESC-001..004`.
+
+<!-- checkpoint-tail: 2026-09-28 Code Janitor rewrote docs/TODO-CHAT.md (+145/-107) after 3 days of staleness: added a new "Status Sekarang (28 September 2026)" section (2-repo table AuliaPos v2.3 bbb91c4 / WA-Gateway master a2ba409, 4 completed Inbox features, 574-test baseline, honest "Gateway process status unverified — pm2 not on PATH") and fully rewrote "Yang Menggantung" into 3 groups (A next-direction incl. Teruskan Tahap 4 needing a plan; B B1–B8 small non-blocking items incl. the old Fase 1e TODO 11–13; C C1–C4 Gateway risks P0 #3/#4/#5 + ESC-001..004). Supporting sections refreshed (header, roadmap, baseline repo v2.2→v2.3 + gateway 21a4cb6→a2ba409, environment, M1 Wave 2 done, M2 atomicity nuance, M3 WARNING block replaced with current phase map, reference files). Two stale facts corrected: the Gateway checkout IS at C:\projects\WA-Gateway (C:\home no longer exists — check disk every session), and npx --no-install markdownlint-cli is NO LONGER available (DE-24 superseded; never read a 0-byte redirect as "clean lint"). Mojibake recurred 3x in long Indonesian prose and a duplicate ### WA-Gateway heading was self-introduced then caught by grepping headings. Not committed. Next: commit → push → Teruskan Tahap 4 via /sdlc-plan-tasks. -->
+
+---
