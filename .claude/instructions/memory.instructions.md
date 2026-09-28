@@ -1226,3 +1226,41 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6gg) Executed the view-once plan end-to-end and deployed it: WA-Gateway live master a2ba409 -> 66bff03 (fast-forward), Gateway running (node src/app/index.js, port 3000, connected as 6281913500707), auth/ untouched. CORRECTED ROOT CAUSE: a view-once to a linked device is NOT a viewOnceMessageV2 wrapper — WhatsApp sends only an <unavailable type="view_once"> stanza, Baileys sets key.isViewOnce=true and leaves message undefined (decode-wa-message.js:127,192-195; messages-recv.js:624-632) and still upserts (chats.js:764-765); the Gateway dropped it at the first line of _handleIncomingMessage, before the dispatch and at no log level. Fix now detects !msg.message && msg.key?.isViewOnce before that guard (placeholder text, media null, incoming-only per CON-002) and keeps the wrapper branch for the RESOLVED resend path. Verified: simulate-viewonce 7/7, full Gateway suite 27/27 with temp SQLITE_PATH, real E2E (queue id 5 + AuliaPos 900041) and post-deploy live check (queue id 8 + AuliaPos 900043, media null). Separate open issue observed: a decryption storm on the account's own LID (255490491736112@lid, fromMe:true) = C3/GW-25; and plain photos arrive but media is not downloadable in AuliaPos. Next: commit docs -> push; then C3 needs a second test number. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6hh — `/sdlc-bug-report` diagnosis: foto biasa tak tampil di Inbox, plan dibuat)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Bug Diagnosis (`/sdlc-bug-report`) — plan **Planned**, menunggu approval owner lalu handoff ke `/sdlc-write-code`. **Tidak ada kode yang diubah di sesi ini.**
+- **Active Artifacts:**
+  - `plan/plan-bugfix-inbox-media-unavailable-v1.0.md` — ✅ **baru**, status `Planned`, 5 fase / 33 task (TASK-001..033), 284 baris. Lint markdown: hanya MD013 (sama seperti plan view-once yang sudah ada) — tidak ada isu struktur.
+  - `docs/decisions/2026-09-28-viewonce-placeholder-fix-and-deploy.md` §7 — **akan dikoreksi** di TASK-031 (catatan "media fetch/decrypt problem outside this fix's scope" sekarang jadi bug berdiri sendiri dengan plan sendiri).
+  - `docs/TODO-CHAT.md` — belum diperbarui (menunggu TASK-031).
+- **Achieved Milestones:**
+  - **Akar masalah ditemukan dan dibuktikan, BUKAN kadaluarsa.** Re-fetch referensi tersimpan dari pesan `900038` → `200 image/jpeg 718001 byte`; `900040` → `200 image/jpeg 115411 byte`. Media utuh.
+  - **Penyebab langsung:** Gateway live **mati** saat kasir membuka foto. PID `36180` (listener `127.0.0.1:3000`) start **10:32:41**; tiga `502` terjadi `10:18:26`, `10:27:43`, `10:28:55` (semuanya sebelum itu); `200` pertama `10:33:06` (`900042`). Pesan tetap masuk karena **instance E2E port 3010** masih delivering ke AuliaPos saat live Gateway dimatikan untuk deploy view-once.
+  - **Bukti mentah:** Apache access log `/inbox/media/900038` → `502 158`, `900039` → `502 158`, `900040` → `502 158`, `900042` → `200 114567`, `900033` → `200 458078`. Log Gateway: `[MEDIA] berhasil...` hanya 2× (00:57:11Z 458078 B, 03:33:06Z 114567 B) dan **tidak ada `[MEDIA] gagal`** pada jam 502 — request tidak pernah sampai Gateway.
+  - **3 lapis cacat teridentifikasi** (urut keparahan): (1) `mediaGagal` latch tak pernah dibersihkan; (2) pesan UI selalu bilang "kadaluarsa" untuk semua sebab; (3) **latent & paling berat** — `ci4Routes.js:373-389` memetakan **SEMUA** error ke `410`, AuliaPos `Inbox.php:525-529` menulis `media_confirmed_gone_at` pada `410`, lalu `Inbox.php:468-478` short-circuit `410` **selamanya**.
+  - **Belum ada korban:** `media_confirmed_gone_at` NULL di **6/6** baris media, jadi belum ada foto yang benar-benar ter-blacklist.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Menyimpulkan media kadaluarsa dari pesan UI "Gambar tidak tersedia (kemungkinan sudah kadaluarsa)".** Salah. Teks itu dipakai untuk **semua** kegagalan (`index.php:2137,2155,2170`). Harus cek status HTTP nyata.
+  - **Menganggap error terjadi di Gateway.** Tidak ada `[MEDIA] gagal` di log Gateway pada jam kejadian — request tidak pernah tiba. Cek listener `Get-NetTCPConnection -LocalPort 3000` + `CreationDate` proses sebelum menuduh Gateway.
+  - **Menganggap `media_local_filename = NULL` berarti prefetch gagal.** Bukan: `inbox.mediaStoragePath` **tidak ada di `.env`**, jadi blok prefetch (`InboxGatewayApi.php:347-371`) **tidak pernah jalan**. Penanda yang benar: `media_download_attempted_at` juga NULL (kalau prefetch jalan, kolom itu selalu terisi).
+  - **Mempercayai 502 sebagai "media rusak".** `502` datang dari `callGatewayMediaDownload` (`Inbox.php:598-600`, `$rawResponse === false`) = Gateway tak terjangkau. Teks curl persisnya **belum ditangkap** — jangan mengklaim string error spesifik.
+  - **Menaruh perbaikan penanganan view-once di cabang tipe** (pelajaran E-02 yang masih berlaku): periksa `msg.key.isViewOnce` sebelum guard, bukan di cabang tipe.
+- **Updated Files:**
+  - `plan/plan-bugfix-inbox-media-unavailable-v1.0.md` — **baru** (satu-satunya file yang dibuat sesi ini).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Cakupan plan disetujui owner: 4 lapis — (1) Gateway klasifikasi error + timeout, (2) Inbox AuliaPos pesan akurat + retry terbatas + lepas latch saat reconnect, (3) aktifkan `inbox.mediaStoragePath` sebagai akar, (4) test + deploy.
+  - **Retry harus dibatasi** (maks 3×, jeda ≥30 detik) supaya tidak menembak Gateway tiap siklus polling 4 detik. Klarifikasi penting: **retry tidak menambah "goyangan" layar** karena `index.php:3038` → `renderPesan` (`index.php:2222`, `container.innerHTML = ...`) **sudah** menggambar ulang seluruh thread tiap 4 detik.
+  - **C3/GW-25 dinyatakan OUT OF SCOPE** plan ini — bug terpisah dan lebih besar.
+- **Next Action / Pending:**
+  - Closing sequence sesi ini: checkpoint ini → **commit** (hanya `plan/plan-bugfix-inbox-media-unavailable-v1.0.md` + memory ini) → **push** → lalu **prompt handoff**.
+  - Handoff: buka sesi baru, `/sdlc-write-code`, lampirkan `@plan/plan-bugfix-inbox-media-unavailable-v1.0.md`.
+  - **ASSUMPTION-001 wajib diukur dulu:** bentuk error "kadaluarsa asli" dari WhatsApp **belum diketahui** (TASK-010). Jangan menyelesaikan TASK-003/TASK-011 berdasarkan tebakan properti error. Bila tidak dapat dibedakan, jatuh ke `503` (salah ke arah "kadaluarsa" itulah yang berbahaya).
+  - **RISK-001:** proyek tidak punya test runner JavaScript → regresi `app/Views/inbox/index.php` **tidak akan** menggagalkan suite. Wajib checklist browser manual (TASK-019).
+  - Masih terbuka dari sesi sebelumnya: **C3/GW-25**, **E-07**, arah besar Teruskan (Tahap 4) via `/sdlc-plan-tasks`.
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6hh) Diagnosed the "plain photo not visible in Inbox" bug as a `/sdlc-bug-report` and wrote plan/plan-bugfix-inbox-media-unavailable-v1.0.md (Planned, 5 phases, 33 tasks) with NO code changes. The media is NOT expired: replaying stored refs gave 200 image/jpeg (900038=718001 B, 900040=115411 B). Direct cause: the live Gateway was DOWN (PID 36180 started 10:32:41; the three 502s are 10:18:26/10:27:43/10:28:55; first 200 is 10:33:06 for 900042), while messages kept arriving via the disposable E2E instance on port 3010 that was left delivering during the view-once deploy. Three defects: mediaGagal latch (index.php:864) never cleared so one failure is permanent for the page session and defeats the existing reconnect hook (index.php:2975-2980); the UI reports every failure as "kadaluarsa" though an <img> onerror cannot see the status; and LATENT but worst, ci4Routes.js:373-389 maps EVERY error to 410, which Inbox.php:525-529 records as media_confirmed_gone_at and Inbox.php:468-478 then short-circuits forever (0 of 6 rows hit yet). Also found: inbox.mediaStoragePath is unset so the Tahap C prefetch never runs (media_download_attempted_at NULL proves it), downloadMediaByRef has no timeout, /media/download has no socket guard, server.js sets no requestTimeout, and there is no test for /media/download. Next: commit -> push -> new session /sdlc-write-code with the plan; measure the real expiry error signal first (ASSUMPTION-001). -->
+
+---
