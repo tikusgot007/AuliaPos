@@ -1546,3 +1546,35 @@
 <!-- checkpoint-tail: 2026-09-28 (Phase 6kk Teruskan AuliaPos Phase 2) /sdlc-write-code executed TASK-006..008 of plan-feature-teruskan-auliapos-v1.0.md in the AuliaPos repo (branch v2.3): kirimMedia() forward branch + bacaByteMediaTeruskan() (local disk then Gateway live-fetch, CON-002 all-or-nothing), callGatewaySendMedia(forward) + forward_marker_applied, view route text vs /inbox/kirim-media with no upload, script-freeze of attachment + quote-cancel during the picker. TASK-008 automated green: 643 tests / 2531 assertions exit 0, filtered 56/289. Manual browser checklist and TASK-009 approval are pending; formal /sdlc-code-review goes in a NEW session. Dead-end: a new session test must DROP the raw db_users table in tearDown or a later migrating test fails with "table db_users already exists" (and CI4 4.7 has no forge()). -->
 
 ---
+## Session Checkpoint: 2026-09-28 (Phase 6ll - Teruskan AuliaPos Phase 2 VERIFIED + APPROVED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (Phase 2 of the Teruskan AuliaPos plan) - verified and approved; Phase 3 NOT started
+- **Active Artifacts:**
+  - `spec/spec-design-teruskan.md` - Status: Finalized (v1.2, GH-016)
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md` - Status: TASK-001..009 done (Phase 1 + Phase 2 verified); Phase 3 (TASK-010..012) pending
+- **Achieved Milestones:**
+  - TASK-008 COMPLETE. Automated: 643 tests / 2531 assertions exit 0; `--filter InboxTeruskan` 56/289. Manual (owner clicked in Brave, localhost XAMPP, Gateway live `connected`): (a) forwarded photo `900044` (conv `900002`) to conv `900021` -> new bubble with the "Diteruskan" label and no quote box; (b) forwarding a `media_confirmed_gone_at` fixture showed the modal error "Lampiran ini sudah tidak tersedia, jadi tidak bisa diteruskan." with NOTHING sent.
+  - Gateway evidence (TASK-008 log check): `C:\Projects\WA-Gateway\logs\gateway.log` 2026-09-28 11:03:45/11:03:48 UTC -> `[SEND] mengirim pesan media keluar` mediaType image, ukuranByte 275105, `forwardMarkerApplied:"native"`; then `[SEND] pesan media berhasil dikirim` messageId `3EB035D58982B0995B331F`, mediaRefTersedia true, `quoteApplied:false`, `forwardMarkerApplied:"native"`. Proves `forward: true` reached Gateway on `/send-media`, native marker applied, and `quoted` never sent.
+  - DB evidence row `900080` (conv `900021`): `is_forwarded=1`, ALL `quoted_*` NULL, `media_path`/`media_local_filename` NULL, `media_mime_type=image/jpeg`, `media_size=275105` (= source `900044.jpg`), `media_metadata` present. No row was written for the failed gone-media attempt.
+  - EXT-001 confirmed in the deployed Gateway code: master `4a766d23391c3222ec252f4dfbe82e2c7d9ec06e` (merge `feature/teruskan-forward-marker`), `forward` handled on BOTH `/send` and `/send-media`, plus the `FORWARD_WITH_QUOTED` 400 guard (ASSUMPTION-013).
+  - TASK-009 APPROVED 2026-09-28 by explicit owner instruction, with the TASK-008 manual checklist passing in front of the owner.
+  - Test fixture `900079` (a synthetic `media_confirmed_gone_at` image row inserted into live conv `900002` for the manual check) was DELETED after the test; verified 0 rows left. No other live data was mutated.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** passing a SQL/cURL string containing embedded double quotes from PowerShell 5.1 directly into `cmd /c "..."`.
+  - **Reason:** PowerShell ends the double-quoted string at the inner `"`, so the shell tries to run fragments like `inbox` as commands (it also mangled a `git commit -m "feat(inbox): ..."` message). Escaping with `\"` does NOT work in PowerShell.
+  - **Correct Solution:** write the SQL to a file and run `mysql -e "source <abs path>.sql"`, and write commit messages to a file and use `git commit -F <file>`. Avoid embedded `"` in `cmd /c` strings entirely.
+- **Updated Files:**
+  - `plan/plan-feature-teruskan-auliapos-v1.0.md` - TASK-008 done, TASK-009 approved, NOTE block extended with the manual + Gateway-log + DB evidence, and an environment-noise note about Baileys `SessionError`/`EPIPE` retry-receipt spam (unrelated to Teruskan).
+- **Decisions Made:**
+  - The manual browser half of TASK-008 is inherently owner-run; the agent prepared the live fixture and monitored the Gateway log instead of claiming the check. Fixture rows inserted into the live DB for a manual check MUST be deleted afterwards and the deletion verified.
+  - Log noise note: periodic `SessionError: No matching sessions found for message` / `EPIPE` entries in the Gateway log come from retry-receipt handling on the `255490491736112@lid` chat and do NOT appear on the media send path.
+- **Next Action / Pending:**
+  - **Phase 3** (`TASK-010..012`: edge cases + regression + release gate) - not started; requires a NEW session per session-lock, attaching `@plan/plan-feature-teruskan-auliapos-v1.0.md`.
+  - Push of `v2.3` was NOT performed this turn (owner approved checkpoint + commit only). Local commits are ahead of `origin/v2.3` until pushed.
+  - Carried forward (unchanged): `docs/peta-kemajuan-inbox.html` has been modified since before this session and is NOT committed (use the `update-peta-kemajuan` skill to sync); `docs/TODO-CHAT.md` / `docs/GATEWAY-REQUIREMENTS.md` not yet updated for Teruskan.
+  - Still-open reviewer questions carried from Phase 2 (not confirmed defects): forwarded-source bytes bypass `maxMediaUploadMb`; the Teruskan path does not write `media_confirmed_gone_at` on a live-fetch 410; worst case ~60s synchronous (30s live-fetch + 30s send).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6ll Teruskan AuliaPos Phase 2 VERIFIED/APPROVED) TASK-008 closed with automated tests (643/2531; filtered 56/289) plus owner-run manual checks in Brave - photo forward shows the "Diteruskan" label (DB row 900080: is_forwarded=1, all quoted_* NULL, media_size 275105 matching source 900044.jpg) and a gone-media fixture showed the "Lampiran ini sudah tidak tersedia..." error with nothing sent. Gateway log proves forward:true on /send-media with forwardMarkerApplied:"native" and quoteApplied:false; deployed Gateway is master 4a766d2 (EXT-001). TASK-009 approved by owner. Live fixture 900079 deleted. New dead-end: never embed double quotes in cmd /c from PowerShell - use SQL files and git commit -F. Next: Phase 3 (TASK-010..012) in a NEW session; v2.3 not pushed yet. -->
+
+---
