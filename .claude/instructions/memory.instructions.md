@@ -1916,9 +1916,9 @@
 ## 📝 Session Checkpoint: 2026-09-28 (Phase 6vv — `/sdlc-write-code` Phase 3 `plan-refactor-teruskan-media-bound-v1.0.md`; plan siap ditutup)
 
 - **Active Memory Path:** `.claude/instructions/memory.instructions.md`
-- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — **Phase 1, 2, 3 selesai**; berhenti di gate TASK-728 (persetujuan owner untuk menutup plan).
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — **plan SELESAI & ditutup** (status Completed, TASK-728 disetujui owner 2026-09-28).
 - **Active Artifacts:**
-  - `plan/plan-refactor-teruskan-media-bound-v1.0.md` — Status: 🔄 In Progress (semua TASK-7xx `[x]` kecuali TASK-728 approval).
+  - `plan/plan-refactor-teruskan-media-bound-v1.0.md` — ✅ **Completed** (semua TASK-701..728 `[x]`; commit `d29e346` → `201c74b` → `4631010`, ter-push `origin/v2.3`).
   - `spec/spec-design-teruskan.md` — v1.3 (tidak disentuh, CON-701).
 - **Achieved Milestones:**
   - **TASK-721/TEST-701:** `Inbox::akumulasiChunk(string $body, string $chunk, int $maxBytes): array{body,overflow}` (private static, murni) dipanggil `CURLOPT_WRITEFUNCTION`.
@@ -1943,9 +1943,10 @@
   - TASK-723 memilih **ganti** (bukan hapus) guard statis dengan test perilaku loopback.
   - Label 413 memakai batas dari server (`BATAS_MEDIA_UNDUH_MB`), bukan angka hardcode di JS.
 - **Next Action / Pending:**
-  - **Closing sequence**: checkpoint ini → commit Phase 3 → push `origin/v2.3` → prompt penutupan plan (TASK-728).
-  - Manual live-Gateway: media masuk >15MB tampil; Teruskan >15MB ditolak (owner-run).
-  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit (sync via skill `update-peta-kemajuan`); `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` errno 1118; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`); layout ikon Font Awesome `fa-file-circle-exclamation` perlu dicek visual (kelas FA6; bundle lokal mungkin FA5).
+  - **Closing sequence**: checkpoint ini → commit penutupan plan → push `origin/v2.3`.
+  - Manual live-Gateway (owner-run, **belum** dijalankan): media masuk >15MB tampil; Teruskan >15MB ditolak.
+  - Ikon `fa-file-circle-exclamation` DIVERIFIKASI valid: layout memakai Font Awesome **6.4.0** via cdnjs (`layout/minimal.php:12`), jadi kelas FA6 tersedia.
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit (sync via skill `update-peta-kemajuan`); `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` errno 1118; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
 
 <!-- checkpoint-tail: 2026-09-28 (Phase 6vv Write-Code Media-Bound Phase 3) /sdlc-write-code executed Phase 3 of plan/plan-refactor-teruskan-media-bound-v1.0.md and the plan is ready to close (only the TASK-728 approval gate remains). Extracted the pure Inbox::akumulasiChunk() used by CURLOPT_WRITEFUNCTION with 5 unit tests; DELETED the fragile static substring guard and replaced it with a real behavioural test (tests/session/InboxMediaDownloadTransferBoundTest.php) that runs actual cURL against a php -S loopback server streaming WITHOUT Content-Length (512KB vs 256KB bound -> 413, 64KB -> 200); mapped 413 to an explicit 'terlalu_besar' category and the label "Lampiran terlalu besar untuk ditampilkan (batas NMB)" in the view, bound passed from the controller as BATAS_MEDIA_UNDUH_MB, and re-synced the VERBATIM JS copy tests/js/media-inbox-retry.check.js (15 PASS); the KB had no bolehDiteruskan entry (only historical checkpoints) so a canonical KB bullet for aksiPesanTersedia() was added instead of rewriting history; docs/adr/ recorded in docs/ARCHITECTURE.md tree + section 13. Verify: suite OK 677/2688 exit 0, both node checks pass. Dead-end: loopback tests need a separate process (proc_open php -S + fsockopen readiness poll) because an in-process stream_socket_server deadlocks a blocking cURL, and the router must receive the byte count via the URL path since callGatewayMediaDownload posts no query. Next: close the plan after owner approval (TASK-728); manual live-Gateway check still owner-run. -->
 
