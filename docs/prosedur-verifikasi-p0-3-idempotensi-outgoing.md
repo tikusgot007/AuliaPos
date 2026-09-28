@@ -87,9 +87,21 @@ HP kedua dengan WhatsApp aktif. **Jangan** memakai nomor pelanggan sungguhan.
 | Berkas operasi Gateway | `data/gateway.sqlite`, tabel `outgoing_operations` | `src/config/index.js:73` |
 | Log Gateway | `logs/gateway.log` + panel Event/Log dashboard | `.env` `LOG_FOLDER` |
 | Kolom jejak AuliaPos | `messages.gateway_operation_id` | `CON-009` (spec §4.7) |
+| AuliaPos menganggap Gateway mati | 30 detik tanpa heartbeat | `app/Config/Inbox.php:44` (`heartbeatStaleSeconds`; heartbeat tiap 15 detik) |
+| Baileys menganggap soket WhatsApp mati | ≈35 detik tanpa data server | `baileys/lib/Socket/socket.js:295` (`keepAliveIntervalMs + 5000`) |
+| Baileys menyerah menunggu tanda terima kirim | 60 detik | `baileys/lib/Utils/generics.js:131` via `waitForMessage` |
 
 Karena lease (35 detik) sengaja lebih panjang daripada timeout teks AuliaPos (10 detik), kirim ulang
 manusia **selalu** jatuh di dalam lease selama dilakukan cepat.
+
+> [!CAUTION]
+> **Batas pembekuan proses adalah yang PALING DULU tercapai, bukan 30 detik.** Dua batas berjalan
+> bersamaan: AuliaPos menyerah lewat heartbeat (30 detik), tetapi **Baileys memutus soket WhatsApp
+> lebih dulu** (≈35 detik tanpa data server). Karena itu, **jaga pembekuan ≤ ~15 detik.**
+>
+> Pembekuan 26 detik terbukti mematikan soket **tepat saat** kiriman sedang berjalan: kiriman itu
+> lalu menggantung 60 detik dan berakhir gagal tanpa pernah sampai ke pelanggan
+> (`docs/decisions/2026-09-28-c1-p0-3-outgoing-idempotency-remeasurement.md` §5.3, §6).
 
 ## 5. Skenario A — kirim ulang di dalam lease (AC-027, inti C1)
 
@@ -106,16 +118,24 @@ manusia **selalu** jatuh di dalam lease selama dilakukan cepat.
 1. Di PowerShell kedua, jalankan:
 
    ```text
-   powershell -ExecutionPolicy Bypass -File build\suspend-gateway.ps1 -Seconds 25
+   powershell -ExecutionPolicy Bypass -File build\suspend-gateway.ps1 -Seconds 15
    ```
 
-   Alat ini menghitung mundur 5 detik, lalu mencetak `FREEZING`.
+   Alat ini menghitung mundur 5 detik, lalu mencetak `FREEZING`. **Jangan** memakai nilai di atas
+   ~15 detik: lihat peringatan batas pembekuan di §4.
 2. **Tepat saat muncul `FREEZING`, tekan Kirim di Inbox.**
 3. Tunggu. Sekitar 10 detik kemudian Inbox harus menampilkan **gagal/timeout** (AuliaPos membatalkan
    permintaan), padahal Gateway masih beku.
 4. Setelah alat mencetak `RESUMED`, **segera tekan "Kirim ulang"** di Inbox (dalam beberapa detik;
    jauh di bawah sisa lease 35 detik).
 5. Amati hasilnya.
+
+> [!TIP]
+> **Kalau yang diinginkan cabang `409` (bukan replay):** tekan "Kirim ulang" **selagi Gateway masih
+> beku**, lalu minta operator alat mencairkan secepatnya (harus sebelum detik ke-30). Ini menghasilkan
+> `409 SEND_IN_PROGRESS` + UI "hasil belum pasti" — tetapi menuntut pembekuan lebih lama, sehingga
+> soket WhatsApp **berisiko** diputus dan kirimannya bisa gagal. Itu pernah terjadi dan bukan cacat
+> produk: lihat §5.5 untuk pemulihannya.
 
 > [!NOTE]
 > **Gerbang keabsahan percobaan.** Percobaan hanya **sah** kalau Inbox benar-benar menampilkan
@@ -142,6 +162,21 @@ Percobaan dinyatakan **LULUS** hanya bila **semuanya** benar:
 
 Ulangi Skenario A **minimal 3 kali** dengan teks unik berbeda (`VERIF-C1-A2`, `VERIF-C1-A3`),
 mengikuti pola pengukuran Ticket 01. Catat 3/3 atau berapa pun hasil apa adanya.
+
+### 5.5 Pemulihan bila kiriman benar-benar hilang
+
+Kalau pembekuan memutus soket WhatsApp **tepat saat** kirim, pesannya tidak sampai dan operasinya
+tertinggal `in_flight` dengan `resolved_at` kosong serta peringatan "hasil belum pasti" di UI. Ini
+pulih lewat langkah berikut, **tanpa risiko ganda** — asalkan kiriman pertama memang tidak sampai:
+
+1. Periksa WhatsApp penerima dulu. Kalau pesannya **tidak ada**, lanjut.
+2. **Tunggu sampai lease lewat** — 35 detik sejak `updated_at` baris operasi itu.
+3. Tekan **"Kirim ulang"** di Inbox. UI mempertahankan `operation_id` yang sama, jadi Gateway akan
+   menaikkan `attempts` lalu **benar-benar mengirim**.
+4. Buktikan hasilnya: `state=sent`, `attempts` naik satu, dan `messages` tetap **satu** baris.
+
+Kalau setelah lease lewat pesannya tetap tidak masuk, jangan mengulang buta — periksa
+`C:\projects\WA-Gateway\logs\gateway.log` dan `GET /api/status` lebih dulu.
 
 ## 6. Skenario B — kirim ulang setelah lease pada operasi yang sudah terkirim (AC-042)
 
@@ -212,11 +247,34 @@ Yang diharapkan untuk operasi uji: `state` = `sent` atau `in_flight`, `attempts`
 | Pelanggan menerima **dua** pesan | Dugaan regresi idempotensi | **GAGAL** — simpan log Gateway + isi `outgoing_operations`, lalu laporkan |
 | `409 OPERATION_ID_REUSED` saat kirim ulang | Teks diedit antar-percobaan | Ulangi tanpa mengedit kotak teks |
 
-## 9. Status saat prosedur ini ditulis (28 Sep 2026)
+## 9. Status pelaksanaan
 
-- Gateway **tidak sedang berjalan**: port 3000 kosong; dua proses `node` yang hidup adalah
-  `9router` (proxy AI), bukan Gateway.
-- Checkout `C:\projects\WA-Gateway` bersih di `master @ a2ba409`, tetapi **belum punya**
-  `node_modules`, `.env`, `auth/`, `data/` — jadi perlu `npm install` + penautan WhatsApp.
-- Node terpasang `v22.23.2` (spec: minimal 20; Node 24 tidak didukung) — **OK**.
-- Karena itu prosedur ini **belum pernah dijalankan**. P0 #3 masih **OPEN** sampai Bagian 7 terisi.
+### 9.1 Saat dokumen ini pertama disusun (28 Sep 2026)
+
+Gateway **tidak** sedang berjalan (port 3000 kosong; dua proses `node` yang hidup adalah `9router`,
+proxy AI, bukan Gateway). Checkout `C:\projects\WA-Gateway` bersih di `master @ a2ba409` tetapi belum
+punya `node_modules`, `.env`, `auth/`, maupun `data/`. Node terpasang `v22.23.2` (spec: minimal 20;
+Node 24 tidak didukung). Prosedur belum pernah dijalankan.
+
+### 9.2 Hasil pelaksanaan (28 Sep 2026, sesi yang sama)
+
+Prosedur **sudah dijalankan** terhadap Gateway nyata + WhatsApp nyata. Bukti lengkap beserta tabel
+per-putaran ada di
+`docs/decisions/2026-09-28-c1-p0-3-outgoing-idempotency-remeasurement.md`. Ringkasnya:
+
+| Run | Jalur Gateway | Sampai ke HP? | Baris `messages` |
+| --- | --- | --- | --- |
+| Baseline | `sent`, attempts 1 | ya, 1× | 1 |
+| #1 | replay (`tidak dikirim ulang`) | ya, 1× | 1 |
+| #2 | `409 SEND_IN_PROGRESS` | **tidak** (soket putus) | 0 |
+| #2b | `lease lewat` → attempts 2 → `sent` | ya, 1× | 1 |
+
+**Tidak ada duplikat di seluruh putaran.**
+
+- **Klaim inti P0 #3 (C1) terverifikasi:** timeout + kirim ulang manusia tidak lagi menggandakan pesan.
+- **ASSUMPTION-009 tetap OPEN.** Celah ~1 ms "sudah diterima WhatsApp tetapi belum tercatat" belum
+  tertutup; penutup penuhnya GW-21 di M2. Jangan menulis "duplikat mustahil".
+- **Satu run belum pernah menghasilkan cabang `409` sekaligus pengiriman sukses.** Diperlukan cara
+  memperlambat hanya jalur keluar WhatsApp, yang tidak bisa dilakukan teknik pembekuan proses.
+- Koreksi yang sudah masuk ke dokumen ini: batas pembekuan ≤ ~15 detik (§4), timeout ack Baileys
+  60 detik (§4), langkah pemulihan pasca-lease (§5.5).

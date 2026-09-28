@@ -1112,3 +1112,39 @@
 <!-- checkpoint-tail: 2026-09-28 B1–B8 sweep closed 4 items only after verifying them first (B3 SeedFase1ePerf now prints DB-verified counts and fails on mismatch; B6 CHAT.md §13 stale footnote → open-read REQ-001; B7 two out-of-scope items into new TODO group D; B5 G:\arsip-gateway struck) and DEBUNKED B4 (LaporanBulananExcludeBatalTest passes OK 2 tests — the db_closing_kas error is long gone), a fresh instance of the KB rule "audit findings are not self-verifying". B2 (potong() after pagination — the \f vs trim() trap) and B8 (PRD note, phase boundary) deliberately deferred to the owner. C1 verification guide authored (docs/prosedur-verifikasi-p0-3-idempotensi-outgoing.md) plus a local helper build/suspend-gateway.ps1 (NtSuspendProcess; refuses when the gateway is absent and ignores the two 9router node processes). Hard blocker recorded: the Gateway is NOT running (port 3000 free) and C:\projects\WA-Gateway has no node_modules/.env/auth/data, so C1 needs npm install + WhatsApp pairing by the owner; P0 #3 stays OPEN. Suite green 574/2201 exit 0. Not committed yet. Next: commit → push → owner runs C1. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (C1 dijalankan — P0 #3 terverifikasi di Gateway + WhatsApp nyata)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Ad-hoc maintenance + verifikasi nyata (bukan tahap SDLC formal).
+- **Active Artifacts:**
+  - `docs/decisions/2026-09-28-c1-p0-3-outgoing-idempotency-remeasurement.md` — ✅ **baru** (bukti per-putaran).
+  - `docs/prosedur-verifikasi-p0-3-idempotensi-outgoing.md` — ✅ diperbarui (§4, §5.2, §5.5, §9).
+- **Achieved Milestones:**
+  - **Gateway disiapkan dan dinyalakan:** `npm install` (214 paket, exit 0), `.env` dari `.env.example` **tanpa BOM** (BOM merusak parsing kunci pertama `dotenv`), `CI4_BASE_URL=http://localhost/aulia`, `CI4_GATEWAY_TOKEN` disalin dari AuliaPos (`inbox.gatewayToken`, 23 karakter; nilainya tidak pernah ditampilkan/dicatat), lalu `node src/app/index.js` langsung — `npm.ps1` diblokir Execution Policy mesin ini. Tersambung WhatsApp lewat QR pairing sebagai `6281913500707`.
+  - **4 putaran pengukuran nyata, 0 duplikat:** baseline `sent`/`attempts=1`; **#1** timeout → kirim ulang di dalam lease → **replay** (`tidak dikirim ulang`), 1 pesan sampai, 1 baris `messages`; **#2** → **`409 SEND_IN_PROGRESS`** (`ditolak tanpa kirim`) tetapi kirimannya gagal karena soket putus; **#2b** kirim ulang setelah lease → `attempts` 2 → `sent` dalam **203 ms**, 1 pesan sampai, 1 baris.
+  - **Klaim inti P0 #3 (C1) terverifikasi:** timeout + kirim ulang manusia **tidak** menggandakan pesan.
+- **Corrected Facts:**
+  - **Batas pembekuan proses = batas yang PALING DULU tercapai, dan itu Baileys — bukan AuliaPos.** AuliaPos menyerah lewat heartbeat 30 detik (`app/Config/Inbox.php:44`), tetapi Baileys memutus soket pada `keepAliveIntervalMs + 5000` ≈ 35 detik tanpa data server (`baileys/lib/Socket/socket.js:295`). **Jaga pembekuan ≤ ~15 detik.** Pembekuan 26 detik mematikan soket **tepat saat** kirim berjalan.
+  - **Baileys menyerah menunggu ack kirim pada 60 detik** (`baileys/lib/Utils/generics.js:131` via `waitForMessage`) — terukur tepat **60,001 detik** dari `[SEND] mengirim pesan keluar` ke `[SEND] gagal mengirim pesan`.
+  - **`markUnresolved()` sengaja TIDAK memindahkan `in_flight` → `failed`** (`src/store/outgoingOperations.js:156-160`) — hanya menulis `last_error` + `updated_at`. Jadi timeout meninggalkan `state=in_flight` + `resolved_at=NULL`; itu desain jujur, bukan bug.
+  - **Pemulihan pasca-lease bekerja:** `classifyExisting()` mengembalikan `retry` bila lease lewat dan `attempts < cap`, lalu `registerRetry()` menaikkan `attempts` **sebelum** kirim (`src/delivery/outgoingOperationService.js:105,154`).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Membekukan proses Gateway > ~15 detik untuk pengukuran ini.** Memutus soket WhatsApp di tengah kirim → kiriman hilang, operasi tertinggal `in_flight`, pelanggan tidak menerima apa pun. Persis yang terjadi di run #2.
+  - **Memakai `Get-Process node` sebagai bukti Gateway hidup** (tercatat sebelumnya, tetap berlaku) — di mesin ini `9router` juga `node.exe`. Bukti yang benar: port 3000 atau CommandLine yang memuat `src/app/index.js`.
+- **Updated Files:**
+  - `docs/decisions/2026-09-28-c1-p0-3-outgoing-idempotency-remeasurement.md` — **baru**.
+  - `docs/prosedur-verifikasi-p0-3-idempotensi-outgoing.md` — §4 (dua batas Baileys + peringatan ≤15 detik), §5.2 (`-Seconds 15` + tip cabang `409`), §5.5 (pemulihan pasca-lease, **baru**), §9 (status + hasil).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - **P0 #3 (C1) boleh ditutup sejauh klaim intinya** (tidak ada duplikat pada timeout + kirim ulang manusia).
+  - **ASSUMPTION-009 tetap OPEN** — celah ~1 ms "sudah diterima WhatsApp tetapi belum tercatat" belum tertutup; penutup penuhnya GW-21 di M2. Jangan menulis "duplikat mustahil".
+  - **Satu run belum pernah menghasilkan `409` sekaligus pengiriman sukses** — itu butuh cara memperlambat **hanya** jalur keluar WhatsApp, di luar jangkauan teknik pembekuan proses.
+- **Next Action / Pending:**
+  - Closing sequence: checkpoint ini → **commit** → **push** `origin/v2.3` → prompt sesi berikutnya.
+  - Masih terbuka: C2 (P0 #4 retry masuk tanpa batas/dead-letter), C3 (P0 #5 / GW-25 + ESC-001..004), C4 (E-02/E-07). B1/B2/B8 menunggu keputusan owner. Arah besar: **Teruskan (Tahap 4) via `/sdlc-plan-tasks`**.
+  - Catatan operasional: Gateway kini jalan sebagai proses background **persisten**, **bukan** PM2 — tidak akan auto-start setelah reboot.
+
+<!-- checkpoint-tail: 2026-09-28 C1 executed for real and closed on its core claim: 4 rounds against the live Gateway + WhatsApp (baseline sent; #1 timeout→retry-inside-lease→replay, 1 delivery, 1 row; #2 timeout→retry-inside-lease→409 SEND_IN_PROGRESS with no second send, but the delivery was LOST because the 26 s process freeze killed the Baileys socket mid-send; #2b retry after lease expiry→attempts 2→sent in 203 ms, 1 delivery, 1 row). Zero duplicates across all rounds. Hard-won limits now corrected in the procedure doc: the freeze budget is set by Baileys' keepalive (~35 s without server data, so keep the freeze ≤ ~15 s), NOT by AuliaPos' 30 s heartbeat staleness; Baileys gives up on a send ack after exactly 60 s; markUnresolved deliberately leaves state=in_flight with resolved_at=NULL; post-lease retry works via classifyExisting→retry + registerRetry-before-send. ASSUMPTION-009 STAYS OPEN (~1 ms accepted-but-unrecorded window; full guard is GW-21 in M2) — never write "duplicates are impossible". No single round produced both the 409 branch and a successful delivery; that needs stalling only the outbound WhatsApp path. Gateway now runs as a persistent background process, not PM2. Next: commit → push → next session. -->
+
+---
