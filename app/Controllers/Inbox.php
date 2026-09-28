@@ -159,7 +159,10 @@ class Inbox extends BaseController
             // CLN-701 (opsi B): batas unduh/tampilan media masuk, dipakai
             // view untuk label eksplisit saat `GET /inbox/media` menjawab
             // `413` (bukan "tidak tersedia" generik).
-            'maxMediaDownloadMb' => (new InboxConfig())->maxMediaDownloadMb,
+            // A-01: nilai EFEKTIF (setelah plafon kebijakan), bukan env mentah,
+            // supaya label "terlalu besar" di UI sama dengan batas yang
+            // benar-benar ditegakkan jalur media.
+            'maxMediaDownloadMb' => InboxMediaBound::batasEfektifMb((new InboxConfig())->maxMediaDownloadMb),
         ];
 
         return view('layout/minimal', $data);
@@ -1170,7 +1173,7 @@ class Inbox extends BaseController
         if (!$isForward && $file->getSize() > $maxBytes) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
-                'message' => "Ukuran file melebihi batas maksimum ({$config->maxMediaUploadMb}MB).",
+                'message' => 'Ukuran file melebihi batas maksimum (' . InboxMediaBound::batasEfektifMb($config->maxMediaUploadMb) . 'MB).',
             ]);
         }
 

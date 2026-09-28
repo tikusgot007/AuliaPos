@@ -133,3 +133,14 @@ Rencana ini **tidak mengubah requirement produk apa pun** dan **tidak menyentuh 
 **Patuh batasan:** tidak menyentuh `spec/spec-design-teruskan.md`, PRD, `docs/adr/0002-*`, plan v1.1/v1.2/v1.3, maupun repo `WA-Gateway`. Tidak ada suppression/test-skip baru. Tidak ada ADR baru (plafon belum lolos Triple Gate; didokumentasikan di plan + komentar helper).
 
 **TASK-1207 — APPROVAL.** Owner menyetujui penutupan plan pada 2026-09-28. Plan v1.4 ditutup `Completed`; siklus remediasi SEC-01 (gagal-terbuka → gagal-terbatas) tuntas.
+
+### Execution Log — 2026-09-29 (optional two-axis review backlog A-01..A-04)
+
+Executed as a `/code-janitor` fast-track pass. No spec/PRD/ADR change; CON-1008 honoured.
+
+- **A-01** (`app/Libraries/InboxMediaBound.php`, `app/Controllers/Inbox.php`, `app/Views/inbox/index.php`): added `InboxMediaBound::batasEfektifMb()` as the single source of the effective MB cap. The `/inbox/kirim-media` "melebihi batas maksimum" message and the value passed to the Inbox view now report the clamped bound, not the raw env value. `mbKeByte()` now logs a `warning` when the ceiling clamp fires (was silent).
+- **A-02** (`InboxMediaBound::mbKeByte()`): 32-bit guard -- when the policy ceiling in bytes exceeds `PHP_INT_MAX`, the helper returns `PHP_INT_MAX` instead of overflowing the multiplication to float (which would throw a `TypeError`). Behaviour on 64-bit is unchanged.
+- **A-03** (`InboxMediaBound::mbKeByte()`): a negative MB now throws `InvalidArgumentException` (Config already sanitises env to `>= 1`, so this only catches programmer error).
+- **A-04** (`tests/unit/InboxMbKeByteTest.php`): the ceiling assertions use `InboxMediaBound::CEILING_MB` (now public) instead of the duplicated literal `4096`.
+- **Evidence:** `vendor/bin/phpunit --no-coverage --filter InboxMbKeByteTest` OK (5 tests, 15 assertions); `--filter InboxMediaBoundConfigTest` OK (9 tests, 31 assertions); full suite 691 tests -- the only failures are 4 pre-existing `Row size too large` errors in `GatewayOperationIdMigrationTest` / `IsForwardedMigrationTest` / `QuoteColumnsMigrationTest` / `QuotedSourceMessageIdMigrationTest` (test-DB `messages` ROW_FORMAT, unrelated to this change); the remaining 685 tests pass (exit 0), and both JS checks pass.
+- **Not touched:** `spec/spec-design-teruskan.md`, PRD, `docs/adr/0002-*`, plan v1.1/v1.2/v1.3, WA-Gateway repo.

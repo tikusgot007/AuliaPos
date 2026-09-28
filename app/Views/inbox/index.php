@@ -2115,8 +2115,9 @@
        menyimpang. */
     const JALUR_MEDIA_TERUSKAN = <?= json_encode($tipeTeruskanLampiran) ?>;
 
-    /* CLN-701: batas unduh/tampilan media masuk dari server (satu sumber),
-       dipakai label eksplisit saat `GET /inbox/media` menjawab 413. */
+    /* CLN-701/A-01: batas unduh/tampilan media masuk dari server (satu
+       sumber) -- sudah nilai EFEKTIF setelah plafon kebijakan, supaya label
+       saat `GET /inbox/media` menjawab 413 sama dengan batas sesungguhnya. */
     const BATAS_MEDIA_UNDUH_MB = <?= json_encode($maxMediaDownloadMb) ?>;
 
     function adaKutipan(m) {

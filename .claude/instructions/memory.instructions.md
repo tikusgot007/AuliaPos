@@ -2272,6 +2272,43 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7be — `/code-janitor` remediasi backlog media-bound A-01..A-04)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path `AGENTS.md`, terverifikasi ada).
+- **Current SDLC Phase:** Code (fast-track `/code-janitor`) atas backlog opsional review Two-Axis plan v1.4. Persona-locked Code Janitor.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.4.md` — tetap `Completed`; ditambah satu entri `### Execution Log — 2026-09-29` (additif, English).
+- **Achieved Milestones:**
+  - **A-01** selesai: `InboxMediaBound::batasEfektifMb()` = satu sumber batas MB efektif; pesan `/inbox/kirim-media` (`Inbox.php:1173`) dan nilai yang dikirim ke view (`Inbox.php:162`) memakai nilai ter-clamp, bukan env mentah; `mbKeByte()` kini `log_message('warning', ...)` saat clamp plafon aktif (dulu senyap).
+  - **A-02** selesai: guard 32-bit di `mbKeByte()` — bila plafon byte > `PHP_INT_MAX`, kembalikan `PHP_INT_MAX` (bukan perkalian meluber jadi float → `TypeError`). Perilaku 64-bit tak berubah.
+  - **A-03** selesai: MB negatif melempar `InvalidArgumentException` (preseden `InboxOutgoingRequest`; Config sudah menyaring env `>= 1`, jadi hanya menangkap salah-program).
+  - **A-04** selesai: `CEILING_MB` jadi `public`; asersi test pakai konstanta, bukan literal `4096`.
+  - Bukti: `InboxMbKeByteTest` OK (5 tes, 15 asersi); `InboxMediaBoundConfigTest` OK (9 tes, 31 asersi); suite penuh 691 tes dengan **hanya 4 error row-size migrasi** (pra-eksisting, tak terkait) → 685 OK exit 0; `media-inbox-retry.check.js` 19 PASS; `operation-id-composer.check.js` lulus.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Memanggil PHPUnit dengan direktori eksplisit (`phpunit tests\unit tests\session`) melewati `<exclude>` di `phpunit.dist.xml`** → 4 file non-class (`InboxMediaConfirmedGoneTest`, `InboxMediaFallbackTest`, `InboxMediaStorageTest`, `InboxResponseStateManualTest`) muncul sebagai warning, dan `failOnWarning="true"` membuat exit 1 walau 536 tes OK. **Correct:** pakai `--filter` regex untuk mengecualikan subset, atau jalankan suite penuh; jangan simpulkan merah dari warning pemanggilan folder.
+  - **`rg` (ripgrep) TIDAK tersedia di shell ini** (`The term 'rg' is not recognized`) walau tool `grep` internal jalan. Pakai tool `grep`, bukan `rg` di PowerShell.
+  - **`cmd /c "phpunit --filter \"/regex/\""` dari PowerShell memicu `ParserError` (kutip ganda bersarang).** Correct: tulis file `.cmd` kecil di `build/` lalu `cmd /c build\<file>.cmd` (pola ini juga menghindari DE-05).
+- **Updated Files:**
+  - `app/Libraries/InboxMediaBound.php` — `use InvalidArgumentException`, `CEILING_MB` public, guard negatif + log clamp + guard 32-bit, `batasEfektifMb()`.
+  - `app/Controllers/Inbox.php` — dua titik pakai `batasEfektifMb()`.
+  - `app/Views/inbox/index.php` — komentar batas efektif.
+  - `tests/unit/InboxMbKeByteTest.php` — konstanta + 2 tes baru (negatif, batasEfektifMb) + `assertIsInt`.
+  - `plan/plan-refactor-teruskan-media-bound-v1.4.md` — entri Execution Log 2026-09-29.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - A-03 "tolak negatif" diwujudkan sebagai `InvalidArgumentException` (gagal-lantang), bukan clamp ke 0 — 0 akan menolak SEMUA media (`ALT-1201` plan v1.4) dan menyesatkan; negatif memang input tak bermakna.
+  - A-02 cukup guard + komentar; **tidak** menambah infrastruktur tes 32-bit (YAGNI; lingkungan 64-bit, `PHP_INT_SIZE=8`).
+  - Test-DB `messages` row-size **tidak** ditambal (di luar lingkup; masalah lingkungan/`ROW_FORMAT`).
+- **Next Action / Pending:**
+  - **Closing sequence:** checkpoint ini ✅ → tawarkan commit → tawarkan push → prompt sesi berikutnya.
+  - 5 file termodifikasi, **belum di-commit** (branch `v2.3`).
+  - **PENDING BARU (pra-eksisting, terbuka):** 4 tes migrasi gagal `Row size too large ... 8126` di `aulia_inboxdb_test` (`GatewayOperationIdMigrationTest`, `IsForwardedMigrationTest`, `QuoteColumnsMigrationTest`, `QuotedSourceMessageIdMigrationTest`). Gejala: `messages` ber-`ROW_FORMAT` non-DYNAMIC (limit 8126). Kandidat perbaikan terpisah: `ALTER TABLE messages ROW_FORMAT=DYNAMIC` di test-DB (dan cek live) atau `innodb_default_row_format`. **Bukan** regresi dari sesi ini; suite exit-0 hanya bila 4 tes itu dikecualikan.
+  - Carried forward lama tetap: `docs/peta-kemajuan-inbox.html`, manual live-Gateway >15MB, `docs/TODO-CHAT.md` items 11–13.
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7be Janitor Media-Bound Backlog) Ran /code-janitor on the optional two-axis review backlog A-01..A-04 of plan/plan-refactor-teruskan-media-bound-v1.4.md and fixed all four: A-01 added InboxMediaBound::batasEfektifMb() as the single effective-MB source, made the /inbox/kirim-media size message and the view value report the clamped bound, and made mbKeByte() log a warning when the ceiling clamp fires (previously silent); A-02 added a 32-bit overflow guard (return PHP_INT_MAX instead of a float-overflow TypeError); A-03 made negative MB throw InvalidArgumentException (matching InboxOutgoingRequest's precedent); A-04 made CEILING_MB public and switched the test assertions to the constant instead of the literal 4096. Surgical: 4 code/test files plus one additive Execution Log entry in the plan; no spec/PRD/ADR/WA-Gateway touched. Evidence: InboxMbKeByteTest OK 5/15, InboxMediaBoundConfigTest OK 9/31, full suite 691 tests with only 4 PRE-EXISTING failures (Row size too large, errno 1118, test-DB messages ROW_FORMAT non-DYNAMIC, in GatewayOperationId/IsForwarded/QuoteColumns/QuotedSourceMessageId migration tests — unrelated to this diff) and the other 685 passing exit 0, plus both JS checks green. Three new reusable dead-ends: explicit test directories bypass phpunit.dist.xml <exclude> (failOnWarning -> false red), `rg` is absent from this shell, and nested cmd/PS quoting needs a small .cmd wrapper in build/. New open item: fix the test-DB messages ROW_FORMAT (DYNAMIC) to clear the 4 migration errors. Next: closing sequence commit -> push -> next-session prompt. -->
+
+---
+
 ---
 
 

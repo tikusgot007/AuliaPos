@@ -42,7 +42,7 @@ final class InboxMbKeByteTest extends TestCase
             'Prasyarat: 8800000000000 memang di atas ambang overflow.'
         );
 
-        $plafon = 4096 * 1024 * 1024;
+        $plafon = InboxMediaBound::CEILING_MB * 1024 * 1024;
 
         $this->assertSame(
             $plafon,
@@ -54,6 +54,12 @@ final class InboxMbKeByteTest extends TestCase
             InboxMediaBound::mbKeByte(8800000000000),
             'SEC-1003: hasil wajib terbatas (di bawah PHP_INT_MAX), bukan nilai efektif tak terbatas.'
         );
+        // A-02: hasil WAJIB int murni (tanpa TypeError/meluber jadi float),
+        // termasuk di platform 32-bit tempat plafon byte tidak representable.
+        $this->assertIsInt(
+            InboxMediaBound::mbKeByte(8800000000000),
+            'A-02: mbKeByte() selalu mengembalikan int, tidak pernah float/TypeError.'
+        );
     }
 
     /**
@@ -64,14 +70,46 @@ final class InboxMbKeByteTest extends TestCase
      */
     public function testPlafonKebijakanMembatasiNilaiDiAtasBatas(): void
     {
-        $plafon = 4096 * 1024 * 1024;
+        $plafon = InboxMediaBound::CEILING_MB * 1024 * 1024;
 
-        $this->assertSame($plafon, InboxMediaBound::mbKeByte(4096), 'Nilai tepat di plafon tidak diubah.');
+        $this->assertSame($plafon, InboxMediaBound::mbKeByte(InboxMediaBound::CEILING_MB), 'Nilai tepat di plafon tidak diubah.');
         $this->assertSame($plafon, InboxMediaBound::mbKeByte(4097), 'Nilai di atas plafon dipotong ke plafon.');
         $this->assertSame(
             $plafon,
             InboxMediaBound::mbKeByte(100000),
-            'SEC-01: salah-ketik 100000 MB (tidak overflow) tetap gagal-terbatas.'
+                'SEC-01: salah-ketik 100000 MB (tidak overflow) tetap gagal-terbatas.'
+        );
+    }
+
+    /**
+     * A-03: MB negatif ditolak keras -- nilai seperti itu tidak punya arti
+     * (Config sudah menyaring env ke >= 1); lebih baik gagal-lantang daripada
+     * mengembalikan byte negatif.
+     */
+    public function testMbNegatifDitolak(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        InboxMediaBound::mbKeByte(-1);
+    }
+
+    /**
+     * A-01: `batasEfektifMb()` adalah SATU sumber angka efektif yang harus
+     * sejalan dengan batas yang ditegakkan `mbKeByte()` -- dipakai lapisan
+     * laporan/UI supaya label tidak menyebut nilai env mentah.
+     */
+    public function testBatasEfektifMbSejalanDenganMbKeByte(): void
+    {
+        $this->assertSame(100, InboxMediaBound::batasEfektifMb(100), 'Nilai di bawah plafon tidak diubah.');
+        $this->assertSame(
+            InboxMediaBound::CEILING_MB,
+            InboxMediaBound::batasEfektifMb(100000),
+            'A-01: nilai di atas plafon dilaporkan sebagai plafon.'
+        );
+        $this->assertSame(
+            InboxMediaBound::mbKeByte(100000),
+            InboxMediaBound::mbKeByte(InboxMediaBound::batasEfektifMb(100000)),
+            'A-01: byte dari batas efektif identik dengan byte dari nilai mentah.'
         );
     }
 }
