@@ -1189,3 +1189,40 @@
 <!-- checkpoint-tail: 2026-09-28 (lanjutan) Owner picked "fix the remaining Gateway issues", so group C was audited against live code and data rather than the old notes. C2 turned out ALREADY FIXED by M1 Wave 2 Phase 3: incomingBuffer.js has attempt+age caps, markPermanentDead, the dead_lettered_at migration, and startup dead-count logging; the live DB has the column and zero dead rows. C3 did not reproduce (0.34 s timestamp delta, zero decryption errors) and still needs a second test number. E-02 was CONFIRMED by a controlled real-WhatsApp test and NARROWED: plain text, disappearing text, normal photo, and document-with-caption all arrive fine; only VIEW-ONCE is dropped silently (viewOnceMessageV2 falls through connectionManager.js:880-886 into a debug log that LOG_LEVEL=info never writes). PROCESS LESSON that cost a wrong conclusion: I declared "message dropped" from a check that ran BEFORE the message was actually sent — always get the send time from the owner and always run a plain-text control before concluding a message was lost; also "ketik di chat Aan 007" was read as typing in the Inbox rather than on the test phone, so say "from the test phone, not the Inbox" explicitly. Wrote plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md (3 phases, Ref IDs, rollback; placeholder text, media deliberately not fetched, incoming-only per owner decision) and corrected TODO-CHAT group C. Fix NOT executed: /sdlc-bug-report only diagnoses and plans, and Gateway code must go through a worktree north of the live folder. Next: commit → push → /sdlc-write-code on the plan. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6gg — `/sdlc-write-code` eksekusi penuh plan view-once E-02 + deploy live `66bff03`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — plan view-once **Completed**; deploy + verifikasi nyata selesai.
+- **Active Artifacts:**
+  - `plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md` — ✅ Finalized, status `Completed`, TASK-001..016 selesai, ada blok **Amendment 2026-09-28** (koreksi titik deteksi).
+  - `docs/decisions/2026-09-28-viewonce-placeholder-fix-and-deploy.md` — ✅ baru (akar masalah + verifikasi + record deploy).
+  - `docs/TODO-CHAT.md` — item **C4 dikoreksi** (akar masalah dikoreksi; perbaikan terverifikasi & ter-deploy).
+- **Achieved Milestones:**
+  - **E-02 diperbaiki penuh dan di-deploy.** WA-Gateway live `master` `a2ba409 → 66bff03` (fast-forward), Gateway live jalan (`node src/app/index.js`, PID 24636, port 3000, `connected` sebagai `6281913500707`). `auth/` tidak tersentuh; `package*.json` tidak berubah.
+  - **Verifikasi:** `test/simulate-viewonce.js` (7 kasus) lulus; regresi penuh Gateway **27/27 lulus** (dengan `SQLITE_PATH` temp). E2E nyata di instance terpisah: teks & foto biasa masuk, view-once → placeholder (`incoming_queue` id 5, AuliaPos 900041). Cek live pasca-deploy: `incoming_queue` id 8 + AuliaPos 900043, `media_json = null`.
+- **Corrected Facts (WAJIB dibaca ulang sebelum kerja view-once lagi):**
+  - **Akar masalah E-02 yang lama SALAH.** View-once ke **perangkat tertaut** TIDAK datang sebagai `viewOnceMessageV2`; WhatsApp mengirim stanza `<unavailable type="view_once">` **tanpa isi**, Baileys menandai `msg.key.isViewOnce = true` dan `msg.message` **undefined** (`node_modules/baileys/lib/Utils/decode-wa-message.js:127,192-195`; `lib/Socket/messages-recv.js:624-632`), lalu tetap `messages.upsert` (`lib/Socket/chats.js:764-765`). Pesan dibuang di **baris pertama** `_handleIncomingMessage` (`if (!msg.message) return;`), **bukan** di cabang `debug`.
+  - **Perbaikan final:** deteksi `!msg.message && msg.key?.isViewOnce === true` sebelum guard → placeholder teks (`media = null`) untuk `fromMe=false`, dibuang untuk `fromMe=true` (CON-002). Cabang `viewOnceMessageV2` tetap dipertahankan untuk jalur placeholder-resend (`RESOLVED`).
+  - **Badai dekripsi sesi (terpisah, C3/GW-25):** selama E2E, Gateway mencatat `failed to decrypt message` / `No matching sessions found` berulang untuk LID akun sendiri (`255490491736112@lid`, `fromMe:true`) + retry receipt. Tidak menghalangi pesan masuk pelanggan; **belum ditangani**.
+  - **Foto biasa sampai tapi media tak bisa diunduh** di AuliaPos ("Gambar tidak tersedia (kemungkinan sudah kadaluarsa)") — isu fetch/decrypt media, di luar lingkup perbaikan ini.
+  - **E-07 tetap belum terbukti.**
+- **Dead-Ends (Do NOT Repeat):**
+  - **Menganggap view-once datang sebagai `viewOnceMessageV2` lalu dibuang di cabang `else`/`debug`.** Salah. Wrapper itu hanya muncul lewat jalur resend `RESOLVED`; jalur normal adalah stanza `unavailable` tanpa isi yang dibuang di guard `!msg.message`. Jangan menaruh penanganan view-once di cabang tipe sebelum memeriksa `msg.key.isViewOnce`.
+  - **Menjalankan uji nyata tanpa instance hidup + HP pengirim yang jelas.** Pastikan Gateway hidup dan kirim **dari HP uji ke nomor Gateway**, lalu tunggu; jangan simpulkan dari ketiadaan baris sebelum kiriman benar-benar terkirim.
+- **Updated Files:**
+  - `C:\projects\WA-Gateway\src\whatsapp\connectionManager.js` — deteksi `key.isViewOnce` + cabang wrapper + log `else` naik ke `warn` (di-commit `66bff03`, live).
+  - `C:\projects\WA-Gateway\test\simulate-viewonce.js` — **baru** (7 kasus).
+  - `plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md` — selesai + amandemen.
+  - `docs/decisions/2026-09-28-viewonce-placeholder-fix-and-deploy.md` — **baru**.
+  - `docs/TODO-CHAT.md` — C4 dikoreksi.
+- **Decisions Made:**
+  - Instance E2E memakai **`AUTH_FOLDER` live secara in-place** (proses live dimatikan) — disetujui owner; tidak ada sesi ganda/divergensi; `auth/` tidak diganti/dihapus.
+  - Gateway live dijalankan oleh proses **persistent Kilo**. **Catatan operasional:** kalau owner biasa memakai `supervisor/` Control Panel, hentikan proses ini dulu agar tidak dobel.
+- **Next Action / Pending:**
+  - Closing sequence sesi ini: checkpoint ini → **commit dokumen AuliaPos** (`plan/`, `docs/TODO-CHAT.md`, `docs/decisions/2026-09-28-...md`) → **push**.
+  - Masih terbuka: **C3/GW-25** (badai dekripsi sesi; butuh nomor uji kedua), **E-07**, isu unduh media (foto sampai tapi tak tampil), dan arah besar Teruskan (Tahap 4) via `/sdlc-plan-tasks`.
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6gg) Executed the view-once plan end-to-end and deployed it: WA-Gateway live master a2ba409 -> 66bff03 (fast-forward), Gateway running (node src/app/index.js, port 3000, connected as 6281913500707), auth/ untouched. CORRECTED ROOT CAUSE: a view-once to a linked device is NOT a viewOnceMessageV2 wrapper — WhatsApp sends only an <unavailable type="view_once"> stanza, Baileys sets key.isViewOnce=true and leaves message undefined (decode-wa-message.js:127,192-195; messages-recv.js:624-632) and still upserts (chats.js:764-765); the Gateway dropped it at the first line of _handleIncomingMessage, before the dispatch and at no log level. Fix now detects !msg.message && msg.key?.isViewOnce before that guard (placeholder text, media null, incoming-only per CON-002) and keeps the wrapper branch for the RESOLVED resend path. Verified: simulate-viewonce 7/7, full Gateway suite 27/27 with temp SQLITE_PATH, real E2E (queue id 5 + AuliaPos 900041) and post-deploy live check (queue id 8 + AuliaPos 900043, media null). Separate open issue observed: a decryption storm on the account's own LID (255490491736112@lid, fromMe:true) = C3/GW-25; and plain photos arrive but media is not downloadable in AuliaPos. Next: commit docs -> push; then C3 needs a second test number. -->
+
+---
