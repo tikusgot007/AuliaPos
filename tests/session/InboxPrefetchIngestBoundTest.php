@@ -67,7 +67,11 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
 
     protected function tearDown(): void
     {
-        $this->hentikanServer();
+        // CLN-1001: pembersihan artefak server hanya di sini -- bukan di
+        // tengah retry `mulaiServer()`, supaya router.php tetap ada untuk
+        // percobaan berikutnya.
+        $this->hentikanProses();
+        $this->bersihkanServerDir();
 
         foreach ($this->envAsli as $kunci => $nilai) {
             if ($nilai === null) {
@@ -243,7 +247,7 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
                 return $port;
             }
 
-            $this->hentikanServer();
+            $this->hentikanProses();
         }
 
         return null;
@@ -280,7 +284,14 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
         return false;
     }
 
-    private function hentikanServer(): void
+    /**
+     * CLN-1001: HENTIKAN proses saja. TIDAK menghapus `serverDir`/`logFile`,
+     * sehingga retry `mulaiServer()` pada percobaan berikutnya masih
+     * menemukan `router.php` dan benar-benar dapat berhasil. Sebelum fix,
+     * helper ini menghapus direktori + mengosongkan path, membuat percobaan
+     * kedua selalu gagal dan test turun jadi `markTestSkipped`.
+     */
+    private function hentikanProses(): void
     {
         if (is_resource($this->proses)) {
             proc_terminate($this->proses);
@@ -289,7 +300,14 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
 
         $this->proses = null;
         $this->port   = null;
+    }
 
+    /**
+     * CLN-1001: pembersihan artefak server -- hanya dipanggil dari
+     * `tearDown()`, bukan saat retry.
+     */
+    private function bersihkanServerDir(): void
+    {
         if ($this->serverDir !== '' && is_dir($this->serverDir)) {
             foreach (glob($this->serverDir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
                 @unlink($file);

@@ -16,9 +16,9 @@ final class InboxMediaBoundConfigTest extends CIUnitTestCase
 {
     public function testDefaultUnduhDanUnggahTerpisah(): void
     {
-        $prevUpload   = env('inbox.maxMediaUploadMb');
-        $prevDownload = env('inbox.maxMediaDownloadMb');
-        $prevPrefetch = env('inbox.maxMediaPrefetchMb');
+        $prevUpload   = $this->rekamEnv('inbox.maxMediaUploadMb');
+        $prevDownload = $this->rekamEnv('inbox.maxMediaDownloadMb');
+        $prevPrefetch = $this->rekamEnv('inbox.maxMediaPrefetchMb');
 
         // REQ-901/TEST-802: isolasi env ambien (.env pengembang) di TIGA kanal
         // ($_ENV/$_SERVER/getenv) supaya asersi default tidak rapuh.
@@ -49,8 +49,8 @@ final class InboxMediaBoundConfigTest extends CIUnitTestCase
 
     public function testEnvMenaikkanBatasUnduhTanpaMengubahBatasUnggah(): void
     {
-        $prevUpload   = env('inbox.maxMediaUploadMb');
-        $prevDownload = env('inbox.maxMediaDownloadMb');
+        $prevUpload   = $this->rekamEnv('inbox.maxMediaUploadMb');
+        $prevDownload = $this->rekamEnv('inbox.maxMediaDownloadMb');
 
         unset(
             $_ENV['inbox.maxMediaUploadMb'],
@@ -76,9 +76,9 @@ final class InboxMediaBoundConfigTest extends CIUnitTestCase
 
     public function testDefaultPrefetchBoundTerkunciDanTerpisah(): void
     {
-        $prevUpload   = env('inbox.maxMediaUploadMb');
-        $prevDownload = env('inbox.maxMediaDownloadMb');
-        $prevPrefetch = env('inbox.maxMediaPrefetchMb');
+        $prevUpload   = $this->rekamEnv('inbox.maxMediaUploadMb');
+        $prevDownload = $this->rekamEnv('inbox.maxMediaDownloadMb');
+        $prevPrefetch = $this->rekamEnv('inbox.maxMediaPrefetchMb');
 
         // REQ-901/TEST-802: isolasi env ambien di TIGA kanal supaya asersi
         // default prefetch tidak rapuh.
@@ -111,14 +111,63 @@ final class InboxMediaBoundConfigTest extends CIUnitTestCase
     }
 
     /**
-     * REQ-901/TEST-905: bukti isolasi bekerja DUA arah — env override
-     * tetap dihormati saat diset, dan default 15 kembali saat env bersih.
+     * REQ-1001/TEST-1003: saat env prefetch TIDAK diset, nilai fallback
+     * WAJIB tetap di-clamp ke `maxMediaDownloadMb`. Batas unduh 10 (nilai
+     * sah) harus menahan prefetch di 10, bukan jatuh ke default deklarasi 15
+     * yang diam-diam melebihi batas unduh dan menonaktifkan kontrol DoS.
      */
-    public function testDefaultPrefetchTetapTerkunciWalauEnvMengOverride(): void
+    public function testPrefetchFallbackIkutDibatasiOlehBatasUnduh(): void
     {
-        $prevUpload   = env('inbox.maxMediaUploadMb');
-        $prevDownload = env('inbox.maxMediaDownloadMb');
-        $prevPrefetch = env('inbox.maxMediaPrefetchMb');
+        $prevUpload   = $this->rekamEnv('inbox.maxMediaUploadMb');
+        $prevDownload = $this->rekamEnv('inbox.maxMediaDownloadMb');
+        $prevPrefetch = $this->rekamEnv('inbox.maxMediaPrefetchMb');
+
+        unset(
+            $_ENV['inbox.maxMediaUploadMb'],
+            $_SERVER['inbox.maxMediaUploadMb'],
+            $_ENV['inbox.maxMediaDownloadMb'],
+            $_SERVER['inbox.maxMediaDownloadMb'],
+            $_ENV['inbox.maxMediaPrefetchMb'],
+            $_SERVER['inbox.maxMediaPrefetchMb']
+        );
+        putenv('inbox.maxMediaUploadMb');
+        putenv('inbox.maxMediaDownloadMb');
+        putenv('inbox.maxMediaPrefetchMb');
+
+        try {
+            $_ENV['inbox.maxMediaDownloadMb'] = '10';
+
+            $config = new InboxConfig();
+
+            $this->assertSame(10, $config->maxMediaDownloadMb, 'Batas unduh 10 dibaca.');
+            $this->assertSame(
+                10,
+                $config->maxMediaPrefetchMb,
+                'REQ-1001: fallback prefetch di-clamp ke batas unduh (10), bukan default 15.'
+            );
+            $this->assertLessThanOrEqual(
+                $config->maxMediaDownloadMb,
+                $config->maxMediaPrefetchMb,
+                'REQ-1001: invarian maxMediaPrefetchMb <= maxMediaDownloadMb wajib berlaku.'
+            );
+        } finally {
+            $this->pulihkanEnv('inbox.maxMediaUploadMb', $prevUpload);
+            $this->pulihkanEnv('inbox.maxMediaDownloadMb', $prevDownload);
+            $this->pulihkanEnv('inbox.maxMediaPrefetchMb', $prevPrefetch);
+        }
+    }
+
+    /**
+     * REQ-901/TEST-905 (CLN-1004): bukti isolasi bekerja DUA arah — env
+     * override MEMANG dihormati saat diset (7), lalu default 15 kembali saat
+     * env bersih. Nama lama (`...TetapTerkunciWalauEnvMengOverride`)
+     * menyesatkan: asersinya justru membuktikan override DIBACA.
+     */
+    public function testOverridePrefetchDihormatiLaluDefaultPulihSaatEnvBersih(): void
+    {
+        $prevUpload   = $this->rekamEnv('inbox.maxMediaUploadMb');
+        $prevDownload = $this->rekamEnv('inbox.maxMediaDownloadMb');
+        $prevPrefetch = $this->rekamEnv('inbox.maxMediaPrefetchMb');
 
         unset(
             $_ENV['inbox.maxMediaUploadMb'],
@@ -154,9 +203,9 @@ final class InboxMediaBoundConfigTest extends CIUnitTestCase
 
     public function testEnvMengubahBatasPrefetchTanpaMenyentuhSumbuLain(): void
     {
-        $prevUpload   = env('inbox.maxMediaUploadMb');
-        $prevDownload = env('inbox.maxMediaDownloadMb');
-        $prevPrefetch = env('inbox.maxMediaPrefetchMb');
+        $prevUpload   = $this->rekamEnv('inbox.maxMediaUploadMb');
+        $prevDownload = $this->rekamEnv('inbox.maxMediaDownloadMb');
+        $prevPrefetch = $this->rekamEnv('inbox.maxMediaPrefetchMb');
 
         unset(
             $_ENV['inbox.maxMediaUploadMb'],
@@ -192,9 +241,9 @@ final class InboxMediaBoundConfigTest extends CIUnitTestCase
      */
     public function testEnvBatasMediaTidakSahJatuhKeDefault(): void
     {
-        $prevUpload   = env('inbox.maxMediaUploadMb');
-        $prevDownload = env('inbox.maxMediaDownloadMb');
-        $prevPrefetch = env('inbox.maxMediaPrefetchMb');
+        $prevUpload   = $this->rekamEnv('inbox.maxMediaUploadMb');
+        $prevDownload = $this->rekamEnv('inbox.maxMediaDownloadMb');
+        $prevPrefetch = $this->rekamEnv('inbox.maxMediaPrefetchMb');
 
         try {
             foreach (['0', '-5'] as $nilai) {
@@ -249,25 +298,37 @@ final class InboxMediaBoundConfigTest extends CIUnitTestCase
     }
 
     /**
-     * RISK-901: clamp tidak boleh menolak nilai sah. Prefetch 150 hanya
-     * sah bila batas unduh dinaikkan ke 200 (rentang atas mengikuti
-     * `maxMediaDownloadMb`).
+     * RISK-901: clamp tidak boleh menolak nilai sah. Test ini mengisolasi
+     * KETIGA kunci env ambien lebih dulu (snapshot via `env()`, setel
+     * `maxMediaDownloadMb` eksplisit) supaya `.env` pengembang tidak dapat
+     * membuatnya merah; prefetch 150 hanya sah bila batas unduh 200
+     * (rentang atas mengikuti `maxMediaDownloadMb`).
      */
     public function testPrefetchSahDihormatiDanBatasAtasIkutBatasUnduh(): void
     {
-        $prevUpload   = env('inbox.maxMediaUploadMb');
-        $prevDownload = env('inbox.maxMediaDownloadMb');
-        $prevPrefetch = env('inbox.maxMediaPrefetchMb');
+        $prevUpload   = $this->rekamEnv('inbox.maxMediaUploadMb');
+        $prevDownload = $this->rekamEnv('inbox.maxMediaDownloadMb');
+        $prevPrefetch = $this->rekamEnv('inbox.maxMediaPrefetchMb');
+
+        unset(
+            $_ENV['inbox.maxMediaUploadMb'],
+            $_SERVER['inbox.maxMediaUploadMb'],
+            $_ENV['inbox.maxMediaDownloadMb'],
+            $_SERVER['inbox.maxMediaDownloadMb'],
+            $_ENV['inbox.maxMediaPrefetchMb'],
+            $_SERVER['inbox.maxMediaPrefetchMb']
+        );
+        putenv('inbox.maxMediaUploadMb');
+        putenv('inbox.maxMediaDownloadMb');
+        putenv('inbox.maxMediaPrefetchMb');
 
         try {
+            $_ENV['inbox.maxMediaDownloadMb'] = '100';
             $_ENV['inbox.maxMediaPrefetchMb'] = '7';
 
             $config = new InboxConfig();
 
             $this->assertSame(7, $config->maxMediaPrefetchMb, 'SEC-901: nilai sah tetap dihormati.');
-
-            unset($_ENV['inbox.maxMediaPrefetchMb'], $_SERVER['inbox.maxMediaPrefetchMb']);
-            putenv('inbox.maxMediaPrefetchMb');
 
             $_ENV['inbox.maxMediaDownloadMb'] = '200';
             $_ENV['inbox.maxMediaPrefetchMb'] = '150';
@@ -283,25 +344,43 @@ final class InboxMediaBoundConfigTest extends CIUnitTestCase
     }
 
     /**
-     * REQ-901: pulihkan env ambien batas media di TIGA kanal yang dibaca
-     * `env()` CI4 (`$_ENV`, `$_SERVER`, `getenv()`); `$nilai` adalah
-     * snapshot kanonik dari `env()` sebelum isolasi.
+     * REQ-901/TEST-1002 (CS-04): rekam nilai env ambien PER KANAL yang dibaca
+     * `env()` CI4 (`$_ENV`, `$_SERVER`, `getenv()`) supaya `pulihkanEnv()`
+     * dapat memulihkannya persis ke kanal asalnya -- bukan menulis ulang ke
+     * ketiga kanal dan mengubah distribusi kanal.
      *
-     * @param string|false|null $nilai
+     * @return array{env: string|null, server: string|null, getenv: string|false}
      */
-    private function pulihkanEnv(string $kunci, $nilai): void
+    private function rekamEnv(string $kunci): array
     {
-        if ($nilai === null || $nilai === false) {
-            unset($_ENV[$kunci], $_SERVER[$kunci]);
-            putenv($kunci);
+        return [
+            'env'    => $_ENV[$kunci] ?? null,
+            'server' => $_SERVER[$kunci] ?? null,
+            'getenv' => getenv($kunci),
+        ];
+    }
 
-            return;
+    /**
+     * @param array{env: string|null, server: string|null, getenv: string|false} $snapshot
+     */
+    private function pulihkanEnv(string $kunci, array $snapshot): void
+    {
+        if ($snapshot['env'] === null) {
+            unset($_ENV[$kunci]);
+        } else {
+            $_ENV[$kunci] = $snapshot['env'];
         }
 
-        $nilai = (string) $nilai;
+        if ($snapshot['server'] === null) {
+            unset($_SERVER[$kunci]);
+        } else {
+            $_SERVER[$kunci] = $snapshot['server'];
+        }
 
-        $_ENV[$kunci]    = $nilai;
-        $_SERVER[$kunci] = $nilai;
-        putenv($kunci . '=' . $nilai);
+        if ($snapshot['getenv'] === false) {
+            putenv($kunci);
+        } else {
+            putenv($kunci . '=' . $snapshot['getenv']);
+        }
     }
 }

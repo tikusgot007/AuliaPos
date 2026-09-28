@@ -7,6 +7,7 @@ use App\Models\MessageModel;
 use App\Models\GatewayStatusModel;
 use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
+use App\Libraries\InboxMediaBound;
 use App\Services\SenderIdentityFormatter;
 use App\Services\InboxQuoteSnapshotService;
 use Config\Database;
@@ -364,7 +365,7 @@ class InboxGatewayApi extends BaseController
                     $mediaRefUntukPrefetch,
                     $mediaRefUntukPrefetch['mimetype'],
                     8,
-                    maxBytes: Inbox::mbKeByte($config->maxMediaPrefetchMb)
+                    maxBytes: InboxMediaBound::mbKeByte($config->maxMediaPrefetchMb)
                 );
 
                 $filename = null;

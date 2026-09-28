@@ -135,12 +135,17 @@ class Inbox extends BaseConfig
         $nilai = (int) (env($kunci) ?? $default);
 
         if ($nilai < 1 || ($maks !== null && $nilai > $maks)) {
+            // REQ-1001: fallback WAJIB tetap tunduk pada batas atas, supaya
+            // invarian prefetch <= unduh berlaku walau env prefetch tidak
+            // diset dan batas unduh diturunkan (mis. 10).
+            $fallback = $maks === null ? $default : min($default, $maks);
+
             log_message(
                 'warning',
-                'Config\\Inbox: env ' . $kunci . ' tidak sah (' . $nilai . '); memakai default ' . $default . '.'
+                'Config\\Inbox: env ' . $kunci . ' tidak sah (' . $nilai . '); memakai fallback ' . $fallback . '.'
             );
 
-            return $default;
+            return $fallback;
         }
 
         return $nilai;

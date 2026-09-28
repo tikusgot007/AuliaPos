@@ -17,6 +17,8 @@
  *     dibuang; 413 'terlalu_besar' menandai nonRetryable: true + menghabiskan
  *     jatah percobaan (non-retryable); kategori lain masuk buku percobaan
  *     tanpa menaikkan cobaan.
+ *   - bersihkanSementaraSetelahReconnect(): reset saat reconnect membuang
+ *     kegagalan sementara TAPI mempertahankan entri nonRetryable (SEC-1002).
  *
  * Fungsi diduplikasi PERSIS di sini (pola sama seperti
  * tests/js/operation-id-composer.check.js -- project ini murni CI4/PHP, tanpa
@@ -100,6 +102,18 @@ function catatKegagalanMedia(kunci, kategori) {
         nonRetryable: kategori === 'terlalu_besar',
         cobaan: kategori === 'terlalu_besar' ? MEDIA_COBAAN_MAKS : (lama ? lama.cobaan : 0),
         terakhirMs: Date.now()
+    });
+}
+
+// SEC-1002: saat reconnect, lupakan kegagalan SEMENTARA supaya foto
+// langsung dicoba lagi tanpa menunggu jeda 30 detik (REQ-003). Entri
+// `nonRetryable` (413 deterministik, "terlalu besar") TIDAK boleh ikut
+// dibuang -- itu permanen, jadi akan langsung gagal lagi tiap polling.
+function bersihkanSementaraSetelahReconnect() {
+    mediaSementara.forEach(function(entri, kunci) {
+        if (entri.nonRetryable !== true) {
+            mediaSementara.delete(kunci);
+        }
     });
 }
 
@@ -218,6 +232,28 @@ check('catat: kategori sementara TIDAK ditandai nonRetryable (CLN-902)', () => {
     catatKegagalanMedia('16', 'sementara');
 
     assert.notStrictEqual(mediaSementara.get('16').nonRetryable, true, 'sementara tetap retryable');
+});
+
+check('reset reconnect (SEC-1002): entri terlalu_besar bertahan, sementara dibuang', () => {
+    catatKegagalanMedia('20', 'terlalu_besar');
+    catatKegagalanMedia('21', 'sementara');
+
+    bersihkanSementaraSetelahReconnect();
+
+    assert.ok(
+        mediaSementara.has('20'),
+        'SEC-1002: terlalu_besar (nonRetryable) harus BERTAHAN setelah reset reconnect'
+    );
+    assert.strictEqual(
+        bolehCobaLagiMedia(mediaSementara.get('20')),
+        false,
+        'SEC-1002: terlalu_besar tetap tidak boleh dicoba lagi'
+    );
+    assert.strictEqual(
+        mediaSementara.has('21'),
+        false,
+        'kegagalan sementara tetap dibuang supaya dicoba lagi setelah reconnect'
+    );
 });
 
 check('bolehCobaLagiMedia: nonRetryable dicek LEBIH DULU walau jatah/jeda seolah boleh (CLN-902)', () => {

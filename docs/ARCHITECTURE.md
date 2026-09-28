@@ -115,6 +115,7 @@ Services are used to keep reusable business/application logic out of controllers
 `app/Libraries/` contains reusable infrastructure components such as:
 
 - `InboxMediaStorage` — Inbox media persistence/retrieval abstraction.
+- `InboxMediaBound` — Inbox media size-bound conversion (MB→byte), overflow-safe.
 - `PhoneNumber` — phone-number handling.
 - `FotoProfilService` — profile-photo handling.
 
@@ -362,6 +363,22 @@ webhook response and is best-effort: a failure leaves `media_local_filename` NUL
 live-fetch fallback still works. There is deliberately no retention/pruning; the folder grows
 without bound and is not cleaned when a conversation is deleted.
 
+**Media size bounds (`Config\Inbox`).** Three independent axes, each read from `.env` with a
+clamped fallback (an invalid value falls back with a warning rather than silently disabling the
+control):
+
+- `inbox.maxMediaUploadMb` — outgoing uploads the cashier sends from the POS (default `15`).
+- `inbox.maxMediaDownloadMb` — incoming media served or displayed via `GET /inbox/media/(:num)`
+  (default `100`).
+- `inbox.maxMediaPrefetchMb` — ingest prefetch during the incoming-message webhook, the untrusted
+  path that buffers + decrypts + writes to disk (default `15`). Its upper bound follows
+  `maxMediaDownloadMb`, so `maxMediaPrefetchMb <= maxMediaDownloadMb` always holds — even when the
+  prefetch env key is unset.
+
+`App\Libraries\InboxMediaBound::mbKeByte()` is the single MB→byte conversion used by all three
+paths. It is overflow-safe: an absurd env value yields `PHP_INT_MAX` instead of a `TypeError` that
+would turn every media request into `500`.
+
 **Client-side failure handling (`app/Views/inbox/index.php`).** Two separate memories keyed by
 `String(message.id)`:
 
@@ -370,7 +387,8 @@ without bound and is not cleaned when a conversation is deleted.
   (`REQ-004`). The reason is discovered by one `fetch()` probe of the same URL, issued only on the
   error path so the success path and its ETag caching are unaffected (`CON-004`). The map is cleared
   when the Gateway transitions to `connected`, which is what makes a photo reappear without a page
-  reload (`REQ-003`).
+  reload (`REQ-003`) — except entries flagged `nonRetryable` (a deterministic `413` "terlalu besar"),
+  which are retained because a retry can never succeed.
 
 When the Gateway is *known* to be down, the renderer emits no `<img>` at all and shows a distinct
 "Gateway terputus" placeholder instead, so an outage does not generate a request per poll cycle.

@@ -2634,6 +2634,18 @@
         });
     }
 
+    // SEC-1002: saat reconnect, lupakan kegagalan SEMENTARA supaya foto
+    // langsung dicoba lagi tanpa menunggu jeda 30 detik (REQ-003). Entri
+    // `nonRetryable` (413 deterministik, "terlalu besar") TIDAK boleh ikut
+    // dibuang -- itu permanen, jadi akan langsung gagal lagi tiap polling.
+    function bersihkanSementaraSetelahReconnect() {
+        mediaSementara.forEach(function(entri, kunci) {
+            if (entri.nonRetryable !== true) {
+                mediaSementara.delete(kunci);
+            }
+        });
+    }
+
     // Dipanggil dari <img onerror>. Ganti gambar yang gagal dengan placeholder
     // SEKARANG (supaya tidak muncul ikon gambar rusak), lalu periksa status
     // HTTP-nya sekali lewat fetch() untuk mengetahui penyebab sebenarnya
@@ -3597,9 +3609,10 @@
         // Baru saja RECONNECT (bukan pertama kali load) -- lupakan semua
         // kegagalan SEMENTARA supaya foto langsung dicoba lagi tanpa
         // menunggu jeda 30 detik (REQ-003). Kegagalan PERMANEN (410,
-        // mediaGagal) SENGAJA tidak disentuh (CON-002).
+        // mediaGagal) SENGAJA tidak disentuh (CON-002); entri `nonRetryable`
+        // ("terlalu besar") juga dikecualikan (SEC-1002).
         if (!sebelumnya && gatewayTerhubung) {
-            mediaSementara.clear();
+            bersihkanSementaraSetelahReconnect();
         }
 
         // Lalu muat ulang pesan supaya gambar yang tadinya diblokir otomatis
