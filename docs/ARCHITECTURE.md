@@ -1,260 +1,130 @@
-# AuliaPos Architecture
+---
+goal: Repository Architecture and Structure Documentation
+date_created: 2026-09-27
+last_updated: 2026-09-29
+status: 'Active'
+---
 
-## 1. Scope
+<!-- markdownlint-disable -->
 
-This document describes the current architecture of the AuliaPos application as observed on branch `v2.3` (updated 2026-09-27).
+# Architecture Documentation
 
-AuliaPos is a CodeIgniter 4 application running on PHP 8.2+ and providing the core POS workflows plus a Shared WhatsApp Inbox module.
+![Status: Active](https://img.shields.io/badge/status-Active-brightgreen)
 
-This map is an architectural reference, not a product specification. Feature requirements remain defined by the applicable PRD, specification, ADR, and implementation plan.
+This document serves as the canonical architectural map of the repository. It outlines the design
+patterns, technical stack, directory structure, and module constraints to assist developers and AI
+agents in navigating and maintaining the codebase safely.
 
-## 2. Runtime and Framework
+Map basis: branch `v2.3` (local and `origin/v2.3` in sync), HEAD `f971042`, observed 2026-09-29.
+
+> [!IMPORTANT]
+> This map is an architectural reference, not a product specification. Feature behavior remains
+> defined by the applicable PRD, specification, ADR, and implementation plan.
+
+## 1. Project Overview
+
+AuliaPos is a Point of Sale application for a single printing / photo / banner shop. It covers the
+cashier flow, master data (products, categories, customers), transactions and payments, receivables
+(tagihan), cash handling, employee scheduling, reports, and printing. Since the v2.2 line it also
+carries a **Shared WhatsApp Inbox** module (multi-staff conversation handling) that talks to an
+external WhatsApp Gateway.
+
+- **Primary audience / users:** shop owner, admin, and cashier staff.
+- **UI and domain language:** Indonesian (`transaksi`, `pelanggan`, `produk`, `kasir`, `tagihan`,
+  `pembayaran`, `jadwal`, `percakapan`, `kutipan`, `teruskan`).
+- **Primary goals:** run the daily shop counter reliably, keep a shared WhatsApp inbox usable by
+  several staff at once, and keep POS and Inbox data separated.
+
+## 2. High-Level Architecture & Tech Stack
 
 | Concern | Current implementation |
 | --- | --- |
-| Application framework | CodeIgniter 4 (`^4.7`) |
-| Runtime | PHP `^8.2` |
-| Primary database | MySQL/MariaDB via CodeIgniter `default` connection |
-| Inbox database | Separate MySQL/MariaDB connection group `inbox` |
-| Archive database | Separate SQLite connection group `archive` |
-| Test database | In-memory SQLite connection group `tests` |
-| Inbox test database | MySQL/MariaDB `aulia_inboxdb_test`, forced by `Config\Database` for group `inbox` under `testing` |
+| Primary language | PHP `^8.2` |
+| Application framework | CodeIgniter 4 (`^4.7`), server-rendered MVC-style |
+| Architectural pattern | Framework MVC plus explicit Service / Library seams; bounded Inbox module |
 | Dependency management | Composer |
 | Test framework | PHPUnit `^10.5.16` |
-| Production web entry point | `public/index.php` |
-| CLI entry point | `spark` |
+| Runtime document / print | `dompdf/dompdf` (`^3.1`), `mike42/escpos-php` (`^5.0`) |
+| Web server | Apache via XAMPP (`http://localhost/aulia/`), document root `public/` |
+| Primary database | MySQL/MariaDB via the `default` connection group |
+| Inbox database | Separate MySQL/MariaDB connection group `inbox` |
+| Archive database | Separate SQLite connection group `archive` |
+| Test database | In-memory SQLite connection group `tests` (POS only); Inbox tests use the real MariaDB `aulia_inboxdb_test` |
+| External system | WhatsApp Gateway (Node.js + Baileys) in a **separate repository**, reached over HTTP + Bearer token |
 
-## 3. High-Level Structure
+Layering is intentionally pragmatic rather than dogmatic:
 
-```text
-AuliaPos/
-├── app/
-│   ├── Commands/          # Application CLI commands
-│   ├── Config/            # Framework and application configuration
-│   ├── Controllers/       # HTTP/application entry points
-│   ├── Database/
-│   │   ├── Migrations/    # Production schema migrations
-│   │   └── Seeds/         # Master/bootstrap data
-│   ├── Filters/           # HTTP authentication/security filters
-│   ├── Helpers/           # Shared procedural helpers
-│   ├── Language/          # Framework/application language resources
-│   ├── Libraries/         # Reusable infrastructure/integration libraries
-│   ├── Models/            # Persistence and domain-oriented data access
-│   ├── Services/          # Reusable application/domain services
-│   ├── ThirdParty/        # Local third-party integration area
-│   └── Views/             # Server-rendered UI
-├── docs/                  # Business and technical documentation
-│   └── adr/               # Architecture Decision Records (NNNN-slug.md)
-├── public/                # Web root and static assets
-├── tests/
-│   ├── database/          # Database/model/integration tests
-│   ├── session/           # HTTP/session integration tests
-│   ├── unit/              # Unit and service-level tests
-│   └── _support/          # Test-only migrations, fakes, and support classes
-├── composer.json
-└── spark
+- **Controllers** (`app/Controllers/`) own HTTP concerns, request validation, and orchestration.
+- **Models** (`app/Models/`) own persistence and domain-oriented data access.
+- **Services** (`app/Services/`) hold reusable, mostly pure application/domain logic.
+- **Libraries** (`app/Libraries/`) hold reusable infrastructure and integration components.
+- **Views** (`app/Views/`) hold server-rendered PHP UI; the Inbox has one large view plus
+  client-side JavaScript.
+
+## 3. Data Flow & Layer Dependencies
+
+### 3.1 Browser request flow (POS and Inbox)
+
+```mermaid
+flowchart TD
+    A[Browser] --> B[public/index.php]
+    B --> C[app/Config/Routes.php]
+    C --> D{Filters}
+    D -->|auth| E[Controller]
+    D -->|gatewaytoken| F[InboxGatewayApi]
+    E --> G[Model / Service / Library]
+    G --> H[(default: POS MySQL)]
+    G --> I[(inbox: Inbox MySQL)]
+    G --> J[(archive: SQLite)]
+    E --> K[View]
+    K --> A
 ```
 
-## 4. Application Layers
+### 3.2 WhatsApp message flow (Inbox module)
 
-### 4.1 HTTP / Controller Layer
-
-Controllers live under `app/Controllers/` and are registered through `app/Config/Routes.php`.
-
-Major application areas include:
-
-- `Auth` — authentication and user-management workflows.
-- `Kasir` — POS cashier workflow.
-- `Produk`, `Kategori`, `Pelanggan` — master-data workflows.
-- `Transaksi`, `Pembayaran`, `Tagihan`, `Cash`, `Laporan` — POS operational workflows.
-- `Jadwal` — employee schedule management.
-- `Inbox` — browser-facing Shared WhatsApp Inbox workflow.
-- `InboxGatewayApi` — machine-to-machine Gateway ingress.
-- `ArchiveTransaksi` — archive workflow.
-- `MigrasiManual` — authenticated migration workflow for environments without CLI access.
-
-Authentication is applied through the `auth` filter to browser routes. Gateway ingress uses the dedicated `gatewaytoken` filter.
-
-### 4.2 Model / Persistence Layer
-
-Models live under `app/Models/`.
-
-The Inbox persistence boundary is explicitly separated from the POS database:
-
-- `ConversationModel`
-- `MessageModel`
-- `ConversationHandoffModel`
-- `GatewayStatusModel`
-- `ConversationIdentityModel`
-
-These Inbox models use the `inbox` database group where applicable. The separation prevents Inbox persistence from accidentally using the primary POS database.
-
-Core POS models include users, products, categories, customers, transactions, payments, cash, and scheduling.
-
-In the Inbox module, `UserModel::daftarKasirAktif()` is the single source of the active-kasir list: the Handoff
-dialog target dropdown, the 409 current-owner naming and the `belum_diambil` initiator check all derive from it, so
-the UI and the server-side gate can never drift into two different lists.
-
-### 4.3 Service Layer
-
-Reusable application/domain logic lives under `app/Services/`.
-
-Examples:
-
-- `InboxSlaService` — deterministic SLA presentation calculation for the Inbox.
-- `InboxMatchSnippetService` — pure Match Snippet cutting for Inbox conversation search (no DB, session, or request access).
-- `EffectiveShiftLeaderService` — effective shift-leader resolution.
-- `EvaluasiJendelaKerjaShift` — shift work-window evaluation.
-- `TransaksiArchiveService` — SQLite transaction archive operations.
-- `KalkulasiStatusPembayaran`, `KalkulasiDiskonTransaksi`, `KalkulasiJatuhTempo` — isolated calculation services.
-
-Services are used to keep reusable business/application logic out of controllers where practical.
-
-### 4.4 Libraries / Infrastructure
-
-`app/Libraries/` contains reusable infrastructure components such as:
-
-- `InboxMediaStorage` — Inbox media persistence/retrieval abstraction.
-- `InboxMediaBound` — Inbox media size-bound conversion (MB→byte), overflow-safe.
-- `PhoneNumber` — phone-number handling.
-- `FotoProfilService` — profile-photo handling.
-
-## 5. Database Topology
-
-AuliaPos intentionally uses multiple database groups.
-
-```text
-                    ┌──────────────────────┐
-                    │   CodeIgniter App    │
-                    └──────────┬───────────┘
-                               │
-          ┌────────────────────┼─────────────────────┐
-          │                    │                     │
-          ▼                    ▼                     ▼
-   default / POS          inbox / Inbox        archive / SQLite
-   MySQL/MariaDB          MySQL/MariaDB         SQLite file
-          │                    │                     │
-   POS business data     Conversations,          Archived
-   and transactions      messages, gateway       transactions
-                         status, identity
-                              
-                    tests / PHPUnit
-                         SQLite :memory:
+```mermaid
+flowchart TD
+    WA[WhatsApp] --> GW[WA-Gateway - separate repo / Node.js + Baileys]
+    GW -->|POST /api/inbox/gateway/messages Bearer| IGA[InboxGatewayApi]
+    IGA --> IM[Inbox MessageModel / ConversationModel]
+    IM --> IDB[(inbox database)]
+    IGA -->|prefetch incoming media| IMS[InboxMediaStorage]
+    IMS --> DISK[(inbox.mediaStoragePath on fixed local disk)]
+    IDB --> IC[Inbox controller]
+    IC --> IV[Server-rendered Inbox UI]
+    IV -->|POST /inbox/kirim or /inbox/kirim-media| IC
+    IC -->|InboxOutgoingRequest| GW
 ```
 
-During the testing environment, both real MySQL groups are redirected so tests never write to live data:
+### 3.3 Outgoing send idempotency
 
-- `default` → the `tests` group (SQLite `:memory:`);
-- `inbox` → the dedicated database `aulia_inboxdb_test` (same server credentials from `.env`; the database name is forced, and `DSN`/`failover` are cleared so an `.env` DSN or failover entry cannot redirect the connection).
+Outbound replies carry a caller-owned `operation_id` across the Gateway boundary, so a cashier retry
+after a timeout does not deliver a second WhatsApp message:
 
-Both redirects live in `Config\Database::__construct()`. In addition, `tests/_support/bootstrap.php` refuses to start PHPUnit if the `inbox` group does not resolve to `aulia_inboxdb_test`.
+- The reply form in `app/Views/inbox/index.php` mints the key with `crypto.randomUUID()` (hex
+  fallback), reuses it while the cashier retries the same content, and discards it on success or when
+  the content changes.
+- AuliaPos forwards the key and stores it in `messages.gateway_operation_id` (nullable `VARCHAR(64)`
+  with `UNIQUE uniq_messages_gateway_operation_id`). On a replayed Gateway result, the stored row is
+  returned instead of inserting a second one.
+- The Gateway owns the matching `outgoing_operations` state machine and answers `409
+  SEND_IN_PROGRESS`, `504 SEND_UNRESOLVED`, or `409 OPERATION_ID_REUSED`; AuliaPos surfaces those as
+  an "uncertain result" state instead of a plain failure.
+- `App\Libraries\InboxOutgoingRequest` is the single value object for one outgoing Gateway request
+  (text or media). It enforces `quoted` XOR `forward` exclusivity in one place (`CON-001`), replacing
+  the parameter growth on `Inbox::callGatewaySend()` / `Inbox::callGatewaySendMedia()`.
 
-Production migrations live in `app/Database/Migrations/`. Test-only schema support lives in `tests/_support/Database/Migrations/`.
-
-## 6. Shared WhatsApp Inbox Architecture
-
-The Inbox is a bounded application module inside AuliaPos with an external WhatsApp Gateway.
-
-```text
-WhatsApp
-   │
-   ▼
-WA-Gateway (separate repository / Node.js + Baileys)
-   │
-   │ HTTP + Bearer token
-   ▼
-InboxGatewayApi
-   │
-   ▼
-Inbox database
-   │
-   ├── conversations
-   ├── messages
-   ├── conversation_handoffs
-   ├── gateway_status
-   └── conversation identity data
-   │
-   ▼
-Inbox controller / models / services
-   │
-   ▼
-Server-rendered Inbox UI
-```
-
-### Balas Pesan (Reply with Quote) Architecture
-
-The Reply feature allows cashiers to reply to a specific message with a quote. It spans both AuliaPos and the WA-Gateway.
-
-**Database additions (`messages` table):**
-- `quoted_wa_message_id` — `VARCHAR(64) NULL` (WhatsApp message ID of the quoted message)
-- `quoted_source_message_id` — `INT UNSIGNED NULL` (local `messages.id` of the quoted message, for media live-fetch)
-- `quoted_media_available` — `TINYINT(1) NOT NULL DEFAULT 0` (0 = text/unsupported, 1 = media available for live-fetch)
-- `quoted_media_type` — `VARCHAR(30) NULL` (`image`, `sticker`, `document`, `audio`, `video`; `NULL` for text or not found)
-- `quoted_sender_label` — `VARCHAR(191) NULL` (display name of the quoted message sender)
-- `quoted_snippet` — `TEXT NULL` (trimmed, normalized quote preview, max 200 chars, multibyte-safe)
-
-There is no `quoted_from_me` column: `quoted.fromMe` is a runtime-only field sent in the Gateway payload (`POST /send`/`/send-media`), derived at request time from the source message's `direction` column (`outgoing` → `true`, `incoming` → `false`). It is never persisted on `messages`.
-
-**Gateway contract (`WA-Gateway`):**
-- `POST /send` and `POST /send-media` accept optional `quoted` object:
-  ```json
-  { "quoted": { "wa_message_id": "string", "sender_jid": "string?", "snippet": "string?" } }
-  ```
-- Response includes `quote_applied: true|false` (only when `quoted` was provided; legacy responses unchanged).
-- Inbound webhook extracts `contextInfo` → `quoted: { wa_message_id, sender_jid?, snippet? }` in payload.
-
-**Service: `InboxQuoteSnapshotService` (`app/Services/InboxQuoteSnapshotService.php`)**
-- Pure, stateless service (no DB, session, or request access).
-- `rakitSnapshot(array $sumber): array` — builds the 7 quote columns from a source message row.
-- `potongSnippet(?string $teks, string $q): ?string` — normalizes whitespace, clamps to 200 multibyte chars, adds ellipsis `…` on cut sides.
-- `tipeMediaSumber(string $messageType): ?string` — maps source `message_type` to `quoted_media_type` (`image`/`sticker`/`document`/`audio`/`video` or `NULL` for text).
-
-**UI: `renderKotakKutipan()` in `app/Views/inbox/index.php`**
-- Single component renders quote box for both outgoing and incoming quotes.
-- 5 display branches per `AC-005` (Spec v1.8):
-  - (a) `quoted_media_available = 0` → text-only, no live-fetch
-  - (b) `quoted_media_type IN ('image','sticker')` + live-fetch `GET /inbox/media/:quoted_source_message_id` → `<img>` with `onerror` fallback
-  - (c) `quoted_media_type = 'document'` → link to media endpoint
-  - (d) `quoted_media_type IN ('audio','video')` → label only (no fetch, Gateway rejects)
-  - (e) `quoted_source_message_id IS NULL` (legacy/not found) → no live-fetch attempt
-- Client-side `mediaGagal` memory (namespaced `'kutipan:' + messageId`) prevents repeated refetch polling on failure.
-
-Gateway routes:
-
-- `POST /api/inbox/gateway/messages`
-- `POST /api/inbox/gateway/status`
-
-These routes use the `gatewaytoken` filter rather than browser session authentication.
-
-Browser Inbox routes use the `auth` filter.
-
-### Outgoing send idempotency (M1 Wave 2)
-
-Outbound replies cross the Gateway boundary carrying a caller-owned `operation_id`, so a cashier retry after a timeout does not deliver a second WhatsApp message.
-
-- The reply form in `app/Views/inbox/index.php` owns the key: it creates it with `crypto.randomUUID()` (hex fallback for older browsers), reuses it while the cashier retries the same content, and discards it on success or when the content changes.
-- AuliaPos forwards the key and stores it in `messages.gateway_operation_id` (nullable `VARCHAR(64)` with `UNIQUE uniq_messages_gateway_operation_id`, migration `2026-09-24-000001_AddGatewayOperationIdToMessages`). When the Gateway answers with a replayed result, AuliaPos returns the stored row instead of inserting a second one.
-- The Gateway owns the matching `outgoing_operations` state machine inside the WA-Gateway repository and answers `409 SEND_IN_PROGRESS`, `504 SEND_UNRESOLVED`, or `409 OPERATION_ID_REUSED`; AuliaPos surfaces those as an "uncertain result" state instead of a plain failure.
-
-| Concern | Location |
-| --- | --- |
-| Key creation and reuse | `app/Views/inbox/index.php` (reply-form JavaScript) |
-| Forwarding, dedupe, response mapping | `app/Controllers/Inbox.php`: `kirimKeConversation()`, `kirimMedia()`, `findMessageByOperationId()`, `gatewayFailureResponse()` |
-| Persistence | `messages.gateway_operation_id` |
-
-## 7. Inbox HTTP Surface
-
-Current Inbox routes include:
+### 3.4 Inbox HTTP surface
 
 | Route | Responsibility |
 | --- | --- |
 | `GET /inbox` | Inbox page |
-| `GET /inbox/api/conversations` | Conversation queue data |
+| `GET /inbox/api/conversations` | Conversation queue data (`page`, `status`, `q`, `match_snippet`) |
 | `GET /inbox/api/conversations/(:num)/messages` | Conversation thread |
 | `GET /inbox/api/gateway-status` | Gateway status |
-| `GET /inbox/media/(:num)` | Media access (open to all logged-in staff; no ownership check) |
-| `POST /inbox/kirim` | Send text reply (idempotent per caller-owned `operation_id`) |
-| `POST /inbox/kirim-media` | Send media (idempotent per caller-owned `operation_id`) |
+| `GET /inbox/media/(:num)` | Media access (any logged-in staff; no `cekOwnership()` check) |
+| `POST /inbox/kirim` | Send text reply (idempotent per `operation_id`; optional `quoted_message_id` / `forward_from_message_id`) |
+| `POST /inbox/kirim-media` | Send media (idempotent per `operation_id`; same optional quote / forward fields) |
 | `POST /inbox/percakapan/(:num)/ambil` | Take ownership |
 | `POST /inbox/percakapan/(:num)/lepas` | Release ownership |
 | `POST /inbox/percakapan/(:num)/tutup` | Close conversation |
@@ -266,238 +136,416 @@ Current Inbox routes include:
 | `POST /inbox/percakapan/(:num)/hapus` | Soft-delete conversation |
 | `POST /inbox/percakapan/(:num)/profil` | Update customer profile |
 | `POST /inbox/percakapan/(:num)/konfirmasi-nomor` | Confirm WhatsApp number |
-| `POST /inbox/mulai-percakapan` | Start conversation |
-| `GET /inbox/api/perlu-dibalas-count` | Sidebar reply-needed count |
+| `POST /inbox/mulai-percakapan` | Start conversation (always a `pn` conversation) |
+| `GET /inbox/api/perlu-dibalas-count` | Sidebar reply-needed count (excludes groups) |
+| `POST /api/inbox/gateway/messages` | Gateway ingest (machine-to-machine, `gatewaytoken` filter) |
+| `POST /api/inbox/gateway/status` | Gateway status ingest (machine-to-machine, `gatewaytoken` filter) |
 
-**Outgoing replies with quote (`POST /inbox/kirim`, `POST /inbox/kirim-media`):**
-- Request body includes optional `quoted_message_id` (local `messages.id`).
-- Server resolves quote via `Inbox::resolveKutipan()` → writes 7 `quoted_*` columns.
-- Response includes `quote_applied: true|false` (mirrors Gateway `quote_applied`).
+## 4. Dependencies & External Services
 
-**Forwarding a message (`POST /inbox/kirim`; media path in the `/send-media` plan phase):**
-- Request body includes optional `forward_from_message_id` (local `messages.id` of the source row).
-- `quoted_message_id` and `forward_from_message_id` are **mutually exclusive** in one request (`400`, CON-001).
-- Server reads the content from its own DB (`Inbox::resolveTeruskan()`), never from the browser payload, and enforces forwardability server-side: internal notes, unsent outgoing rows, `audio`/`video`, and any type outside `text|image|document|sticker` are rejected with `400`; `cekOwnership()` is checked on the **target** conversation only (REQ-007).
-- Stored as a new `messages` row with `is_forwarded = 1` and **all** `quoted_*` columns `NULL` (REQ-009); the Gateway call carries `forward: true` and never `quoted`.
-- Response includes `forward_marker_applied: "native"|"text_fallback"|null` (debug only — the cashier label is built from `is_forwarded`, REQ-008).
-- Idempotency reuses the existing `operation_id` / `gateway_operation_id` mechanism (REQ-010).
+- **MySQL/MariaDB (`default`)** — POS business data: users, products, categories, customers,
+  transactions, payments, cash, scheduling.
+- **MySQL/MariaDB (`inbox`)** — Inbox data: conversations, messages, handoffs, gateway status,
+  conversation identities and identity reconciliation.
+- **SQLite (`archive`)** — archived transactions (`writable/archive/aulia_pos_archive.db`).
+- **WhatsApp Gateway (separate repository, Node.js + Baileys)** — the only way AuliaPos reaches
+  WhatsApp. AuliaPos never talks to WhatsApp directly. Reached over HTTP with a Bearer token
+  (`inbox.gatewayToken` in AuliaPos, `CI4_GATEWAY_TOKEN` in the Gateway). Its `/send` and
+  `/send-media` endpoints accept an optional `quoted` object and a `forward` flag.
+- **Local media disk (`inbox.mediaStoragePath`)** — permanent store for incoming images, documents
+  and stickers. It is a fixed local disk outside the application directory (never a removable or
+  network drive); an empty value deliberately disables the feature and falls back to live-fetch.
+- **Composer packages** — `codeigniter4/framework`, `dompdf/dompdf`, `mike42/escpos-php`; dev:
+  `phpunit/phpunit`, `fakerphp/faker`, `mikey179/vfsstream`.
 
-**Incoming quote resolution (`InboxGatewayApi::resolveKutipanMasuk()`):**
-- Called on inbound webhook (`POST /api/inbox/gateway/messages`).
-- If quoted message found locally → builds snapshot from local row via `InboxQuoteSnapshotService` (ignores Gateway `snippet`).
-- If not found → `quoted_sender_label = NULL`, snippet from Gateway payload / generic fallback.
+## 5. Directory Tree Map
 
-`GET /inbox/api/conversations` accepts `page`, `status` and `q`. `q` matches the identity columns (`contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id`) after fetch and — since M3 Fase 1e — the message text as well, through one aggregate `messages` query per request (`ROW_NUMBER()` over `message_timestamp DESC, id DESC`, `LIKE` with an explicit `ESCAPE`), so no `messages` query runs when `q` is empty. Every conversation element carries `match_snippet`: `null` when there is no `q` or when the hit came through an identity column, otherwise `{ text, is_internal, message_timestamp }` cut by `InboxMatchSnippetService::potong()`.
+```text
+aulia/  (project root)
+├── .claude/                 # SINGLE source of AI config: rules/, skills/, standards/, instructions/
+├── app/
+│   ├── Commands/            # Application CLI commands (Spark)
+│   ├── Config/              # Framework and application configuration (Inbox.php, Routes.php, Database.php, ...)
+│   ├── Controllers/         # HTTP / application entry points (POS, Inbox, Gateway ingress, ...)
+│   ├── Database/
+│   │   ├── Migrations/      # Production schema migrations (POS + Inbox)
+│   │   └── Seeds/           # Master / bootstrap data
+│   ├── Filters/             # AuthFilter, GatewayTokenFilter
+│   ├── Helpers/             # Shared procedural helpers (order_helper, cash_helper)
+│   ├── Language/            # Framework / application language resources
+│   ├── Libraries/           # Reusable infrastructure (InboxMediaStorage, InboxMediaBound, InboxOutgoingRequest, PhoneNumber, FotoProfilService)
+│   ├── Models/              # Persistence and domain data access
+│   ├── Services/            # Reusable application / domain services
+│   ├── ThirdParty/          # Local third-party integration area
+│   └── Views/               # Server-rendered UI (inbox/, kasir/, produk/, ...)
+├── docs/                    # Business + technical docs
+│   ├── adr/                 # Architecture Decision Records (NNNN-slug.md)
+│   ├── audit/               # Clarification / consistency reports
+│   ├── decisions/           # Dated decision records (YYYY-MM-DD-slug.md)
+│   ├── runbooks/            # Operational runbooks
+│   ├── tutorials/           # User-facing tutorials
+│   └── ARCHITECTURE.md      # This map
+├── plan/                    # Implementation plans
+├── spec/                    # Technical specifications
+├── prd-*.md                 # Product Requirements Documents (root)
+├── public/                  # Web root and static assets; public/index.php is the prod entry
+├── tests/
+│   ├── database/            # DB / model / migration tests
+│   ├── session/             # HTTP controller + session feature tests
+│   ├── unit/                # Isolated service / calculation tests
+│   ├── js/                  # Node-based JS behavior checks
+│   └── _support/            # Test schema, fakes, fixtures, bootstrap
+├── writable/                # Runtime caches, logs, uploads, archive SQLite
+├── composer.json
+├── phpunit.dist.xml
+└── spark
+```
 
-## 8. Current Operational Inbox Architecture
+## 6. Directory Purposes & Responsibilities
 
-The current implementation establishes these architectural seams:
+| Directory / File | Primary Purpose | Contains | Rules / Constraints |
+| --- | --- | --- | --- |
+| `app/Controllers/` | HTTP entry points and orchestration | Auth, Kasir, Produk, Kategori, Pelanggan, Transaksi, Pembayaran, Tagihan, Cash, Laporan, Jadwal, Inbox, InboxGatewayApi, ArchiveTransaksi, MigrasiManual, Api, Cetak, Ukuran, Profil, PreviewBanner | Keep reusable logic in Services; ownership/state checks live here. `Inbox.php` is the browser-facing Inbox controller. |
+| `app/Models/` | Persistence and data access | UserModel, ProdukModel, KategoriModel, PelangganModel, TransaksiModel, DetailTransaksiModel, PembayaranModel, CashExpenseModel, CashOpnameModel, ClosingKasModel, JadwalModel, MasterJadwalModel, ConversationModel, MessageModel, ConversationHandoffModel, GatewayStatusModel, ConversationIdentityModel | Inbox models use the `inbox` DB group. `UserModel::daftarKasirAktif()` is the single source of the active-kasir list (Handoff dropdown, 409 owner naming, `belum_diambil` initiator check). |
+| `app/Services/` | Reusable application / domain logic | InboxSlaService, InboxMatchSnippetService, InboxQuoteSnapshotService, SenderIdentityFormatter, EffectiveShiftLeaderService, EvaluasiJendelaKerjaShift, Authority, CashBalanceService, TransaksiArchiveService, KalkulasiStatusPembayaran, KalkulasiDiskonTransaksi, KalkulasiJatuhTempo | Prefer pure services (no DB / session / request access) for display and matching rules. |
+| `app/Libraries/` | Reusable infrastructure and integration | InboxMediaStorage, InboxMediaBound, InboxOutgoingRequest, PhoneNumber, FotoProfilService | `InboxOutgoingRequest` enforces `quoted` XOR `forward` in one place. `InboxMediaBound::mbKeByte()` is the single MB→byte conversion (overflow-safe, policy ceiling). |
+| `app/Views/` | Server-rendered UI | `inbox/index.php` plus POS views (`kasir/`, `produk/`, `transaksi/`, `layout/`, ...) | Inbox UI is concentrated in `app/Views/inbox/index.php`; the backend supplies computed presentation fields (queue status, SLA state, sender labels) so the frontend does not re-derive core rules. |
+| `app/Database/Migrations/` | Production schema evolution | POS migrations + Inbox migrations (quotes, `is_forwarded`, handoffs, gateway operation id, group name, identity reconciliation) | Additive-only where possible. Inbox migrations declare `protected $DBGroup = 'inbox'`. FK child column types must match the parent exactly (MariaDB rule). |
+| `app/Filters/` | HTTP auth / security | `AuthFilter` (session), `GatewayTokenFilter` (Bearer token) | Browser routes use `auth`; Gateway ingress uses `gatewaytoken`. |
+| `app/Commands/` | Spark CLI commands | `SeedFase1ePerf`, `RepairTotalDibayar` | Guarded commands must refuse to run against a disallowed database. |
+| `tests/` | Automated test suite | database, session, unit, js, `_support` | Inbox test DB is the real MariaDB `aulia_inboxdb_test`, never SQLite and never live. Never add suppressions or skips to force green. |
+| `docs/` | Business + technical documentation | Numbered business docs, `CHAT.md`, `GATEWAY-REQUIREMENTS.md`, ADRs, audits, decisions, runbooks, tutorials, this map | Follow `.claude/standards/` for glossary and ADR format. |
+| `plan/` | Implementation plans | Refactor / feature plans (`plan-*.md`) | English. One plan per workstream. |
+| `spec/` | Technical specifications | `spec-*.md` + `spec-index.md` | Canonical contracts for implemented modules. |
+| `prd-*.md` (root) | Product Requirements Documents | Inbox, Grup/Balas/Teruskan PRDs | Behavior-level, not implementation-level. |
+| `public/` | Web root and static assets | `index.php`, assets, logos | Web server must point here; never expose the project root. |
+| `writable/` | Runtime data | cache, debugbar, logs, uploads, archive SQLite + backups | Runtime-only; not source of truth. |
+| `.claude/` | Single source of AI configuration | `rules/`, `skills/`, `standards/`, `instructions/` | No `.agents/` tree exists. All tools read this tree. |
 
-### Queue status
+## 7. Key Configuration Files
 
-Queue status is computed centrally by `ConversationModel::withComputedStatus()`.
+- `composer.json` — PHP `^8.2`, CodeIgniter `^4.7`, dompdf, escpos-php; dev PHPUnit / faker / vfsStream.
+  PSR-4: `App\` → `app/`, `Config\` → `app/Config/`; migrations are excluded from the classmap.
+  Test script: `test` → `phpunit`.
+- `phpunit.dist.xml` — PHPUnit configuration. Sets `failOnWarning="true"` and coverage reporting; with
+  no coverage driver installed, plain `composer test` exits non-zero for that reason alone.
+- `.env` (git-ignored, not in source control) — `app.baseURL`, `database.default.*`, the `inbox.*`
+  group (`inbox.gatewayToken`, `inbox.gatewayBaseUrl`, `inbox.mediaStoragePath`), and the media caps.
+  Secrets never live in tracked files.
+- `app/Config/Database.php` — connection groups `default`, `inbox`, `archive`, `tests`. Under
+  `ENVIRONMENT === 'testing'`, the `default` group is redirected to in-memory SQLite and the `inbox`
+  group is force-pinned to `aulia_inboxdb_test` (DSN / failover cleared so an `.env` entry cannot
+  redirect it).
+- `app/Config/Inbox.php` — Gateway token / base URL, heartbeat staleness, SLA thresholds, and the
+  three media caps (`maxMediaUploadMb` 15, `maxMediaDownloadMb` 100, `maxMediaPrefetchMb` 15). Invalid
+  env values fall back with a logged warning; `maxMediaPrefetchMb <= maxMediaDownloadMb` always holds.
+- `app/Config/Routes.php` — all route registration and filter binding.
+- `app/Config/Filters.php` — filter aliases, including `auth` and `gatewaytoken`.
+- `spark` — CLI entry point (migrations, seeds, custom commands).
+- `public/.htaccess` — front-controller rewrite; document root is `public/`.
+- `preload.php` — optional opcache preload path list.
+- `migrate.bat`, `jalankan_claude.bat` — local convenience scripts.
 
-The design intentionally reuses the existing response-state computation instead of introducing independent SQL WHERE logic for queue tabs.
+## 8. Entry Points
 
-### Internal Notes
+- **Web (production):** `public/index.php` → CodeIgniter bootstrap → `app/Config/Routes.php` → filter →
+  controller → view.
+- **CLI:** `spark` (e.g. `php spark migrate`, `php spark db:seed AuliaPosInitialSeeder`,
+  `php spark aulia:seed-fase1e-perf --dbgroup=inbox`).
+- **Routing:** `app/Config/Routes.php` — browser routes carry the `auth` filter; the two Gateway
+  ingress routes carry `gatewaytoken`.
+- **POS UI shell:** `app/Views/layout/main.php`.
+- **Inbox UI:** `app/Views/inbox/index.php` (server-rendered page plus inline client-side JavaScript).
 
-Internal Notes are persisted as messages with `is_internal = true`.
+## 9. Environment & Deployment
 
-They:
+- **Local runtime:** XAMPP on Windows (Apache + MySQL/MariaDB + PHP 8.2), served at
+  `http://localhost/aulia/` with the web server pointed at `public/`. Required PHP extensions:
+  `intl`, `mbstring`, `json`, `mysqlnd`, `curl`.
+- **Setup:** `composer install`, copy `env` to `.env` and fill `baseURL` + `database.default.*`,
+  `php spark migrate`, `php spark db:seed AuliaPosInitialSeeder`, `composer test`.
+- **Inbox extra requirements:** a second database (`aulia_inboxdb`, group `inbox`) and the external
+  WhatsApp Gateway. `inbox.mediaStoragePath` is optional; unset means live-fetch only.
+- **CI/CD:** none in this repository. Deployment is manual (XAMPP folder for AuliaPos; the live
+  Gateway folder is started by hand and has no supervisor).
+- **Deployment ordering rule:** run a new Inbox migration **before** deploying code that reads/writes
+  the new column. Example: `AddIsForwardedToMessages` must run before code that writes
+  `messages.is_forwarded`, otherwise the write fails `Unknown column` → HTTP 500.
+- **Test-database setup (one-time, Inbox):** create `aulia_inboxdb_test` schema-only from
+  `aulia_inboxdb`. `php spark migrate` cannot build it (migration history lives in `default`). Re-run
+  the schema dump whenever a new Inbox migration is added, or tests fail with unknown column/table.
 
-- do not call the WhatsApp Gateway;
-- do not mutate conversation `last_message_at`;
-- do not mutate conversation `last_message_direction`;
-- remain part of the conversation thread.
+## 10. Testing Strategy
 
-### SLA
+- **Framework:** PHPUnit `^10.5.16` (plus Node-based `.check.js` behavior checks under `tests/js/`).
+- **Layout:**
+  - `tests/database/` — model / database / migration behavior.
+  - `tests/session/` — HTTP controller + session feature tests.
+  - `tests/unit/` — isolated services and calculations.
+  - `tests/js/` — pure JavaScript behavior checks (run with Node, not PHPUnit).
+  - `tests/_support/` — test schema, fakes, fixtures, bootstrap.
+- **Run commands:**
+  - `composer test` — invokes PHPUnit; may exit non-zero solely because of the pre-existing
+    "No code coverage driver available" warning.
+  - `vendor/bin/phpunit --no-coverage` — the exit-0 green/red signal.
+- **Inbox test DB:** the real MariaDB `aulia_inboxdb_test`, never SQLite and never live. Every Inbox
+  test `setUp()` empties tables, so run PHPUnit **sequentially** — never in parallel.
+- **Manual performance DB:** `aulia_inboxdb_perf` (schema-only), seeded by the guarded command
+  `php spark aulia:seed-fase1e-perf --dbgroup=inbox`, which refuses any DB whose name is not
+  `aulia_inboxdb_perf`. It is deliberately not wired into `composer test` or CI.
+- **Two-layer mandate:** every change ships incremental tests (micro), and the full suite must pass
+  before a phase closes (macro). Suppressions, skipped tests, and deleted assertions are forbidden.
+- **Suite size drifts every session that adds tests** — gate new work on "≥ the count measured
+  immediately before the change + new tests", never on a frozen number.
 
-`InboxSlaService` is a DB/session-independent calculation service.
+## 11. AI Agent Boundaries
 
-Its thresholds are configured through `Config\\Inbox` and are not hardcoded inside the service.
+- **Single AI config root:** `.claude/` (`rules/`, `skills/`, `standards/`, `instructions/`). There is
+  no `.agents/` tree; do not recreate one.
+- **Session memory:** `.claude/instructions/memory.instructions.md`, managed by the `memory-manager`
+  skill. Do not hand-edit unless necessary.
+- **Documentation standards:** follow `.claude/standards/CONTEXT-FORMAT.md` and `ADR-FORMAT.md`.
+  PRDs / audits are Indonesian; `plan/` documents and `REMEDIATION STATUS` blocks are English.
+- **This mapping skill changes no source code.** Its only outputs are `docs/ARCHITECTURE.md` and
+  optional references in `AGENTS.md` / `README.md`.
+- **Preserve the Inbox database boundary.** Inbox persistence must never accidentally use the POS
+  `default` group.
+- **The architectural constraints listed in §13 are locked:** the M2 State Consistency program stays
+  deferred; the M2 gate was opened narrowly for Handoff only and must not expand silently.
+- **Never render a raw JID in the UI.** Sender identity is derived by `SenderIdentityFormatter`.
+- **No suppressions.** Never add `@ts-ignore`, `eslint-disable`, or `# noqa`, and never skip or delete
+  tests to force a build green.
+- **Ownership atomicity:** only the take path (`ambilPercakapan()`) and Handoff use an expected-owner
+  conditional write; `lepas`, `tutup`, `snooze`, `tandai-dibaca`, `hapus` remain application-level
+  read-then-write logic unless a spec says otherwise.
 
-### Handoff and Collision Detection
+## 12. Database Topology
 
-Handoff moves conversation ownership between staff and records every transfer in the `conversation_handoffs` table (Inbox database group).
+AuliaPos intentionally uses multiple database groups.
 
-- The ownership write is an expected-owner conditional write (`SET assigned_to = :to WHERE id = :id AND assigned_to <=> :expected`): a request that loses the race changes nothing and answers `409` with the current owner's name.
-- The ownership write and the history insert share one `inbox`-group transaction, so a failed history insert rolls the ownership change back.
-- History is read back through the dedicated `GET /inbox/percakapan/(:num)/handoff` route (auth filter only, newest-first, capped at 50); the message thread endpoint is untouched and the `messages` table is never written by Handoff.
-- Staff-facing names in the handoff history are resolved in the Inbox UI from the same active-kasir list the Handoff dialog uses, because the read contract carries user ids only.
+```text
+                    ┌──────────────────────┐
+                    │   CodeIgniter App    │
+                    └──────────┬───────────┘
+                               │
+          ┌────────────────────┼─────────────────────┐
+          ▼                    ▼                     ▼
+   default / POS          inbox / Inbox        archive / SQLite
+   MySQL/MariaDB          MySQL/MariaDB         SQLite file
+          │                    │                     │
+   POS business data     Conversations,          Archived
+   and transactions      messages, gateway       transactions
+                         status, identity
+                         and handoffs
 
-### Media Read Authorization
+                    tests / PHPUnit
+                         SQLite :memory:
+```
 
-Per `spec-design-inbox-read-authorization.md` REQ-002, `Inbox::media()` no longer performs a `cekOwnership()` check: any logged-in staff member may read the media attachment of any conversation, regardless of who holds it (`assigned_to`).
+Under `ENVIRONMENT === 'testing'` the redirects are:
 
-- The conversation `404` lookup is retained — a message referencing a conversation that no longer exists still answers `404`, unchanged from before this decision.
-- The `410`/`media_confirmed_gone_at` write path (recording that WhatsApp confirmed the media is permanently gone) is triggerable by any logged-in staff, not only the conversation's holder (REQ-002-C2) — it records an objective fact and only prevents repeated Gateway calls, so it is not treated as an ownership-gated write operation.
-- `GET /inbox/api/conversations/(:num)/messages` (`Inbox::apiMessages()`) remains untouched and must never gain a `cekOwnership()` guard (SEC-001) — this closes the same open-read decision for the thread endpoint as for media.
+- `default` → the `tests` group (SQLite `:memory:`);
+- `inbox` → the real MariaDB `aulia_inboxdb_test` (database name forced; `DSN` and `failover`
+  cleared so an `.env` entry cannot redirect the connection).
 
-### Inbox Media Failure Contract and Local Storage
+Both redirects live in `app/Config/Database.php`. In addition, `tests/_support/bootstrap.php` refuses
+to start PHPUnit if the `inbox` group does not resolve to `aulia_inboxdb_test`.
 
-`GET /inbox/media/(:num)` serves a message's attachment in two steps: it reads the local copy
-recorded in `messages.media_local_filename` first, and only falls through to a live fetch
-(`POST /media/download` on the Gateway) when that file is missing or unreadable — the case that
-covers a detached drive. Nothing is written by either path except the permanent-gone marker.
+Production migrations live in `app/Database/Migrations/`; test-only schema support lives in
+`tests/_support/Database/Migrations/`.
 
-Response contract, and what the client may conclude from each status:
+## 13. Shared WhatsApp Inbox Module Architecture
+
+The Inbox is a bounded application module inside AuliaPos with an external WhatsApp Gateway. Its
+runtime data flow is shown in §3.2 and its HTTP surface in §3.4. This section records the module's
+seams and locked constraints.
+
+### 13.1 Queue status
+
+Queue status is computed centrally by `ConversationModel::withComputedStatus()`, which is a thin layer
+over the existing `attachResponseState()` (ADR-0001). It deliberately reuses the response-state
+computation instead of introducing independent SQL `WHERE` logic for queue tabs, so the sidebar badge
+and the Queue View tabs cannot drift.
+
+### 13.2 Internal Notes
+
+Internal Notes are persisted as messages with `is_internal = true`. They do not call the WhatsApp
+Gateway, do not mutate conversation `last_message_at` or `last_message_direction`, and remain part of
+the conversation thread. They are allowed on closed conversations (no status gate).
+
+### 13.3 SLA
+
+`InboxSlaService` is a DB/session-independent calculation service. Its thresholds come from
+`Config\Inbox` (`slaGreenMinutes` / `slaYellowMinutes`), never hardcoded. Only `selesai` and
+`follow_up` (snoozed) states are excluded from the SLA indicator; `menunggu_customer` is included.
+
+### 13.4 Handoff and Collision Detection
+
+Handoff moves conversation ownership between staff and records every transfer in
+`conversation_handoffs` (Inbox DB group).
+
+- The ownership write is an expected-owner conditional write
+  (`SET assigned_to = :to WHERE id = :id AND assigned_to <=> :expected`): a request that loses the
+  race changes nothing and answers `409` with the current owner's name.
+- The ownership write and the history insert share one `inbox`-group transaction, so a failed history
+  insert rolls the ownership change back.
+- History is read back through `GET /inbox/percakapan/(:num)/handoff` (auth filter only, newest-first,
+  capped at 50); the message thread endpoint is untouched and `messages` is never written by Handoff.
+- Staff-facing names are resolved in the Inbox UI from the same active-kasir list the Handoff dialog
+  uses (`UserModel::daftarKasirAktif()`), because the read contract carries user ids only.
+- Collision detection is **write-time conflict only**; Presence is deferred.
+
+### 13.5 Media read authorization
+
+Per `spec/spec-design-inbox-read-authorization.md` REQ-002, `Inbox::media()` performs no
+`cekOwnership()` check: any logged-in staff member may read the media attachment of any conversation.
+
+- The conversation `404` lookup is retained.
+- The `410` / `media_confirmed_gone_at` write path is triggerable by any logged-in staff (it records
+  an objective fact and only prevents repeated Gateway calls).
+- `GET /inbox/api/conversations/(:num)/messages` (`Inbox::apiMessages()`) remains untouched and must
+  never gain a `cekOwnership()` guard (SEC-001) — the thread read is as open as media read.
+
+### 13.6 Media failure contract and local storage
+
+`GET /inbox/media/(:num)` serves a message's attachment in two steps: first the local copy recorded
+in `messages.media_local_filename`, falling through to a live Gateway fetch
+(`POST /media/download`) only when that file is missing or unreadable.
 
 | Status | Meaning | Client behaviour |
 | --- | --- | --- |
-| `200` | Decrypted binary, `Content-Type` from the stored mimetype | Serve |
-| `410` | The media host explicitly stated the media is gone (sets `media_confirmed_gone_at`, then short-circuits without contacting the Gateway) | Permanent; never retried |
-| `503` | Temporary: the Gateway or the media host refused this attempt | Retryable, bounded |
-| `504` | The Gateway's own download deadline expired (`config.mediaDownloadTimeoutMs`) | Retryable, bounded |
+| `200` | Decrypted binary, `Content-Type` from stored mimetype | Serve |
+| `410` | The media host explicitly stated the media is gone (sets `media_confirmed_gone_at`) | Permanent; never retried |
+| `503` | Temporary: Gateway or media host refused this attempt | Retryable, bounded |
+| `504` | The Gateway download deadline expired (`config.mediaDownloadTimeoutMs`) | Retryable, bounded |
 | `502` | The Gateway could not be reached at all | Retryable, bounded |
 
-Only an explicit `410` from the media host is permanent. No other observed response is treated as
-expiry, because the measured signals do not distinguish it: an expired signed URL, a corrupted
-signature and a missing object all return `403` from the media host (see
-`docs/decisions/2026-09-28-inbox-media-not-expired-and-failure-classification.md`).
+Only an explicit `410` from the media host is permanent. Expired signed URL, corrupted signature, and
+missing object are indistinguishable (all `403` from the media host), so none of them is treated as
+expiry (see `docs/decisions/2026-09-28-inbox-media-not-expired-and-failure-classification.md`).
 
-**Local copy (REQ-006).** Incoming media is prefetched and stored by
-`InboxGatewayApi::messages()` through `InboxMediaStorage`, under `inbox.mediaStoragePath`
-(`D:\aulia_inbox_media\` on the POS machine — outside the application directory, on a fixed local
-disk, never a removable or network drive). The prefetch runs with an 8-second budget inside the
-webhook response and is best-effort: a failure leaves `media_local_filename` NULL and the
-live-fetch fallback still works. There is deliberately no retention/pruning; the folder grows
-without bound and is not cleaned when a conversation is deleted.
+**Local copy.** Incoming media is prefetched and stored by `InboxGatewayApi::messages()` through
+`InboxMediaStorage`, under `inbox.mediaStoragePath` on a fixed local disk outside the application
+directory. Prefetch runs with an 8-second budget inside the webhook response and is best-effort: a
+failure leaves `media_local_filename` NULL and live-fetch still works. There is deliberately no
+retention or pruning.
 
-**Media size bounds (`Config\Inbox`).** Three independent axes, each read from `.env` with a
-clamped fallback (an invalid value falls back with a warning rather than silently disabling the
-control):
+**Media size bounds (`Config\Inbox`).** Three independent axes, each read from `.env` with a clamped
+fallback:
 
-- `inbox.maxMediaUploadMb` — outgoing uploads the cashier sends from the POS (default `15`).
+- `inbox.maxMediaUploadMb` — outgoing uploads the cashier sends (default `15`).
 - `inbox.maxMediaDownloadMb` — incoming media served or displayed via `GET /inbox/media/(:num)`
   (default `100`).
 - `inbox.maxMediaPrefetchMb` — ingest prefetch during the incoming-message webhook, the untrusted
   path that buffers + decrypts + writes to disk (default `15`). Its upper bound follows
-  `maxMediaDownloadMb`, so `maxMediaPrefetchMb <= maxMediaDownloadMb` always holds — even when the
-  prefetch env key is unset.
+  `maxMediaDownloadMb`, so `maxMediaPrefetchMb <= maxMediaDownloadMb` always holds.
 
-`App\Libraries\InboxMediaBound::mbKeByte()` is the single MB→byte conversion used by all three
-paths. It is overflow-safe: an absurd env value yields `PHP_INT_MAX` instead of a `TypeError` that
-would turn every media request into `500`.
+`App\Libraries\InboxMediaBound::mbKeByte()` is the single MB→byte conversion used by all three paths.
+It is overflow-safe and clamps to a policy ceiling, so an absurd env value cannot turn every media
+request into `500`. Never reuse the upload cap as a download/display cap.
 
-**Client-side failure handling (`app/Views/inbox/index.php`).** Two separate memories keyed by
-`String(message.id)`:
+**Client-side failure handling (`app/Views/inbox/index.php`).** Two memories keyed by
+`String(message.id)`: `mediaGagal` (permanent, `410`) and `mediaSementara` (temporary, retried at
+most 3 times with a minimum 30-second gap). Transient entries are cleared when the Gateway
+transitions to `connected`; entries flagged `nonRetryable` (deterministic `413` "terlalu besar") are
+retained. When the Gateway is known to be down, the renderer emits no `<img>` at all and shows a
+distinct "Gateway terputus" placeholder.
 
-- `mediaGagal` — permanent (`410`). The `<img>` is never rendered again for that message.
-- `mediaSementara` — temporary. Retried at most 3 times with a minimum 30-second gap, then it stops
-  (`REQ-004`). The reason is discovered by one `fetch()` probe of the same URL, issued only on the
-  error path so the success path and its ETag caching are unaffected (`CON-004`). The map is cleared
-  when the Gateway transitions to `connected`, which is what makes a photo reappear without a page
-  reload (`REQ-003`) — except entries flagged `nonRetryable` (a deterministic `413` "terlalu besar"),
-  which are retained because a retry can never succeed.
+### 13.7 Balas Pesan (Reply with Quote)
 
-When the Gateway is *known* to be down, the renderer emits no `<img>` at all and shows a distinct
-"Gateway terputus" placeholder instead, so an outage does not generate a request per poll cycle.
+Reply-with-Quote introduces these seams:
 
-### Balas Pesan (Reply with Quote)
+- **Snapshot immutability (REQ-007):** quote data is copied once into the 7 `quoted_*` columns on the
+  new message row (`quoted_wa_message_id`, `quoted_source_message_id`, `quoted_media_available`,
+  `quoted_media_type`, `quoted_sender_label`, `quoted_snippet`, plus the runtime-only `fromMe`
+  derivation). It is never re-derived from the source message at render time, so the quote survives
+  source edits or soft-deletes. There is no `quoted_from_me` column.
+- **Single builder:** `InboxQuoteSnapshotService::rakitSnapshot()` is the only place that populates
+  `quoted_*`; both cashier replies (`Inbox::kirimKeConversation()`, `Inbox::kirimMedia()`) and inbound
+  webhook processing (`InboxGatewayApi::resolveKutipanMasuk()`) call it.
+- **Ownership check ordering (SEC-001):** `cekOwnership()` runs before quote resolution on the media
+  path, and the same ordering is enforced on the text path so a non-owner cannot use the endpoint as
+  an existence oracle.
+- **Display branches (AC-005):** quote box renders per media availability — text-only, image/sticker
+  live-fetch, document link, audio/video label only, or legacy/no-source. Client `mediaGagal` memory
+  keyed `'kutipan:' + messageId` prevents repeated refetch polling on failure.
+- **Snippet normalization (SEC-003):** local and Gateway fallback snippets pass through
+  `potongSnippet()` (whitespace normalization, multibyte-safe bound, ellipsis); non-string payloads
+  are coerced to a generic label without throwing.
 
-The Reply-with-Quote feature introduces the following seams:
+### 13.8 Teruskan (Forward)
 
-**Snapshot immutability (REQ-007):** Quote data is copied **once** at send/receive time into the 7 `quoted_*` columns on the new message row. It is never re-derived from the source message at render time. This ensures the quote survives source message edits or soft-deletes.
+- Request body may carry `forward_from_message_id` (local `messages.id` of the source row). It is
+  **mutually exclusive** with `quoted_message_id` in one request (`400`, CON-001).
+- The server reads the content from its own DB (`Inbox::resolveTeruskan()`), never from the browser
+  payload, and enforces forwardability server-side: internal notes, unsent outgoing rows,
+  `audio`/`video`, and any type outside `text|image|document|sticker` are rejected with `400`.
+  `cekOwnership()` is checked on the **target** conversation only (REQ-007).
+- The forwarded result is a **new** `messages` row in the target conversation with `is_forwarded = 1`
+  and all `quoted_*` columns NULL (REQ-009). The Gateway call carries `forward: true` and never
+  `quoted`. The cashier label is built from `is_forwarded`, independent of the Gateway's
+  `forward_marker_applied` debug field.
+- `messages.is_forwarded` is `TINYINT(1) NOT NULL DEFAULT 0` (migration
+  `2026-09-28-000001_AddIsForwardedToMessages`, additive-only, no index/FK), following the Inbox
+  `tinyint(1)` precedent; older rows become "not forwarded" without backfill.
+- Idempotency reuses the existing `operation_id` / `gateway_operation_id` mechanism (REQ-010).
+- **ADR-0002:** the source-conversation ownership gap is an accepted, recorded risk; adding a source
+  ownership guard would contradict REQ-007 / AC-004 and must supersede the ADR first.
 
-**Single source of truth for snapshot building:** `InboxQuoteSnapshotService::rakitSnapshot()` is the only place that populates `quoted_*` columns. Both cashier-initiated replies (`Inbox::kirimKeConversation()`, `Inbox::kirimMedia()`) and inbound webhook processing (`InboxGatewayApi::resolveKutipanMasuk()`) call this service.
+### 13.9 Grup (Group conversations)
 
-**Ownership check ordering (SEC-001):** `Inbox::kirimKeConversation()` now performs `cekOwnership()` **before** `resolveKutipan()` (matching `kirimMedia()`), preventing a non-owner from using the text-reply endpoint as an existence oracle for cross-conversation message IDs.
+- `conversations.jid_type` (`VARCHAR(20)`) classifies the chat: `pn`, `lid`, `group`, `unknown`.
+  `conversations.group_name` (migration `2026-09-26-000001_AddGroupNameToConversations`) stores the
+  group title when the Gateway supplies it.
+- Inbound **group** messages must carry `messages.sender_jid` (from the Gateway's `key.participant`):
+  `InboxGatewayApi::messages()` rejects a group incoming message with an empty `sender_jid` (`400`).
+  Non-group and outgoing rows are unaffected.
+- `App\Services\SenderIdentityFormatter::labelFor()` is the pure, single source of sender-label rules.
+  It never returns a raw JID: `@s.whatsapp.net` → clean phone number (numeric-only local part, device
+  suffix stripped), `@lid` / `*.lid` → the literal `LID`, group domain `@g.us` → `null` (no label at
+  all, for legacy rows), anything else → `Pengirim`.
+- Group-aware gates: Handoff and Tandai-Dibaca carry a group guard (SEC-01); the `perlu_dibalas`
+  sidebar count excludes `jid_type = 'group'`; `mulaiPercakapan` always creates a `pn` conversation.
+- Group support spans both repositories: sender identity, group title, quote, and forward all require
+  the WA-Gateway change; separating groups in the list and fixing the sidebar badge are AuliaPos-only.
 
-**Media live-fetch with failure memory (PERF-001):** `renderKotakKutipan()` performs live-fetch `GET /inbox/media/:quoted_source_message_id` only for `image`/`sticker`/`document` types. On error (404/410/5xx), the client records the failure in `sessionStorage` under key `'kutipan:' + messageId` and skips subsequent fetches for 4 seconds, preventing polling amplification.
+### 13.10 Conversation search
 
-**Replay lookup scoped to conversation (ARCH-001):** `MessageModel::findByOperationIdIncludingDeleted($operationId, $conversationId)` replaces the controller-level query builder, ensuring idempotency replay respects conversation boundaries.
+`GET /inbox/api/conversations` accepts `page`, `status`, and `q`. `q` matches the identity columns
+(`contact_name`, `whatsapp_name`, `phone`, `manual_phone`, `chat_id`) and the message text, through one
+aggregate `messages` query per request (`ROW_NUMBER()` over `message_timestamp DESC, id DESC`, `LIKE`
+with an explicit `ESCAPE`), so no `messages` query runs when `q` is empty. Every conversation element
+carries `match_snippet`: `null` when there is no `q` or when the hit came through an identity column,
+otherwise `{ text, is_internal, message_timestamp }` cut by `InboxMatchSnippetService::potong()`.
 
-**Snippet normalization (SEC-003, REQ-011):** Both local and Gateway fallback snippets pass through `potongSnippet()` (whitespace normalization, 200-char bound, ellipsis). Non-string payloads are coerced to generic label "Pesan tidak ditemukan" without throwing `TypeError`.
-
-## 9. Authentication and Security Boundaries
-
-There are two distinct authentication paths for the Inbox:
-
-1. **Browser staff**
-   - Session-based `auth` filter.
-   - Used for UI and staff mutations.
-
-2. **WhatsApp Gateway**
-   - Bearer-token-based `gatewaytoken` filter.
-   - Used only for machine-to-machine Gateway callbacks.
-
-Secrets such as the Inbox Gateway token are supplied through environment configuration rather than source control.
-
-## 10. Frontend / Presentation
-
-The application primarily uses CodeIgniter server-rendered PHP views under `app/Views/`.
-
-Inbox presentation is concentrated in:
-
-- `app/Views/inbox/index.php`
-- shared assets under `public/assets/js/` where applicable.
-
-The Inbox API supplies computed presentation fields such as queue status and SLA state so the frontend does not independently reproduce core response-state rules.
-
-## 11. Testing Architecture
-
-Testing is organized by integration boundary:
-
-```text
-tests/
-├── database/    -> model/database behavior
-├── session/     -> HTTP controller + session behavior
-├── unit/        -> isolated services/calculations
-└── _support/    -> test schema, fakes, and fixtures
-```
-
-The repository's test command is:
-
-```text
-composer test
-```
-
-### One-time setup: Inbox test database
-
-Inbox tests run against `aulia_inboxdb_test`, never the real `aulia_inboxdb`. Create it once, schema only (no rows):
-
-```text
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS aulia_inboxdb_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
-mysqldump -u root -p --no-data --routines --triggers aulia_inboxdb | mysql -u root -p aulia_inboxdb_test
-```
-
-`php spark migrate` cannot build this database: migration history is stored in the `default` database, so the inbox migrations are already marked as run and would be skipped.
-
-> [!IMPORTANT]
-> Re-run the `mysqldump --no-data ... | mysql ...` step after adding a new inbox migration. Otherwise tests fail with "unknown column/table" errors in `aulia_inboxdb_test`.
-
-The M3 Phase 2a checkpoint recorded in `.claude/instructions/memory.instructions.md` reports 283 tests and 867 assertions on branch `feature/m3-operational-inbox-fase1a-task001` using `vendor/bin/phpunit --no-coverage` (plain `composer test` still exits non-zero because of the pre-existing "No code coverage driver available" warning).
-
-### Manual performance measurement database: `aulia_inboxdb_perf`
-
-The M3 Fase 1e search feature (`AC-016`, message-search latency) is measured manually against a **separate, non-live database** — never `aulia_inboxdb` (production) and never `aulia_inboxdb_test` (`composer test` empties its tables between runs). Provision it schema-only with the same recipe as the test database above, pointed at a different name:
-
-```text
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS aulia_inboxdb_perf CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
-mysqldump -u root -p --no-data --routines --triggers aulia_inboxdb | mysql -u root -p aulia_inboxdb_perf
-```
-
-Fixture data (2,000 conversations x 100 messages = 200,000 `messages` rows) is loaded by the guarded Spark command `app/Commands/SeedFase1ePerf.php`:
-
-```text
-php spark aulia:seed-fase1e-perf --dbgroup=inbox
-```
-
-The command refuses to run unless the active database of the `inbox` group is literally `aulia_inboxdb_perf` (`SeedFase1ePerf::DATABASE_DIIZINKAN`), so it can never write to production or the test database. It is deliberately **not** wired into `composer test`, PHPUnit, or CI — it only runs when a human invokes it directly. To point the real HTTP endpoints at the perf database for measurement, temporarily override `database.inbox.database` in `.env` (git-ignored), measure, then restore it.
-
-## 12. Architectural Constraints Relevant to M3 Phase 2
-
-The following constraints are important for subsequent Handoff and Collision Detection work:
+### 13.11 Locked constraints
 
 - Ownership is represented on the conversation and is already used by existing Inbox actions.
-- Ownership checking on the remaining paths (`lepas`, `tutup`, `snooze`, `tandai-dibaca`, `hapus`) is still application-level read-then-write logic; only the Handoff path uses an expected-owner conditional write.
-- M2 State Consistency is deferred.
-- M3 Phase 2a opened the M2 gate **narrowly** (Handoff only, per the M2-gate clarification) and must not silently expand into a general state-consistency redesign.
+- Ownership checking on the remaining paths (`lepas`, `tutup`, `snooze`, `tandai-dibaca`, `hapus`) is
+  still application-level read-then-write logic; only the take path and Handoff use an expected-owner
+  conditional write.
+- M2 State Consistency is deferred. M3 Phase 2a opened the M2 gate **narrowly** (Handoff only) and
+  must not silently expand into a general state-consistency redesign.
 - The separate Inbox database boundary must be preserved.
-- Gateway behavior is outside the Handoff and Collision Detection scope unless an approved specification explicitly requires it.
-- New architectural modules, directories, or API contracts introduced by implementation must be reflected in this document.
+- Gateway behavior is out of scope unless an approved specification explicitly requires it.
+- New architectural modules, directories, or API contracts introduced by implementation must be
+  reflected in this document.
 
-## 13. Relevant Architectural Files
+## 14. Architecture Change Policy
+
+This document must be updated whenever implementation introduces:
+
+- a new architectural module or directory;
+- a new persistent integration boundary;
+- a new API contract;
+- a new database boundary;
+- a significant ownership / state-management seam.
+
+Routine changes inside an already documented module do not require restructuring this document unless
+they materially change the architecture. Per the Living Architecture Map Mandate, keep it evergreen
+during `/sdlc-write-code` completion or code review.
+
+## 15. Relevant Architectural Files
 
 | Area | Primary files |
 | --- | --- |
@@ -509,28 +557,19 @@ The following constraints are important for subsequent Handoff and Collision Det
 | Conversation persistence | `app/Models/ConversationModel.php` |
 | Handoff persistence | `app/Models/ConversationHandoffModel.php` |
 | Message persistence | `app/Models/MessageModel.php` |
-| User persistence | `app/Models/UserModel.php` (its `daftarKasirAktif()` is the single source of the active-kasir list for Handoff) |
-| Schedule persistence | `app/Models/JadwalModel.php` |
+| User persistence | `app/Models/UserModel.php` (`daftarKasirAktif()` = single source of active-kasir list) |
 | Inbox SLA | `app/Services/InboxSlaService.php` |
 | Inbox match snippet | `app/Services/InboxMatchSnippetService.php` |
 | Inbox quote snapshot | `app/Services/InboxQuoteSnapshotService.php` |
-| Inbox media | `app/Libraries/InboxMediaStorage.php` |
+| Sender identity label | `app/Services/SenderIdentityFormatter.php` |
+| Inbox media storage | `app/Libraries/InboxMediaStorage.php` |
+| Inbox media bound | `app/Libraries/InboxMediaBound.php` |
+| Outgoing request value object | `app/Libraries/InboxOutgoingRequest.php` |
 | Inbox UI | `app/Views/inbox/index.php` |
-| Architecture decisions | `docs/adr/` (numbered `NNNN-slug.md`, e.g. `0002-teruskan-source-visibility-risk-acceptance.md`) |
+| Architecture decisions | `docs/adr/` (e.g. `0001-reuse-response-state-for-queue-view-status.md`, `0002-teruskan-source-visibility-risk-acceptance.md`) |
 | Production migrations | `app/Database/Migrations/` |
 | Test support | `tests/_support/` |
 | Database tests | `tests/database/` |
 | Session tests | `tests/session/` |
 | Unit tests | `tests/unit/` |
-
-## 14. Architecture Change Policy
-
-This document should be updated whenever implementation introduces:
-
-- a new architectural module or directory;
-- a new persistent integration boundary;
-- a new API contract;
-- a new database boundary;
-- a significant ownership/state-management seam.
-
-Routine changes inside an already documented module do not require restructuring this document unless they materially change the architecture.
+| JS behavior checks | `tests/js/` |

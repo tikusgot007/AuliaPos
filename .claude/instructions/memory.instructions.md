@@ -2244,5 +2244,35 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bd — `/sdlc-map-architecture` regenerate penuh `docs/ARCHITECTURE.md`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, file terverifikasi ada).
+- **Current SDLC Phase:** Documentation / Utility — skill `sdlc-map-architecture`, tanpa perubahan kode sumber.
+- **Active Artifacts:**
+  - `docs/ARCHITECTURE.md` — 🔄 **ditulis ulang penuh** (575 baris), `last_updated: 2026-09-29`, basis `v2.3` @ `f971042`.
+- **Achieved Milestones:**
+  - Peta lama (536 baris, cap `updated 2026-09-27`) diperiksa dulu (Anti-Data-Loss Guard). Owner memilih **Regenerate penuh** (opsi lain: update bedah / batal).
+  - Struktur mengikuti template wajib `.claude/skills/sdlc-map-architecture/references/ARCHITECTURE-TEMPLATE.md` §1–11, plus §12 Topologi DB, §13 Arsitektur Modul Inbox (13.1–13.11), §14 Kebijakan Perubahan, §15 Tabel File Kunci.
+  - Drift yang ditutup: header/tanggal basi; `SenderIdentityFormatter`/`Authority`/`CashBalanceService` hilang dari §4.3/§6; `InboxOutgoingRequest` hilang dari §4.4/§6; fitur **Grup** (`jid_type`, `group_name`, wajib `sender_jid` untuk grup masuk, aturan label `@g.us` → tanpa identitas, guard grup handoff/tandai-dibaca SEC-01, `perlu_dibalas` exclude grup, mulai-percakapan selalu `pn`); kontrak media + 3 batas + `mbKeByte()` policy ceiling; §10 angka tes tak lagi dipaku ke 283/867.
+  - `AGENTS.md` **sudah** merujuk `/docs/ARCHITECTURE.md` ("Reference Documents") → tidak perlu tambah (tak ada perubahan `AGENTS.md`).
+- **Dead-Ends (Do NOT Repeat):**
+  - **`npx --no-install markdownlint-cli` sekarang GAGAL** ("npx canceled due to missing packages and no YES option: markdownlint-cli@0.49.1") — berbeda dari DE-24 yang mencatat CLI tersedia v0.49.1. Environment berubah; jangan andalkan `--no-install`. Verifikasi lint fallback: dokumen ini pakai `<!-- markdownlint-disable -->` di atas → seluruh aturan mati; heading & struktur dicek manual. **Kandidat promosi KB (koreksi DE-24) saat kompaksi berikutnya.**
+- **Updated Files:**
+  - `docs/ARCHITECTURE.md` — regenerate penuh (575 baris).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Regenerate penuh dipilih owner (bukan update bedah): format template resmi menang atas mempertahankan struktur lama, dengan tetap menyalin seluruh detail arsitektur Inbox ke §13 (tak ada informasi hilang).
+  - Tanpa edit `AGENTS.md` (rujukan sudah ada) dan tanpa perubahan `README.md`.
+- **Next Action / Pending:**
+  - **Closing sequence:** checkpoint ini ✅ → tawarkan commit → tawarkan push → prompt sesi berikutnya.
+  - `docs/ARCHITECTURE.md` termodifikasi & belum di-commit (branch `v2.3`).
+  - Carried forward (tak disentuh sesi ini): `docs/peta-kemajuan-inbox.html`; backlog media-bound A-01..A-04 (opsional, menunggu owner); manual live-Gateway >15MB; `docs/TODO-CHAT.md` items 11–13.
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bd Map-Architecture) Ran /sdlc-map-architecture and FULLY REGENERATED docs/ARCHITECTURE.md (536 -> 575 lines, last_updated 2026-09-29, basis v2.3 @ f971042) after checking the existing map first (Anti-Data-Loss Guard) and getting the owner's explicit choice of "full regenerate" over "surgical update". New doc follows the mandatory ARCHITECTURE-TEMPLATE sections 1-11 plus new sections 12 (DB topology), 13 (Inbox module architecture 13.1-13.11: queue status, internal notes, SLA, handoff/collision, media read-auth, media failure contract + 3 caps + mbKeByte policy ceiling, Balas Pesan, Teruskan, Grup, conversation search, locked constraints), 14 (change policy), 15 (key files table). Closed drift: stale header date, missing SenderIdentityFormatter/Authority/CashBalanceService/InboxOutgoingRequest, undocumented Grup seams (jid_type, group_name, mandatory sender_jid for inbound group, @g.us -> no label, group guard on handoff/tandai-dibaca SEC-01, perlu_dibalas excludes groups, mulaiPercakapan always pn), and a test-count pinned at 283/867. AGENTS.md already referenced the doc so it was NOT edited; no source code touched. New environment fact: `npx --no-install markdownlint-cli` now FAILS with "canceled due to missing packages" (contradicts KB DE-24) so lint relies on the file's `<!-- markdownlint-disable -->`; flagged for KB promotion at next compaction. Next: closing sequence commit -> push -> next-session prompt. -->
+
+---
+
+---
+
 
 
