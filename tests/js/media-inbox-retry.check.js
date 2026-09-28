@@ -13,7 +13,8 @@
  *     kadaluarsa").
  *   - bolehCobaLagiMedia()    : batas 3 percobaan DAN jeda 30 detik (REQ-004).
  *   - catatKegagalanMedia()   : 410 pindah ke latch permanen, media sementara
- *     dibuang; kategori lain masuk buku percobaan tanpa menaikkan cobaan.
+ *     dibuang; 413 'terlalu_besar' menghabiskan jatah percobaan (non-retryable);
+ *     kategori lain masuk buku percobaan tanpa menaikkan cobaan.
  *
  * Fungsi diduplikasi PERSIS di sini (pola sama seperti
  * tests/js/operation-id-composer.check.js -- project ini murni CI4/PHP, tanpa
@@ -90,7 +91,7 @@ function catatKegagalanMedia(kunci, kategori) {
 
     mediaSementara.set(kunci, {
         kategori: kategori,
-        cobaan: lama ? lama.cobaan : 0,
+        cobaan: kategori === 'terlalu_besar' ? MEDIA_COBAAN_MAKS : (lama ? lama.cobaan : 0),
         terakhirMs: Date.now()
     });
 }
@@ -193,6 +194,16 @@ check('catat: kategori sementara mencatat kategori + terakhirMs, cobaan mulai 0'
     assert.strictEqual(entri.kategori, 'sementara');
     assert.strictEqual(entri.cobaan, 0, 'probe pertama belum menghabiskan jatah percobaan');
     assert.ok(Date.now() - entri.terakhirMs < 1000, 'terakhirMs harus diisi sekarang');
+});
+
+check('catat: 413 terlalu_besar -> jatah habis (non-retryable) + label eksplisit dipertahankan', () => {
+    catatKegagalanMedia('15', 'terlalu_besar');
+    const entri = mediaSementara.get('15');
+
+    assert.strictEqual(entri.kategori, 'terlalu_besar', 'label "terlalu besar" tetap muncul lewat entriSementara.kategori');
+    assert.strictEqual(entri.cobaan, MEDIA_COBAAN_MAKS, 'CLN-801: jatah percobaan langsung habis');
+    assert.strictEqual(bolehCobaLagiMedia(entri), false, 'CLN-801: 413 deterministik -> berhenti mencoba');
+    assert.strictEqual(mediaGagal.has('15'), false, 'bukan latch kadaluarsa -- tetap di buku sementara');
 });
 
 check('jeda: catatan baru belum boleh dicoba lagi', () => {

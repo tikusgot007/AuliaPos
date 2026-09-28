@@ -355,7 +355,17 @@ class InboxGatewayApi extends BaseController
                 // 8 detik, BUKAN 30 seperti live-fetch on-demand -- ini
                 // jalan DI DALAM respons webhook Gateway, harus cepat
                 // gagal kalau memang lambat, bukan menahan Gateway lama.
-                $result = (new Inbox())->callGatewayMediaDownload($config, $mediaRefUntukPrefetch, $mediaRefUntukPrefetch['mimetype'], 8);
+                // REQ-801: prefetch memakai batas INGEST tersendiri
+                // (`maxMediaPrefetchMb`, jalur tak terpercaya), BUKAN default
+                // batas unduh/tampilan 100MB -- mencegah peak buffer+disk
+                // ~6,7x lipat per pesan masuk.
+                $result = (new Inbox())->callGatewayMediaDownload(
+                    $config,
+                    $mediaRefUntukPrefetch,
+                    $mediaRefUntukPrefetch['mimetype'],
+                    8,
+                    maxBytes: $config->maxMediaPrefetchMb * 1024 * 1024
+                );
 
                 $filename = null;
                 if ($result['ok'] && $storage->save($newMessageId . '.' . $ext, $result['binary'])) {

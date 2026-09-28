@@ -1983,3 +1983,41 @@
 
 <!-- checkpoint-tail: 2026-09-28 (Phase 6ww Code-Review Media-Bound) /sdlc-code-review Two-Axis over d29e346..2053f63 (v2.3): Axis B zero spec mismatch; Axis A found one [REQUIRED] PERF-01 — the webhook prefetch path (InboxGatewayApi.php:358) calls callGatewayMediaDownload() with no bound so it now inherits the display cap maxMediaDownloadMb=100MB instead of the prior 15MB, buffering+decrypting+saving to disk up to 100MB per inbound message at an unauthenticated trust boundary (~6.7x DoS surface; RISK-702 only capped overrun, not peak buffer). Also [OPTIONAL] CLN-01 (413 treated as retryable, 3 pointless re-transfers) and [NIT] TEST-01 (config test not env-isolated). Verified re-run: suite OK 677/2688 exit 0, loopback bound 2/7, akumulasiChunk 5/12, both node checks pass, CURLOPT_MAXFILESIZE absent. Produced NEW plan/plan-refactor-teruskan-media-bound-v1.1.md (did not overwrite v1.0) with Phase 1 dedicated maxMediaPrefetchMb ingest bound + Phase 2 deterministic-413 latch and test hygiene. Next: /sdlc-write-code on v1.1; manual live-Gateway check still owner-run. -->
 
+---
+
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6xx — `/sdlc-write-code` eksekusi penuh `plan-refactor-teruskan-media-bound-v1.1.md`, Phase 1+2 → plan Completed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`). Plan v1.1 dieksekusi penuh (Phase 1 `TASK-801..806`, Phase 2 `TASK-811..815`); owner menyetujui (`acc`, `acc tutup`) → **plan ditutup, status `Completed`**.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.1.md` — ✅ **Completed** (semua `TASK-801..815` `[x]`, badge/status diperbarui).
+  - `spec/spec-design-teruskan.md` — v1.3 (tidak disentuh, CON-801); PRD & `docs/adr/0002-*` tidak disentuh.
+- **Achieved Milestones:**
+  - **Phase 1 (`REQ-801`/`SEC-801`, TASK-801..806):** `Config\Inbox::$maxMediaPrefetchMb = 15` (+env `inbox.maxMediaPrefetchMb`); `InboxGatewayApi::messages()` prefetch kini panggil `callGatewayMediaDownload(..., 8, maxBytes: $config->maxMediaPrefetchMb * 1024 * 1024)` (named arg) — sumbu batas ketiga terpisah (ingest 15 / unggah 15 / unduh 100).
+  - **Phase 2 (`CLN-801`/TEST-802, TASK-811..815):** `catatKegagalanMedia()` di `app/Views/inbox/index.php` menyetel `cobaan = MEDIA_COBAAN_MAKS` saat `kategori === 'terlalu_besar'` → 413 non-retryable, label eksplisit tetap (tetap di `mediaSementara`, tidak pindah ke `mediaGagal`); salinan VERBATIM JS + 1 check baru (16 PASS); `testDefaultUnduhDanUnggahTerpisah()` diisolasi env ambien.
+  - **Verifikasi:** `vendor/bin/phpunit --no-coverage` → **OK (681 tests, 2704 assertions), exit 0** (baseline pra-sesi 677/2688); `node tests/js/media-inbox-retry.check.js` → **16 PASS, exit 0**.
+  - Repo WA-Gateway tidak disentuh. `.env` (git-ignored) diberi placeholder komentar `inbox.maxMediaPrefetchMb`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Koneksi `inbox` bersama meninggalkan `transStatus=false` setelah `InboxHandoffTest`** (test itu sengaja memaksa insert gagal via trigger `SIGNAL`). Test transaksional yang jalan SETELAHNYA (mis. prefetch baru) gagal palsu dengan `{"status":"error","message":"Gagal menyimpan pesan (transaksi database gagal)"}` saat suite penuh, padahal lulus sendirian. Diagnosa: reflection `transDepth=0 transStatus=false`; `transBegin()` CI4 TIDAK mereset `transStatus` (hanya `transFailure`). **Correct:** panggil `db_connect('inbox')->resetTransStatus()` di `setUp` test transaksional baru. Jangan menyimpulkan regresi kode dari kegagalan yang hanya muncul di suite penuh.
+- **Updated Files:**
+  - `app/Config/Inbox.php` — properti + env `maxMediaPrefetchMb` (default 15).
+  - `app/Controllers/InboxGatewayApi.php` — prefetch memakai batas ingest eksplisit.
+  - `app/Views/inbox/index.php` — latch 413 `terlalu_besar` non-retryable.
+  - `tests/unit/InboxMediaBoundConfigTest.php` — +2 test prefetch + isolasi env `testDefaultUnduhDanUnggahTerpisah()`.
+  - `tests/session/InboxPrefetchIngestBoundTest.php` — NEW (2 test perilaku loopback: 256KB tersimpan, 2MB lewat bound 1MB tidak tersimpan → bukti bukan 100MB).
+  - `tests/js/media-inbox-retry.check.js` — sinkronisasi verbatim + 1 check 413.
+  - `plan/plan-refactor-teruskan-media-bound-v1.1.md` — checkbox/tanggal/status Completed.
+  - `.env` — placeholder komentar `inbox.maxMediaPrefetchMb` (git-ignored).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Batas ingest = sumbu tersendiri `maxMediaPrefetchMb` (bukan pakai ulang unggah/unduh) — sesuai keputusan plan/`ALT-801` ditolak.
+  - 413 non-retryable via jatah habis (`cobaan = MEDIA_COBAAN_MAKS`), bukan memindah kategori ke latch `kadaluarsa` (`ALT-802` ditolak) — label eksplisit dipertahankan.
+- **Next Action / Pending:**
+  - **Closing sequence:** checkpoint ini → tawarkan commit → tawarkan push → prompt sesi berikutnya.
+  - `plan-refactor-teruskan-media-bound-v1.1.md` belum di-`/sdlc-code-review`.
+  - Manual live-Gateway (owner-run, belum dijalankan): media masuk >15MB tampil; Teruskan >15MB ditolak.
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit (sync via skill `update-peta-kemajuan`); `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` errno 1118; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6xx Write-Code Media-Bound v1.1) /sdlc-write-code executed BOTH phases of plan/plan-refactor-teruskan-media-bound-v1.1.md and closed it (owner approved). Phase 1: added Config\Inbox::$maxMediaPrefetchMb=15 (+env inbox.maxMediaPrefetchMb) as a third, dedicated INGEST bound and made InboxGatewayApi::messages() prefetch pass maxBytes: maxMediaPrefetchMb*1024*1024 explicitly instead of inheriting the 100MB display cap (was the [REQUIRED] PERF-01 review finding). Phase 2: catatKegagalanMedia() now sets cobaan=MEDIA_COBAAN_MAKS for kategori==='terlalu_besar' so a 413 becomes non-retryable while keeping the explicit "Lampiran terlalu besar..." label (stays in mediaSementara, not moved to the kadaluarsa latch); verbatim JS copy re-synced (+1 check, 16 PASS); testDefaultUnduhDanUnggahTerpisah() env-isolated. New tests/session/InboxPrefetchIngestBoundTest.php runs real cURL against a php -S loopback (256KB within a 1MB bound -> saved; 2MB -> not saved, proving it is not using 100MB). Verify: suite OK (681 tests, 2704 assertions) exit 0 (baseline 677/2688), node media-inbox-retry 16 PASS. Dead-end: InboxHandoffTest leaves transStatus=false on the SHARED inbox connection, so transactional tests running after it in the full suite false-fail with "Gagal menyimpan pesan (transaksi database gagal)" while passing alone — CI4 transBegin() does NOT reset transStatus, so call db_connect('inbox')->resetTransStatus() in setUp. Spec/PRD/ADR untouched, WA-Gateway untouched. Next: closing sequence (commit -> push -> next-session prompt); plan v1.1 not yet code-reviewed; manual live-Gateway check owner-run. -->
+

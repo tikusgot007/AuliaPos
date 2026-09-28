@@ -4,13 +4,13 @@ version: 1.1
 date_created: 2026-09-28
 last_updated: 2026-09-28
 owner: AuliaPos Inbox module
-status: "Planned"
+status: "Completed"
 tags: ["refactor", "clean-code", "architecture", "security", "teruskan", "media-bound"]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-yellow)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 Rencana remediasi hasil `/sdlc-code-review` **Two-Axis** atas refactor media-bound Teruskan (commit `d29e346` → `2053f63`, branch `v2.3`) — kelanjutan `plan-refactor-teruskan-media-bound-v1.0.md` (Completed).
 
@@ -40,12 +40,12 @@ Rencana ini **tidak mengubah requirement apa pun** dan **tidak menyentuh `spec/s
 
 | Task ID  | Description (Include Exact File Paths & Micro-Testing)                                                                                                                                                                                          | Ref ID  | Completed | Date |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | :-------: | :--: |
-| TASK-801 | `app/Config/Inbox.php` — tambah `public int $maxMediaPrefetchMb = 15;` + pembacaan `env('inbox.maxMediaPrefetchMb')`. Dokumentasikan sebagai "batas byte yang boleh diunduh + disimpan ke disk oleh prefetch saat webhook pesan masuk (jalur tak terpercaya); JANGAN dipakai untuk tampilan atau kirim".       | REQ-801 |    [ ]    |      |
-| TASK-802 | `app/Controllers/InboxGatewayApi.php:358` — panggil `callGatewayMediaDownload(..., 8, maxBytes: $config->maxMediaPrefetchMb * 1024 * 1024)` (named argument) supaya prefetch memakai batas ingest, bukan default unduh 100MB.                     | REQ-801 |    [ ]    |      |
-| TASK-803 | **Micro-Test**: `tests/unit/InboxMediaBoundConfigTest.php` — kunci default `maxMediaPrefetchMb = 15`, env override, dan tegaskan `maxMediaPrefetchMb < maxMediaDownloadMb` (tiga sumbu batas tetap terpisah).                                        | TEST-801 |    [ ]    |      |
-| TASK-804 | **Micro-Test**: `tests/session/` (baru atau lanjutkan spy yang ada) — buktikan prefetch webhook memanggil `callGatewayMediaDownload()` dengan `maxBytes` = batas ingest, bukan 100MB; jalur `Inbox::media()` tetap 100MB; jalur Teruskan tetap 15MB. | SEC-801 |    [ ]    |      |
-| TASK-805 | **VERIFY**: `vendor/bin/phpunit --no-coverage` (exit 0).                                                                                                                                                                                        | -       |    [ ]    |      |
-| TASK-806 | **APPROVAL**: 🛑 Tunggu konfirmasi eksplisit owner sebelum Phase 2.                                                                                                                                                                             | -       |    [ ]    |      |
+| TASK-801 | `app/Config/Inbox.php` — tambah `public int $maxMediaPrefetchMb = 15;` + pembacaan `env('inbox.maxMediaPrefetchMb')`. Dokumentasikan sebagai "batas byte yang boleh diunduh + disimpan ke disk oleh prefetch saat webhook pesan masuk (jalur tak terpercaya); JANGAN dipakai untuk tampilan atau kirim".       | REQ-801 |    [x]    | 2026-09-28 |
+| TASK-802 | `app/Controllers/InboxGatewayApi.php:358` — panggil `callGatewayMediaDownload(..., 8, maxBytes: $config->maxMediaPrefetchMb * 1024 * 1024)` (named argument) supaya prefetch memakai batas ingest, bukan default unduh 100MB.                     | REQ-801 |    [x]    | 2026-09-28 |
+| TASK-803 | **Micro-Test**: `tests/unit/InboxMediaBoundConfigTest.php` — kunci default `maxMediaPrefetchMb = 15`, env override, dan tegaskan `maxMediaPrefetchMb < maxMediaDownloadMb` (tiga sumbu batas tetap terpisah).                                        | TEST-801 |    [x]    | 2026-09-28 |
+| TASK-804 | **Micro-Test**: `tests/session/` (baru atau lanjutkan spy yang ada) — buktikan prefetch webhook memanggil `callGatewayMediaDownload()` dengan `maxBytes` = batas ingest, bukan 100MB; jalur `Inbox::media()` tetap 100MB; jalur Teruskan tetap 15MB. | SEC-801 |    [x]    | 2026-09-28 |
+| TASK-805 | **VERIFY**: `vendor/bin/phpunit --no-coverage` (exit 0).                                                                                                                                                                                        | -       |    [x]    | 2026-09-28 |
+| TASK-806 | **APPROVAL**: 🛑 Tunggu konfirmasi eksplisit owner sebelum Phase 2.                                                                                                                                                                             | -       |    [x]    | 2026-09-28 |
 
 ### Implementation Phase 2: Deterministic 413 Latch & Test Hygiene (Correctness / Low Risk)
 
@@ -53,11 +53,11 @@ Rencana ini **tidak mengubah requirement apa pun** dan **tidak menyentuh `spec/s
 
 | Task ID  | Description (Include Exact File Paths & Micro-Testing)                                                                                                                                                                                                                                                            | Ref ID  | Completed | Date |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | :-------: | :--: |
-| TASK-811 | `app/Views/inbox/index.php` — `catatKegagalanMedia()`: bila `kategori === 'terlalu_besar'`, simpan `cobaan = MEDIA_COBAAN_MAKS` (jatah habis) pada entri `mediaSementara` supaya `bolehCobaLagiMedia()` `false` permanen, **tanpa** memindahkannya ke latch `kadaluarsa` (label eksplisit "terlalu besar" tetap muncul lewat `entriSementara.kategori`).                                                                                             | CLN-801 |    [ ]    |      |
-| TASK-812 | **Micro-Test**: `tests/js/media-inbox-retry.check.js` — salin ulang `catatKegagalanMedia()` verbatim + tambah check: `catatKegagalanMedia(k, 'terlalu_besar')` menghasilkan entri dengan `bolehCobaLagiMedia(entri) === false` dan `entri.kategori === 'terlalu_besar'`.                                                 | CLN-801 |    [ ]    |      |
-| TASK-813 | **Micro-Test**: `tests/unit/InboxMediaBoundConfigTest.php` — `testDefaultUnduhDanUnggahTerpisah()` isolasi env ambien (`inbox.maxMediaUploadMb`, `inbox.maxMediaDownloadMb`, `inbox.maxMediaPrefetchMb`) di awal dan pulihkan di `finally`.                                                                            | TEST-802 |    [ ]    |      |
-| TASK-814 | **VERIFY**: `vendor/bin/phpunit --no-coverage` (exit 0) + `node tests/js/media-inbox-retry.check.js` lulus.                                                                                                                                                                                                        | -       |    [ ]    |      |
-| TASK-815 | **APPROVAL**: 🛑 Tunggu konfirmasi eksplisit owner untuk menutup plan.                                                                                                                                                                                                                                             | -       |    [ ]    |      |
+| TASK-811 | `app/Views/inbox/index.php` — `catatKegagalanMedia()`: bila `kategori === 'terlalu_besar'`, simpan `cobaan = MEDIA_COBAAN_MAKS` (jatah habis) pada entri `mediaSementara` supaya `bolehCobaLagiMedia()` `false` permanen, **tanpa** memindahkannya ke latch `kadaluarsa` (label eksplisit "terlalu besar" tetap muncul lewat `entriSementara.kategori`).                                                                                             | CLN-801 |    [x]    | 2026-09-28 |
+| TASK-812 | **Micro-Test**: `tests/js/media-inbox-retry.check.js` — salin ulang `catatKegagalanMedia()` verbatim + tambah check: `catatKegagalanMedia(k, 'terlalu_besar')` menghasilkan entri dengan `bolehCobaLagiMedia(entri) === false` dan `entri.kategori === 'terlalu_besar'`.                                                 | CLN-801 |    [x]    | 2026-09-28 |
+| TASK-813 | **Micro-Test**: `tests/unit/InboxMediaBoundConfigTest.php` — `testDefaultUnduhDanUnggahTerpisah()` isolasi env ambien (`inbox.maxMediaUploadMb`, `inbox.maxMediaDownloadMb`, `inbox.maxMediaPrefetchMb`) di awal dan pulihkan di `finally`.                                                                            | TEST-802 |    [x]    | 2026-09-28 |
+| TASK-814 | **VERIFY**: `vendor/bin/phpunit --no-coverage` (exit 0) + `node tests/js/media-inbox-retry.check.js` lulus.                                                                                                                                                                                                        | -       |    [x]    | 2026-09-28 |
+| TASK-815 | **APPROVAL**: 🛑 Tunggu konfirmasi eksplisit owner untuk menutup plan.                                                                                                                                                                                                                                             | -       |    [x]    | 2026-09-28 |
 
 ## 3. Structural Remedies & Alternatives
 

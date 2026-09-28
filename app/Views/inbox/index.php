@@ -2605,7 +2605,10 @@
     }
 
     // 'kadaluarsa' pindah ke latch permanen; kategori lain masuk buku
-    // percobaan terbatas.
+    // percobaan terbatas. 'terlalu_besar' (413) DETERMINISTIK: habiskan
+    // jatah percobaan supaya tidak ditembak ulang tiap siklus polling,
+    // tapi TETAP di buku sementara agar label eksplisit "terlalu besar"
+    // muncul lewat entriSementara.kategori (CLN-801).
     function catatKegagalanMedia(kunci, kategori) {
         if (kategori === 'kadaluarsa') {
             mediaGagal.add(kunci);
@@ -2617,7 +2620,7 @@
 
         mediaSementara.set(kunci, {
             kategori: kategori,
-            cobaan: lama ? lama.cobaan : 0,
+            cobaan: kategori === 'terlalu_besar' ? MEDIA_COBAAN_MAKS : (lama ? lama.cobaan : 0),
             terakhirMs: Date.now()
         });
     }

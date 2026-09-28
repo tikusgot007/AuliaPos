@@ -76,6 +76,21 @@ class Inbox extends BaseConfig
     public int $maxMediaDownloadMb = 100;
 
     /**
+     * Batas byte yang boleh diunduh + disimpan ke disk oleh PREFETCH saat
+     * webhook pesan masuk (`InboxGatewayApi::messages()`), dalam MB.
+     *
+     * Jalur ingest ini TIDAK TERPERCAYA (mengalir dari Gateway/Baileys) dan
+     * mem-buffer + men-dekripsi + menulis ke disk, jadi SENGAJA dipisah dari
+     * batas unduh/tampilan `maxMediaDownloadMb` yang lebih longgar (100MB) --
+     * memakai batas tampilan di ingest memperbesar permukaan DoS memori+disk
+     * per pesan masuk. Default 15 mempertahankan perilaku pra-refactor.
+     * JANGAN dipakai untuk tampilan atau kirim/Teruskan.
+     *
+     * Diisi lewat .env: inbox.maxMediaPrefetchMb (opsional, default 15).
+     */
+    public int $maxMediaPrefetchMb = 15;
+
+    /**
      * Folder penyimpanan permanen media inbox (gambar/dokumen/sticker),
      * SENGAJA di luar direktori aplikasi -- lihat catatan di
      * InboxMediaStorage. Kosong = fitur nonaktif, semua media otomatis
@@ -96,6 +111,7 @@ class Inbox extends BaseConfig
         $this->gatewayBaseUrl   = rtrim((string) (env('inbox.gatewayBaseUrl') ?? ''), '/');
         $this->maxMediaUploadMb   = (int) (env('inbox.maxMediaUploadMb') ?? $this->maxMediaUploadMb);
         $this->maxMediaDownloadMb = (int) (env('inbox.maxMediaDownloadMb') ?? $this->maxMediaDownloadMb);
+        $this->maxMediaPrefetchMb = (int) (env('inbox.maxMediaPrefetchMb') ?? $this->maxMediaPrefetchMb);
         $this->mediaStoragePath = (string) (env('inbox.mediaStoragePath') ?? '');
     }
 }
