@@ -114,9 +114,14 @@ a2ba409..66bff03 | grep '^auth/'` returned nothing.
   `failed to decrypt message` / `No matching sessions found` for the account's own LID
   (`255490491736112@lid`, `fromMe:true`), with retry receipts. This did not affect inbound customer
   messages (text and photo both arrived) and is **not** addressed by this change.
-- **Media after arrival:** a plain photo arrives as `image` but AuliaPos showed "Gambar tidak tersedia
-  (kemungkinan sudah kadaluarsa)" — a media fetch/decrypt problem outside this fix's scope
-  (E-02/E-07 adjacent).
+- **Media after arrival (corrected 2026-09-28):** a plain photo arrives as `image` and the Inbox
+  showed "Gambar tidak tersedia (kemungkinan sudah kadaluarsa)". This was **not** a media
+  fetch/decrypt problem and **not** an expiry: the live Gateway was down (`502`, not `410`), and three
+  defects sat underneath — a permanent client-side failure latch, a message that always blamed
+  expiry, and a Gateway `catch` that mapped every error to `410`. Diagnosed and fixed as its own bug
+  under `plan-bugfix-inbox-media-unavailable-v1.0.md`; see
+  `docs/decisions/2026-09-28-inbox-media-not-expired-and-failure-classification.md`. Incoming media is
+  now also stored locally, so opening a photo no longer depends on the Gateway.
 - **E-07 (upsert without content)** remains unproven.
 - The live Gateway is currently started manually (no Windows service / PM2 installed). If the owner's
   normal flow is the `supervisor/` Control Panel, stop this process first to avoid two instances.

@@ -21,7 +21,7 @@ Legenda status: `[x]` terpenuhi, `[~]` sebagian atau belum pasti, `[ ]` belum te
 - [~] **GW-04** (Wajib) `POST /send` (`chat_id`, `text`) membalas `{success, wa_message_id, timestamp}` dalam kurang dari 10 detik (timeout `callGatewaySend` di AuliaPos).
   Status: 277–441 ms di kondisi normal. Kalau Gateway lambat lebih dari 10 detik, AuliaPos menyerah sementara pesan tetap terkirim, dan retry kasir menghasilkan pesan ganda (lihat GW-09).
 - [x] **GW-05** (Wajib) `POST /send-media` (base64, batas Gateway 20 MB, sedangkan CI4 menolak lebih dulu di 15 MB) dan `POST /media/download` (timeout 30 detik on-demand, 8 detik prefetch).
-  Status: terpenuhi menurut log media on-demand. Belum diuji ulang pada 21 Sep.
+  Status: terpenuhi. Angka 30 dan 8 detik itu timeout **KLIEN** AuliaPos; Gateway wajib menjawab lebih dulu (CON-008), jadi unduhan internalnya dibatasi sendiri oleh `config.mediaDownloadTimeoutMs` (bawaan 6 detik) — lihat GW-15.
 - [x] **GW-06** (Wajib) Autentikasi Bearer dengan satu shared secret dua arah. Token kosong berarti semua request ditolak (fail-closed).
   Status: terpenuhi (`requireCI4Token`).
 - [x] **GW-07** (Wajib) Balas `409 NOT_CONNECTED` saat WhatsApp belum `connected`, supaya AuliaPos bisa memblokir aksi dengan cepat.
@@ -46,8 +46,8 @@ Legenda status: `[x]` terpenuhi, `[~]` sebagian atau belum pasti, `[ ]` belum te
   Status: terpenuhi (`connectionManager.js:470`, filter paling awal).
 - [x] **GW-14** (Wajib) Gambar, dokumen, dan sticker diteruskan dengan referensi lengkap (`direct_path`, `media_key`). Bila tidak lengkap, pesan dibuang. Audio dan video hanya metadata, tanpa binary.
   Status: terpenuhi menurut log dan tes Tahap 0.
-- [x] **GW-15** (Wajib) Media kedaluwarsa dibalas `410`, kegagalan sementara dibalas `502`, supaya AuliaPos tahu mana yang boleh dicoba ulang.
-  Status: terpenuhi (Tahap E).
+- [x] **GW-15** (Wajib) `POST /media/download` membalas `200` (binary hasil dekripsi), `504` bila unduhan melewati batas waktu, `503` untuk kegagalan sementara lainnya, dan `410` HANYA bila host media sendiri menyatakannya hilang.
+  Status: terpenuhi sejak commit `1591512` (28 Sep 2026). Sebelumnya SEMUA error dipetakan ke `410` dan log-nya menuduh "kadaluarsa"; karena AuliaPos memperlakukan `410` sebagai final (`media_confirmed_gone_at` + short-circuit permanen), satu kedip jaringan bisa memblacklist foto yang utuh selamanya. Pengukuran 28 Sep terhadap Gateway live: tanda tangan kedaluwarsa, tanda tangan rusak, dan objek tidak ada SEMUANYA dibalas `403` oleh host media — tidak bisa dibedakan satu sama lain, jadi tidak ada yang dipetakan ke `410`. Batas waktu unduhan diatur `config.mediaDownloadTimeoutMs` (bawaan 6 detik, di bawah anggaran prefetch AuliaPos 8 detik). Verifikasi pasca-deploy: referensi utuh `200`, referensi dengan id objek dimutasi `503 MEDIA_DOWNLOAD_FAILED` (dulu `410`). Bukti: `docs/decisions/2026-09-28-inbox-media-not-expired-and-failure-classification.md`.
 - [x] **GW-16** (Wajib) Gateway tidak menyimpan state bisnis atau file media. SQLite hanya sebagai buffer retry.
   Status: terpenuhi.
 - [x] **GW-24** (Wajib) Pesan yang dikirim ulang oleh WhatsApp setelah Gateway restart (sudah pernah diproses) tidak boleh menghasilkan baris ganda.

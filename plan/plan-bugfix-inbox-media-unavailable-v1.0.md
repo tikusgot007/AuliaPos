@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-09-28
 last_updated: 2026-09-28
 owner: AuliaPos + WA-Gateway
-status: "Planned"
+status: "Completed"
 tags: ["bug-fix", "remediation", "patch"]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-yellow)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 A cashier cannot see customer photos in the Inbox. Ordinary photos arrive correctly as
 `message_type = image` with a complete media reference, but the Inbox renders
@@ -99,14 +99,14 @@ reported, then removes the dependency on a live fetch.
 
 | Task | Description | Ref ID | Completed | Date |
 | --- | --- | --- | :---: | :--: |
-| TASK-001 | In the Gateway worktree, create `test/simulate-media-download-errors.js` following the existing `test/simulate-send-media.js` harness pattern (build the Express app from `src/api/server.js`, stub `connectionManager.downloadMediaByRef`). | REQ-001 | [ ] | |
-| TASK-002 | Case: `downloadMediaByRef` rejects with a **transient** error (e.g. `Error('socket not open')`). Assert `POST /media/download` responds `503`. This MUST FAIL today, because the current catch returns `410` for every error. | REQ-001 | [ ] | |
-| TASK-003 | Case: `downloadMediaByRef` rejects with the **expiry** signal. Assert `410`. This PASSES today and exists to guard CON-006 while TASK-011 rewrites the catch. | CON-006 | [ ] | |
-| TASK-004 | Case: `downloadMediaByRef` rejects with the timeout signal. Assert `504` and assert a distinct `error_code`. This MUST FAIL today. | REQ-005 | [ ] | |
-| TASK-005 | Case: `downloadMediaByRef` resolves a buffer. Assert `200`, the body bytes, and the `Content-Type` from the request `mimetype`. Guards CON-001. | CON-001 | [ ] | |
-| TASK-006 | In AuliaPos, add a session test following `tests/session/InboxMediaAuthTest.php` that drives `Inbox::media()` with a stubbed Gateway returning `503`, and asserts `media_confirmed_gone_at` is **not** written and the response status is `503`. Extend `tests/unit/InboxMediaConfirmedGoneTest.php` with the same `503`/`504` scenarios. | REQ-001, CON-002 | [ ] | |
-| TASK-007 | **VERIFY**: Run the new Gateway script. Record raw output. It MUST FAIL on TASK-002 and TASK-004, proving the tests detect the real defect. Run the new AuliaPos test and record its result. | - | [ ] | |
-| TASK-008 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2. | - | [ ] | |
+| TASK-001 | In the Gateway worktree, create `test/simulate-media-download-errors.js` following the existing `test/simulate-send-media.js` harness pattern (build the Express app from `src/api/server.js`, stub `connectionManager.downloadMediaByRef`). | REQ-001 | [x] | 2026-09-28 |
+| TASK-002 | Case: `downloadMediaByRef` rejects with a **transient** error (e.g. `Error('socket not open')`). Assert `POST /media/download` responds `503`. This MUST FAIL today, because the current catch returns `410` for every error. | REQ-001 | [x] | 2026-09-28 |
+| TASK-003 | Case: `downloadMediaByRef` rejects with the **expiry** signal. Assert `410`. This PASSES today and exists to guard CON-006 while TASK-011 rewrites the catch. | CON-006 | [x] | 2026-09-28 |
+| TASK-004 | Case: `downloadMediaByRef` rejects with the timeout signal. Assert `504` and assert a distinct `error_code`. This MUST FAIL today. | REQ-005 | [x] | 2026-09-28 |
+| TASK-005 | Case: `downloadMediaByRef` resolves a buffer. Assert `200`, the body bytes, and the `Content-Type` from the request `mimetype`. Guards CON-001. | CON-001 | [x] | 2026-09-28 |
+| TASK-006 | In AuliaPos, add a session test following `tests/session/InboxMediaAuthTest.php` that drives `Inbox::media()` with a stubbed Gateway returning `503`, and asserts `media_confirmed_gone_at` is **not** written and the response status is `503`. Extend `tests/unit/InboxMediaConfirmedGoneTest.php` with the same `503`/`504` scenarios. | REQ-001, CON-002 | [x] | 2026-09-28 |
+| TASK-007 | **VERIFY**: Run the new Gateway script. Record raw output. It MUST FAIL on TASK-002 and TASK-004, proving the tests detect the real defect. Run the new AuliaPos test and record its result. | - | [x] | 2026-09-28 |
+| TASK-008 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 2. | - | [x] | 2026-09-28 |
 
 ### Implementation Phase 2: Gateway — Bound the Download and Classify Errors
 
@@ -115,12 +115,12 @@ reported, then removes the dependency on a live fetch.
 
 | Task | Description | Ref ID | Completed | Date |
 | --- | --- | --- | :---: | :--: |
-| TASK-009 | In `src/whatsapp/connectionManager.js`, give `downloadMediaByRef()` a bounded timeout using the existing `config.mediaFetchTimeoutMs` (currently only used by `mediaPayload.js:146`). On expiry, destroy the underlying stream and reject with a typed error carrying a stable code such as `MEDIA_DOWNLOAD_TIMEOUT`. | REQ-005, CON-008 | [ ] | |
-| TASK-010 | **EMPIRICAL — do not guess.** Determine the real error signal for a genuinely expired media: pick an old `messages` row whose media is beyond WhatsApp's retention and call the live Gateway `/media/download` with its stored reference; record the raw thrown error (message, `code`, `output.statusCode`, or HTTP status from the media host). Save the raw evidence in the Phase 5 decision log. | REQ-001 | [ ] | |
-| TASK-011 | In `src/api/ci4Routes.js` `/media/download`, rewrite the `catch` (lines 373-389) to classify: the signal measured in TASK-010 → `410 MEDIA_UNAVAILABLE`; the timeout code from TASK-009 → `504`; every other error → `503`. Keep the `{ success, error_code, message }` shape and change the log text so it no longer asserts expiry for non-expiry causes. Do not touch the success path. | REQ-001, REQ-005, CON-001, CON-006 | [ ] | |
-| TASK-012 | `[OPTIONAL]` Add a fast-fail guard in `/media/download`: if there is no socket or the status is `disconnected`/`logged_out`, return `503` immediately instead of attempting the download. Verify against real behaviour before keeping — if `downloadContentFromMessage` can succeed while reconnecting, this guard would produce false `503`s and MUST be dropped. | REQ-005 | [ ] | |
-| TASK-013 | **VERIFY**: Run `node test/simulate-media-download-errors.js` — all cases MUST PASS. Run the full Gateway batch (all `test/simulate-*.js` and `test/check-*.js`, in batches to stay below the command timeout) and confirm zero regressions. Record raw output. | - | [ ] | |
-| TASK-014 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 3. | - | [ ] | |
+| TASK-009 | In `src/whatsapp/connectionManager.js`, give `downloadMediaByRef()` a bounded timeout using the existing `config.mediaFetchTimeoutMs` (currently only used by `mediaPayload.js:146`). On expiry, destroy the underlying stream and reject with a typed error carrying a stable code such as `MEDIA_DOWNLOAD_TIMEOUT`. | REQ-005, CON-008 | [x] | 2026-09-28 |
+| TASK-010 | **EMPIRICAL — do not guess.** Determine the real error signal for a genuinely expired media: pick an old `messages` row whose media is beyond WhatsApp's retention and call the live Gateway `/media/download` with its stored reference; record the raw thrown error (message, `code`, `output.statusCode`, or HTTP status from the media host). Save the raw evidence in the Phase 5 decision log. | REQ-001 | [x] | 2026-09-28 |
+| TASK-011 | In `src/api/ci4Routes.js` `/media/download`, rewrite the `catch` (lines 373-389) to classify: the signal measured in TASK-010 → `410 MEDIA_UNAVAILABLE`; the timeout code from TASK-009 → `504`; every other error → `503`. Keep the `{ success, error_code, message }` shape and change the log text so it no longer asserts expiry for non-expiry causes. Do not touch the success path. | REQ-001, REQ-005, CON-001, CON-006 | [x] | 2026-09-28 |
+| TASK-012 | `[OPTIONAL]` Add a fast-fail guard in `/media/download`: if there is no socket or the status is `disconnected`/`logged_out`, return `503` immediately instead of attempting the download. Verify against real behaviour before keeping — if `downloadContentFromMessage` can succeed while reconnecting, this guard would produce false `503`s and MUST be dropped. | REQ-005 | [x] | 2026-09-28 |
+| TASK-013 | **VERIFY**: Run `node test/simulate-media-download-errors.js` — all cases MUST PASS. Run the full Gateway batch (all `test/simulate-*.js` and `test/check-*.js`, in batches to stay below the command timeout) and confirm zero regressions. Record raw output. | - | [x] | 2026-09-28 |
+| TASK-014 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 3. | - | [x] | 2026-09-28 |
 
 ### Implementation Phase 3: AuliaPos Inbox — Truthful Messages and Bounded Recovery
 
@@ -128,12 +128,12 @@ reported, then removes the dependency on a live fetch.
 
 | Task | Description | Ref ID | Completed | Date |
 | --- | --- | --- | :---: | :--: |
-| TASK-015 | In `app/Views/inbox/index.php`, in the media `onerror` path for `image`/`sticker` (lines 2132-2171), probe the response status once via `fetch(url)` and record the reason in a module-level `Map` keyed by message id: `410` → expired (permanent), `503`/`504`/network failure → temporary, anything else → unknown. The probe runs only after an error, so the happy path and its browser caching stay untouched. | REQ-002, CON-004 | [ ] | |
-| TASK-016 | Replace the single placeholder string with cause-specific text: expired keeps the current wording; temporary renders a "Gateway belum bisa dihubungi — akan dicoba lagi" message; unknown stays generic. Preserve the existing caption rendering and the `inbox-media-*` CSS classes. | REQ-002 | [ ] | |
-| TASK-017 | Add bounded recovery: only entries recorded as temporary are retried, at most 3 attempts per message, with a minimum gap of 30 seconds between attempts. Permanent (`410`) entries keep the current never-retry latch (CON-002). | REQ-003, REQ-004 | [ ] | |
-| TASK-018 | Clear temporary entries when the Gateway transitions to `connected`, extending the existing hook at `index.php:2975-2980`, so recovery is immediate in the outage case that caused this bug. | REQ-003 | [ ] | |
-| TASK-019 | **VERIFY**: Run the manual browser checklist in TEST-003 (Gateway up, photo visible; Gateway stopped, temporary message appears; Gateway restarted, photo appears with no page reload; an expired media still shows the permanent message and is not retried). Run `vendor/bin/phpunit --no-coverage` and confirm zero failures. | - | [ ] | |
-| TASK-020 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 4. | - | [ ] | |
+| TASK-015 | In `app/Views/inbox/index.php`, in the media `onerror` path for `image`/`sticker` (lines 2132-2171), probe the response status once via `fetch(url)` and record the reason in a module-level `Map` keyed by message id: `410` → expired (permanent), `503`/`504`/network failure → temporary, anything else → unknown. The probe runs only after an error, so the happy path and its browser caching stay untouched. | REQ-002, CON-004 | [x] | 2026-09-28 |
+| TASK-016 | Replace the single placeholder string with cause-specific text: expired keeps the current wording; temporary renders a "Gateway belum bisa dihubungi — akan dicoba lagi" message; unknown stays generic. Preserve the existing caption rendering and the `inbox-media-*` CSS classes. | REQ-002 | [x] | 2026-09-28 |
+| TASK-017 | Add bounded recovery: only entries recorded as temporary are retried, at most 3 attempts per message, with a minimum gap of 30 seconds between attempts. Permanent (`410`) entries keep the current never-retry latch (CON-002). | REQ-003, REQ-004 | [x] | 2026-09-28 |
+| TASK-018 | Clear temporary entries when the Gateway transitions to `connected`, extending the existing hook at `index.php:2975-2980`, so recovery is immediate in the outage case that caused this bug. | REQ-003 | [x] | 2026-09-28 |
+| TASK-019 | **VERIFY**: Run the manual browser checklist in TEST-003 (Gateway up, photo visible; Gateway stopped, temporary message appears; Gateway restarted, photo appears with no page reload; an expired media still shows the permanent message and is not retried). Run `vendor/bin/phpunit --no-coverage` and confirm zero failures. | - | [x] | 2026-09-28 |
+| TASK-020 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 4. | - | [x] | 2026-09-28 |
 
 ### Implementation Phase 4: Remove the Root Cause — Store Incoming Media Locally
 
@@ -141,11 +141,11 @@ reported, then removes the dependency on a live fetch.
 
 | Task | Description | Ref ID | Completed | Date |
 | --- | --- | --- | :---: | :--: |
-| TASK-021 | **OWNER DECISION (not a code change)**: choose the storage folder for `inbox.mediaStoragePath`. It should be outside the application directory, and the disk must be available whenever the cashier works. Record the choice and the consequences in the Phase 5 decision log. | REQ-006 | [ ] | |
-| TASK-022 | Set `inbox.mediaStoragePath` in the live `.env` and confirm the path is writable by the web server user. | REQ-006 | [ ] | |
-| TASK-023 | **VERIFY (real, required)**: send a real incoming photo. Confirm `messages.media_local_filename` and `media_download_attempted_at` are filled for the new row, the file exists on disk, and `gateway.log` shows **no** `[MEDIA]` entry when the photo is opened in the Inbox (proving the disk path served it). | REQ-006 | [ ] | |
-| TASK-024 | Confirm the existing fallback still works: temporarily make the file unreadable and verify `Inbox::media()` falls through to live-fetch instead of erroring (`Inbox.php:462-466`). | CON-002 | [ ] | |
-| TASK-025 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 5. | - | [ ] | |
+| TASK-021 | **OWNER DECISION (not a code change)**: choose the storage folder for `inbox.mediaStoragePath`. It should be outside the application directory, and the disk must be available whenever the cashier works. Record the choice and the consequences in the Phase 5 decision log. | REQ-006 | [x] | 2026-09-28 |
+| TASK-022 | Set `inbox.mediaStoragePath` in the live `.env` and confirm the path is writable by the web server user. | REQ-006 | [x] | 2026-09-28 |
+| TASK-023 | **VERIFY (real, required)**: send a real incoming photo. Confirm `messages.media_local_filename` and `media_download_attempted_at` are filled for the new row, the file exists on disk, and `gateway.log` shows **no** `[MEDIA]` entry when the photo is opened in the Inbox (proving the disk path served it). | REQ-006 | [x] | 2026-09-28 |
+| TASK-024 | Confirm the existing fallback still works: temporarily make the file unreadable and verify `Inbox::media()` falls through to live-fetch instead of erroring (`Inbox.php:462-466`). | CON-002 | [x] | 2026-09-28 |
+| TASK-025 | **APPROVAL**: 🛑 Wait for explicit user confirmation to proceed to Phase 5. | - | [x] | 2026-09-28 |
 
 ### Implementation Phase 5: Deployment and Documentation
 
@@ -153,14 +153,14 @@ reported, then removes the dependency on a live fetch.
 
 | Task | Description | Ref ID | Completed | Date |
 | --- | --- | --- | :---: | :--: |
-| TASK-026 | **DEPLOY (requires explicit owner go-ahead)**: merge the Gateway worktree branch into the deployed branch and restart the process, recording before/after HEAD, process state, and start-up log evidence in the shape of `docs/decisions/2026-09-28-viewonce-placeholder-fix-and-deploy.md` §5. | CON-006 | [ ] | |
-| TASK-027 | Commit and push the AuliaPos changes on the active branch (`v2.3`). | - | [ ] | |
-| TASK-028 | Update `docs/ARCHITECTURE.md` with the `/media/download` failure contract (`200` binary, `410` expired, `503` temporary, `504` timeout) and the local-storage decision. | - | [ ] | |
-| TASK-029 | Update `docs/GATEWAY-REQUIREMENTS.md` with the media-download contract as a new `GW-*` entry carrying its measured status. | - | [ ] | |
-| TASK-030 | Write the decision log in `docs/decisions/`: corrected root cause, the TASK-010 raw expiry evidence, what was measured versus assumed, and the storage-folder decision. | - | [ ] | |
-| TASK-031 | Correct `docs/TODO-CHAT.md`: the note in `docs/decisions/2026-09-28-viewonce-placeholder-fix-and-deploy.md` §7 that called this "a media fetch/decrypt problem outside this fix's scope" is now a separate, diagnosed bug with its own plan. | - | [ ] | |
-| TASK-032 | **VERIFY**: confirm both suites green (`vendor/bin/phpunit --no-coverage`; Gateway full batch) and that the live Gateway still reports `connected` after the restart. | - | [ ] | |
-| TASK-033 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing the finding. | - | [ ] | |
+| TASK-026 | **DEPLOY (requires explicit owner go-ahead)**: merge the Gateway worktree branch into the deployed branch and restart the process, recording before/after HEAD, process state, and start-up log evidence in the shape of `docs/decisions/2026-09-28-viewonce-placeholder-fix-and-deploy.md` §5. | CON-006 | [x] | 2026-09-28 |
+| TASK-027 | Commit and push the AuliaPos changes on the active branch (`v2.3`). | - | [x] | 2026-09-28 |
+| TASK-028 | Update `docs/ARCHITECTURE.md` with the `/media/download` failure contract (`200` binary, `410` expired, `503` temporary, `504` timeout) and the local-storage decision. | - | [x] | 2026-09-28 |
+| TASK-029 | Update `docs/GATEWAY-REQUIREMENTS.md` with the media-download contract as a new `GW-*` entry carrying its measured status. | - | [x] | 2026-09-28 |
+| TASK-030 | Write the decision log in `docs/decisions/`: corrected root cause, the TASK-010 raw expiry evidence, what was measured versus assumed, and the storage-folder decision. | - | [x] | 2026-09-28 |
+| TASK-031 | Correct `docs/TODO-CHAT.md`: the note in `docs/decisions/2026-09-28-viewonce-placeholder-fix-and-deploy.md` §7 that called this "a media fetch/decrypt problem outside this fix's scope" is now a separate, diagnosed bug with its own plan. | - | [x] | 2026-09-28 |
+| TASK-032 | **VERIFY**: confirm both suites green (`vendor/bin/phpunit --no-coverage`; Gateway full batch) and that the live Gateway still reports `connected` after the restart. | - | [x] | 2026-09-28 |
+| TASK-033 | **APPROVAL**: 🛑 Wait for explicit user confirmation before closing the finding. | - | [x] | 2026-09-28 |
 
 ## 3. Rollback Strategy
 

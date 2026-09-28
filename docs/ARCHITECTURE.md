@@ -323,6 +323,49 @@ Per `spec-design-inbox-read-authorization.md` REQ-002, `Inbox::media()` no longe
 - The `410`/`media_confirmed_gone_at` write path (recording that WhatsApp confirmed the media is permanently gone) is triggerable by any logged-in staff, not only the conversation's holder (REQ-002-C2) — it records an objective fact and only prevents repeated Gateway calls, so it is not treated as an ownership-gated write operation.
 - `GET /inbox/api/conversations/(:num)/messages` (`Inbox::apiMessages()`) remains untouched and must never gain a `cekOwnership()` guard (SEC-001) — this closes the same open-read decision for the thread endpoint as for media.
 
+### Inbox Media Failure Contract and Local Storage
+
+`GET /inbox/media/(:num)` serves a message's attachment in two steps: it reads the local copy
+recorded in `messages.media_local_filename` first, and only falls through to a live fetch
+(`POST /media/download` on the Gateway) when that file is missing or unreadable — the case that
+covers a detached drive. Nothing is written by either path except the permanent-gone marker.
+
+Response contract, and what the client may conclude from each status:
+
+| Status | Meaning | Client behaviour |
+| --- | --- | --- |
+| `200` | Decrypted binary, `Content-Type` from the stored mimetype | Serve |
+| `410` | The media host explicitly stated the media is gone (sets `media_confirmed_gone_at`, then short-circuits without contacting the Gateway) | Permanent; never retried |
+| `503` | Temporary: the Gateway or the media host refused this attempt | Retryable, bounded |
+| `504` | The Gateway's own download deadline expired (`config.mediaDownloadTimeoutMs`) | Retryable, bounded |
+| `502` | The Gateway could not be reached at all | Retryable, bounded |
+
+Only an explicit `410` from the media host is permanent. No other observed response is treated as
+expiry, because the measured signals do not distinguish it: an expired signed URL, a corrupted
+signature and a missing object all return `403` from the media host (see
+`docs/decisions/2026-09-28-inbox-media-not-expired-and-failure-classification.md`).
+
+**Local copy (REQ-006).** Incoming media is prefetched and stored by
+`InboxGatewayApi::messages()` through `InboxMediaStorage`, under `inbox.mediaStoragePath`
+(`D:\aulia_inbox_media\` on the POS machine — outside the application directory, on a fixed local
+disk, never a removable or network drive). The prefetch runs with an 8-second budget inside the
+webhook response and is best-effort: a failure leaves `media_local_filename` NULL and the
+live-fetch fallback still works. There is deliberately no retention/pruning; the folder grows
+without bound and is not cleaned when a conversation is deleted.
+
+**Client-side failure handling (`app/Views/inbox/index.php`).** Two separate memories keyed by
+`String(message.id)`:
+
+- `mediaGagal` — permanent (`410`). The `<img>` is never rendered again for that message.
+- `mediaSementara` — temporary. Retried at most 3 times with a minimum 30-second gap, then it stops
+  (`REQ-004`). The reason is discovered by one `fetch()` probe of the same URL, issued only on the
+  error path so the success path and its ETag caching are unaffected (`CON-004`). The map is cleared
+  when the Gateway transitions to `connected`, which is what makes a photo reappear without a page
+  reload (`REQ-003`).
+
+When the Gateway is *known* to be down, the renderer emits no `<img>` at all and shows a distinct
+"Gateway terputus" placeholder instead, so an outage does not generate a request per poll cycle.
+
 ### Balas Pesan (Reply with Quote)
 
 The Reply-with-Quote feature introduces the following seams:
