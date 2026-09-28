@@ -641,11 +641,12 @@ class Inbox extends BaseController
      * lintas controller.
      *
      * PRN-701: `$maxBytes` dipasok PEMANGGIL. Default null = batas UNDUH
-     * /tampilan media masuk (`maxMediaDownloadMb`), dipakai `Inbox::media()`
-     * dan prefetch pesan masuk. Jalur kirim/Teruskan memanggil dengan
-     * batas unggah KELUAR (`maxMediaUploadMb`) supaya bound SEC-602 tidak
-     * melemah. Satu sumbu batas, bukan konstanta yang dipakai ulang lintas
-     * arah transfer.
+     * /tampilan media masuk (`maxMediaDownloadMb`), masih dipakai
+     * `Inbox::media()`. Prefetch pesan masuk kini memasok batas INGEST
+     * (`maxMediaPrefetchMb`) secara eksplisit, dan jalur kirim/Teruskan
+     * memasok batas unggah KELUAR (`maxMediaUploadMb`) supaya bound SEC-602
+     * tidak melemah. Satu sumbu batas, bukan konstanta yang dipakai ulang
+     * lintas arah transfer.
      *
      * @return array{ok: bool, binary?: string, status?: int, error?: string}
      */
@@ -668,7 +669,7 @@ class Inbox extends BaseController
         // cURL SENGAJA dibuang: ia hanya dihormati saat `Content-Length`
         // tersedia dan bisa mendahului WRITEFUNCTION sehingga "terlalu besar"
         // salah terklasifikasi `502` (ALT-701).
-        $maxBytes ??= $config->maxMediaDownloadMb * 1024 * 1024;
+        $maxBytes ??= self::mbKeByte($config->maxMediaDownloadMb);
         $body     = '';
         $overflow = false;
 
@@ -738,6 +739,16 @@ class Inbox extends BaseController
         }
 
         return ['ok' => true, 'binary' => $body];
+    }
+
+    /**
+     * CLN-901: SATU sumber konversi MB -> byte (PRN-701). Murni, tanpa state.
+     * Public-static supaya `InboxGatewayApi` (jalur ingest prefetch) memakai
+     * sumber yang sama, bukan literalin `* 1024 * 1024` yang keempat kalinya.
+     */
+    public static function mbKeByte(int $mb): int
+    {
+        return $mb * 1024 * 1024;
     }
 
     /**
@@ -1161,7 +1172,7 @@ class Inbox extends BaseController
         }
 
         $config = new InboxConfig();
-        $maxBytes = $config->maxMediaUploadMb * 1024 * 1024;
+        $maxBytes = self::mbKeByte($config->maxMediaUploadMb);
 
         // Batas ukuran hanya relevan untuk unggahan kasir; byte Teruskan sudah
         // tersimpan sebagai pesan (batasnya sudah dijaga saat pesan itu masuk).
@@ -3067,7 +3078,7 @@ class Inbox extends BaseController
         // agar transfer dibatalkan saat mengalir (SEC-602), dan cek panjang
         // pasca-fetch di bawah tetap dipertahankan sebagai pertahanan
         // berlapis.
-        $maxBytes = $config->maxMediaUploadMb * 1024 * 1024;
+        $maxBytes = self::mbKeByte($config->maxMediaUploadMb);
 
         // 1. Disk lokal dulu (murah). read() fail-safe: null kalau tidak ada.
         if (!empty($sumber['media_local_filename'])) {

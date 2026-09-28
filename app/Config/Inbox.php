@@ -103,15 +103,46 @@ class Inbox extends BaseConfig
 
     public function __construct()
     {
+        // SEC-901: BaseConfig::__construct() menimpa properti dengan nilai env
+        // mentah, jadi rekam default DEKLARASI (15/100/15) lebih dulu --
+        // itulah fallback sah saat nilai env tidak valid.
+        $defaultUpload   = $this->maxMediaUploadMb;
+        $defaultDownload = $this->maxMediaDownloadMb;
+        $defaultPrefetch = $this->maxMediaPrefetchMb;
+
         parent::__construct();
 
         $this->gatewayToken     = (string) (env('inbox.gatewayToken') ?? '');
         $this->slaGreenMinutes   = (int) (env('inbox.slaGreenMinutes') ?? $this->slaGreenMinutes);
         $this->slaYellowMinutes  = (int) (env('inbox.slaYellowMinutes') ?? $this->slaYellowMinutes);
         $this->gatewayBaseUrl   = rtrim((string) (env('inbox.gatewayBaseUrl') ?? ''), '/');
-        $this->maxMediaUploadMb   = (int) (env('inbox.maxMediaUploadMb') ?? $this->maxMediaUploadMb);
-        $this->maxMediaDownloadMb = (int) (env('inbox.maxMediaDownloadMb') ?? $this->maxMediaDownloadMb);
-        $this->maxMediaPrefetchMb = (int) (env('inbox.maxMediaPrefetchMb') ?? $this->maxMediaPrefetchMb);
+        $this->maxMediaUploadMb   = $this->batasiEnvMb('inbox.maxMediaUploadMb', $defaultUpload);
+        $this->maxMediaDownloadMb = $this->batasiEnvMb('inbox.maxMediaDownloadMb', $defaultDownload);
+        $this->maxMediaPrefetchMb = $this->batasiEnvMb('inbox.maxMediaPrefetchMb', $defaultPrefetch, $this->maxMediaDownloadMb);
         $this->mediaStoragePath = (string) (env('inbox.mediaStoragePath') ?? '');
+    }
+
+    /**
+     * SEC-901: validasi nilai env batas media (MB). Nilai tidak sah
+     * (< 1, atau untuk prefetch melebihi batas unduh/tampilan) JATUH ke
+     * default + peringatan log, supaya salah-ketik tidak diam-diam
+     * melumpuhkan (0/negatif -> semua prefetch 413) atau menonaktifkan
+     * kontrol DoS (prefetch > batas unduh). Nilai sah tidak diubah;
+     * default 15/100/15 tetap.
+     */
+    private function batasiEnvMb(string $kunci, int $default, ?int $maks = null): int
+    {
+        $nilai = (int) (env($kunci) ?? $default);
+
+        if ($nilai < 1 || ($maks !== null && $nilai > $maks)) {
+            log_message(
+                'warning',
+                'Config\\Inbox: env ' . $kunci . ' tidak sah (' . $nilai . '); memakai default ' . $default . '.'
+            );
+
+            return $default;
+        }
+
+        return $nilai;
     }
 }

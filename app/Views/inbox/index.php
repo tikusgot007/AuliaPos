@@ -2600,6 +2600,10 @@
     // Masih boleh dicoba lagi? Dibatasi JUMLAH dan JEDA (REQ-004) -- tanpa
     // jeda, siklus polling 4 detik akan menembak request terus-menerus.
     function bolehCobaLagiMedia(entri) {
+        if (entri.nonRetryable === true) {
+            return false;
+        }
+
         return entri.cobaan < MEDIA_COBAAN_MAKS &&
             (Date.now() - entri.terakhirMs) >= MEDIA_JEDA_COBAAN_MS;
     }
@@ -2609,6 +2613,10 @@
     // jatah percobaan supaya tidak ditembak ulang tiap siklus polling,
     // tapi TETAP di buku sementara agar label eksplisit "terlalu besar"
     // muncul lewat entriSementara.kategori (CLN-801).
+    // CLN-902: makna "non-retryable" dinyatakan EKSPLISIT lewat field
+    // nonRetryable -- bukan dipinjam dari sentinel cobaan = MEDIA_COBAAN_MAKS,
+    // supaya perubahan MEDIA_COBAAN_MAKS kelak tidak diam-diam mengubah
+    // semantik retry. Sentinel tetap sebagai pengaman kedua.
     function catatKegagalanMedia(kunci, kategori) {
         if (kategori === 'kadaluarsa') {
             mediaGagal.add(kunci);
@@ -2620,6 +2628,7 @@
 
         mediaSementara.set(kunci, {
             kategori: kategori,
+            nonRetryable: kategori === 'terlalu_besar',
             cobaan: kategori === 'terlalu_besar' ? MEDIA_COBAAN_MAKS : (lama ? lama.cobaan : 0),
             terakhirMs: Date.now()
         });

@@ -37,6 +37,7 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
     private $proses = null;
 
     private string $serverDir = '';
+    private string $logFile = '';
     private string $storageDir = '';
 
     /** @var array<string, string|null> */
@@ -90,7 +91,7 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
     {
         $port = $this->mulaiServer();
         if ($port === null) {
-            $this->markTestSkipped('Loopback server tidak tersedia di lingkungan ini.');
+            $this->markTestSkipped('Loopback server (php -S) tidak tersedia di lingkungan ini; bound ingest prefetch TIDAK tervalidasi pada run ini.');
 
             return;
         }
@@ -110,7 +111,7 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
     {
         $port = $this->mulaiServer();
         if ($port === null) {
-            $this->markTestSkipped('Loopback server tidak tersedia di lingkungan ini.');
+            $this->markTestSkipped('Loopback server (php -S) tidak tersedia di lingkungan ini; bound ingest prefetch TIDAK tervalidasi pada run ini.');
 
             return;
         }
@@ -186,6 +187,10 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
 
     private function mulaiServer(): ?int
     {
+        if (! function_exists('proc_open')) {
+            return null;
+        }
+
         $this->serverDir = sys_get_temp_dir() . '/aulia_prefetch_srv_' . bin2hex(random_bytes(4));
         @mkdir($this->serverDir, 0775, true);
 
@@ -207,33 +212,41 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
             }
             PHP);
 
-        $port = $this->cariPort();
-        if ($port === null) {
-            return null;
-        }
+        // Dua percobaan: menutup socket probe di cariPort() membuka celah
+        // TOCTOU kecil (port bisa direbut proses lain sebelum `php -S` bind).
+        // Retry sekali dengan port baru membuat test tahan balapan itu.
+        for ($percobaan = 0; $percobaan < 2; $percobaan++) {
+            $port = $this->cariPort();
+            if ($port === null) {
+                continue;
+            }
 
-        $this->proses = proc_open(
-            [PHP_BINARY, '-S', '127.0.0.1:' . $port, $router],
-            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes,
-            $this->serverDir
-        );
+            $this->logFile = $this->serverDir . DIRECTORY_SEPARATOR . 'server-' . $port . '.log';
 
-        if (! is_resource($this->proses)) {
-            $this->proses = null;
+            // stdio dialihkan ke berkas log supaya pipe TIDAK perlu dikuras --
+            // php -S bisa memblokir saat buffer pipe penuh dan tak dibaca.
+            $this->proses = proc_open(
+                [PHP_BINARY, '-S', '127.0.0.1:' . $port, $router],
+                [1 => ['file', $this->logFile, 'a'], 2 => ['file', $this->logFile, 'a']],
+                $pipes,
+                $this->serverDir
+            );
 
-            return null;
-        }
+            if (! is_resource($this->proses)) {
+                $this->proses = null;
+                continue;
+            }
 
-        if (! $this->tungguServer($port)) {
+            if ($this->tungguServer($port)) {
+                $this->port = $port;
+
+                return $port;
+            }
+
             $this->hentikanServer();
-
-            return null;
         }
 
-        $this->port = $port;
-
-        return $port;
+        return null;
     }
 
     private function cariPort(): ?int
@@ -285,5 +298,6 @@ final class InboxPrefetchIngestBoundTest extends CIUnitTestCase
         }
 
         $this->serverDir = '';
+        $this->logFile   = '';
     }
 }

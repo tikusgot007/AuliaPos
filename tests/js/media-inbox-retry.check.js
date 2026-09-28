@@ -11,10 +11,12 @@
  *     kategori 'kadaluarsa' yang boleh menyebut "kadaluarsa" (REQ-002) --
  *     ini regresi persis yang dilaporkan kasir ("semua error disebut
  *     kadaluarsa").
- *   - bolehCobaLagiMedia()    : batas 3 percobaan DAN jeda 30 detik (REQ-004).
+ *   - bolehCobaLagiMedia()    : field eksplisit nonRetryable DICEK LEBIH DULU
+ *     (CLN-902), lalu batas 3 percobaan DAN jeda 30 detik (REQ-004).
  *   - catatKegagalanMedia()   : 410 pindah ke latch permanen, media sementara
- *     dibuang; 413 'terlalu_besar' menghabiskan jatah percobaan (non-retryable);
- *     kategori lain masuk buku percobaan tanpa menaikkan cobaan.
+ *     dibuang; 413 'terlalu_besar' menandai nonRetryable: true + menghabiskan
+ *     jatah percobaan (non-retryable); kategori lain masuk buku percobaan
+ *     tanpa menaikkan cobaan.
  *
  * Fungsi diduplikasi PERSIS di sini (pola sama seperti
  * tests/js/operation-id-composer.check.js -- project ini murni CI4/PHP, tanpa
@@ -76,6 +78,10 @@ function htmlMediaTidakTersedia(kategori, jenis) {
 }
 
 function bolehCobaLagiMedia(entri) {
+    if (entri.nonRetryable === true) {
+        return false;
+    }
+
     return entri.cobaan < MEDIA_COBAAN_MAKS &&
         (Date.now() - entri.terakhirMs) >= MEDIA_JEDA_COBAAN_MS;
 }
@@ -91,6 +97,7 @@ function catatKegagalanMedia(kunci, kategori) {
 
     mediaSementara.set(kunci, {
         kategori: kategori,
+        nonRetryable: kategori === 'terlalu_besar',
         cobaan: kategori === 'terlalu_besar' ? MEDIA_COBAAN_MAKS : (lama ? lama.cobaan : 0),
         terakhirMs: Date.now()
     });
@@ -203,7 +210,20 @@ check('catat: 413 terlalu_besar -> jatah habis (non-retryable) + label eksplisit
     assert.strictEqual(entri.kategori, 'terlalu_besar', 'label "terlalu besar" tetap muncul lewat entriSementara.kategori');
     assert.strictEqual(entri.cobaan, MEDIA_COBAAN_MAKS, 'CLN-801: jatah percobaan langsung habis');
     assert.strictEqual(bolehCobaLagiMedia(entri), false, 'CLN-801: 413 deterministik -> berhenti mencoba');
+    assert.strictEqual(entri.nonRetryable, true, 'CLN-902: terlalu_besar ditandai nonRetryable eksplisit');
     assert.strictEqual(mediaGagal.has('15'), false, 'bukan latch kadaluarsa -- tetap di buku sementara');
+});
+
+check('catat: kategori sementara TIDAK ditandai nonRetryable (CLN-902)', () => {
+    catatKegagalanMedia('16', 'sementara');
+
+    assert.notStrictEqual(mediaSementara.get('16').nonRetryable, true, 'sementara tetap retryable');
+});
+
+check('bolehCobaLagiMedia: nonRetryable dicek LEBIH DULU walau jatah/jeda seolah boleh (CLN-902)', () => {
+    const entri = { kategori: 'terlalu_besar', nonRetryable: true, cobaan: 0, terakhirMs: 0 };
+
+    assert.strictEqual(bolehCobaLagiMedia(entri), false, 'nonRetryable harus menang lebih dulu');
 });
 
 check('jeda: catatan baru belum boleh dicoba lagi', () => {

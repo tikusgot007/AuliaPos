@@ -2048,3 +2048,47 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-28 (Phase 6yy — `/sdlc-write-code` eksekusi penuh `plan-refactor-teruskan-media-bound-v1.2.md` Phase 1+2 → plan Completed)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Implementation (`/sdlc-write-code`) — plan Completed, menunggu closing sequence.
+- **Active Artifacts:**
+  - `plan/plan-refactor-teruskan-media-bound-v1.2.md` — Status: ✅ Completed (Phase 1+2, owner-approved 2026-09-28).
+- **Achieved Milestones:**
+  - Phase 1 (TASK-901..903): isolasi env test konfigurasi diperbaiki (3 kanal) + test penjaga isolasi dua arah.
+  - Phase 2 (TASK-911..916): clamp env batas media (`Config\Inbox`), helper `Inbox::mbKeByte()`, flag `nonRetryable` eksplisit, ketahanan test loopback, docblock `callGatewayMediaDownload()`.
+  - VERIFY: `vendor/bin/phpunit --no-coverage` OK (685 tests, 2722 assertions) exit 0; filter env kotor OK (7 tests); `node tests/js/media-inbox-retry.check.js` 18 PASS; `node tests/js/operation-id-composer.check.js` OK.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** mengisolasi env ambien cukup dengan `unset($_ENV[$kunci])`.
+    - **Reason:** CI4 `env()` = `$_ENV[$k] ?? $_SERVER[$k] ?? getenv($k)`; `DotEnv` menulis ke ketiga kanal, jadi `$_SERVER`/`getenv` tetap membocorkan override.
+    - **Correct:** snapshot `env($kunci)` + bersihkan/pulihkan `$_ENV` + `$_SERVER` + `putenv()`.
+  - **Attempted:** memakai properti `$this->maxMediaXxx` sebagai fallback di dalam `__construct()` SETELAH `parent::__construct()`.
+    - **Reason:** `Config\BaseConfig::__construct()` sudah menimpa properti dengan nilai env mentah, jadi fallback ikut tercemar (env `0` → hasil `0`, bukan `15`).
+    - **Correct:** rekam default deklarasi SEBELUM `parent::__construct()`.
+  - **Attempted:** `npx --no-install markdownlint-cli` untuk lint plan.
+    - **Reason:** npx menolak ("missing packages") di shell ini, walau catatan lama bilang CLI tersedia.
+    - **Correct:** lint plan di-skip sesi ini; JANGAN klaim "lint bersih".
+- **Updated Files:**
+  - `app/Config/Inbox.php` — SEC-901 clamp 3 kanal + default pra-parent.
+  - `app/Controllers/Inbox.php` — `public static mbKeByte()` (3 call-site) + docblock TASK-915.
+  - `app/Controllers/InboxGatewayApi.php` — pakai `Inbox::mbKeByte()`.
+  - `app/Views/inbox/index.php` — `nonRetryable` eksplisit (CLN-902).
+  - `tests/js/media-inbox-retry.check.js` — sinkron verbatim + 2 check (18 PASS).
+  - `tests/session/InboxPrefetchIngestBoundTest.php` — retry port, stdio ke berkas log, pesan skip jujur.
+  - `tests/unit/InboxMediaBoundConfigTest.php` — isolasi 3 kanal + 2 test clamp.
+  - `tests/unit/InboxMbKeByteTest.php` — NEW (reflection, nilai 0/1/15/100).
+  - `plan/plan-refactor-teruskan-media-bound-v1.2.md` — status Completed + Execution Log Phase 1/2.
+- **Decisions Made:**
+  - Default deklarasi direkam pra-`parent::__construct()` untuk SEC-901 (bukan literalin).
+  - Batas atas clamp HANYA prefetch (mengikuti `maxMediaDownloadMb`); upload/download hanya batas bawah, sesuai teks plan.
+  - `mbKeByte` dibuat `public static` agar satu sumber dipakai dua controller (DEVIATION-912; plan menulis "privat").
+- **Next Action / Pending:**
+  - Closing sequence: commit → push → prompt sesi berikutnya.
+  - `plan-refactor-teruskan-media-bound-v1.2.md` belum di-`/sdlc-code-review`.
+  - Carried forward (belum berubah): `docs/peta-kemajuan-inbox.html` termodifikasi & belum di-commit (skill `update-peta-kemajuan`); `docs/TODO-CHAT.md`/`docs/GATEWAY-REQUIREMENTS.md`; risiko live `ROW_FORMAT` errno 1118; data uji sisa DB live (`900075`/`900076`/`900077`/`900080`).
+  - No `AGENTS.md` change: `Active Memory Path` sudah tercatat & cocok (fast path).
+
+<!-- checkpoint-tail: 2026-09-28 (Phase 6yy Write-Code Media-Bound v1.2) /sdlc-write-code executed BOTH phases of plan/plan-refactor-teruskan-media-bound-v1.2.md and closed it (owner approved). Phase 1 fixed the latent config-test env isolation: unset($_ENV) alone is NOT enough because CI4 env() = $_ENV??$_SERVER??getenv() and DotEnv writes all three channels, so pulihkanEnv() now snapshots via env() and restores $_ENV+$_SERVER+putenv(); the dirty-env run (set inbox.maxMediaPrefetchMb=7) was RED (3 fails) before the fix and GREEN after. A new guard test proves both directions (override 7 respected; default 15 when clean). Phase 2: Config\Inbox clamps each media-bound env via batasiEnvMb() with the DECLARED defaults captured BEFORE parent::__construct() (BaseConfig already overwrites properties from raw env, so env 0 would otherwise yield 0, not 15); the prefetch upper bound follows maxMediaDownloadMb, upload/download get the lower bound only. New Inbox::mbKeByte() public static replaces the four '* 1024 * 1024' literals. The view's catatKegagalanMedia() sets nonRetryable:true and bolehCobaLagiMedia() checks it first (cobaan=MEDIA_COBAAN_MAKS kept as a second safeguard); the verbatim JS copy was re-synced, 18 PASS (was 16). The loopback test now retries a fresh port once, sends stdio to a temp log file, and only skips when proc_open/loopback is unavailable (message states the ingest bound is NOT validated that run). Verify: phpunit --no-coverage OK (685 tests, 2722 assertions) exit 0 (Phase-1 end was 682/2707); dirty-env filter OK (7 tests); node media-inbox-retry 18 PASS; node operation-id-composer OK. Deviations recorded: DEVIATION-901/911/912. Spec/PRD/ADR/plan v1.1/WA-Gateway untouched. markdownlint could not run (npx refused), so the plan was NOT lint-verified. Next: closing sequence (commit -> push -> next-session prompt); plan v1.2 not yet code-reviewed. -->
+---
+
+

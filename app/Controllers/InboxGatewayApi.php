@@ -364,7 +364,7 @@ class InboxGatewayApi extends BaseController
                     $mediaRefUntukPrefetch,
                     $mediaRefUntukPrefetch['mimetype'],
                     8,
-                    maxBytes: $config->maxMediaPrefetchMb * 1024 * 1024
+                    maxBytes: Inbox::mbKeByte($config->maxMediaPrefetchMb)
                 );
 
                 $filename = null;
