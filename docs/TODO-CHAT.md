@@ -283,10 +283,10 @@ Dokumen acuan M3 Fase 1 (semuanya sudah dilewati; disimpan sebagai jejak):
 
 ### C. Risiko Gateway yang masih terbuka (dari Ticket 01/02)
 
-- [ ] **C1. Risiko P0 #3** — duplicate-outgoing saat timeout. **Sudah ditangani Wave 2** (idempotensi `operation_id`), tapi **belum diverifikasi ulang end-to-end dengan Gateway nyata** setelah `a2ba409`.
-- [ ] **C2. Risiko P0 #4** — retry pesan masuk tanpa batas percobaan dan tanpa dead-letter (dari kode, belum diamati jangka panjang).
-- [ ] **C3. Risiko P0 #5 / GW-25** — error dekripsi + `message_timestamp` bergeser (sebaran 28–58 detik); penyebab belum terbukti, butuh nomor uji kedua. **ESC-001..004 (GW-11 / GW-25) tetap OPEN** — sumber timestamp dikunci di luar repo ini.
-- [ ] **C4. E-02 dan E-07** — butuh verifikasi dengan WhatsApp nyata dulu sebelum diputuskan menjadi task baru.
+- [x] **C1. Risiko P0 #3** — duplicate-outgoing saat timeout. **SELESAI 28 Sep 2026**: 4 putaran uji nyata di Gateway + WhatsApp, **0 duplikat** (replay di jalur dalam lease, `409` diuji, pemulihan pasca-lease terbukti). Bukti: `docs/decisions/2026-09-28-c1-p0-3-outgoing-idempotency-remeasurement.md`. **ASSUMPTION-009 tetap OPEN** (celah ~1 ms "sudah diterima WhatsApp tapi belum tercatat"; penutup penuhnya GW-21 di M2) — jangan pernah menulis "duplikat mustahil".
+- [x] **C2. Risiko P0 #4** — retry pesan masuk tanpa batas percobaan dan tanpa dead-letter. **SUDAH BERES sejak M1 Wave 2 Fase 3** (TASK-011..TASK-014): batas percobaan, batas usia, status `dead`, dan kolom `dead_lettered_at`. Diverifikasi 28 Sep 2026 langsung pada Gateway hidup: kolomnya ada di `incoming_queue` dan 0 baris berstatus `dead`. Sisa frasa "belum diamati jangka panjang" bersifat pemantauan, **bukan** cacat — Gateway memang sudah mencatat jumlah dead-letter saat start-up.
+- [ ] **C3. Risiko P0 #5 / GW-25** — error dekripsi + `message_timestamp` bergeser (sebaran 28–58 detik); penyebab belum terbukti, butuh nomor uji kedua. **ESC-001..004 (GW-11 / GW-25) tetap OPEN** — sumber timestamp dikunci di luar repo ini. Catatan 28 Sep 2026: pada satu pesan masuk nyata, selisih `message_timestamp` vs `created_at` hanya **0,34 detik** dan tidak ada error dekripsi sama sekali — jadi **tidak tereproduksi** dari sampel tunggal ini; perlu nomor uji kedua seperti tertulis.
+- [ ] **C4. E-02 (pesan berbungkus) — TERBUKTI, dipersempit ke "lihat sekali"** (uji nyata terkontrol 28 Sep 2026). Yang **aman**: teks biasa, pesan sementara, foto biasa, dan dokumen + keterangan. Yang **hilang tanpa jejak**: foto/pesan **"lihat sekali"** — dibungkus `viewOnceMessageV2`, jatuh ke cabang terakhir `connectionManager.js:880-886`, dicatat di level `debug` yang tidak tertulis karena `LOG_LEVEL=info`. Rencana perbaikan (kirim penanda teks, **tanpa** mengambil medianya): `plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md`. **E-07 (upsert tanpa konten) tetap belum terbukti.**
 
 ### D. Keputusan produk tertunda (bukan bug, bukan pekerjaan teknis)
 

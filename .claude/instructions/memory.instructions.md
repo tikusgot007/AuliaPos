@@ -1148,3 +1148,44 @@
 <!-- checkpoint-tail: 2026-09-28 C1 executed for real and closed on its core claim: 4 rounds against the live Gateway + WhatsApp (baseline sent; #1 timeout→retry-inside-lease→replay, 1 delivery, 1 row; #2 timeout→retry-inside-lease→409 SEND_IN_PROGRESS with no second send, but the delivery was LOST because the 26 s process freeze killed the Baileys socket mid-send; #2b retry after lease expiry→attempts 2→sent in 203 ms, 1 delivery, 1 row). Zero duplicates across all rounds. Hard-won limits now corrected in the procedure doc: the freeze budget is set by Baileys' keepalive (~35 s without server data, so keep the freeze ≤ ~15 s), NOT by AuliaPos' 30 s heartbeat staleness; Baileys gives up on a send ack after exactly 60 s; markUnresolved deliberately leaves state=in_flight with resolved_at=NULL; post-lease retry works via classifyExisting→retry + registerRetry-before-send. ASSUMPTION-009 STAYS OPEN (~1 ms accepted-but-unrecorded window; full guard is GW-21 in M2) — never write "duplicates are impossible". No single round produced both the 409 branch and a successful delivery; that needs stalling only the outbound WhatsApp path. Gateway now runs as a persistent background process, not PM2. Next: commit → push → next session. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-28 (lanjutan — C2 ternyata sudah beres; E-02 terbukti & dipersempit ke "lihat sekali")
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Diagnosis bug (`/sdlc-bug-report` — persona Bug Remediation Architect). Rencana dibuat, **belum dieksekusi**.
+- **Konteks:** Owner memilih arah "beresin sisa masalah Gateway" (grup C di `TODO-CHAT.md`). Gateway sengaja dibiarkan hidup sebagai bahan uji.
+- **Active Artifacts:**
+  - `plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md` — ✅ **baru** (3 fase, tiap task ber-`Ref ID`, ada rollback). **Status `Planned`, belum dieksekusi.**
+  - `docs/TODO-CHAT.md` — ✅ grup C dikoreksi (C1 & C2 selesai + bukti; C4 diganti temuan terbukti + rujukan rencana).
+- **Achieved Milestones:**
+  - **C2 diperiksa dan ternyata SUDAH BERES sejak M1 Wave 2 Fase 3** (TASK-011..014). Diverifikasi pada Gateway hidup: `incomingBuffer.js` punya `markFailedAttempt()` dengan cap percobaan **dan** cap usia, `markPermanentDead()` untuk penolakan permanen, migrasi yang menambah `dead_lettered_at`, serta `countDeadLettered()` yang dicatat saat start-up. Di `data/gateway.sqlite`, kolom `dead_lettered_at` ada dan 0 baris berstatus `dead`. Klaim "tanpa batas percobaan dan tanpa dead-letter" itu **basi**.
+  - **E-02 TERBUKTI lewat uji nyata terkontrol — dan dipersempit hanya ke pesan "lihat sekali".** Matriks 28 Sep 2026: teks biasa ✅ masuk, pesan sementara ✅ masuk, foto biasa ✅ masuk, dokumen + keterangan ✅ masuk, **foto "lihat sekali" ❌ hilang tanpa jejak**.
+  - **C3 tidak tereproduksi** pada sampel nyata: selisih `message_timestamp` vs `created_at` hanya **0,34 detik** dan 0 error dekripsi. Tetap butuh nomor uji kedua.
+  - **E-07 tetap belum terbukti.**
+- **Corrected Facts:**
+  - **Kesalahan saya sendiri, wajib diingat:** saya sempat menyimpulkan "pesan dibuang tanpa jejak" padahal pemeriksaan saya berjalan **sebelum** pesannya benar-benar dikirim (saya cek 08:55:04, pesan baru berangkat 08:57:05). **Jangan menyimpulkan dari ketiadaan baris sebelum memastikan kirimannya benar-benar sudah terkirim** — minta jam kirim dari owner.
+  - **Uji pembanding wajib** sebelum menyimpulkan pesan hilang: kirim teks biasa dari HP yang sama. Teks biasa masuk sementara jenis lain tidak → barulah jenis itu yang dibuang.
+  - **`KONTROL-1` sempat salah arah:** instruksi "ketik di chat Aan 007" ditafsirkan owner sebagai mengetik **di Inbox AuliaPos** (jalur keluar), bukan dari HP uji. Saat meminta uji pesan MASUK, tulis eksplisit "dari HP uji, bukan dari layar Inbox".
+  - **Root cause E-02:** `connectionManager.js:801-886` memeriksa `conversation`/`imageMessage`/`documentMessage`/`stickerMessage`/`audioMessage`/`videoMessage`; pada pesan berbungkus `viewOnceMessageV2` semuanya kosong → jatuh ke `else` (baris 880) → `logger.debug` → **tidak tertulis karena `LOG_LEVEL=info`** → `return`. Baileys **tidak** membuka bungkus di jalur terima (`baileys/lib/Socket/chats.js:765` mengemit `msg` apa adanya; `normalizeMessageContent` tidak dipanggil di `messages-recv.js`).
+  - **`documentWithCaptionMessage` TIDAK bermasalah** pada WhatsApp/Baileys sekarang — dokumen + keterangan masuk utuh (keterangan ikut sebagai `text`). Jangan menambahkan penanganan untuk itu.
+  - **`ReadAllText` GAGAL pada `gateway.log`** saat Gateway hidup (berkas terkunci logger). Pakai `Get-Content` — itu yang berhasil.
+  - **`LOG_LEVEL=info`** di `.env` Gateway → semua `logger.debug` tidak pernah tertulis. Inilah sebab pesan yang dibuang jadi tak berjejak.
+- **Dead-Ends (Do NOT Repeat):**
+  - Menyimpulkan "pesan hilang" dari pemeriksaan yang mendahului kiriman — sudah terjadi sekali dan membuat kesimpulan salah.
+  - Mengira `LOG_LEVEL=info` masih menampilkan baris `debug`; tidak.
+- **Updated Files:**
+  - `plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md` — **baru**.
+  - `docs/TODO-CHAT.md` — grup C dikoreksi (C1 ✅, C2 ✅, C3 catatan tidak tereproduksi, C4 temuan terbukti + rujukan rencana).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - **Perbaikan E-02 memakai "penanda teks", bukan menampilkan isinya** (keputusan owner): hormati niat pelanggan yang memilih "lihat sekali"; Gateway tidak mengambil medianya. Juga lebih sederhana karena WhatsApp membatasi media itu.
+  - **Hanya arah masuk** yang dapat penanda (`fromMe === false`); "lihat sekali" yang dikirim kasir dari WhatsApp Web tetap dilewati seperti sekarang, supaya Inbox tidak memunculkan pesan keluar palsu.
+  - **Perbaikan TIDAK dikerjakan di sesi ini** — sesuai batas skill `/sdlc-bug-report` (hanya diagnosis + rencana) dan invariant lingkup Gateway (harus di worktree, bukan folder live).
+- **Next Action / Pending:**
+  - Closing sequence: checkpoint ini → **commit** (2 berkas) → **push** `origin/v2.3` → prompt sesi berikutnya.
+  - Sesi berikutnya: **`/sdlc-write-code`** mengeksekusi `@plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md`, mulai Fase 1 (tulis test yang GAGAL dulu).
+  - Masih terbuka: C3 (butuh nomor uji kedua), E-07 (belum terbukti), B1/B2/B8 (menunggu keputusan owner), dan arah besar Teruskan (Tahap 4) via `/sdlc-plan-tasks`.
+
+<!-- checkpoint-tail: 2026-09-28 (lanjutan) Owner picked "fix the remaining Gateway issues", so group C was audited against live code and data rather than the old notes. C2 turned out ALREADY FIXED by M1 Wave 2 Phase 3: incomingBuffer.js has attempt+age caps, markPermanentDead, the dead_lettered_at migration, and startup dead-count logging; the live DB has the column and zero dead rows. C3 did not reproduce (0.34 s timestamp delta, zero decryption errors) and still needs a second test number. E-02 was CONFIRMED by a controlled real-WhatsApp test and NARROWED: plain text, disappearing text, normal photo, and document-with-caption all arrive fine; only VIEW-ONCE is dropped silently (viewOnceMessageV2 falls through connectionManager.js:880-886 into a debug log that LOG_LEVEL=info never writes). PROCESS LESSON that cost a wrong conclusion: I declared "message dropped" from a check that ran BEFORE the message was actually sent — always get the send time from the owner and always run a plain-text control before concluding a message was lost; also "ketik di chat Aan 007" was read as typing in the Inbox rather than on the test phone, so say "from the test phone, not the Inbox" explicitly. Wrote plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md (3 phases, Ref IDs, rollback; placeholder text, media deliberately not fetched, incoming-only per owner decision) and corrected TODO-CHAT group C. Fix NOT executed: /sdlc-bug-report only diagnoses and plans, and Gateway code must go through a worktree north of the live folder. Next: commit → push → /sdlc-write-code on the plan. -->
+
+---
