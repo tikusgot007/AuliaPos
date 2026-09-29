@@ -371,3 +371,31 @@
 <!-- checkpoint-tail: 2026-09-29 (Phase 7bi SDLC Scope All Modules) Owner decided the strict SDLC workflow now applies to BOTH parts of AuliaPos — the WhatsApp Inbox/chat features AND the POS features — with no module exempt; recorded explicitly in AGENTS.md Workflow & Methodology as a new bullet ("SDLC Scope (All Modules — Chat AND POS)": a POS change is not a reason to skip PRD/Spec/Plan/Review, and /code-janitor stays only for genuinely minor one-off fixes, never a blanket module exemption). This supersedes the earlier two-track assumption (chat=SDLC, POS=not). Next: commit+push, then pick direction A2/A3/A4 or a POS task via SDLC. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bj — Persona trigger keyword `mode-guide`)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, terverifikasi ada).
+- **Current SDLC Phase:** Housekeeping / governance (bukan tahap SDLC formal) — melengkapi jejak governance 7bh/7bi.
+- **Active Artifacts:**
+  - `AGENTS.md` — bullet **Trigger keyword** ditambahkan di section `## Supplementary Persona: Awesome Copilot ID Guide`.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Achieved Milestones:**
+  - **Keputusan owner (2026-09-29):** trigger resmi persona **Awesome Copilot ID Guide** adalah **`mode-guide`** (satu kata, tanpa slash) — cukup ditulis di awal pesan untuk mengaktifkan persona tanpa kalimat panjang.
+  - Ditambahkan sebagai **bullet pertama** di section persona (`AGENTS.md:26`), bukan section terpisah, agar aturan persona tetap terkumpul di satu tempat.
+  - Frasa lain yang jelas merujuk persona (mis. "pandu awesome-copilot-id") tetap dinyatakan valid sebagai cadangan.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** menganggap aktivasi persona butuh kalimat eksplisit panjang (contoh panjang "Aktifkan persona Awesome Copilot ID Guide..."). **Reason:** tidak ada trigger keyword resmi yang terdaftar, sehingga pengguna harus menjelaskan verbose setiap kali. **Correct:** tetapkan trigger keyword pendek `mode-guide` di `AGENTS.md`.
+- **Updated Files:**
+  - `AGENTS.md` — bullet **Trigger keyword:** `mode-guide` di section persona.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - `mode-guide` dipilih sebagai trigger resmi (bukan `/mode-guide`, bukan `guide` saja, bukan `/aci`) untuk menghindari bentrok dengan daftar slash command SDLC yang sudah ada.
+  - Trigger ditaruh inline di section persona; `AGENTS.md` tetap satu-satunya sumber kebenaran (source of truth) soal aktivasi persona.
+- **Next Action / Pending:**
+  - Commit + push perubahan `AGENTS.md` + checkpoint ini (`v2.3`).
+  - Pilihan arah berikutnya: **A2** (M3 Fase 2b auto-assignment, direkomendasikan), **A3** (M2), **A4** (M1 Ticket 05–16) — atau pekerjaan POS lewat SDLC.
+  - Carried forward: C3/GW-25 (butuh nomor uji kedua); D1/D2; B1/B2/B3/B8; manual live-Gateway >15MB.
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bj Persona Trigger Keyword) Owner standardized the Awesome Copilot ID Guide persona activation on a single short trigger keyword: `mode-guide` (plain word, no slash, written at the start of a message), replacing the need for a long explicit activation sentence; recorded as the first bullet of the persona section in AGENTS.md (~line 26) and logged here for governance traceability consistent with checkpoints 7bh/7bi. Other clearly-referring phrases (e.g. "pandu awesome-copilot-id") remain valid as fallback. AGENTS.md stays the single source of truth for persona activation. Next: commit+push, then choose direction A2/A3/A4. -->
+
+---
