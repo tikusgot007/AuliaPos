@@ -495,7 +495,17 @@ class Produk extends BaseController
      */
     private function csvSafe(string $value): string
     {
-        if ($value !== '' && preg_match('/^[=+\-@\t\r]/', $value) === 1) {
+        if ($value === '') {
+            return '';
+        }
+
+        // Apostrof di awal digandakan agar tidak ambigu dengan apostrof
+        // pelindung yang kita tambahkan sendiri.
+        if ($value[0] === "'") {
+            return "'" . $value;
+        }
+
+        if (preg_match('/^[=+\-@\t\r]/', $value) === 1) {
             return "'" . $value;
         }
 
@@ -503,13 +513,18 @@ class Produk extends BaseController
     }
 
     /**
-     * Kebalikan csvSafe() untuk jalur import: buang apostrof pelindung
-     * HANYA bila diikuti karakter pemicu formula, supaya round-trip
-     * export -> import mengembalikan nilai asli tanpa merusak nama yang
-     * memang diawali apostrof biasa.
+     * Kebalikan csvSafe() untuk jalur import. Urutannya penting:
+     * apostrof ganda dibaca sebagai satu apostrof asli terlebih dahulu,
+     * baru apostrof pelindung formula dibuang. Dengan begitu
+     * csvUnsafe(csvSafe($v)) === $v untuk semua nilai yang diekspor,
+     * termasuk nilai sah yang diawali apostrof.
      */
     private function csvUnsafe(string $value): string
     {
+        if (str_starts_with($value, "''")) {
+            return substr($value, 1);
+        }
+
         if (preg_match("/^'[=+\-@\t\r]/", $value) === 1) {
             return substr($value, 1);
         }
@@ -938,6 +953,27 @@ class Produk extends BaseController
             }
 
             if ($aksi === 'NONAKTIF') {
+                // Konsisten dengan Produk::hapus(): produk terkunci / ID khusus
+                // tidak boleh dinonaktifkan, termasuk lewat jalur import ini.
+                [$bolehNonaktif, $alasanNonaktif] = $model->bolehDinonaktifkan((int) $item['id']);
+
+                if (!$bolehNonaktif) {
+                    $item['status'] = 'blocked';
+                    $item['keterangan'] = $alasanNonaktif;
+                    $ringkasan['diblokir']++;
+
+                    if (str_contains($alasanNonaktif, 'ID khusus')) {
+                        $ringkasan['blokir_id_khusus']++;
+                    } elseif (str_contains($alasanNonaktif, 'terkunci')) {
+                        $ringkasan['blokir_locked']++;
+                    } else {
+                        $ringkasan['blokir_tidak_ditemukan']++;
+                    }
+
+                    $baris[] = $item;
+                    continue;
+                }
+
                 $item['is_active'] = 0;
                 $item['aksi_final'] = 'nonaktif';
                 $item['status'] = 'ok';
