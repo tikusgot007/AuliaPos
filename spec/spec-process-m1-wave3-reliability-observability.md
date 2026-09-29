@@ -9,6 +9,9 @@ tags: [gateway, whatsapp, baileys, m1, reliability, observability, logging, metr
 
 # Introduction
 
+> [!WARNING] FROZEN 2026-09-29 — dibekukan, **bukan dihapus**.
+> Spec ini beserta plan Wave 3 dihentikan sementara atas keputusan pemilik. Isinya dipertahankan utuh sebagai rujukan: kalau muncul masalah nyata di operasional, gejala itu dicocokkan dulu ke requirement/acceptance criteria di sini untuk menentukan ticket Wave 3 mana yang menanganinya. Tidak ada implementasi baru dari spec ini selama status frozen. Requirement yang butuh input luar (`OI-001` nomor uji, `OI-002` bentuk payload status kirim) **tidak perlu disediakan** selama beku.
+
 > [!SUCCESS]
 > **REMEDIATION STATUS: RESOLVED**
 > This specification has been remediated by the Specification Architect against

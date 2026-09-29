@@ -1,7 +1,9 @@
 # Planning Documents
 
-This folder holds **active implementation plans only** — plans that are still
-`Planned`, `In progress`, or otherwise awaiting execution.
+This folder holds **plans that are still relevant to the roadmap** — plans that
+are `Planned`, `In progress`, or `Frozen` (paused by an owner decision but kept
+on purpose, for example as correlation material if a real problem later needs to
+be mapped to one of their tickets).
 
 ## Convention
 

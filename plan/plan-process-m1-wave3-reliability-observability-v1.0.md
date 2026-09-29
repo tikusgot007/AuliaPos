@@ -4,13 +4,18 @@ version: 1.0
 date_created: 2026-09-29
 last_updated: 2026-09-29
 owner: WA-Gateway reliability (M1)
-status: 'Planned'
+status: 'Frozen'
 tags: [process, gateway, whatsapp, baileys, m1, reliability, observability, logging, metrics, health, test-matrix]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-yellow)
+> [!WARNING] FROZEN 2026-09-29 — dibekukan atas keputusan pemilik, **bukan dihapus**.
+> Seluruh isi M1 Wave 3 (Ticket 05, 12–15) dihentikan sementara: tidak ada sesi `/sdlc-write-code` yang boleh dimulai dari plan ini sampai ada keputusan pemilik yang baru. Plan dan spec-nya **sengaja dipertahankan utuh** sebagai bahan korelasi: bila nanti muncul masalah nyata di operasional (mis. pesan masuk gagal dibaca, urutan/waktu pesan meleset, Gateway mati tanpa jejak, antrean macet), gejala itu dipetakan dulu ke ticket Wave 3 yang relevan di plan ini sebelum diputuskan perbaikannya.
+> Blocker `OI-001` (nomor uji) dan `OI-002` (bentuk payload status kirim) ikut beku dan **tidak perlu disediakan** selama statusnya frozen.
+> Ringkasan ticket: **05** = uji crash/restart + uji pembeda penyebab error dekripsi; **12** = kebenaran worker antrean; **13** = logging terstruktur; **14** = metrik/health + pencatatan status kirim; **15** = matriks uji keandalan + kriteria keluar M1.
+
+![Status: Frozen](https://img.shields.io/badge/status-Frozen-lightgrey)
 
 Plan ini mengeksekusi `spec/spec-process-m1-wave3-reliability-observability.md` (v1.1) untuk menutup **Ticket 05** (crash/restart & uji pembeda dekripsi), **Ticket 12** (worker correctness), **Ticket 13** (structured logging), **Ticket 14** (metrics/health GW-20 + receipt GW-21), dan **Ticket 15** (matriks uji keandalan penuh & kriteria keluar M1), sesuai `docs/TODO-CHAT.md` dan `docs/GATEWAY-REQUIREMENTS.md` (GW-20, GW-21; rujukan GW-11, GW-19, GW-25). Gelombang ini **tidak mengubah** jaminan gelombang 1 (Ticket 02–04) maupun gelombang 2 (Ticket 06–11); ia membuktikan, mengukur, dan membuat terlihat apa yang sudah dibangun.
 
