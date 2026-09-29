@@ -188,6 +188,10 @@
          */
         const kategori = <?= json_encode($kategori ?? []) ?>;
 
+        // Info peran & ID khusus untuk tombol Kunci (khusus admin).
+        const IS_ADMIN = <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>;
+        const ID_KHUSUS = [1, 2, 4];
+
         /*
          * ==========================================
          * FORMAT RUPIAH
@@ -420,6 +424,44 @@
         </form>
 ` : '';
 
+                        /*
+                         * Tombol Kunci/Buka Kunci (khusus admin). ID khusus
+                         * diproteksi di server (kuncinya tak boleh dibuka),
+                         * jadi tombol "Buka Kunci" tidak dirender untuk mereka.
+                         */
+                        let tombolKunci = '';
+
+                        if (IS_ADMIN) {
+                            const terkunci = Number(row.is_locked) === 1;
+                            const idKhusus = ID_KHUSUS.indexOf(Number(row.id)) !== -1;
+
+                            if (terkunci && !idKhusus) {
+                                tombolKunci = `
+        <form action="<?= base_url('produk/buka-kunci') ?>/${row.id}"
+              method="post"
+              class="d-inline"
+              data-confirm-message="Buka kunci produk ini?" data-confirm-ok-text="Ya, Buka Kunci">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-dark" title="Buka Kunci">
+                <i class="bi bi-unlock"></i>
+            </button>
+        </form>
+`;
+                            } else if (!terkunci) {
+                                tombolKunci = `
+        <form action="<?= base_url('produk/kunci') ?>/${row.id}"
+              method="post"
+              class="d-inline"
+              data-confirm-message="Kunci produk ini?" data-confirm-ok-text="Ya, Kunci">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-dark" title="Kunci">
+                <i class="bi bi-lock"></i>
+            </button>
+        </form>
+`;
+                            }
+                        }
+
                         return `
     <div class="action-buttons">
 
@@ -428,7 +470,7 @@
            title="Edit">
             <i class="bi bi-pencil"></i>
         </a>
-${tombolNonaktif}
+${tombolNonaktif}${tombolKunci}
     </div>
 `;
                     }
