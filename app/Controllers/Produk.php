@@ -982,12 +982,12 @@ class Produk extends BaseController
                     $item['keterangan'] = $alasanNonaktif;
                     $ringkasan['diblokir']++;
 
+                    // Produk sudah dipastikan ada di atas, jadi hanya dua
+                    // alasan ini yang mungkin dari bolehDinonaktifkan().
                     if (str_contains($alasanNonaktif, 'ID khusus')) {
                         $ringkasan['blokir_id_khusus']++;
                     } elseif (str_contains($alasanNonaktif, 'terkunci')) {
                         $ringkasan['blokir_locked']++;
-                    } else {
-                        $ringkasan['blokir_tidak_ditemukan']++;
                     }
 
                     $baris[] = $item;
