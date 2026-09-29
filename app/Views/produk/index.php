@@ -48,6 +48,48 @@
         Tekan <kbd>Enter</kbd> untuk menyimpan atau <kbd>Esc</kbd> untuk membatalkan.
     </div>
 
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-sm-6 col-md-3">
+                    <label for="filterKategori" class="form-label mb-1 small">Kategori</label>
+                    <select id="filterKategori" class="form-select form-select-sm">
+                        <option value="">Semua Kategori</option>
+                        <?php foreach ($kategori as $k): ?>
+                            <option value="<?= (int) $k['id'] ?>"><?= esc($k['nama']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-sm-6 col-md-3">
+                    <label for="filterStatus" class="form-label mb-1 small">Status</label>
+                    <select id="filterStatus" class="form-select form-select-sm">
+                        <option value="aktif" selected>Aktif</option>
+                        <option value="nonaktif">Nonaktif</option>
+                        <option value="semua">Semua</option>
+                    </select>
+                </div>
+
+                <?php if (session()->get('role') === 'admin'): ?>
+                    <div class="col-sm-6 col-md-3">
+                        <label for="filterTerkunci" class="form-label mb-1 small">Terkunci</label>
+                        <select id="filterTerkunci" class="form-select form-select-sm">
+                            <option value="">Semua</option>
+                            <option value="1">Terkunci</option>
+                            <option value="0">Tidak terkunci</option>
+                        </select>
+                    </div>
+                <?php endif; ?>
+
+                <div class="col-sm-6 col-md-3">
+                    <button type="button" id="btnResetFilter" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset Filter
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card shadow-sm">
         <div class="card-body">
 
@@ -251,7 +293,26 @@
 
             ajax: {
                 url: '<?= base_url('produk/get-produk-data') ?>',
-                type: 'GET'
+                type: 'GET',
+
+                // Sertakan nilai filter toolbar pada tiap permintaan.
+                data: function(d) {
+                    const statusEl = document.getElementById('filterStatus');
+                    const kategoriEl = document.getElementById('filterKategori');
+                    const terkunciEl = document.getElementById('filterTerkunci');
+
+                    if (statusEl) {
+                        d.status = statusEl.value;
+                    }
+
+                    if (kategoriEl && kategoriEl.value !== '') {
+                        d.kategori_id = kategoriEl.value;
+                    }
+
+                    if (terkunciEl && terkunciEl.value !== '') {
+                        d.terkunci = terkunciEl.value;
+                    }
+                }
             },
 
             pageLength: 10,
@@ -264,6 +325,17 @@
             order: [
                 [0, 'desc']
             ],
+
+            // Produk nonaktif tidak bisa di-inline-edit (ditolak server),
+            // jadi kelas editable dilepas dan arahkan ke tombol Edit.
+            createdRow: function(rowEl, rowData) {
+                if (Number(rowData.is_active) !== 1) {
+                    $(rowEl)
+                        .find('td.inline-editable')
+                        .removeClass('inline-editable')
+                        .attr('title', 'Produk nonaktif: gunakan tombol Edit.');
+                }
+            },
 
             columns: [
 
@@ -330,15 +402,10 @@
                     className: 'action-buttons text-center',
 
                     render: function(data, type, row) {
-                        return `
-    <div class="action-buttons">
+                        // Produk yang sudah nonaktif tidak perlu tombol Nonaktifkan.
+                        const masihAktif = Number(row.is_active) === 1;
 
-        <a href="<?= base_url('produk/edit') ?>/${row.id}"
-           class="btn btn-warning"
-           title="Edit">
-            <i class="bi bi-pencil"></i>
-        </a>
-
+                        const tombolNonaktif = masihAktif ? `
         <form action="<?= base_url('produk/hapus') ?>/${row.id}"
               method="post"
               class="d-inline"
@@ -348,7 +415,17 @@
                 <i class="bi bi-trash"></i>
             </button>
         </form>
+` : '';
 
+                        return `
+    <div class="action-buttons">
+
+        <a href="<?= base_url('produk/edit') ?>/${row.id}"
+           class="btn btn-warning"
+           title="Edit">
+            <i class="bi bi-pencil"></i>
+        </a>
+${tombolNonaktif}
     </div>
 `;
                     }
@@ -371,6 +448,39 @@
                 }
             }
         });
+
+        /*
+         * ==========================================
+         * FILTER TOOLBAR
+         * ==========================================
+         */
+        ['filterKategori', 'filterStatus', 'filterTerkunci'].forEach(function(id) {
+            const el = document.getElementById(id);
+
+            if (el) {
+                el.addEventListener('change', function() {
+                    // reload() mengembalikan ke halaman pertama.
+                    table.ajax.reload();
+                });
+            }
+        });
+
+        const btnResetFilter = document.getElementById('btnResetFilter');
+
+        if (btnResetFilter) {
+            btnResetFilter.addEventListener('click', function() {
+                document.getElementById('filterKategori').value = '';
+                document.getElementById('filterStatus').value = 'aktif';
+
+                const terkunciEl = document.getElementById('filterTerkunci');
+
+                if (terkunciEl) {
+                    terkunciEl.value = '';
+                }
+
+                table.ajax.reload();
+            });
+        }
 
         /*
          * ==========================================
