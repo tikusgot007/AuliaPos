@@ -255,9 +255,14 @@ class Produk extends BaseController
             $filters['kategori_id'] = (int) $request['kategori_id'];
         }
 
-        // Filter is_locked hanya untuk admin; untuk peran lain parameter
-        // diabaikan sepenuhnya di server, bukan sekadar disembunyikan di UI.
-        if (session()->get('role') === 'admin' && isset($request['terkunci']) && $request['terkunci'] !== '') {
+        // Filter is_locked hanya untuk admin dan hanya menerima nilai tepat
+        // '0'/'1'; parameter lain diabaikan sepenuhnya di server, bukan
+        // sekadar disembunyikan di UI.
+        if (
+            session()->get('role') === 'admin'
+            && isset($request['terkunci'])
+            && in_array((string) $request['terkunci'], ['0', '1'], true)
+        ) {
             $filters['terkunci'] = (int) $request['terkunci'];
         }
 

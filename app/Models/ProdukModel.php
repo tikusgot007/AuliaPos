@@ -73,8 +73,10 @@ class ProdukModel extends Model
             ? (int) $filters['kategori_id']
             : null;
 
+        // Hanya terima tepat '0'/'1' (int atau string); nilai lain diabaikan
+        // agar input cacat tidak diam-diam menjadi "Tidak terkunci".
         $terkunci = null;
-        if (isset($filters['terkunci']) && in_array((int) $filters['terkunci'], [0, 1], true)) {
+        if (isset($filters['terkunci']) && in_array((string) $filters['terkunci'], ['0', '1'], true)) {
             $terkunci = (int) $filters['terkunci'];
         }
 
