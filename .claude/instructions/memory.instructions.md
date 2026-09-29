@@ -616,3 +616,47 @@
 <!-- checkpoint-tail: 2026-09-29 (Phase 7bp Planner Architect M1 Wave 3 Plan) Ran /sdlc-plan-tasks as Planner Architect to author plan/plan-process-m1-wave3-reliability-observability-v1.0.md (status Planned; 9 phases / 46 tasks each phase ending VERIFY+APPROVAL, plus a DEPLOY phase) from spec v1.1. All five user fences are encoded: OI-002 is TASK-019, the first task of the Ticket 14 phase, and hard-gates the REQ-066 receipt handler tasks (TASK-027/028); OI-001/D-14 is TASK-033, the gate for TASK-038 (real-protocol execution) only; Wave 3 is Gateway-only with Ticket 06-11/16 never re-specified (only verified in the Phase 8 matrix); no GW-11/GW-25 root-cause fixes, only H1/H2 measurement; and TASK-041/043 carry the mandatory "carry-over terbuka" section (REQ-070). Four user decisions recorded: breakdown granularity approved; worktree base SHA verified via git at TASK-001 (not hardcoded); GROUP_NAME_CACHE_MAX_ENTRIES default 500 added to close the §4.7 gap for REQ-053 (RISK-001); and the OI-001 gate relaxed so instrumentation/harness code (TASK-034..037) may proceed while only TASK-038 is blocked. Metrics registry placed in Phase 1 foundation to avoid dependency inversion; OI-002 stays the first Ticket 14 task. Next: /sdlc-clarify-reqs on the plan in a NEW session. -->
 
 ---
+
+---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bq — Clarification Analyst: plan M1 Wave 3 ambiguities)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, terverifikasi ada).
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`), persona **Clarification Analyst**. **Tanpa perubahan kode sumber** — hanya menulis satu laporan audit di `docs/audit/`.
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave3-reliability-observability-v1.0.md` — 🔄 **Butuh remediasi** (Readiness 79/100, Critical Flaw Veto; proyeksi 91/100 setelah perbaikan). Belum diremediasi; **MUST NOT masuk `/sdlc-write-code` apa adanya**.
+  - `docs/audit/clarification-report-m1-wave3-reliability-observability-plan-2026-09-29.md` — 🆕 laporan final (17 temuan F-01..F-17).
+  - `spec/spec-process-m1-wave3-reliability-observability.md` v1.1 — tidak diubah sesi ini.
+- **Achieved Milestones:**
+  - Interogasi plan v1.0 terhadap spec v1.1: 17 temuan dikelompokkan (2 blocker, 7 ambiguitas, 3 kontradiksi kode, 5 traceability).
+  - **4 klaim plan diverifikasi langsung ke kode** `C:\projects\WA-Gateway` (fakta, bukan asumsi) — lihat Dead-Ends.
+  - User memberi **Human Override** ("capek, anda saja yg memutuskan semuanya") sebelum ambang 80; seluruh pertanyaan sisa di-auto-resolve dan direkam sebagai `[Assumed / Auto-Resolved]`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **REWORK RISK:** `GROUP_NAME_CACHE_MAX_ENTRIES` **sudah ada** di `src/config/index.js:124` (bawaan 500, clamp `Math.max(1,...)`) dan sudah dipakai di `connectionManager.js:675,687`. TASK-002 "menambah"-nya = definisi ganda. Yang benar: verifikasi eksisting + koreksi gap dokumen spec §4.7/GUD-005 (RISK-001 salah frame).
+  - **REWORK RISK:** `isRunning` di `src/delivery/incomingDelivery.js:134-136` **sudah** dilepas di blok `finally`; satu-satunya kerja baru TASK-007 adalah isolasi error **per-event** di dalam loop (baris 128-130).
+  - **REWORK RISK:** `GET /api/events` **sudah ada** di `src/api/routes.js:267` — TASK-017(c) tidak boleh memakai kata "bila endpoint ada".
+  - **TIME-BUDGET TRAP (High Risk):** `src/delivery/ci4Client.js:21` sudah menegakkan `config.ci4.requestTimeoutMs` (`CI4_REQUEST_TIMEOUT_MS`, bawaan 8000). `DELIVERY_EVENT_TIMEOUT_MS`/`HEARTBEAT_SEND_TIMEOUT_MS` harus jadi **override per-pemanggil**, BUKAN `setTimeout`/`AbortController` tambahan di atasnya — dua timeout bersaing pada satu panggilan = bug halus.
+  - `REDACT_PATHS` eksisting (`src/logging/index.js:8-15`) sudah memuat `creds`, `authState`, `auth`, `*.creds`, `*.authState`, `req.headers.authorization` — jangan klaim ini pekerjaan baru.
+  - `npx --no-install markdownlint-cli2 <file>` **berhasil dijalankan** di sesi ini (Node/npx tersedia) dan hanya melaporkan `MD013` pada laporan baru — konsisten presedan spec v1.1 (repo tanpa `.markdownlint*`, standar proyek 400 karakter). Targetkan ≤400 karakter/baris untuk artefak baru; hindari tabel dengan sel raksasa (baris 947 karakter pernah lolos ke draf dan harus dipecah).
+- **Updated Files:**
+  - `docs/audit/clarification-report-m1-wave3-reliability-observability-plan-2026-09-29.md` — baru (final, 170 baris).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - **Q1 = Opsi A:** OI-002 boleh ditutup dari pembacaan sumber `node_modules/baileys` saja dengan label `empirically-unverified`; **AC-071 masuk daftar "carry-over terbuka"** bersama AC-049 dan bagian OI-001-dependent AC-047/AC-051 (REQ-070).
+  - **F-01/F-16:** `TASK-041 Dep` → `TASK-040`; `TASK-043 Dep` → `TASK-042` — Fase 8 tidak lagi terkunci oleh TASK-038 (gerbang OI-001), sehingga soft gate REQ-070 benar-benar bisa dicapai.
+  - **F-14:** `TASK-031 Dep` → `TASK-026` saja — deploy produksi tidak lagi bergantung pada Fase 5 (GW-21) yang boleh dibuang (ASSUMPTION-012).
+  - **F-03:** env baru `INSTANCE_LOCK_HEARTBEAT_INTERVAL_MS=5000`, `INSTANCE_LOCK_STALE_MS=15000` (3× interval; cukup pendek agar pemulihan crash GW-17/AC-048 tidak tertunda).
+  - **F-05:** `METRICS_ENABLED=0` → `delivery_ready='unknown'` (bukan `healthy`), sejalan ASSUMPTION-020.
+  - **F-06:** `decrypt_failure_total` di-increment di `connectionManager` (titik error dekripsi); `health.js` tetap murni.
+  - **F-09:** gauge `event_buffer_size` dipindah ke TASK-016 (pemilik buffer), bukan TASK-011.
+  - **F-17:** tidak ada perubahan `CONTEXT.md` (istilah `receipt`/`status` ditunda — `[Assumed / Out of Scope]`).
+  - **Tidak ada ADR baru** (Triple Gate gagal; semua resolusi mudah dibalik).
+  - **Correction for the earlier checkpoint (7bp):** catatan "user memutuskan `GROUP_NAME_CACHE_MAX_ENTRIES` ditambahkan di TASK-002" sekarang tidak akurat — variabelnya sudah ada di kode; yang tersisa hanya koreksi dokumentasi spec.
+- **Next Action / Pending:**
+  - **Sesi baru:** `/sdlc-plan-tasks` dengan lampiran `docs/audit/clarification-report-m1-wave3-reliability-observability-plan-2026-09-29.md` (wajib) + spec v1.1 + plan v1.0, untuk menerapkan seluruh resolusi F-01..F-17 ke plan; lalu bila perlu `/sdlc-audit-consistency`.
+  - Plan di disk masih **79/100** — jangan dipakai `/sdlc-write-code` sebelum diremediasi.
+  - **Blocker terbuka (di luar kendali tim):** OI-001 (akun Gateway uji ketiga + nomor kontak uji, D-14) dan OI-002 (verifikasi payload `messages.update` Baileys 6.7.24 + tabel pemetaan status).
+  - Belum ada commit/push (belum diminta user).
+  - Carried forward dari sesi lain: C3/GW-25, ASSUMPTION-007, D1/D2, B1/B2/B3/B8, plan go-live 7bk/7bl.
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bq Clarification Analyst — plan M1 Wave 3 ambiguity audit) Ran /sdlc-clarify-reqs on plan/plan-process-m1-wave3-reliability-observability-v1.0.md against spec v1.1: Readiness 79/100 with Critical Flaw Veto (Phase 8 artifact task was transitively gated on the OI-001-blocked TASK-038, defeating REQ-070's soft exit gate), projected 91/100 after remediation. User invoked Human Override ("you decide everything"), so all remaining questions were auto-resolved: OI-002 may close via source-only Baileys mapping labeled empirically-unverified with AC-071 added to "carry-over terbuka"; TASK-041 Dep→TASK-040 and TASK-043 Dep→TASK-042 (de-couple Phase 8 from TASK-038); TASK-031 Dep→TASK-026 (deploy no longer tied to the discardable GW-21 phase); new INSTANCE_LOCK_HEARTBEAT_INTERVAL_MS=5000/INSTANCE_LOCK_STALE_MS=15000; METRICS_ENABLED=0 → delivery_ready=unknown; event_buffer_size gauge owned by TASK-016; no CONTEXT.md or ADR changes. Verified against code (not assumed): GROUP_NAME_CACHE_MAX_ENTRIES, the isRunning finally-guard, GET /api/events, the ci4.requestTimeoutMs budget and the existing REDACT_PATHS all ALREADY exist — three task descriptions risk duplicate work and the two new timeout env vars must be per-caller overrides, not stacked AbortControllers (High Risk). Report saved to docs/audit/clarification-report-m1-wave3-reliability-observability-plan-2026-09-29.md. Next: /sdlc-plan-tasks in a NEW session to apply F-01..F-17. -->
