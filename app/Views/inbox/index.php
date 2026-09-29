@@ -1095,8 +1095,33 @@
         });
     }
 
+    // Clears the right panel (thread header + message history + reply form)
+    // and drops the selected conversation. Used when the active conversation
+    // is no longer valid for the current view (tab switch or deletion) so the
+    // previous thread does not stay visible ("sticky") on the right side.
+    function kosongkanThreadPanel() {
+        conversationAktif = null;
+        salinanConversationAktif = null;
+        document.getElementById('threadHeader').innerHTML = '<span class="text-muted">Pilih percakapan di sebelah kiri untuk mulai.</span>';
+        document.getElementById('threadMessages').innerHTML = '<div class="inbox-thread-empty"><i class="fas fa-comments fa-2x me-2"></i> Belum ada percakapan dipilih.</div>';
+        document.getElementById('teksBalasan').disabled = true;
+        document.getElementById('teksBalasan').placeholder = 'Pilih percakapan dulu...';
+        document.getElementById('btnKirimBalasan').disabled = true;
+        document.getElementById('btnLampirkanMedia').disabled = true;
+        batalkanKutipan();
+        batalkanMediaBalasan();
+        // conversationAktif is now null, so the handoff panel is hidden too.
+        muatUlangRiwayatHandoff();
+    }
+
     function setFilterConversation(filter) {
+        // Re-clicking the active tab is a no-op, so it never wipes the
+        // thread panel the cashier is currently reading.
+        if (filter === filterAktif) return;
         filterAktif = filter;
+        // Switching tabs restarts from nothing: empty the right panel
+        // before re-rendering the list so the old thread cannot linger.
+        kosongkanThreadPanel();
         renderFilterButtons();
         renderDaftarConversation();
     }
@@ -3095,17 +3120,9 @@
                     // menghapus row lain, percakapan yang sedang dibuka
                     // tetap tampil apa adanya.
                     if (String(idDihapus) === String(conversationAktif)) {
-                        conversationAktif = null;
-                        document.getElementById('threadHeader').innerHTML = '<span class="text-muted">Pilih percakapan di sebelah kiri untuk mulai.</span>';
-                        document.getElementById('threadMessages').innerHTML = '<div class="inbox-thread-empty"><i class="fas fa-comments fa-2x me-2"></i> Belum ada percakapan dipilih.</div>';
-                        document.getElementById('teksBalasan').disabled = true;
-                        document.getElementById('teksBalasan').placeholder = 'Pilih percakapan dulu...';
-                        document.getElementById('btnKirimBalasan').disabled = true;
-                        document.getElementById('btnLampirkanMedia').disabled = true;
-                        batalkanMediaBalasan();
-                        // conversationAktif sudah null -> panel riwayat
-                        // percakapan yang dihapus ikut disembunyikan.
-                        muatUlangRiwayatHandoff();
+                        // Reuse the shared reset so tab switch and deletion
+                        // keep the right panel in exactly the same empty state.
+                        kosongkanThreadPanel();
                     }
 
                     conversationUntukHapus = null;
