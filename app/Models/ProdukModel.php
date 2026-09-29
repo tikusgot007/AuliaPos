@@ -87,12 +87,34 @@ class ProdukModel extends Model
         // ==========================================
         // 3. ORDER BY
         // ==========================================
-        if (!empty($order)) {
-            $colIdx = $order[0]['column'];
-            $colName = $columns[$colIdx]['data'];
-            $dir = $order[0]['dir'];
-            $builder->orderBy($colName, $dir);
-        } else {
+        // Whitelist kolom yang boleh dipakai untuk pengurutan. Nilai datang
+        // dari parameter request klien, jadi hanya nama kolom terdaftar yang
+        // diteruskan ke query; selain itu jatuh ke default.
+        $kolomOrderable = [
+            'id'            => 'produk.id',
+            'barcode'       => 'produk.barcode',
+            'nama'          => 'produk.nama',
+            'kategori_id'   => 'produk.kategori_id',
+            'kategori_nama' => 'kategori.nama',
+            'satuan'        => 'produk.satuan',
+            'harga_beli'    => 'produk.harga_beli',
+            'harga_jual'    => 'produk.harga_jual',
+        ];
+
+        $orderTerpasang = false;
+
+        if (!empty($order) && isset($order[0]['column'], $columns[$order[0]['column']])) {
+            $colIdx  = $order[0]['column'];
+            $colName = $columns[$colIdx]['data'] ?? null;
+
+            if (is_string($colName) && isset($kolomOrderable[$colName])) {
+                $dir = strtolower((string) ($order[0]['dir'] ?? 'asc')) === 'desc' ? 'DESC' : 'ASC';
+                $builder->orderBy($kolomOrderable[$colName], $dir);
+                $orderTerpasang = true;
+            }
+        }
+
+        if (!$orderTerpasang) {
             $builder->orderBy('produk.id', 'DESC');
         }
 
