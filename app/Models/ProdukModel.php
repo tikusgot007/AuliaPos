@@ -54,23 +54,50 @@ class ProdukModel extends Model
 
     /**
      * GET DATA UNTUK DATATABLES (SERVER-SIDE)
-     * Dengan join ke tabel kategori
+     * Dengan join ke tabel kategori.
+     *
+     * Filter opsional ($filters):
+     *   - status      : 'aktif' (default) | 'nonaktif' | 'semua'
+     *   - kategori_id : int > 0 untuk menyaring kategori tertentu
+     *   - terkunci     : 0 | 1 untuk menyaring is_locked
      */
-    public function getDataTablesProduk($draw, $start, $length, $search, $order, $columns)
+    public function getDataTablesProduk($draw, $start, $length, $search, $order, $columns, array $filters = [])
     {
+        // Normalisasi filter.
+        $status = $filters['status'] ?? 'aktif';
+        if (!in_array($status, ['aktif', 'nonaktif', 'semua'], true)) {
+            $status = 'aktif';
+        }
+
+        $kategoriId = isset($filters['kategori_id']) && (int) $filters['kategori_id'] > 0
+            ? (int) $filters['kategori_id']
+            : null;
+
+        $terkunci = null;
+        if (isset($filters['terkunci']) && in_array((int) $filters['terkunci'], [0, 1], true)) {
+            $terkunci = (int) $filters['terkunci'];
+        }
+
         $db = \Config\Database::connect();
         $builder = $db->table('produk')
             ->select('produk.id, produk.barcode, produk.nama, produk.kategori_id, produk.satuan, produk.harga_jual, produk.harga_beli, produk.is_active, kategori.nama as kategori_nama')
-            ->join('kategori', 'kategori.id = produk.kategori_id', 'left')
-            ->where('produk.is_active', 1);
+            ->join('kategori', 'kategori.id = produk.kategori_id', 'left');
+
+        // Scope status masuk ke base query, sehingga ikut menentukan
+        // recordsTotal (default tetap "hanya aktif" seperti sebelumnya).
+        if ($status === 'nonaktif') {
+            $builder->where('produk.is_active', 0);
+        } elseif ($status === 'aktif') {
+            $builder->where('produk.is_active', 1);
+        }
 
         // ==========================================
-        // 1. TOTAL RECORDS (tanpa filter)
+        // 1. TOTAL RECORDS (scope status saja)
         // ==========================================
         $totalRecords = $builder->countAllResults(false);
 
         // ==========================================
-        // 2. SEARCH (filter)
+        // 2. SEARCH + FILTER KOLOM
         // ==========================================
         if (!empty($search['value'])) {
             $keyword = $search['value'];
@@ -80,6 +107,14 @@ class ProdukModel extends Model
                 ->orLike('kategori.nama', $keyword)
                 ->orLike('produk.satuan', $keyword)
                 ->groupEnd();
+        }
+
+        if ($kategoriId !== null) {
+            $builder->where('produk.kategori_id', $kategoriId);
+        }
+
+        if ($terkunci !== null) {
+            $builder->where('produk.is_locked', $terkunci);
         }
 
         $totalFiltered = $builder->countAllResults(false);

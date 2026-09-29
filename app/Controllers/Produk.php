@@ -247,6 +247,20 @@ class Produk extends BaseController
         $order   = $request['order'] ?? [];
         $columns = $request['columns'] ?? [];
 
+        $filters = [
+            'status' => $request['status'] ?? 'aktif',
+        ];
+
+        if (isset($request['kategori_id']) && (int) $request['kategori_id'] > 0) {
+            $filters['kategori_id'] = (int) $request['kategori_id'];
+        }
+
+        // Filter is_locked hanya untuk admin; untuk peran lain parameter
+        // diabaikan sepenuhnya di server, bukan sekadar disembunyikan di UI.
+        if (session()->get('role') === 'admin' && isset($request['terkunci']) && $request['terkunci'] !== '') {
+            $filters['terkunci'] = (int) $request['terkunci'];
+        }
+
         $model = new ProdukModel();
 
         $result = $model->getDataTablesProduk(
@@ -255,7 +269,8 @@ class Produk extends BaseController
             $length,
             $search,
             $order,
-            $columns
+            $columns,
+            $filters
         );
 
         return $this->response->setJSON($result);
