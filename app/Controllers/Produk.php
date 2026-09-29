@@ -31,7 +31,7 @@ class Produk extends BaseController
         $data = [
             'title'    => 'Tambah Produk | AULIA',
             'content'  => 'produk/tambah',
-            'kategori' => $kategoriModel->getKategoriInduk() // HANYA 4 INDUK
+            'kategori' => $kategoriModel->getKategoriInduk() // Kategori tingkat atas (parent_id IS NULL)
         ];
 
         return view('layout/main', $data);
@@ -46,7 +46,7 @@ class Produk extends BaseController
             'title'    => 'Edit Produk | AULIA',
             'content'  => 'produk/edit',
             'produk'   => $model->find($id),
-            'kategori' => $kategoriModel->getKategoriInduk() // HANYA 4 INDUK
+            'kategori' => $kategoriModel->getKategoriInduk() // Kategori tingkat atas (parent_id IS NULL)
         ];
 
         if (empty($data['produk'])) {
@@ -75,10 +75,20 @@ class Produk extends BaseController
                 ->with('errors', $this->validator->getErrors());
         }
 
+        // Kategori harus benar-benar ada di database (bukan hanya integer).
+        $kategoriId = (int) $this->request->getPost('kategori_id');
+
+        if (!$this->kategoriAda($kategoriId)) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('errors', ['kategori_id' => 'Kategori tidak ditemukan.']);
+        }
+
         // Siapkan data dasar
         $data = [
             'nama'        => $this->request->getPost('nama'),
-            'kategori_id' => $this->request->getPost('kategori_id'),
+            'kategori_id' => $kategoriId,
             'satuan'      => $this->request->getPost('satuan') ?? 'pcs',
             'harga_jual'  => $this->request->getPost('harga_jual'),
             'harga_beli'  => $this->request->getPost('harga_beli') ?? 0,
@@ -120,10 +130,20 @@ class Produk extends BaseController
                 ->with('errors', $this->validator->getErrors());
         }
 
+        // Kategori harus benar-benar ada di database (bukan hanya integer).
+        $kategoriId = (int) $this->request->getPost('kategori_id');
+
+        if (!$this->kategoriAda($kategoriId)) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('errors', ['kategori_id' => 'Kategori tidak ditemukan.']);
+        }
+
         // Siapkan data dasar
         $data = [
             'nama'        => $this->request->getPost('nama'),
-            'kategori_id' => $this->request->getPost('kategori_id'),
+            'kategori_id' => $kategoriId,
             'satuan'      => $this->request->getPost('satuan') ?? 'pcs',
             'harga_jual'  => $this->request->getPost('harga_jual'),
             'harga_beli'  => $this->request->getPost('harga_beli') ?? 0,
@@ -361,6 +381,20 @@ class Produk extends BaseController
                     'message' => $e->getMessage()
                 ]);
         }
+    }
+
+    /**
+     * Cek apakah kategori dengan id tertentu benar-benar ada di database.
+     * Dipakai simpan()/update() supaya kategori_id tidak hanya lolos
+     * validasi format, tetapi juga valid sebagai referensi.
+     */
+    private function kategoriAda(int $id): bool
+    {
+        if ($id <= 0) {
+            return false;
+        }
+
+        return (new KategoriModel())->find($id) !== null;
     }
 
     // ================================================================
