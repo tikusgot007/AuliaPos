@@ -399,3 +399,70 @@
 <!-- checkpoint-tail: 2026-09-29 (Phase 7bj Persona Trigger Keyword) Owner standardized the Awesome Copilot ID Guide persona activation on a single short trigger keyword: `mode-guide` (plain word, no slash, written at the start of a message), replacing the need for a long explicit activation sentence; recorded as the first bullet of the persona section in AGENTS.md (~line 26) and logged here for governance traceability consistent with checkpoints 7bh/7bi. Other clearly-referring phrases (e.g. "pandu awesome-copilot-id") remain valid as fallback. AGENTS.md stays the single source of truth for persona activation. Next: commit+push, then choose direction A2/A3/A4. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bk — Planner Architect: ADR-0003 + plan go-live AuliaPos v2.3 + WA-Gateway satu PC)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, file terverifikasi ada).
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`), persona Planner Architect. **Tanpa perubahan kode sumber.**
+- **Active Artifacts:**
+  - `docs/adr/0003-single-pc-store-hours-gateway-topology.md` — ✅ Accepted (Triple Gate lolos: sulit dibalik, mengejutkan tanpa konteks, trade-off nyata).
+  - `plan/plan-infrastructure-golive-auliapos-wa-gateway-v1.0.md` — 🔄 `status: 'Planned'`; menunggu `/sdlc-clarify-reqs` (Readiness Score belum dinilai).
+- **Achieved Milestones:**
+  - Topologi go-live **di-encode, tidak dibuka ulang** sesuai keputusan owner: Gateway di PC yang sama dengan AuliaPos, store-hours only; `HOST=127.0.0.1` / `PORT=3000`; `CI4_BASE_URL=http://localhost/aulia` (varian LAN dikomentari); `inbox.gatewayBaseUrl='http://127.0.0.1:3000'`; `inbox.mediaStoragePath='D:/aulia_inbox_media/'`; working dir `C:\projects\WA-Gateway`.
+  - **ADR-0003** dibuat: single-PC, localhost bind, store-hours schedule, accepted backlog behaviour (`append` replay saat reconnect), koeksistensi WhatsApp Web + rasional 24/7/Android (media tidak disimpan di Gateway; Android = JSON fallback 2/8 terverifikasi).
+  - **Plan 8 fase / 45 task** (`VERIFY`+`APPROVAL` per fase): (1) pre-flight & backup ⚠️, (2) migrasi 20 + deploy v2.3 ⚠️, (3) autostart Windows, (4) pairing ⚠️, (5) shadow read-only ⚠️, (6) E2E proof, (7) cutover, (8) docs sync (koreksi `docs/TODO-CHAT.md:98` + `docs/ARCHITECTURE.md` §9/§13).
+  - **4 verifikasi wajib jadi task, bukan asumsi:** identitas host `192.168.1.10` (TASK-001 + kondisional TASK-002/003), peran PC kedua (TASK-004), slot linked-device (TASK-005), keberadaan `aulia_inboxdb` (TASK-006/007).
+  - **AC shadow terukur (default, ditandai OPEN):** 5 hari kerja; missing 0; duplikat 0; 95% ≤ 60 s; tak ada > 5 menit; heartbeat hijau ≥ 99% jam kerja (tak ada merah > 5 menit, cek ≥ 2×/hari); double-reply manusia 0.
+  - **Rollback:** point = backup set TASK-008; trigger = POS rusak / migrasi gagal / ada hilang-duplikat / Gateway mengganggu server / disk `D:` habis; executor = peran yang dinamai di TASK-039. **7 open operational decisions** didaftarkan di §7.
+- **Dead-Ends (Do NOT Repeat):** (tidak ada yang baru sesi ini)
+- **Updated Files:**
+  - `docs/adr/0003-single-pc-store-hours-gateway-topology.md` — baru (Accepted).
+  - `plan/plan-infrastructure-golive-auliapos-wa-gateway-v1.0.md` — baru + `> Status note (2026-09-29)`; `status` tetap `Planned`.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Brief user diperlakukan sebagai **spec authoritative** (tidak ada spec deployment formal) → dicatat sebagai `ASSUMPTION-001`, wajib dikonfirmasi di gerbang approval.
+  - 1 PC / store-hours dipilih menang atas 24/7 dan Android (rasional penuh di ADR-0003).
+  - Plan-only: tidak ada perubahan kode aplikasi; script startup ditandai **ops artifact** di luar source tree.
+- **Next Action / Pending:**
+  - **Buka file `plan/plan-infrastructure-golive-auliapos-wa-gateway-v1.0.md` di sesi chat BARU**, lalu jalankan `/sdlc-clarify-reqs` dengan lampiran ADR `docs/adr/0003-single-pc-store-hours-gateway-topology.md` + konteks `docs/TODO-CHAT.md` dan `docs/ARCHITECTURE.md`.
+  - **Open decisions menunggu klarifikasi (§7):** durasi shadow & threshold final; pemantau heartbeat; SOP Web+Inbox; retensi media (`D:` 32.8 GB); peran PC kedua; jam operasional; penamaan executor rollback.
+  - Belum ada commit/push (belum diminta user).
+  - Carried forward: C3/GW-25 (butuh nomor uji kedua); D1/D2; B1/B2/B3/B8; manual live-Gateway >15MB.
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bk Planner Architect Go-Live Plan) Ran /sdlc-plan-tasks as Planner Architect to author the AuliaPos v2.3 + WA-Gateway go-live deployment plan for the store server PC: created docs/adr/0003-single-pc-store-hours-gateway-topology.md (Accepted; encodes single-PC topology, 127.0.0.1:3000 bind, CI4_BASE_URL=http://localhost/aulia, inbox.gatewayBaseUrl=http://127.0.0.1:3000, inbox.mediaStoragePath=D:/aulia_inbox_media/, store-hours-only schedule, accepted append-backlog replay, WhatsApp Web coexistence, plus the 24/7/Android rejection rationale) and plan/plan-infrastructure-golive-auliapos-wa-gateway-v1.0.md (status Planned; 8 phases / 45 tasks, each ending VERIFY+APPROVAL: preflight+backup, 20-migration+v2.3 deploy, Windows autostart, WhatsApp pairing, read-only shadow with measurable thresholds [5 working days, 0 missing, 0 duplicates, 95% <=60s, heartbeat green >=99%], real E2E proof, cutover, docs sync incl. fixing docs/TODO-CHAT.md:98 and docs/ARCHITECTURE.md). Four mandatory verifications are encoded as tasks (host identity 192.168.1.10, second-PC role, linked-device slot, aulia_inboxdb existence); rollback point/trigger/executor and 7 open operational decisions recorded in Section 7; no source code changed (ops artifacts marked). Next: open the plan file in a NEW session and run /sdlc-clarify-reqs with the ADR attached. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bl — Clarification Analyst: klarifikasi plan go-live → 84/100 PROCEED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, file terverifikasi ada).
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`), persona Clarification Analyst. **Tanpa perubahan kode sumber.**
+- **Active Artifacts:**
+  - `plan/plan-infrastructure-golive-auliapos-wa-gateway-v1.0.md` — 🔄 `status: 'Planned'`; Readiness **84/100 → PROCEED**; menunggu transkripsi resolusi ke plan.
+  - `docs/audit/clarification-report-golive-auliapos-wa-gateway-2026-09-29.md` — ✅ Finalized (Iteration 2, 84/100, PROCEED).
+  - `docs/adr/0003-single-pc-store-hours-gateway-topology.md` — ✅ Accepted (tidak dibuka ulang).
+- **Achieved Milestones:**
+  - Interogasi plan go-live → 3 blocker awal (Iteration 1 = 76/100 REFINE), lalu tuntas di Iteration 2 = **84/100 PROCEED**.
+  - **C-01 (faktual, evidence-based):** plan mengklaim "20 migrasi v2.3 / 6 v2.1". Verifikasi repo: `app/Database/Migrations` = **19 `.php`** (20 entri termasuk `.gitkeep`); `origin/v2.1` = **5 `.php`** (6 entri termasuk `.gitkeep`). Gate AC-009 "ledger = 20" mustahil lulus. Migrasi POS v2.1 = CreateAuliaPosCore, AddStatusMangkrakTransaksi, AddDiskonPelangganPersenTransaksi, AddPriorityToUsers, CreateClosingKasTable. Fix: gate berbasis berkas.
+  - **C-02 (faktual):** `GatewayStatusModel` = tabel **singleton** (id=1, selalu ditimpa, tanpa riwayat) → klaim "heartbeat hijau ≥99% jam kerja" **tidak bisa dihitung** dari data AuliaPos. Fix: sampler eksternal.
+  - **C-03:** "missing = 0 / duplicate = 0" tanpa definisi ground truth / rumus. Fix: `incoming_queue` + rekonsiliasi harian vs HP; duplicate = `wa_message_id` ganda.
+  - **7 open decisions §7 dikunci (grilling, satu pertanyaan per giliran):** (6) toko buka **tiap hari tanpa libur**, PC hidup ~08:00 / mati ~20:30, autostart 07:45–21:00, backlog semalam, maintenance ad hoc di luar jam ramai, penyebut heartbeat = jam PC menyala; (1) shadow **5 hari kalender berurutan**, pengukuran Opsi A (pencatat otomatis + rumus eksplisit); (2) monitor **Opsi B** (implementer tinjau log 1×/hari; auto-restart wajib diuji <5 menit); (3) SOP **Opsi B** (Web tetap, aturan lisan) + 2 penjaga (Web 1 kios, cek rekonsiliasi harian), read-only hanya Phase 5; (4) retensi **Opsi B** (buang media >90 hari via runbook, set `media_local_filename = NULL`; RISK-005 ditutup); (5) PC kedua **Opsi A** cold standby tanpa Gateway; (7) rollback **Opsi A** (otoritas = pemilik, eksekutor = implementer + cadangan, runbook di `docs/runbooks/`).
+  - **Gap plan direkam sebagai F-01..F-05:** kredensial grup DB `inbox` sebelum Phase 2; provisioning `aulia_inboxdb_test` bila suite jalan di server; kontrol single-instance (GW-18); jendela maintenance ad hoc; batas read-only Phase 5 vs outgoing Phase 6.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** mempercayai angka plan "20 migrasi / 6 v2.1". **Reason:** angka itu menghitung entri direktori **termasuk `.gitkeep`**; CI4 tidak pernah mencatat `.gitkeep` di ledger `migrations`. **Correct:** hitung berkas `.php` (v2.3 = 19, v2.1 = 5) dan nyatakan gate berbasis berkas, bukan angka hard-coded. (Kandidat promosi KB saat kompaksi.)
+  - **Attempted:** mengukur "heartbeat hijau ≥99%" dari data AuliaPos. **Reason:** `gateway_status` singleton (id=1) selalu ditimpa — tidak ada riwayat. **Correct:** sampler eksternal (poll 15–60 s → log) sebagai ops-artifact. (Kandidat promosi KB saat kompaksi.)
+- **Updated Files:**
+  - `docs/audit/clarification-report-golive-auliapos-wa-gateway-2026-09-29.md` — baru (Iteration 2 final, 84/100 PROCEED).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - 7 keputusan operasional go-live dikunci sesuai ringkasan di atas (semuanya keputusan owner, bukan asumsi agent).
+  - Tidak ada pembukaan ulang topologi (ADR-0003 tetap) dan **tidak ada** update `CONTEXT.md`/ADR (tidak ada istilah domain baru; Triple Gate ADR tidak terpenuhi).
+- **Next Action / Pending:**
+  - Jalankan `/sdlc-plan-tasks` (sesi baru) untuk **mentranskripsikan resolusi** ke `plan/plan-infrastructure-golive-auliapos-wa-gateway-v1.0.md`: perbaiki Section 6 (TEST-005) & Section 7 (risiko diterima, tutup RISK-005, ganti ASSUMPTION-003), Section 9 (executor + runbook rollback), TASK-006/TASK-011 (gate migrasi), TASK-017 (pencatat heartbeat), TASK-027 (maintenance), TASK-038/039 (SOP + runbook), plus tambah task F-01/F-02/F-03.
+  - Nama pemilik & eksekutor cadangan masih `[Assumed / Open]` (diisi TASK-039).
+  - Carried forward: C3/GW-25 (butuh nomor uji kedua); ASSUMPTION-007; D1/D2; B1/B2/B3/B8; manual live-Gateway >15MB.
+  - Belum ada commit/push untuk laporan audit + checkpoint ini (belum diminta user).
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bl Clarification Analyst Go-Live Plan) Ran /sdlc-clarify-reqs on the AuliaPos v2.3 + WA-Gateway go-live plan: Iteration 1 scored 76/100 REFINE after finding three blockers — C-01 the plan's "20 v2.3 migrations / 6 v2.1" counts include .gitkeep (repo really has 19 .php in v2.3 and 5 .php in v2.1), C-02 GatewayStatusModel is a singleton table with no heartbeat history so "green >=99% of business hours" is unmeasurable, C-03 missing/duplicate have no ground-truth method. Grilled the 7 open decisions one per turn and locked them: store open every day (PC on ~08:00/off ~20:30, autostart 07:45-21:00, overnight backlog, ad-hoc off-peak maintenance, heartbeat denominator = PC-on time); shadow 5 consecutive calendar days with an external heartbeat sampler + explicit staleness/missing/duplicate formulas; monitoring = implementer reviews the log once daily (auto-restart must be proven <5 min); SOP keeps Web authenticated at cutover (accepted RISK-004, guardrail: Web on one kios only + daily double-reply reconciliation), read-only only in Phase 5; media retention deletes files older than 90 days via ops runbook and NULLs media_local_filename (closes RISK-005); second PC = cold standby, never a Gateway; rollback authority = store owner, executor = implementer + backup, runbook in docs/runbooks/. Recorded plan gaps F-01..F-05 (inbox DB-group .env before Phase 2, aulia_inboxdb_test provisioning if the suite runs on the server, single-instance check, maintenance window, Phase 5/6 read-only boundary). Iteration 2 scored 84/100 PROCEED; report saved at docs/audit/clarification-report-golive-auliapos-wa-gateway-2026-09-29.md. Next: /sdlc-plan-tasks in a new session to transcribe the resolutions into the plan. -->
+
+---
