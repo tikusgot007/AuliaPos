@@ -6,8 +6,8 @@ This file is the structural reference for `docs/peta-kemajuan-inbox.html`. Read 
 
 - **Never restyle.** Keep the `<style>` block, CSS classes, color tokens and fonts unchanged unless the page is genuinely broken in a browser. If a fix is needed, change the smallest possible rule.
 - **Keep class names exact.** The legend and styling depend on these exact strings:
-  - `step done`, `step partial`, `step todo`, `step gated`
-  - swatches `sw done`, `sw partial`, `sw todo`, `sw gated`
+- `step done`, `step partial`, `step todo`, `step gated`, `step off`
+- swatches `sw done`, `sw partial`, `sw todo`, `sw gated`, `sw off`
   - boxes `changes`, `chain`, `lane`, `lane-head`, `track`, `notes`, `next`, `verdict`, `tag`, `date`, `where`, `id`, `eyebrow`, `lede`, `legend`.
 - **Surgical edits only.** Anchor on a short unique string. Never rewrite the whole file.
 - **Preserve language mix.** Page prose is simple Indonesian; identifiers (file names, hashes, function names, commands) stay verbatim.
@@ -25,6 +25,7 @@ This file is the structural reference for `docs/peta-kemajuan-inbox.html`. Read 
       <span><i class="sw partial"></i>Selesai sebagian / sedang berjalan</span>
       <span><i class="sw todo"></i>Belum mulai</span>
       <span><i class="sw gated"></i>Menunggu prasyarat / belum dijadwalkan</span>
+<span><i class="sw off"></i>Dicabut / tidak lagi direncanakan</span>
     </div>
   </header>
 
@@ -38,7 +39,6 @@ This file is the structural reference for `docs/peta-kemajuan-inbox.html`. Read 
   <div class="chain" aria-label="Urutan roadmap">
     <span class="node">Tahap 0</span><span class="arrow">→</span>
     <span class="node on">M1 Reliability</span><span class="arrow">→</span>
-    <span class="node on">M2 State Consistency</span><span class="arrow">→</span>
     <span class="node on">M3 Operational Inbox</span><span class="arrow">→</span>
     <span class="node">M4 Customer Context</span><span class="arrow">→</span>
     <span class="node">M5 AI</span>
@@ -85,7 +85,7 @@ This file is the structural reference for `docs/peta-kemajuan-inbox.html`. Read 
 ## Lane inventory (as of the current page)
 
 - `m1` — Reliability (repo WA-Gateway + sentuhan AuliaPos).
-- `m2` — State Consistency (AuliaPos, program ditunda).
+- `m2` — State Consistency (**dicabut 29 Sep 2026**; lane dipertahankan hanya sebagai catatan fakta kode, bukan milestone berjalan).
 - `m3` — Operational Inbox (AuliaPos).
 - `fix` — cross-milestone fix lane (contoh: isolasi database test).
 - `gh011` — out-of-chain feature: Grup, Balas Pesan, Teruskan.
@@ -98,6 +98,7 @@ Add a new lane only for a genuinely new initiative that does not fit M1–M5. Ne
 - `partial` — started, in progress, or a "done" claim without enough evidence.
 - `todo` — not started, no blocking prerequisite.
 - `gated` — deliberately waiting on a prerequisite or unscheduled.
+- `off` — cancelled / dropped from the roadmap by owner decision (muted, struck from the chain). Keep the card only if it still carries a code fact worth stating; never show a dropped item as `gated` or `todo`.
 
 Dates use short form (`26 Sep`). Leave the `<span class="date">` off when there is no meaningful date.
 

@@ -47,12 +47,11 @@ Fitur-fitur berikut sudah thru **PRD → Spec → Plan → Kode → Review** dan
 
 - [x] Tahap 0 — Baseline (DONE 20 Sep; decision log `docs/decisions/2026-09-19-tahap-0-baseline.md`)
 - [~] M1 — Reliability (Ticket 01 selesai; **Wave 1 = Ticket 02–04 SELESAI & LIVE 23 Sep**; **Wave 2 (idempotensi outgoing) plan Completed 27 Sep**; Ticket 05–16 & sebagian Wave 2 belum — lihat butir M1 di bawah)
-- [ ] M2 — State Consistency (belum mulai; **tidak menjadi blocker** — Fase 2 M3 sudah dibuka lewat amendemen PRD, lihat catatan urutan di bawah)
-- [~] M3 — Operational Workflow (**Fase 1 (1a–1d) + Fase 1e (pencarian pesan) + Fase 2a (Handoff/Collision) SELESAI**; ditambah **Grup Tahap 1 & 2, Balas Pesan Tahap 3, Inbox Read Authorization** selesai Sep 2026; sisa M3 = Fase 2b auto-assignment + Fase 3 (menunggu M5))
+- [~] M3 — Operational Workflow (**Fase 1 (1a–1d) + Fase 1e (pencarian pesan) + Fase 2a (Handoff/Collision) SELESAI**; ditambah **Grup Tahap 1 & 2, Balas Pesan Tahap 3, Inbox Read Authorization** selesai Sep 2026; sisa M3 = Fase 3 (menunggu M5))
 - [ ] M4 — POS / Customer Context (belum dibahas)
 - [ ] M5 — Intelligence / AI (belum dibahas)
 
-> **Catatan urutan (28 Sep 2026):** Aturan lama "M3 harus menunggu M2" sudah **tidak berlaku** untuk Handoff/Collision. PRD diamandemen ke v1.1 dan Fase 2a selesai memakai **conditional write sempit** (`WHERE id = ? AND assigned_to = ?` + `affectedRows()`), pola yang sama dengan `ambilPercakapan()` yang memang sudah atomic — jadi Fase 2a **tidak butuh M2 penuh**. **M2 sebagai program besar tetap belum dimulai:** `docs/ARCHITECTURE.md` §12 masih menandai jalur `lepas`/`tutup`/`snooze`/`tandaiDibaca`/`hapus` sebagai non-atomic.
+> **Dropped 29 Sep 2026 (keputusan pemilik):** **M2 — State Consistency** dan **M3 Fase 2b (Auto-assignment / GH-008)** **dihapus dari roadmap dan tidak lagi direncanakan**. Jangan dihidupkan kembali tanpa keputusan pemilik yang baru. Latar belakang historis: aturan lama "M3 harus menunggu M2" sudah dicabut 26 Sep lewat amendemen PRD v1.1, dan Fase 2a selesai memakai *conditional write* sempit (`WHERE id = ? AND assigned_to = ?` + `affectedRows()`) sehingga tidak butuh M2 penuh.
 
 ### Fitur WhatsApp Inbox (dipisah dari roadmap M3, 26–28 Sep 2026)
 
@@ -63,12 +62,12 @@ PRD: `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — **v1.2**.
 - [x] **Tahap 3 — Balas Pesan** (GH-015) — dua repo
 - [x] **Tahap 4 — Teruskan** (GH-016) — dua repo, **SELESAI**. Spec `spec-design-teruskan.md` v1.3; plan `plan-feature-teruskan-auliapos-v1.0.md` + `plan-feature-teruskan-wa-gateway-v1.0.md` `Completed`; Gateway live `master` `4a766d2`.
 
-Urutan bergantung ke bawah: Tahap 0 → M1 → M2 → M3 → M4 → M5.
+Urutan bergantung ke bawah: Tahap 0 → M1 → M3 → M4 → M5.
 
 ## Aturan Tetap (berlaku di semua tahap)
 
 - **Dokumentasi bukan source of truth.** Source code, migration, test, dan git diff adalah sumber kebenaran.
-- **Jangan loncat tahap.** Tiap tahap punya prasyarat dari tahap sebelumnya. **Pengecualian yang sudah diputuskan:** prasyarat "M2 harus selesai" untuk Fase 2 M3 sudah dicabut (lihat catatan di bagian M3), jadi sebagian pekerjaan M3 berjalan lebih dulu.
+- **Jangan loncat tahap.** Tiap tahap punya prasyarat dari tahap sebelumnya.
 - **Klaim harus berbasis bukti nyata**, bukan asumsi. Kalau ada yang tidak bisa diverifikasi, catat sebagai limitation eksplisit, jangan ditutup-tutupi atau dipaksakan kesimpulan.
 
 ---
@@ -189,24 +188,10 @@ Risiko P0 yang jadi alasan M1 ada:
 
 ---
 
-### M2 — State Consistency ⏳ BELUM MULAI
-
-Fokus:
-- [ ] Ownership atomic
-- [ ] Delivery state eksplisit
-- [ ] Audit transition
-- [ ] Health yang bisa dipercaya
-
-- [x] Risiko dikonfirmasi lewat analisis kode: `cekOwnership()` di AuliaPos adalah **read-then-write di level aplikasi, bukan atomic di database** — risiko P1 "ownership race" (`app/Controllers/Inbox.php`, `cekOwnership()` membaca `assigned_to` lalu memutuskan, tanpa transaksi/kunci)
-- [~] **Pengecualian yang sudah atomic**: `Inbox::ambilPercakapan()` (conditional UPDATE + `affectedRows()` → 409) dan jalur **Handoff** Fase 2a (pola `expected_owner` yang sama). Jadi bukan "semua ownership non-atomic" — yang masih **non-atomic**: `lepas`, `tutup`, `snooze`, `tandaiDibaca`, `hapus` (`docs/ARCHITECTURE.md` §12)
-- [ ] Breakdown ticket detail M2 — menyusul. (Catatan: M2 dulunya "prasyarat keras" Fase 2 M3, tapi prasyarat itu sudah dicabut; M2 sekarang murni melanjutkan sisa jalur non-atomic di atas)
-
----
-
 ### M3 — Operational Inbox 🚦 FASE 1 (1a–1e) + FASE 2a SELESAI & TER-MERGE (28 Sep 2026)
 
 > [!NOTE]
-> **Seksi ini sudah disinkronkan 28 September 2026.** Fase 1 (1a–1d), **Fase 1e (pencarian teks pesan, GH-010)**, dan **Fase 2a (Handoff + Collision Detection)** sudah dieksekusi dan ter-merge ke `v2.3` (Fase 1/2a lewat PR #41 `ce94660`; Fase 1e + remediasi 25 Sep). Di atas itu, **Grup Tahap 1 & 2, Balas Pesan Tahap 3, dan Inbox Read Authorization** juga sudah selesai — lihat bagian "Status Sekarang". Plan-plan M3 yang relevan berstatus `Completed`. Yang **belum**: **Fase 2b (auto-assignment)** dan **Fase 3** (butuh M5).
+> **Seksi ini sudah disinkronkan 28 September 2026.** Fase 1 (1a–1d), **Fase 1e (pencarian teks pesan, GH-010)**, dan **Fase 2a (Handoff + Collision Detection)** sudah dieksekusi dan ter-merge ke `v2.3` (Fase 1/2a lewat PR #41 `ce94660`; Fase 1e + remediasi 25 Sep). Di atas itu, **Grup Tahap 1 & 2, Balas Pesan Tahap 3, dan Inbox Read Authorization** juga sudah selesai — lihat bagian "Status Sekarang". Plan-plan M3 yang relevan berstatus `Completed`. Yang **belum**: **Fase 3** (butuh M5). **Fase 2b (auto-assignment/GH-008) dihapus dari roadmap 29 Sep 2026.**
 > Semua daftar "Riwayat (21 Sep)", checklist Ticket 01/02-16, dan keputusan desain di bawah adalah **potret historis yang sudah dilewati** — jangan dibaca sebagai status terkini. Status fase M3 ada di paragraf "Pembagian fase M3" di bawah.
 
 **Riwayat (21 Sep)**: sesi Claude Code menghasilkan spec + plan formal M3 lewat proses SDLC terstruktur (spec → clarification report → remediasi → plan → clarification report kedua → resolusi). Semua keputusan desain 🔶 yang ditandai sebelumnya **sudah diresolusikan**.
@@ -235,10 +220,10 @@ Dokumen acuan M3 Fase 1 (semuanya sudah dilewati; disimpan sebagai jejak):
 - [x] **Fase 1d** — pencarian kolom identitas (filter-after-fetch di PHP, CON-003)
 - [x] **Fase 1e (GH-010)** — pencarian teks pesan + `match_snippet`; `InboxMatchSnippetService`; Spark command perf `aulia:seed-fase1e-perf`; AC-016 median 436/523/1010 ms (target ≤ 3 s). Diremediasi atas 2 temuan `[REQUIRED]` review — lihat `docs/walkthrough-m3-fase1e-message-search-2026-09-25.md` + `docs/walkthrough-m3-fase1e-remediation-2026-09-25.md`. **Fase 3 plan ditolak** → 3 TODO (butir B1–B3).
 - [x] **Fase 2a** — Handoff + Collision Detection (`conversation_handoffs`, conditional write `expected_owner`, 403/409/400)
-- [ ] **Fase 2b** — **Auto-assignment** (GH-008). Belum mulai; dipisah dari 2a karena lingkup berbeda.
+- ~~**Fase 2b** — Auto-assignment (GH-008)~~ — **DIHAPUS 29 Sep 2026** (keputusan pemilik; tidak lagi direncanakan).
 - [ ] **Fase 3** — intent filters, AI summary, suggested reply. **Tunggu M5**, tidak berubah.
 
-> **Prasyarat M2 sudah tidak dipakai untuk Fase 2.** PRD diamandemen ke **v1.1** (menambah GH-006 Handoff, GH-007 Collision Detection, GH-008 Auto-assignment) supaya Fase 2 bukan lagi *Orphaned Item*. Fase 2a selesai dengan pola *conditional write* sempit (`WHERE id = ? AND assigned_to = ?` → `affectedRows() === 0` = 409) yang tidak butuh M2 penuh. **M2 sebagai program besar tetap belum dimulai** — `docs/ARCHITECTURE.md` §12 masih mencatat jalur `lepas`/`tutup`/`snooze`/`tandaiDibaca`/`hapus` sebagai non-atomic; hanya `ambilPercakapan()` dan jalur Handoff yang atomic.
+> **Prasyarat M2 sudah tidak dipakai untuk Fase 2.** PRD diamandemen ke **v1.1** (menambah GH-006 Handoff, GH-007 Collision Detection, GH-008 Auto-assignment) supaya Fase 2 bukan lagi *Orphaned Item*; Fase 2a selesai dengan pola *conditional write* sempit (`WHERE id = ? AND assigned_to = ?` → `affectedRows() === 0` = 409) yang tidak butuh M2 penuh. **M2 sebagai program dan Fase 2b kini dihapus dari roadmap (29 Sep 2026).** Catatan teknis yang tetap berlaku sebagai fakta kode (bukan pekerjaan terjadwal): `docs/ARCHITECTURE.md` §13.11 mencatat jalur `lepas`/`tutup`/`snooze`/`tandai-dibaca`/`hapus` masih read-then-write di level aplikasi; hanya `ambilPercakapan()` dan jalur Handoff yang atomic.
 
 **Risiko teknis yang tercatat di plan Fase 1 (jejak historis):**
 - RISK-001 (High Risk): endpoint Internal Note rawan *silent violation* kalau ikut update `last_message_at`/`last_message_direction` — bisa merusak badge & Queue View tanpa error kelihatan. Mitigasi diterapkan: test assert kolom itu TIDAK berubah. **Invariant ini masih berlaku** (`catatanInternal()` tidak boleh memanggil `ConversationModel::update()`).
@@ -270,10 +255,11 @@ Dokumen acuan M3 Fase 1 (semuanya sudah dilewati; disimpan sebagai jejak):
 
 ### A. Pilihan arah berikutnya (per 29 Sep 2026)
 
-- [x] **A1. Fitur Teruskan (Tahap 4 / GH-016)** — **SELESAI** dua repo (plan AuliaPos + Gateway `Completed`, Gateway live `4a766d2`, bukti native terlihat di WhatsApp). Arah berikutnya bergeser ke A2/A3/A4.
-- [ ] **A2. M3 Fase 2b — Auto-assignment (GH-008)** — belum mulai; melengkapi M3 di samping Fase 2a yang sudah selesai.
-- [ ] **A3. M2 — State Consistency (program besar)** — jalur `lepas`/`tutup`/`snooze`/`tandaiDibaca`/`hapus` masih non-atomic (`docs/ARCHITECTURE.md` §12). **Bukan blocker lagi** untuk M3, tapi belum pernah dikerjakan.
+- [x] **A1. Fitur Teruskan (Tahap 4 / GH-016)** — **SELESAI** dua repo (plan AuliaPos + Gateway `Completed`, Gateway live `4a766d2`, bukti native terlihat di WhatsApp).
+- ~~**A2. M3 Fase 2b — Auto-assignment (GH-008)**~~ dan ~~**A3. M2 — State Consistency**~~ — **DIHAPUS 29 Sep 2026** atas keputusan pemilik. Keduanya **tidak lagi direncanakan**; jangan dihidupkan lagi tanpa keputusan pemilik yang baru.
 - [ ] **A4. M1 Ticket 05–16 (sisa gelombang reliability Gateway)** — khususnya Ticket 05 (uji pembeda penyebab error dekripsi, butuh nomor uji kedua) dan risiko P0 #3/#4/#5 (lihat seksi C).
+- [ ] **A5. Plan Go-live** (`plan-infrastructure-golive-auliapos-wa-gateway-v1.0.md`, `Planned`, klarifikasi 84/100 PROCEED) — siap dieksekusi `/sdlc-write-code`.
+- [ ] **A6. Remediasi plan M1 Wave 3** (`plan-process-m1-wave3-reliability-observability-v1.0.md`, masih 79/100) — `/sdlc-plan-tasks` dengan lampiran `docs/audit/clarification-report-m1-wave3-reliability-observability-plan-2026-09-29.md`.
 
 ### B. Pekerjaan kecil yang masih terbuka (non-blocking)
 

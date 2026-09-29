@@ -319,8 +319,9 @@ aulia/  (project root)
   optional references in `AGENTS.md` / `README.md`.
 - **Preserve the Inbox database boundary.** Inbox persistence must never accidentally use the POS
   `default` group.
-- **The architectural constraints listed in §13 are locked:** the M2 State Consistency program stays
-  deferred; the M2 gate was opened narrowly for Handoff only and must not expand silently.
+- **The architectural constraints listed in §13 are locked:** the narrow M2 gate opened for Handoff only
+  must not expand silently, and no general state-consistency redesign may be introduced without an
+  approved specification.
 - **Never render a raw JID in the UI.** Sender identity is derived by `SenderIdentityFormatter`.
 - **No suppressions.** Never add `@ts-ignore`, `eslint-disable`, or `# noqa`, and never skip or delete
   tests to force a build green.
@@ -533,8 +534,9 @@ otherwise `{ text, is_internal, message_timestamp }` cut by `InboxMatchSnippetSe
 - Ownership checking on the remaining paths (`lepas`, `tutup`, `snooze`, `tandai-dibaca`, `hapus`) is
   still application-level read-then-write logic; only the take path and Handoff use an expected-owner
   conditional write.
-- M2 State Consistency is deferred. M3 Phase 2a opened the M2 gate **narrowly** (Handoff only) and
-  must not silently expand into a general state-consistency redesign.
+- M2 State Consistency was **dropped from the roadmap on 2026-09-29** by owner decision and is no longer
+  planned. The narrow M2 gate opened for Handoff stays as-is and must not silently expand into a general
+  state-consistency redesign.
 - The separate Inbox database boundary must be preserved.
 - Gateway behavior is out of scope unless an approved specification explicitly requires it.
 - New architectural modules, directories, or API contracts introduced by implementation must be
