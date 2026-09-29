@@ -412,12 +412,19 @@ class Produk extends BaseController
             }
         }
 
-        // Barcode kosong menjadi NULL
+        // Barcode: kosong menjadi NULL, dan tidak boleh duplikat.
         if ($field === 'barcode') {
             $value = trim((string) $value);
 
             if ($value === '') {
                 $value = null;
+            } elseif ($this->barcodeDipakai($value, $id)) {
+                return $this->response
+                    ->setStatusCode(422)
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Barcode sudah dipakai produk lain.'
+                    ]);
             }
         }
 
@@ -433,12 +440,42 @@ class Produk extends BaseController
                     'value' => $value
                 ]
             ]);
-        } catch (\Throwable $e) {
+        } catch (\CodeIgniter\Database\Exceptions\DatabaseException $e) {
+            // DatabaseException extends RuntimeException, jadi harus ditangkap
+            // lebih dulu agar pesan SQL mentah tidak bocor ke klien.
+            if (stripos($e->getMessage(), 'Duplicate entry') !== false) {
+                return $this->response
+                    ->setStatusCode(422)
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Barcode sudah dipakai produk lain.'
+                    ]);
+            }
+
+            log_message('error', 'updateInline gagal: {message}', ['message' => $e->getMessage()]);
+
             return $this->response
                 ->setStatusCode(500)
                 ->setJSON([
                     'success' => false,
+                    'message' => 'Gagal memperbarui produk.'
+                ]);
+        } catch (\InvalidArgumentException | \RuntimeException $e) {
+            // Pesan domain dari model (mis. produk tidak ditemukan/tidak aktif).
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'success' => false,
                     'message' => $e->getMessage()
+                ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'updateInline gagal: {message}', ['message' => $e->getMessage()]);
+
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON([
+                    'success' => false,
+                    'message' => 'Gagal memperbarui produk.'
                 ]);
         }
     }
