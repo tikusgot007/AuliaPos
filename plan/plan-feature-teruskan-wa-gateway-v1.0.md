@@ -2,15 +2,15 @@
 goal: Teruskan (Tahap 4, WA-Gateway) — field forward di /send dan /send-media, forward_marker_applied, penanda native Baileys dengan fallback teks
 version: 1.0
 date_created: 2026-09-28
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 owner: AuliaPos Inbox module (WA-Gateway consumer contract)
-status: 'Planned'
+status: 'Completed'
 tags: [feature, whatsapp, teruskan, tahap4, wa-gateway]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-lightgrey)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 Rincian eksekusi **sisi WA-Gateway** (`tikusgot007/WA-Gateway`, repo terpisah) untuk `spec/spec-design-teruskan.md` (v1.3, GH-016). Plan AuliaPos ada di `plan/plan-feature-teruskan-auliapos-v1.0.md`; plan ini adalah pasangannya dan **wajib naik lebih dulu** (`EXT-001`).
 
@@ -72,6 +72,9 @@ Rincian eksekusi **sisi WA-Gateway** (`tikusgot007/WA-Gateway`, repo terpisah) u
 > - **Dikonfirmasi visual oleh pemilik** (screenshot WhatsApp Web): kedua pesan tampil dengan label **"↪️ Forwarded"** asli dari WhatsApp di atas bubble, isi teks/caption bersih tanpa prefix apa pun — **`ASSUMPTION-005` resmi tertutup** (native forward Baileys terbukti bekerja pada pengiriman nyata, bukan cuma bukti source).
 > - Instance uji dihentikan setelah verifikasi; Gateway live (`C:\projects\WA-Gateway`, port 3000) **tidak pernah dihentikan/disentuh** selama proses ini.
 > - **`EXT-001` BELUM terpenuhi**: bukti di atas berasal dari branch `feature/teruskan-forward-marker` (worktree, belum merge), **bukan** commit yang ter-deploy ke `master`/proses live. Merge ke `master` + restart Gateway live masih menunggu **lampu hijau eksplisit terpisah** dari pemilik sebelum plan ini bisa ditandai `Completed` dan sebelum plan AuliaPos boleh mulai.
+
+> [!NOTE]
+> **Closure update (2026-09-29) — `EXT-001` satisfied, plan closed.** The Gateway change was merged to `master` and deployed to the live runtime as commit `4a766d2` (`C:\projects\WA-Gateway`, port 3000). The release gate is therefore met: this plan moves to `status: 'Completed'`, and its AuliaPos counterpart (`plan-feature-teruskan-auliapos-v1.0.md`) is no longer blocked. The "`EXT-001` BELUM terpenuhi" line above is preserved as the dated state at TASK-005 verification time, not the current status.
 
 ## 3. Alternatives
 
