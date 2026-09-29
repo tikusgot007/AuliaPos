@@ -339,12 +339,15 @@
             <i class="bi bi-pencil"></i>
         </a>
 
-        <a href="<?= base_url('produk/hapus') ?>/${row.id}"
-           class="btn btn-danger"
-           title="Nonaktifkan"
-           data-confirm-message="Nonaktifkan produk ini?" data-confirm-ok-text="Ya, Nonaktifkan">
-            <i class="bi bi-trash"></i>
-        </a>
+        <form action="<?= base_url('produk/hapus') ?>/${row.id}"
+              method="post"
+              class="d-inline"
+              data-confirm-message="Nonaktifkan produk ini?" data-confirm-ok-text="Ya, Nonaktifkan">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-danger" title="Nonaktifkan">
+                <i class="bi bi-trash"></i>
+            </button>
+        </form>
 
     </div>
 `;
