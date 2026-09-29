@@ -364,10 +364,13 @@
                 },
 
                 {
-                    data: 'kategori_id',
+                    // Diurutkan & ditampilkan lewat nama kategori (bukan id),
+                    // supaya klik header Kategori menghasilkan urutan alfabetis.
+                    // Inline-edit tetap memakai kategori_id dari row data.
+                    data: 'kategori_nama',
                     className: 'inline-editable',
-                    render: function(data, type, row) {
-                        return escapeHtml(row.kategori_nama || '-');
+                    render: function(data) {
+                        return escapeHtml(data || '-');
                     }
                 },
 
