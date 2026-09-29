@@ -1,6 +1,6 @@
 Options -Indexes
 RewriteEngine On
-RewriteBase /aulia/
+RewriteBase /aulia-app/
 
 # Redirect root ke public/index.php
 

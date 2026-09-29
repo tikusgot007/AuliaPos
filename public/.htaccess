@@ -9,7 +9,7 @@ Options -Indexes
     Options +FollowSymlinks
     RewriteEngine On
 
-RewriteBase /aulia/
+RewriteBase /aulia-app/
 
 # Hapus index.php dari URL
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -48,7 +48,7 @@ ServerSignature Off
     Options +FollowSymlinks
     RewriteEngine On
 
-    RewriteBase /aulia/
+    RewriteBase /aulia-app/
 
     # Jangan rewrite file/folder yang benar-benar ada
     RewriteCond %{REQUEST_FILENAME} !-f
