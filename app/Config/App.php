@@ -31,7 +31,11 @@ class App extends BaseConfig
      * E.g., http://example.com/
      */
 
-    public string $baseURL = 'http://localhost/aulia/';
+    // Dibiarkan kosong agar getBaseURL() mendeteksi otomatis dari request
+    // (lihat method getBaseURL di atas). Environment yang butuh URL eksplisit
+    // mengaturnya lewat app.baseURL di .env. Ini menghindari hardcode path
+    // folder lokal yang bisa bertentangan dengan RewriteBase .htaccess.
+    public string $baseURL = '';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
