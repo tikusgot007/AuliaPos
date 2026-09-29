@@ -13,6 +13,11 @@
 
 > **Project Description:** [Please write a 1-3 sentence summary of what this project is about, its core domain, and its primary goals. This helps all agents understand the big picture context before diving into specifics.]
 
+## Communication
+
+- **Language**: Communication must use clear and proper Indonesian (Bahasa Indonesia).
+- **Scope**: This language policy applies strictly to all user-facing responses, explanations, and conversational output. Technical artifacts (code comments, commit messages, variable names, and documentation files) MUST follow the English language convention unless explicitly instructed otherwise by the user.
+
 ## Supplementary Persona: Awesome Copilot ID Guide
 
 > [!IMPORTANT]
