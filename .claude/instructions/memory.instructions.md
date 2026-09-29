@@ -345,3 +345,29 @@
 <!-- checkpoint-tail: 2026-09-29 (Phase 7bh Governance AGENTS.md) Owner decided to KEEP the commit-676ef9a removal of ## Standing Rules (owner-analogy rule, ready-to-paste next-session prompt, end-of-session closing sequence) and restore ONLY the Indonesian language policy: a trimmed ## Communication section (Language + Scope) was added back to AGENTS.md before the Supplementary Persona, resolving the 3 dangling references to that section (lines 86/101/279). The Awesome Copilot ID Guide persona stays. Closing sequence is no longer a written AGENTS.md rule, so checkpoint/commit/push continue as convention only. Next: commit+push, then choose direction A2/A3/A4. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bi — SDLC berlaku untuk SEMUA modul: chat + POS)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, terverifikasi ada).
+- **Current SDLC Phase:** Housekeeping / governance (bukan tahap SDLC formal).
+- **Active Artifacts:**
+  - `AGENTS.md` — bullet baru "SDLC Scope (All Modules — Chat AND POS)" di bagian Workflow & Methodology.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Achieved Milestones:**
+  - **Keputusan owner (2026-09-29):** SDLC berlaku untuk **keduanya** — modul **chat/Inbox** dan modul **POS**. Tidak ada modul yang dikecualikan.
+  - Ditambahkan bullet eksplisit di `AGENTS.md`: perubahan POS **bukan** alasan melewati PRD/Spec/Plan/Review; `/code-janitor` hanya untuk perbaikan kecil sekali jadi, bukan pengecualian satu modul.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** memperlakukan modul POS sebagai area bebas SDLC (praktik sebelumnya). **Reason:** owner ingin konsistensi ("agar rapi") — dua jalur kerja berbeda menyulitkan dan tidak konsisten. **Correct:** semua modul lewat SDLC.
+- **Updated Files:**
+  - `AGENTS.md` — bullet cakupan SDLC (all modules).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - SDLC wajib untuk chat/Inbox **dan** POS; `/code-janitor` tetap ada hanya untuk perbaikan minor sekali jadi.
+- **Next Action / Pending:**
+  - Commit + push perubahan `AGENTS.md` + checkpoint ini.
+  - Pilihan arah berikutnya: **A2** (M3 Fase 2b auto-assignment), **A3** (M2), **A4** (M1 Ticket 05–16) — atau pekerjaan POS lewat SDLC.
+  - Carried forward: C3/GW-25 (butuh nomor uji kedua); D1/D2; B1/B2/B3/B8; manual live-Gateway >15MB.
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bi SDLC Scope All Modules) Owner decided the strict SDLC workflow now applies to BOTH parts of AuliaPos — the WhatsApp Inbox/chat features AND the POS features — with no module exempt; recorded explicitly in AGENTS.md Workflow & Methodology as a new bullet ("SDLC Scope (All Modules — Chat AND POS)": a POS change is not a reason to skip PRD/Spec/Plan/Review, and /code-janitor stays only for genuinely minor one-off fixes, never a blanket module exemption). This supersedes the earlier two-track assumption (chat=SDLC, POS=not). Next: commit+push, then pick direction A2/A3/A4 or a POS task via SDLC. -->
+
+---
