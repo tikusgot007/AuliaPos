@@ -533,7 +533,7 @@
     // supaya tombol "Kelola Banner" tetap berfungsi normal.
     const RAW_DETAIL_ITEMS = <?= json_encode($detail_items, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
-    function rekonstruksiDetailBanner(nama, harga, qty) {
+    function rekonstruksiDetailBanner(nama, harga, qty, catatan) {
         const pattern = /Banner\s+([\d.]+)mx([\d.]+)m\s*\(([\d.]+)\s*m²\)/;
         const match = String(nama || '').match(pattern);
 
@@ -542,7 +542,18 @@
         const p = parseFloat(match[1]) * 100; // meter -> cm
         const l = parseFloat(match[2]) * 100;
         const luas = parseFloat(match[3]);
-        const hargaPerM2 = luas > 0 ? Math.round(harga / luas) : 22000;
+
+        let hargaPerM2 = HARGA_STANDAR;
+        if (catatan) {
+            try {
+                const parsed = JSON.parse(catatan);
+                if (parsed && Number.isFinite(Number(parsed.harga_per_m2))) {
+                    hargaPerM2 = Number(parsed.harga_per_m2);
+                }
+            } catch (e) {
+                // Malformed/legacy catatan: keep HARGA_STANDAR fallback.
+            }
+        }
 
         return {
             p,
@@ -561,7 +572,7 @@
             const kategoriId = Number(item.kategori_id) || 0;
             const namaProduk = item.nama_produk || '';
 
-            const detailBanner = rekonstruksiDetailBanner(namaProduk, subtotal, qty);
+            const detailBanner = rekonstruksiDetailBanner(namaProduk, subtotal, qty, item.catatan);
             const isBanner = detailBanner !== null;
 
             cart.push({

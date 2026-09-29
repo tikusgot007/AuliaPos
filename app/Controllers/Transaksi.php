@@ -1422,7 +1422,7 @@ class Transaksi extends BaseController
                 'jumlah'       => (float) ($item['jumlah'] ?? 1),
                 'harga_satuan' => (float) ($item['harga'] ?? 0),
                 'subtotal'     => (float) ($item['subtotal'] ?? 0),
-                'catatan'      => (string) ($item['catatan'] ?? '')
+                'catatan'      => \App\Models\DetailTransaksiModel::catatanBanner($item)
             ];
         }
 

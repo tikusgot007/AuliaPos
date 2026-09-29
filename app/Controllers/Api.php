@@ -342,7 +342,7 @@ class Api extends BaseController
                 'jumlah' => $item['jumlah'],
                 'harga_satuan' => $item['harga'] ?? 0,
                 'subtotal' => $item['subtotal'],
-                'catatan' => '',
+                'catatan' => \App\Models\DetailTransaksiModel::catatanBanner($item),
             ];
         }
 
