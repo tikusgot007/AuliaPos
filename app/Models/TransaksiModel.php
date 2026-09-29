@@ -340,9 +340,60 @@ class TransaksiModel extends Model
 
         for ($attempt = 1; $attempt <= $maxAttempt; $attempt++) {
 
-            $db->transStart();
+            $noOrderLockAcquired = false;
+            $noOrderLockName = null;
 
             try {
+
+                /*
+            |--------------------------------------------------------------------------
+            | Lock No Order untuk mencegah dua kasir menyimpan nomor yang sama
+            | secara bersamaan. Histori tetap boleh memiliki duplikasi setelah
+            | transaksi berstatus BATAL.
+            |
+            | GET_LOCK()/RELEASE_LOCK() adalah fungsi khusus MySQL -- pada
+            | driver lain (mis. SQLite3 di test suite) langkah lock dilewati
+            | dan HANYA validasi "no_order masih dipakai transaksi aktif" yang
+            | tetap berjalan. Test PHPUnit berjalan satu proses, jadi tidak
+            | butuh lock lintas-proses; perilaku ini disengaja, bukan celah.
+            |--------------------------------------------------------------------------
+            */
+                if (!empty($dataTransaksi['no_order'])) {
+                    $noOrder = (int) $dataTransaksi['no_order'];
+                    $isMySql = $db->getPlatform() === 'MySQLi';
+
+                    if ($isMySql) {
+                        $noOrderLockName = 'auliapos:no_order:' . $noOrder;
+
+                        $lockResult = $db->query(
+                            'SELECT GET_LOCK(?, 10) AS acquired',
+                            [$noOrderLockName]
+                        )->getRowArray();
+
+                        if ((int) ($lockResult['acquired'] ?? 0) !== 1) {
+                            throw new \RuntimeException(
+                                'No Order ' . $noOrder . ' sedang diproses oleh kasir lain. Silakan coba lagi.',
+                                409
+                            );
+                        }
+
+                        $noOrderLockAcquired = true;
+                    }
+
+                    $existingActive = $this
+                        ->where('no_order', $noOrder)
+                        ->whereIn('status', ['proses', 'selesai', 'mangkrak'])
+                        ->first();
+
+                    if ($existingActive) {
+                        throw new \RuntimeException(
+                            'No Order ' . $noOrder . ' sedang digunakan oleh transaksi aktif.',
+                            409
+                        );
+                    }
+                }
+
+                $db->transStart();
 
                 /*
             |--------------------------------------------------------------------------
@@ -385,6 +436,11 @@ class TransaksiModel extends Model
                     | Batalkan transaction yang gagal.
                     */
                         $db->transRollback();
+
+                        if ($noOrderLockAcquired && $noOrderLockName !== null) {
+                            $db->query('SELECT RELEASE_LOCK(?)', [$noOrderLockName]);
+                            $noOrderLockAcquired = false;
+                        }
 
                         /*
                     | Buat kode invoice baru.
@@ -474,6 +530,10 @@ class TransaksiModel extends Model
                     );
                 }
 
+                if ($noOrderLockAcquired && $noOrderLockName !== null) {
+                    $db->query('SELECT RELEASE_LOCK(?)', [$noOrderLockName]);
+                    $noOrderLockAcquired = false;
+                }
 
                 /*
             |--------------------------------------------------------------------------
@@ -492,6 +552,10 @@ class TransaksiModel extends Model
 
                 $db->transRollback();
 
+                if ($noOrderLockAcquired && $noOrderLockName !== null) {
+                    $db->query('SELECT RELEASE_LOCK(?)', [$noOrderLockName]);
+                    $noOrderLockAcquired = false;
+                }
 
                 /*
             |--------------------------------------------------------------------------
