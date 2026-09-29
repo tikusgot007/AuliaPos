@@ -488,6 +488,36 @@ class Produk extends BaseController
     private const AKSI_VALID = ['', 'PERTAHANKAN', 'NONAKTIF', 'HAPUS', 'INSERT'];
 
     /**
+     * Cegah CSV formula injection: nilai teks bebas (nama produk, nama
+     * kategori, satuan) yang diawali karakter pemicu formula pada
+     * Excel/LibreOffice (=, +, -, @, tab, CR) diberi prefix apostrof
+     * supaya dibaca sebagai teks, bukan dieksekusi sebagai formula.
+     */
+    private function csvSafe(string $value): string
+    {
+        if ($value !== '' && preg_match('/^[=+\-@\t\r]/', $value) === 1) {
+            return "'" . $value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Kebalikan csvSafe() untuk jalur import: buang apostrof pelindung
+     * HANYA bila diikuti karakter pemicu formula, supaya round-trip
+     * export -> import mengembalikan nilai asli tanpa merusak nama yang
+     * memang diawali apostrof biasa.
+     */
+    private function csvUnsafe(string $value): string
+    {
+        if (preg_match("/^'[=+\-@\t\r]/", $value) === 1) {
+            return substr($value, 1);
+        }
+
+        return $value;
+    }
+
+    /**
      * Halaman Maintenance Master Barang (upload CSV, preview, konfirmasi).
      */
     public function maintenance()
@@ -528,10 +558,10 @@ class Produk extends BaseController
         foreach ($rows as $row) {
             fputcsv($output, [
                 $row['id'],
-                $row['nama'],
+                $this->csvSafe((string) $row['nama']),
                 $row['kategori_id'],
-                $row['kategori_nama'] ?? '',
-                $row['satuan'],
+                $this->csvSafe((string) ($row['kategori_nama'] ?? '')),
+                $this->csvSafe((string) $row['satuan']),
                 $row['harga_jual'],
                 $row['harga_beli'],
                 (int) $row['is_active'],
@@ -794,9 +824,10 @@ class Produk extends BaseController
             $ringkasan['total_baris']++;
 
             $idRaw = $ambil($row, 'id');
-            $nama = $ambil($row, 'nama');
+            // Kolom teks bebas dibalik dari proteksi formula saat export.
+            $nama = $this->csvUnsafe($ambil($row, 'nama'));
             $kategoriId = $ambil($row, 'kategori_id');
-            $satuan = $ambil($row, 'satuan') ?: 'pcs';
+            $satuan = $this->csvUnsafe($ambil($row, 'satuan')) ?: 'pcs';
             $hargaJual = $ambil($row, 'harga_jual');
             $hargaBeli = $ambil($row, 'harga_beli') ?: '0';
             $aktif = $ambil($row, 'aktif');
