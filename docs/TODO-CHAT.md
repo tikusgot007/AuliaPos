@@ -1,37 +1,41 @@
 # Status Proyek — AuliaPos + WA-Gateway (Master Reference)
 
-**Terakhir diupdate:** 28 September 2026 WIB. Pembaruan besar: seluruh fitur Inbox WhatsApp yang dimulai 26 September (**Grup Tahap 1**, **Grup Tahap 2**, **Balas Pesan Tahap 3**, **Inbox Read Authorization**) sudah **SELESAI penuh** dan sudah ter-*push* ke `origin/v2.3`. Lihat bagian "Status Sekarang" di bawah untuk ringkasannya.
+**Terakhir diupdate:** 29 September 2026 WIB. Pembaruan besar: **Fitur Teruskan (Tahap 4 / GH-016) SELESAI di dua repo** — WA-Gateway sudah di-*merge* + *deploy* ke `master` (`4a766d2`, live), AuliaPos plan `Completed`. Ditambah rantai perbaikan **media-bound** (plan v1.0–v1.4 + janitor A-01..A-04), **regenerate `docs/ARCHITECTURE.md`** (template §1–15), dan **port *concurrency lock* No Order** dari `v2.1`. Sebelumnya (28 Sep): seluruh fitur Inbox WhatsApp yang dimulai 26 September (**Grup Tahap 1**, **Grup Tahap 2**, **Balas Pesan Tahap 3**, **Inbox Read Authorization**) sudah **SELESAI penuh** dan ter-*push* ke `origin/v2.3`.
 **Riwayat pembaruan sebelumnya:** 24 September 2026 (koreksi janitor: status live Gateway, roadmap M1 dan M3, pemulihan 2 laporan klarifikasi M1 Wave 1) — setelah **M1 Wave 1 ditutup** (deploy TASK-019, AC-001 nyata TASK-017 lulus 3/3, APPROVAL TASK-018). Bukti AC-001 sudah nyata (Gateway live, 3× `pm2 stop`: 30/30 pesan, 0 hilang, 0 duplikat); bukti AC-002–AC-018 tetap simulasi. Rincian: `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md`. M1 Wave 1 masuk `origin/master` lewat **PR #4, merge commit `21a4cb6`** (23 Sep malam).
-**Cek centang:** 21 September 2026 ~14:30 WIB (diverifikasi langsung ke repo dan mesin Aan-PC) + pembaruan 23, 24, dan 28 September 2026. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[~]` = selesai sebagian, `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
+**Cek centang:** 21 September 2026 ~14:30 WIB (diverifikasi langsung ke repo dan mesin Aan-PC) + pembaruan 23, 24, 28, dan 29 September 2026. Legenda: `[x]` = selesai dan terverifikasi (bukti dicatat di samping), `[~]` = selesai sebagian, `[ ]` = belum. Item yang selesai sebagian dipecah jadi dua baris.
 **Cara pakai:** Sematkan/paste dokumen ini di awal sesi Claude Code baru sebagai context. Update bagian "Status Sekarang" dan "Yang Menggantung" setiap kali ada progres baru — dokumen ini gampang basi kalau kerja paralel jalan di beberapa sesi Claude Code sekaligus, jadi **selalu `git fetch` + cek HEAD nyata sebelum percaya isi dokumen ini secara buta**.
 
 ---
 
-## Status Sekarang (28 September 2026)
+## Status Sekarang (29 September 2026)
 
 ### Dua repo
 
 | Repo | Branch | HEAD | Status |
 | --- | --- | --- | --- |
-| AuliaPos | `v2.3` | `bbb91c4` | Bersih, sudah sinkron dengan `origin/v2.3` |
-| WA-Gateway | `master` | `a2ba409` | Bersih, sudah sinkron dengan `origin/master`, ada di `C:\projects\WA-Gateway` |
+| AuliaPos | `v2.3` | `676ef9a` | Bersih, sudah sinkron dengan `origin/v2.3` |
+| WA-Gateway | `master` | `4a766d2` | Bersih, sudah sinkron dengan `origin/master`, ada di `C:\projects\WA-Gateway` (runtime live, sudah termasuk merge Teruskan) |
 
 > [!IMPORTANT]
 > Status proses Gateway **belum diverifikasi** saat pembaruan ini ditulis — `pm2` tidak ada di `PATH` shell yang dipakai, jadi jangan diasumsikan Gateway sedang online. Cek sendiri sebelum uji apa pun yang butuh Gateway hidup.
 
-### Fitur WhatsApp Inbox yang sudah SELESAI (26–28 September 2026)
+### Fitur WhatsApp Inbox yang sudah SELESAI (26–29 September 2026)
 
-Keempat fitur berikut sudah thru **PRD → Spec → Plan → Kode → Review** dan sudah ter-*push*. Semuanya punya dokumen spec + plan sendiri di `/spec/` dan `/plan/`. Satu item terakhir berbeda sifatnya: itu **perbaikan bug** yang plan-nya lahir langsung dari diagnosis (tanpa PRD), tetapi tetap dieksekusi fase per fase dengan gerbang approval.
+Fitur-fitur berikut sudah thru **PRD → Spec → Plan → Kode → Review** dan sudah ter-*push*. Semuanya punya dokumen spec + plan sendiri di `/spec/` dan `/plan/`. Beberapa item terakhir berbeda sifatnya: itu **perbaikan bug / hardening** yang plan-nya lahir langsung dari diagnosis dan review (tanpa PRD), tetapi tetap dieksekusi fase per fase dengan gerbang approval.
 
 - [x] **Grup Tahap 1** — tab **Grup** terpisah dari antrean kasir, penandaan grup, penonaktifan aksi yang tidak berlaku untuk grup, perbaikan badge `perlu_dibalas`. Spec `spec-design-grup-tahap1-tab-inbox.md` v1.2, plan `plan-feature-grup-tahap1-v1.0.md` Completed. Review commit `09a6f0e`: **clear to merge**.
 - [x] **Grup Tahap 2** — identitas pengirim per pesan (nomor telepon atau LID, tidak pernah JID mentah) + nama grup stabil sebagai judul percakapan. Spec `spec-design-grup-tahap2-identitas.md` v1.4, plan AuliaPos + Gateway Completed. Dilanjut **Sender Identity Hardening** (`plan-refactor-sender-identity-label-hardening-v1.0.md`) setelah review menemukan kebocoran JID mentah.
 - [x] **Balas Pesan Tahap 3 (GH-015)** — balas pesan **berkutipan asli WhatsApp**, untuk teks maupun lampiran, plus tampilan kutipan masuk dari pelanggan. Berlaku **dua repo**: AuliaPos (snapshot kutipan di 7 kolom `messages.quoted_*` + `InboxQuoteSnapshotService`) dan WA-Gateway (`quoted` opsional di `/send` + `/send-media`, `quote_applied` di respons). Spec `spec-design-balas-pesan.md` **v1.8**, plan AuliaPos + Gateway Completed, lalu **2 ronde review** + 2 plan remediasi (`plan-refactor-balas-pesan-tahap3-v1.0.md`, `plan-refactor-balas-pesan-tahap3-review2-v1.0.md`) yang menutup temuan keamanan (urutan guard otorisasi, IDOR media, cuplikan tanpa batas), **fidelitas tipe media** kutipan (`REQ-008c` + kolom `quoted_media_type`), dan kebersihan arsitektur. **Diverifikasi live** terhadap Baileys sungguhan (kotak kutipan native terlihat di WhatsApp), bukan simulasi saja.
 - [x] **Inbox Read Authorization (ALT-003/AUTHZ-02)** — keputusan **baca terbuka, tulis terbatas**: semua staff yang login boleh melihat semua percakapan, thread, dan media; operasi tulis tetap **terbatas ke pemegang/admin**; Internal Note terbuka. `GET /inbox/media/(:num)` **dibuka** (guard `cekOwnership()` dihapus), `GET /inbox/api/conversations/(:num)/messages` **tetap** `auth`-only tanpa guard kepemilikan. Spec `spec-design-inbox-read-authorization.md` v1.1, plan `plan-refactor-inbox-media-read-authorization-v1.0.md` Completed, review commit `1961bda`: **clear to merge**, 0 temuan CRITICAL/REQUIRED.
 - [x] **Media Inbox: foto tidak pernah kadaluarsa** *(perbaikan bug, 28 Sep 2026)* — keluhan "Gambar tidak tersedia (kemungkinan sudah kadaluarsa)" ternyata **bukan** media basi: Gateway live sedang mati (Apache mencatat `502`, bukan `410`). Tiga cacat ditutup: latch `mediaGagal` yang permanen, pesan yang selalu menuduh "kadaluarsa", dan pemetaan **SEMUA** error Gateway ke `410` yang bisa memblacklist foto utuh selamanya. Kontrak `/media/download` sekarang `200` / `410` (hanya bila host media menyatakannya eksplisit) / `503` / `504`, dengan batas waktu unduhan 6 detik di Gateway. Ditambah **penyimpanan media masuk ke disk lokal** (`inbox.mediaStoragePath = D:\aulia_inbox_media\`) supaya membuka foto tidak lagi bergantung pada Gateway — ini menutup akar masalahnya. Plan `plan-bugfix-inbox-media-unavailable-v1.0.md` **Completed**; AuliaPos `1cb44ff` (`v2.3`), WA-Gateway `1591512` (**live**, `master`). Bukti: `docs/decisions/2026-09-28-inbox-media-not-expired-and-failure-classification.md`.
+- [x] **Teruskan (Tahap 4 / GH-016)** — meneruskan pesan/lampiran ke percakapan lain. Dua repo: WA-Gateway menerima field `forward` di `/send` + `/send-media` (penanda native `contextInfo.forwardingScore`, fallback prefix teks `"↪️ Diteruskan: "`, respons `forward_marker_applied`); AuliaPos kolom `messages.is_forwarded` + modal pemilih tujuan. Spec `spec-design-teruskan.md` v1.3, plan AuliaPos + Gateway `Completed`, **bukti native terlihat di WhatsApp**, `EXT-001` terpenuhi (Gateway live `master` `4a766d2`).
+- [x] **Media-bound hardening (rantai plan v1.0–v1.4 + janitor A-01..A-04)** — tiga sumbu batas media (ingest/unduh/unggah) yang terpisah, clamp env 3-kanal, plafon kebijakan 4096 MB, guard overflow 32-bit, pesan batas efektif (bukan nilai mentah). Semua plan `Completed`, sudah lewat `/sdlc-code-review`.
+- [x] **Regenerate `docs/ARCHITECTURE.md`** (29 Sep) — 575 baris, mengikuti template resmi §1–15 (termasuk §12 topologi DB + §13 arsitektur modul Inbox).
+- [x] **Port *concurrency lock* No Order dari `v2.1` ke `v2.3`** (29 Sep) — commit `4865c87`.
 
 ### Baseline test terbaru
 
-- **577 test / 2214 assertion, OK, exit 0** (28 Sep 2026, `vendor/bin/phpunit --no-coverage`). Naik dari 574/2201 karena perbaikan bug media Inbox menambah 3 test (1 session + kolom-kolom 503/504). Angka ini naik tiap sesi yang menambah test — jangan pakai angka beku sebagai gerbang.
+- **691 test / 2714 assertion** (29 Sep 2026, `vendor/bin/phpunit --no-coverage`) — tetapi **4 error pra-eksisting** `Row size too large (8126)` (errno 1118) di 4 test migrasi (`GatewayOperationIdMigrationTest`, `IsForwardedMigrationTest`, `QuoteColumnsMigrationTest`, `QuotedSourceMessageIdMigrationTest`), karena tabel `messages` di `aulia_inboxdb_test` belum `ROW_FORMAT=DYNAMIC`. Sisanya lulus. **Exit-0 penuh baru tercapai setelah 4 error konfigurasi tabel itu dibereskan** — bukan bug kode, dan bukan regresi. Angka ini naik tiap sesi yang menambah test — jangan pakai angka beku sebagai gerbang.
 
 ---
 
@@ -57,7 +61,7 @@ PRD: `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — **v1.2**.
 - [x] **Tahap 1 — Grup di AuliaPos** (GH-011/GH-012)
 - [x] **Tahap 2 — Grup di WA-Gateway** (GH-013/GH-014)
 - [x] **Tahap 3 — Balas Pesan** (GH-015) — dua repo
-- [ ] **Tahap 4 — Teruskan** (GH-016) — dua repo. **Spec `spec-design-teruskan.md` SUDAH ada**, tapi **belum ada plan** (`plan/plan-feature-teruskan-*.md` tidak ada). Langkah berikutnya: `/sdlc-plan-tasks`.
+- [x] **Tahap 4 — Teruskan** (GH-016) — dua repo, **SELESAI**. Spec `spec-design-teruskan.md` v1.3; plan `plan-feature-teruskan-auliapos-v1.0.md` + `plan-feature-teruskan-wa-gateway-v1.0.md` `Completed`; Gateway live `master` `4a766d2`.
 
 Urutan bergantung ke bawah: Tahap 0 → M1 → M2 → M3 → M4 → M5.
 
@@ -262,11 +266,11 @@ Dokumen acuan M3 Fase 1 (semuanya sudah dilewati; disimpan sebagai jejak):
 
 ## Yang Menggantung — Action Items Konkret
 
-> **Diperbarui 28 September 2026.** Keputusan prioritas lama "M1 dulu vs M3 duluan" sudah **tidak relevan** — M1 Wave 1 & 2 selesai, M3 Fase 1 (1a–1e) + Fase 2a selesai, dan empat fitur Inbox (Grup Tahap 1/2, Balas Pesan Tahap 3, Inbox Read Authorization) selesai. Seksi ini sekarang berisi pekerjaan yang **benar-benar masih terbuka**.
+> **Diperbarui 29 September 2026.** Keputusan prioritas lama "M1 dulu vs M3 duluan" sudah **tidak relevan** — M1 Wave 1 & 2 selesai, M3 Fase 1 (1a–1e) + Fase 2a selesai, dan seluruh fitur Inbox (Grup Tahap 1/2, Balas Pesan Tahap 3, Inbox Read Authorization, Teruskan Tahap 4) selesai. Seksi ini sekarang berisi pekerjaan yang **benar-benar masih terbuka**.
 
-### A. Pilihan arah berikutnya (per 28 Sep 2026)
+### A. Pilihan arah berikutnya (per 29 Sep 2026)
 
-- [ ] **A1. Fitur Teruskan (Tahap 4 / GH-016)** — fitur besar berikutnya yang tersisa dari PRD Inbox. Spec `spec-design-teruskan.md` **sudah ada**, tapi plan **belum** → langkah pertama `/sdlc-plan-tasks`. Dua repo.
+- [x] **A1. Fitur Teruskan (Tahap 4 / GH-016)** — **SELESAI** dua repo (plan AuliaPos + Gateway `Completed`, Gateway live `4a766d2`, bukti native terlihat di WhatsApp). Arah berikutnya bergeser ke A2/A3/A4.
 - [ ] **A2. M3 Fase 2b — Auto-assignment (GH-008)** — belum mulai; melengkapi M3 di samping Fase 2a yang sudah selesai.
 - [ ] **A3. M2 — State Consistency (program besar)** — jalur `lepas`/`tutup`/`snooze`/`tandaiDibaca`/`hapus` masih non-atomic (`docs/ARCHITECTURE.md` §12). **Bukan blocker lagi** untuk M3, tapi belum pernah dikerjakan.
 - [ ] **A4. M1 Ticket 05–16 (sisa gelombang reliability Gateway)** — khususnya Ticket 05 (uji pembeda penyebab error dekripsi, butuh nomor uji kedua) dan risiko P0 #3/#4/#5 (lihat seksi C).
@@ -287,7 +291,7 @@ Dokumen acuan M3 Fase 1 (semuanya sudah dilewati; disimpan sebagai jejak):
 - [x] **C1. Risiko P0 #3** — duplicate-outgoing saat timeout. **SELESAI 28 Sep 2026**: 4 putaran uji nyata di Gateway + WhatsApp, **0 duplikat** (replay di jalur dalam lease, `409` diuji, pemulihan pasca-lease terbukti). Bukti: `docs/decisions/2026-09-28-c1-p0-3-outgoing-idempotency-remeasurement.md`. **ASSUMPTION-009 tetap OPEN** (celah ~1 ms "sudah diterima WhatsApp tapi belum tercatat"; penutup penuhnya GW-21 di M2) — jangan pernah menulis "duplikat mustahil".
 - [x] **C2. Risiko P0 #4** — retry pesan masuk tanpa batas percobaan dan tanpa dead-letter. **SUDAH BERES sejak M1 Wave 2 Fase 3** (TASK-011..TASK-014): batas percobaan, batas usia, status `dead`, dan kolom `dead_lettered_at`. Diverifikasi 28 Sep 2026 langsung pada Gateway hidup: kolomnya ada di `incoming_queue` dan 0 baris berstatus `dead`. Sisa frasa "belum diamati jangka panjang" bersifat pemantauan, **bukan** cacat — Gateway memang sudah mencatat jumlah dead-letter saat start-up.
 - [ ] **C3. Risiko P0 #5 / GW-25** — error dekripsi + `message_timestamp` bergeser (sebaran 28–58 detik); penyebab belum terbukti, butuh nomor uji kedua. **ESC-001..004 (GW-11 / GW-25) tetap OPEN** — sumber timestamp dikunci di luar repo ini. Catatan 28 Sep 2026: pada satu pesan masuk nyata, selisih `message_timestamp` vs `created_at` hanya **0,34 detik** dan tidak ada error dekripsi sama sekali — jadi **tidak tereproduksi** dari sampel tunggal ini; perlu nomor uji kedua seperti tertulis.
-- [ ] **C4. E-02 — akar masalah DIKOREKSI, perbaikan TERVERIFIKASI 28 Sep 2026 (menunggu deploy).** Uji E2E nyata (instance Gateway terpisah, nomor uji `6281913500707`): teks biasa, foto biasa, dan dokumen + keterangan **sampai**; foto **"lihat sekali"** sebelumnya **hilang total**. **Koreksi akar masalah:** view-once ke perangkat tertaut **bukan** `viewOnceMessageV2` — WhatsApp mengirim stanza `<unavailable type="view_once">` **tanpa isi**, Baileys menandai `msg.key.isViewOnce = true` dan membiarkan `msg.message` undefined (`node_modules/baileys/lib/Utils/decode-wa-message.js:127,192-195`; `lib/Socket/messages-recv.js:624-632`), lalu tetap memancarkan `messages.upsert` (`lib/Socket/chats.js:764-765`). Gateway lama membuangnya di **baris pertama** `_handleIncomingMessage` (`if (!msg.message) return;`) — **bukan** di cabang `debug` seperti dugaan awal. **Perbaikan** (di worktree, **belum di-commit/deploy**): deteksi `!msg.message && msg.key?.isViewOnce === true` → placeholder teks tanpa mengambil media; cabang `viewOnceMessageV2` tetap dipertahankan untuk jalur resend dari HP utama. Terverifikasi: `incoming_queue` id 5 + AuliaPos `messages` id 900041 (`wa_message_id` `3EB0F537BC07D69307D502`), `media_json = null`. Rencana + amandemen: `plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md`. **E-07 (upsert tanpa konten) tetap belum terbukti.**
+- [x] **C4. E-02 — akar masalah DIKOREKSI, perbaikan TERVERIFIKASI 28 Sep 2026, SUDAH DI-DEPLOY (`66bff03`).** Uji E2E nyata (instance Gateway terpisah, nomor uji `6281913500707`): teks biasa, foto biasa, dan dokumen + keterangan **sampai**; foto **"lihat sekali"** sebelumnya **hilang total**. **Koreksi akar masalah:** view-once ke perangkat tertaut **bukan** `viewOnceMessageV2` — WhatsApp mengirim stanza `<unavailable type="view_once">` **tanpa isi**, Baileys menandai `msg.key.isViewOnce = true` dan membiarkan `msg.message` undefined (`node_modules/baileys/lib/Utils/decode-wa-message.js:127,192-195`; `lib/Socket/messages-recv.js:624-632`), lalu tetap memancarkan `messages.upsert` (`lib/Socket/chats.js:764-765`). Gateway lama membuangnya di **baris pertama** `_handleIncomingMessage` (`if (!msg.message) return;`) — **bukan** di cabang `debug` seperti dugaan awal. **Perbaikan** (ter-commit & ter-deploy di `master` sebagai `66bff03`, sudah termasuk di `4a766d2`): deteksi `!msg.message && msg.key?.isViewOnce === true` → placeholder teks tanpa mengambil media; cabang `viewOnceMessageV2` tetap dipertahankan untuk jalur resend dari HP utama. Terverifikasi: `incoming_queue` id 5 + AuliaPos `messages` id 900041 (`wa_message_id` `3EB0F537BC07D69307D502`), `media_json = null`. Rencana + amandemen: `plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md`. **E-07 (upsert tanpa konten) tetap belum terbukti.**
 
 ### D. Keputusan produk tertunda (bukan bug, bukan pekerjaan teknis)
 
@@ -323,14 +327,14 @@ Dokumen acuan M3 Fase 1 (semuanya sudah dilewati; disimpan sebagai jejak):
 - [x] `docs/audit/clarification-report-m3-fase1-operational-inbox-spec-2026-09-20.md`
 - [x] `docs/audit/clarification-report-m3-fase1-operational-inbox-plan-2026-09-21.md`
 
-**Dokumen fitur Inbox 26–28 Sep 2026 (Grup / Balas Pesan / Read Auth):**
+**Dokumen fitur Inbox 26–29 Sep 2026 (Grup / Balas Pesan / Read Auth / Teruskan):**
 - [x] `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` — PRD v1.2 (GH-011..GH-016)
 - [x] `spec/spec-design-grup-tahap1-tab-inbox.md` — v1.2
 - [x] `spec/spec-design-grup-tahap2-identitas.md` — v1.4
 - [x] `spec/spec-design-balas-pesan.md` — **v1.8**
-- [x] `spec/spec-design-teruskan.md` — spec Teruskan (Tahap 4; **belum ada plan**)
+- [x] `spec/spec-design-teruskan.md` — v1.3; plan Teruskan (AuliaPos + Gateway) sudah ada & `Completed`
 - [x] `spec/spec-design-inbox-read-authorization.md` — v1.1
-- [x] `plan/` berisi 23 plan; semua yang relevan berstatus `Completed` kecuali plan Teruskan yang belum dibuat
-- [x] `docs/ARCHITECTURE.md` — peta arsitektur (sudah termasuk Balas Pesan, Read Auth, §11 perf-DB)
+- [x] `plan/` berisi **34 plan** (29 Sep 2026); semua berstatus `Completed` — termasuk pasangan plan Teruskan (AuliaPos + Gateway). Catatan: file `plan-feature-teruskan-wa-gateway-v1.0.md` di disk masih tertulis `status: 'Planned'` (belum di-flip), padahal pekerjaannya sudah selesai & ter-deploy (`4a766d2`)
+- [x] `docs/ARCHITECTURE.md` — peta arsitektur, **di-regenerate penuh 29 Sep 2026** (575 baris, template §1–15; sudah termasuk Balas Pesan, Read Auth, Teruskan, batas media, §11 perf-DB, §12 topologi DB, §13 arsitektur Inbox)
 
 **Prinsip update dokumen ini ke depan**: kalau ada progres baru dari sesi manapun, jalankan `git fetch` + `git log <base>..<HEAD_terbaru> --oneline` dulu untuk lihat commit yang masuk sebelum percaya status di dokumen ini — jangan asumsikan dokumen ini otomatis sinkron dengan kerja paralel.
