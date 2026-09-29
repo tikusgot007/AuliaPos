@@ -9,17 +9,14 @@ class Produk extends BaseController
 {
     public function index()
     {
-        $model = new ProdukModel();
         $kategoriModel = new KategoriModel();
 
         $data = [
             'title'    => 'Produk | AULIA',
             'content'  => 'produk/index',
-            'produk'   => $model->join('kategori', 'kategori.id = produk.kategori_id')
-                ->select('produk.id, produk.barcode, produk.nama, produk.kategori_id, produk.satuan, produk.harga_jual, produk.harga_beli, produk.is_active, kategori.nama as kategori_nama')
-                ->where('produk.is_active', 1)
-                ->findAll(),
 
+            // Daftar produk ditampilkan lewat DataTables server-side
+            // (lihat produk/get-produk-data), bukan lewat variabel ini.
             // Data kategori untuk dropdown inline editing
             'kategori' => $kategoriModel->getKategoriInduk()
         ];
