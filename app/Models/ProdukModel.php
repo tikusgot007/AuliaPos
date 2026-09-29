@@ -283,4 +283,35 @@ class ProdukModel extends Model
 
         return [true, null];
     }
+
+    /**
+     * Cek apakah sebuah produk boleh dinonaktifkan (soft delete,
+     * is_active = 0) dari halaman Produk.
+     *
+     * Berbeda dari bolehDihapus(): nonaktifkan tidak menghapus baris maupun
+     * relasi, sehingga histori transaksi tidak menjadi penghalang. Yang tetap
+     * dijaga hanya hal yang bersifat struktural:
+     *   - bukan ID khusus (1, 2, 4)
+     *   - is_locked = 0
+     *
+     * @return array{0: bool, 1: ?string} [boleh, alasan-jika-tidak]
+     */
+    public function bolehDinonaktifkan(int $id): array
+    {
+        if (in_array($id, self::ID_KHUSUS, true)) {
+            return [false, 'ID ' . $id . ' adalah ID khusus (Banner/Manual/Custom), tidak boleh dinonaktifkan.'];
+        }
+
+        $produk = $this->find($id);
+
+        if (!$produk) {
+            return [false, 'Produk tidak ditemukan.'];
+        }
+
+        if ((int) $produk['is_locked'] === 1) {
+            return [false, 'Produk terkunci (is_locked = 1), tidak boleh dinonaktifkan.'];
+        }
+
+        return [true, null];
+    }
 }

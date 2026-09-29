@@ -156,6 +156,14 @@ class Produk extends BaseController
     {
         $model = new ProdukModel();
 
+        [$boleh, $alasan] = $model->bolehDinonaktifkan((int) $id);
+
+        if (!$boleh) {
+            return redirect()
+                ->to('/produk')
+                ->with('error', $alasan);
+        }
+
         // Soft delete: set is_active = 0
         if ($model->update($id, ['is_active' => 0])) {
             return redirect()
