@@ -466,3 +466,153 @@
 <!-- checkpoint-tail: 2026-09-29 (Phase 7bl Clarification Analyst Go-Live Plan) Ran /sdlc-clarify-reqs on the AuliaPos v2.3 + WA-Gateway go-live plan: Iteration 1 scored 76/100 REFINE after finding three blockers — C-01 the plan's "20 v2.3 migrations / 6 v2.1" counts include .gitkeep (repo really has 19 .php in v2.3 and 5 .php in v2.1), C-02 GatewayStatusModel is a singleton table with no heartbeat history so "green >=99% of business hours" is unmeasurable, C-03 missing/duplicate have no ground-truth method. Grilled the 7 open decisions one per turn and locked them: store open every day (PC on ~08:00/off ~20:30, autostart 07:45-21:00, overnight backlog, ad-hoc off-peak maintenance, heartbeat denominator = PC-on time); shadow 5 consecutive calendar days with an external heartbeat sampler + explicit staleness/missing/duplicate formulas; monitoring = implementer reviews the log once daily (auto-restart must be proven <5 min); SOP keeps Web authenticated at cutover (accepted RISK-004, guardrail: Web on one kios only + daily double-reply reconciliation), read-only only in Phase 5; media retention deletes files older than 90 days via ops runbook and NULLs media_local_filename (closes RISK-005); second PC = cold standby, never a Gateway; rollback authority = store owner, executor = implementer + backup, runbook in docs/runbooks/. Recorded plan gaps F-01..F-05 (inbox DB-group .env before Phase 2, aulia_inboxdb_test provisioning if the suite runs on the server, single-instance check, maintenance window, Phase 5/6 read-only boundary). Iteration 2 scored 84/100 PROCEED; report saved at docs/audit/clarification-report-golive-auliapos-wa-gateway-2026-09-29.md. Next: /sdlc-plan-tasks in a new session to transcribe the resolutions into the plan. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bm — Specification Architect: spec M1 Wave 3 WA-Gateway Ticket 05/12–15)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, file terverifikasi ada; path sudah tercatat, tidak perlu update).
+- **Current SDLC Phase:** Specification (`/sdlc-define-specs`), persona **Specification Architect**. **Tanpa perubahan kode sumber** (hanya menulis di `/spec/`).
+- **Active Artifacts:**
+  - `spec/spec-process-m1-wave3-reliability-observability.md` — 🆕 Draft **v1.0**; Readiness mandiri **86/100**; menunggu `/sdlc-clarify-reqs`.
+  - Upstream yang dibaca: `docs/GATEWAY-REQUIREMENTS.md` (GW-20/GW-21), `docs/TODO-CHAT.md` (M1 Ticket 05, 12–15; C3), `docs/decisions/2026-09-21-m1-ticket01-baseline.md`, `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` (E-08/E-12), spec Wave 1 & Wave 2.
+- **Achieved Milestones:**
+  - Menulis spec gelombang 3 M1 yang menutup **5 ticket** lewat 5 epic: E-W1 (Ticket 05), E-W2 (12), E-W3 (13), E-W4 (14, GW-20+GW-21), E-W5 (15).
+  - Menemukan **2 cacat worker** dari pembacaan kode: (a) `incomingDelivery.stop()` hanya mematikan timer, tidak menunggu batch berjalan; (b) satu `try/catch` membungkus seluruh loop `deliver` sehingga satu event yang melempar error membatalkan sisa batch.
+  - **Health jujur (GW-20)** dirancang dengan probe reachability aktif (`onWhatsApp` ke nomor sendiri); `connected` hanya bila socket hidup + probe segar sukses; ada batas jujur ASSUMPTION-020 (`receive_ready` tidak bisa dibuktikan langsung).
+  - **GW-21** (kabar status pengiriman) dimasukkan ke Ticket 14 tetapi **dibatasi ke sisi Gateway** walau `GATEWAY-REQUIREMENTS.md` menandainya M2 (ASSUMPTION-012).
+  - **Instrumentasi diagnostik read-only** bergerbang `WA_DIAG_RAW_MESSAGE` untuk uji pembeda H1/H2 (Ticket 05).
+  - Cakupan angka: **REQ-042..071 (30)**, **AC-047..076 (30)**, CON-011..016, SEC-003..005, GUD-005..007, ASSUMPTION-012..021.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** mengira akar GW-11/GW-25 (kegagalan dekripsi + `message_timestamp` bergeser) bisa diperbaiki di dalam repo Gateway. **Reason:** sumber waktu & sesi berada di luar kode yang bisa diubah (ESC-001..004 tetap OPEN). **Correct:** Wave 3 hanya mengukur/membedakan hipotesis; dilarang mengklaim "sudah diperbaiki" (REQ-044/045, AC-076).
+- **Updated Files:**
+  - `spec/spec-process-m1-wave3-reliability-observability.md` — baru (spec Wave 3).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - ASSUMPTION-012..021 ditulis eksplisit di spec §1.2 (melanjutkan penomoran Wave 2). Terutama: GW-21 dibatasi Gateway; endpoint `GET /api/health` + `GET /api/metrics` tanpa token (mengikuti `/api/status`); heartbeat tetap 4 nilai enum + blok `health` aditif; metrik in-process tanpa dependensi npm (CON-014); rotasi log di luar scope (ASSUMPTION-019); spec berbahasa Indonesia (ASSUMPTION-021).
+  - **OI-001 = OPEN INPUT, bukan asumsi:** nomor uji kedua (belum pernah dihubungi) untuk AC-049; MUST disediakan pemilik.
+  - `spec-index.md` sengaja **tidak** diubah (indeks itu khusus set PRD Grup/Balas/Teruskan; spec M1 mandiri, sama seperti Wave 1–2).
+  - Tidak ada ADR/CONTEXT.md baru (Triple Gate ADR tidak terpenuhi).
+- **Next Action / Pending:**
+  - Sesi baru: `/sdlc-clarify-reqs` atas `spec/spec-process-m1-wave3-reliability-observability.md` (prompt sudah disiapkan di sesi ini).
+  - **Blocker:** OI-001 (nomor uji kedua) → AC-049 `BLOCKED`.
+  - **Pertanyaan terbuka:** GW-21 dipertahankan di Wave 3 (rekomendasi) atau dikembalikan ke M2.
+  - Carried forward dari sesi lain: C3/GW-25, ASSUMPTION-007, D1/D2, B1/B2/B3/B8, plan go-live menunggu transkripsi resolusi (sesi 7bl) — belum dieksekusi.
+  - Belum ada commit/push (belum diminta user).
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bm Specification Architect M1 Wave 3) Wrote spec/spec-process-m1-wave3-reliability-observability.md v1.0 covering the remaining M1 WA-Gateway tickets 05/12/13/14/15 (epics E-W1..E-W5) with REQ-042..071 and AC-047..076. Found two real worker-correctness defects in code (incomingDelivery.stop() does not await the running batch; a single try/catch around the whole delivery loop lets one bad event abort the rest). Designed honest health (GW-20) via an active onWhatsApp reachability probe, scoped GW-21 receipts to the Gateway only despite GATEWAY-REQUIREMENTS marking it M2, and added gated read-only diagnostics (WA_DIAG_RAW_MESSAGE) for the Ticket 05 H1/H2 discriminating test. Logged ASSUMPTION-012..021 and one OPEN INPUT, OI-001 (the required second, never-contacted test number that blocks AC-049). Self readiness 86/100. Next: /sdlc-clarify-reqs on the new spec in a fresh session. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bn — Clarification Analyst: klarifikasi spec M1 Wave 3 → 71/100 REFINE, proyeksi 90/100 PROCEED)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, terverifikasi ada).
+- **Current SDLC Phase:** Clarification (`/sdlc-clarify-reqs`), persona **Clarification Analyst**. Tanpa perubahan kode/spec (peran ini hanya menginterogasi + melaporkan; larangan menulis solusi dipatuhi).
+- **Active Artifacts:**
+  - `spec/spec-process-m1-wave3-reliability-observability.md` v1.0 — diinterogasi, **belum diedit** (tugas `/sdlc-define-specs` selanjutnya).
+  - `docs/audit/clarification-report-m1-wave3-reliability-observability-2026-09-29.md` — 🆕 **baru dibuat**. Readiness Score dokumen **71/100** (Below Threshold), proyeksi setelah resolusi **90/100** (Good Enough). User memilih **PROCEED**.
+- **Achieved Milestones:**
+  - Membaca penuh spec Wave 3 + seluruh lampiran wajib (GATEWAY-REQUIREMENTS.md, TODO-CHAT.md, decision log Ticket01/02, spec Wave 1 & 2) plus verifikasi silang ke kode nyata `C:\projects\WA-Gateway\src\logging\index.js` dan `src\config\index.js`.
+  - Menemukan **14 temuan (CB-01..CB-14)**, termasuk **2 Critical Flaw** yang men-cap skor ke 79: blok requirement **E-W5 (Ticket 15) hilang total dari §3** (REQ-068..071 hanya muncul di AC mapping, membuat AC-073..076 yatim, dan klaim self-score §13.9 "lima ticket punya REQ" terbukti salah), dan **guard satu-instance (REQ-052) berisiko mematikan GW-17/AC-048** bila lock file naif (tanpa penanganan stale lock setelah SIGKILL).
+  - **Verifikasi kode meniadakan 1 kekhawatiran:** cek langsung ke `src/logging/index.js` membuktikan logger Gateway **sudah** pakai `pino` (JSON per baris) dan `logLevel` default **sudah** `'info'` di `src/config/index.js` — jadi klaim "logging aditif" (REQ-055/056) valid dan risiko `debug` membanjiri log tidak nyata (CB-12 diturunkan dari blocker ke catatan minor).
+  - Menjalankan protokol "Grill Me" satu-per-satu (8 pertanyaan konkret dengan opsi A/B/C + rekomendasi) untuk CB-06, CB-09, CB-05, CB-10, CB-04, CB-11, CB-13, CB-02, CB-01, CB-03, CB-14, CB-07 — semua dijawab user, sebagian butuh penyederhanaan bahasa (user 2× minta "maksudnya bagaimana?").
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** hampir merekomendasikan "kunci resmi OS (native OS lock yang otomatis lepas saat proses mati)" untuk REQ-052 begitu user bilang niat run di Windows. **Reason:** itu classic Windows-native lock butuh dependensi npm baru (mis. `proper-lockfile`) atau API di luar Node bawaan — melanggar CON-014 (tidak ada dependensi baru) dan tidak konsisten dengan fallback JSON Android. **Correct:** pola **PID + timestamp + heartbeat, dicek langsung ke OS apakah PID hidup, auto-takeover bila mati/basi** — memberi efek yang sama (lepas otomatis saat proses mati) tanpa dependensi baru, jalan sama di Windows & Android fallback.
+- **Updated Files:**
+  - `docs/audit/clarification-report-m1-wave3-reliability-observability-2026-09-29.md` — baru, laporan final Review Iteration 1.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+  - `spec/spec-process-m1-wave3-reliability-observability.md` — **tidak diubah** (di luar wewenang persona ini; menunggu `/sdlc-define-specs`).
+- **Decisions Made (14 resolusi, semua milik user, dicatat lengkap di file laporan §1):**
+  - **CB-06/D-14:** instance uji Ticket 05 memakai **akun WhatsApp ketiga** (sesi bersih, QR sekali) — bukan salinan `auth/` nomor aktif; Arm H1 harus `/send` DARI nomor uji itu, bukan dari `6281913500707`.
+  - **CB-09:** GW-21 tetap **pencatat saja** di Wave 3 (Gateway-only); klaim §10 "menutup sebagian ASSUMPTION-009" **dihapus** (tidak didukung — tidak ada konsumen receipt); **OI-002 baru** = verifikasi bentuk payload `messages.update` Baileys 6.7.24 + tabel pemetaan status numerik → `receipt_state`, jadi gerbang keras sebelum REQ-066 dikunci.
+  - **CB-05:** `status` heartbeat hanya turun ke `disconnected` setelah **beberapa kegagalan probe berturut-turut** (bukan 1×); field baru `socket_status` memisahkan state socket mentah dari verdict health.
+  - **CB-10:** gerbang M1 **lunak** — Ticket 15 boleh menutup M1 untuk semua AC yang bisa dijalankan; AC-049 (dan bagian AC-047/AC-051 yang bergantung OI-001) jadi **open carry-over** eksplisit, tidak dihitung lulus.
+  - **CB-04:** guard satu-instance = **PID + heartbeat + auto-takeover** (lihat Dead-End di atas) — tanpa dependensi baru, aman Windows & Android.
+  - **CB-11:** Ticket 12/E-W2 diperluas mencakup invariant `heartbeat` (guard tumpang-tindih, isolasi error, batas waktu kirim); ASSUMPTION-015 ("lima hal") direvisi agar cocok 8 REQ E-W2 yang sebenarnya.
+  - **CB-13:** `HEALTH_PROBE_ENABLED` default **aktif (`1`)** di semua lingkungan termasuk produksi; baris "Ask first" di §9 yang bertentangan **dihapus**.
+  - **CB-02:** rumus `send_ready`/`receive_ready`/`delivery_ready` ditetapkan eksplisit; `HEALTH_INBOUND_STALE_MS` baru (bawaan 600000 ms) ditambahkan ke §4.7; tanpa bukti → `unknown`, bukan `false`.
+  - **CB-01:** Ticket 15 memakai ulang bukti nyata lama **hanya jika** commit-nya masih leluhur HEAD final; kalau tidak, dijalankan ulang (mencegah bukti basi).
+  - **CB-03:** tambah gauge `group_name_cache_size` dan `event_buffer_size` di §4.3 agar REQ-053/AC-058 konsisten.
+  - **CB-14:** `DELIVERY_EVENT_TIMEOUT_MS` (8000 ms) hanya membungkus panggilan `postToCI4`, BUKAN seluruh event; batas nyata terburuk per event (~16 dtk = LID 2 + media 6 + AuliaPos 8) wajib ditulis jujur dan dibandingkan terhadap `SHUTDOWN_DRAIN_MS`.
+  - **CB-07:** AC-047 dan AC-051 ditandai bergantung OI-001 untuk bagian yang menyentuh sesi/nomor uji (konsisten dengan status BLOCKED AC-049); bagian yang tidak butuh nomor uji tetap testable sekarang.
+  - Tidak ada istilah domain baru disepakati → `CONTEXT.md` tidak diperbarui. Tidak ada keputusan yang lolos ADR Triple Gate → tidak ada ADR baru (dicatat: bila GW-21 kelak jadi kontrak lintas-repo mengikat, itu wajib ADR).
+- **Next Action / Pending:**
+  - Sesi baru: `/sdlc-define-specs` atas `spec/spec-process-m1-wave3-reliability-observability.md`, menerapkan **14 resolusi CB-01..CB-14** di atas, naik ke **v1.1**, plus blok `REMEDIATION STATUS: RESOLVED` (proyeksi skor 90/100) tepat setelah H1.
+  - Setelah v1.1: opsional re-run `/sdlc-clarify-reqs`/`/sdlc-audit-consistency` untuk konfirmasi, lalu `/sdlc-plan-tasks`. Di plan: **OI-002** jadi task pertama Ticket 14; provisioning **D-14** (akun uji ketiga) jadi prasyarat Ticket 05.
+  - **Blocker tetap terbuka:** OI-001 (nomor uji kedua dari pemilik) dan D-14 (akun uji ketiga) — keduanya di luar kendali tim, harus disediakan pemilik sebelum AC-049/Ticket 05 bisa berjalan.
+  - Carried forward dari sesi lain (belum dieksekusi): C3/GW-25, ASSUMPTION-007, D1/D2, B1/B2/B3/B8, plan go-live sesi 7bl/7bk.
+  - Belum ada commit/push (belum diminta user; hanya `docs/audit/` yang ditulis pada sesi ini).
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bn Clarification Analyst M1 Wave 3) Interrogated spec/spec-process-m1-wave3-reliability-observability.md v1.0 via one-question-at-a-time grilling (12 items resolved: CB-01..CB-14). Score 71/100 (Below Threshold) at submission, capped at 79 by two Critical Flaw Vetos (missing E-W5 requirement block; naive single-instance lock risking GW-17/AC-048 breakage) — projected 90/100 after user's 14 resolutions. Key decisions: third WhatsApp account for Ticket 05's isolated session (D-14), GW-21 stays Gateway-only record-only with the unsupported "closes ASSUMPTION-009" claim removed and new OI-002 payload-verification gate, PID+heartbeat auto-takeover lock (no new dependency, Windows+Android safe — rejected native OS lock as needing proper-lockfile), soft M1 closure gate with AC-049 as open carry-over, explicit send_ready/receive_ready/delivery_ready formulas + new HEALTH_INBOUND_STALE_MS, probe defaults enabled, 8s budget scoped to postToCI4 only with true ~16s worst case documented. Verified against live code that WA-Gateway's logger already uses pino/JSON with logLevel=info default, de-risking the "additive logging" claim. User chose PROCEED at 90/100 projection. Report saved to docs/audit/clarification-report-m1-wave3-reliability-observability-2026-09-29.md. Next: /sdlc-define-specs to apply all 14 resolutions and bump to v1.1 in a fresh session. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bo — Specification Architect: remediasi spec M1 Wave 3 → v1.1, proyeksi 90/100)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, terverifikasi ada).
+- **Current SDLC Phase:** Specification remediation (`/sdlc-define-specs`, Phase 5 Audit Remediation), persona **Specification Architect**. **Tanpa perubahan kode sumber** (hanya menulis di `/spec/`).
+- **Active Artifacts:**
+  - `spec/spec-process-m1-wave3-reliability-observability.md` — 🔄 **v1.0 → v1.1**, seluruh 14 resolusi CB-01..CB-14 diterapkan. Blok `REMEDIATION STATUS: RESOLVED` (proyeksi Completeness 37/40, Clarity 28/30, Alignment 25/30 = **90/100**) disisipkan tepat setelah H1. Menunggu `/sdlc-plan-tasks`.
+  - `docs/audit/clarification-report-m1-wave3-reliability-observability-2026-09-29.md` — dibaca sebagai basis remediasi, **tidak diedit** (di luar wewenang skill ini; tidak diminta menambah status block di file audit itu sendiri).
+- **Achieved Milestones:**
+  - **CB-01:** ditulis blok `### E-W5` baru di §3 dengan **REQ-068..071** (matriks uji penuh, harness exit-nonzero, kriteria keluar M1 gerbang lunak + "carry-over terbuka", decision log + anti-data-loss ancestor-check), disambungkan ke AC-073..076 yang sebelumnya yatim. Klaim self-score §13.9 lama ("lima ticket punya REQ") diperbaiki.
+  - **CB-02:** rumus eksplisit `send_ready`/`receive_ready`/`delivery_ready` ditulis di REQ-062; `HEALTH_INBOUND_STALE_MS` baru (bawaan `600000` ms) ditambah ke §4.7; tanpa bukti sama sekali → `unknown`, bukan `false`.
+  - **CB-03:** gauge `group_name_cache_size` dan `event_buffer_size` ditambah ke §4.3, REQ-053 diperjelas.
+  - **CB-04:** REQ-052 direvisi jadi **PID + timestamp start + heartbeat berkala**; PID mati (dicek ke OS) atau heartbeat basi → auto-takeover; tanpa dependensi npm baru; sama di Windows & fallback JSON.
+  - **CB-05:** REQ-063 direvisi — `status` turun ke `disconnected` hanya setelah **N kegagalan probe berturut-turut** (`HEALTH_PROBE_FAILURES_THRESHOLD`, bawaan 2); field baru **`socket_status`** (state mentah, tanpa debounce) ditambah ke §2/§4.2.
+  - **CB-06/D-14:** REQ-044/046 direvisi — instance uji Ticket 05 = akun WhatsApp ketiga (sesi bersih); Arm H1 wajib `/send` DARI nomor uji, bukan dari `6281913500707`. **D-14 baru** ditulis eksplisit di §1.2. OI-001 diperluas jadi dua pemasok (akun Gateway uji + nomor kontak uji); DAT-002 disesuaikan.
+  - **CB-07:** AC-047/AC-051 dipecah eksplisit — bagian OI-001-dependent = BLOCKED, bagian yang tidak butuh nomor uji tetap testable sekarang; klaim otomatis §13.1 lama diperbaiki (kini implisit lewat catatan coverage §6).
+  - **CB-08/CB-09:** REQ-066 direvisi jadi **record-only, Gateway-only**; klaim §10 "menutup sebagian ASSUMPTION-009" **DIHAPUS** (tidak didukung — tidak ada konsumen receipt). **OI-002 baru** ditulis di §1.2 sebagai gerbang keras (bentuk payload `messages.update` 6.7.24 + tabel pemetaan status → `receipt_state`) sebelum REQ-066 diimplementasikan — bukan sekadar catatan §11 EXT-001 seperti versi lama.
+  - **CB-10:** REQ-070 baru menetapkan kriteria keluar M1 sebagai **gerbang lunak**: AC yang bisa dijalankan sekarang boleh menutup M1; AC-049 (dan bagian OI-001-dependent AC-047/AC-051) = `OPEN CARRY-OVER` eksplisit, tidak dihitung lulus; Ticket 15 wajib memuat bagian "carry-over terbuka".
+  - **CB-11:** Ticket 12/E-W2 diperluas dengan **REQ-072..074 baru** (invariant `heartbeat`: single-flight, isolasi error per siklus, anggaran waktu kirim) + **AC-077..079**. ASSUMPTION-015 direvisi dari "lima hal" jadi seluruh 8 REQ E-W2 asli + 3 REQ heartbeat baru.
+  - **CB-12:** `LOG_LEVEL=info` ditulis eksplisit di §4.7 sebagai kelengkapan (bukan perubahan perilaku — sudah terverifikasi ke kode `src/config/index.js` di sesi klarifikasi sebelumnya).
+  - **CB-13:** `HEALTH_PROBE_ENABLED` bawaan `1` (aktif di semua lingkungan termasuk produksi) dipertegas di §4.7; bullet "Ask first: mengaktifkan probe di produksi" di §9 **dihapus** (kontradiktif).
+  - **CB-14:** REQ-049 direvisi — `DELIVERY_EVENT_TIMEOUT_MS` (8000 ms) HANYA membungkus `postToCI4()`; batas nyata terburuk per event **±16000 ms** (LID 2000 + media 6000 + AuliaPos 8000) ditulis eksplisit dan dibandingkan terhadap `SHUTDOWN_DRAIN_MS` (5000 ms) — event belum selesai saat drain tetap tersimpan untuk siklus berikutnya, bukan hilang.
+  - Penomoran REQ/AC/CON/SEC/GUD lama **tidak diubah**; semua REQ/AC baru (E-W5, heartbeat) memakai nomor lanjutan (068-074, 077-079) sesuai pagar user. Ticket 06-11/16 (Wave 2) dan akar GW-11/GW-25 **tidak** disentuh/diklaim diperbaiki (CON-015 dihormati).
+- **Dead-Ends (Do NOT Repeat):** (tidak ada yang baru sesi ini — murni penerapan resolusi yang sudah dikunci di sesi klarifikasi 7bn)
+- **Updated Files:**
+  - `spec/spec-process-m1-wave3-reliability-observability.md` — v1.0 → **v1.1**, ~40 edit tersebar di §1.2/§2/§3/§4/§5/§6/§9/§10/§11/§12/§13/§14, blok `REMEDIATION STATUS: RESOLVED` baru setelah H1.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - Blok `REMEDIATION STATUS: RESOLVED` ditulis dalam **Bahasa Inggris** (konvensi AGENTS.md untuk blok status), sisa dokumen tetap Bahasa Indonesia (ASSUMPTION-021 tidak diubah).
+  - Skor proyeksi 90/100 **tidak dibulatkan naik secara sembarangan** — 3 kriteria masing-masing diberi skor terpisah dengan alasan poin yang ditahan (OI-002 belum diverifikasi nyata untuk Completeness; ambang N probe masih rentang 2-3 untuk Clarity; dampak REQ-066/OI-002 ke plan belum diaudit `/sdlc-audit-consistency` untuk Alignment).
+  - `docs/audit/clarification-report-...-2026-09-29.md` **tidak diedit** — skill ini hanya boleh menulis di `/spec/`; menandai status "RESOLVED" pada file audit itu sendiri dianggap di luar scope kecuali diminta eksplisit.
+- **Next Action / Pending:**
+  - **User memilih jalur:** buka **sesi chat baru**, jalankan `/sdlc-plan-tasks` dengan lampiran spec v1.1 + `docs/audit/clarification-report-m1-wave3-reliability-observability-2026-09-29.md` + `docs/GATEWAY-REQUIREMENTS.md` + `docs/TODO-CHAT.md` + spec Wave 2 (referensi pola).
+  - **Pagar wajib untuk plan:** (1) OI-002 = tugas pertama Ticket 14 sebelum REQ-066 dikunci; (2) provisioning OI-001/D-14 = prasyarat semua tugas Ticket 05; (3) Wave 3 tetap Gateway-only (CON-015); (4) jangan perbaiki akar GW-11/GW-25; (5) Ticket 15 wajib memuat bagian "carry-over terbuka".
+  - **Blocker tetap terbuka (di luar kendali tim):** OI-001 (akun Gateway uji ketiga + nomor kontak uji, D-14) dan OI-002 (verifikasi payload Baileys 6.7.24) — keduanya harus ditutup sebelum AC-049/REQ-066 bisa diimplementasikan penuh.
+  - Carried forward dari sesi lain (belum dieksekusi): C3/GW-25, ASSUMPTION-007, D1/D2, B1/B2/B3/B8, plan go-live sesi 7bk/7bl (menunggu transkripsi resolusi ke plan).
+  - Belum ada commit/push untuk spec v1.1 + checkpoint ini (belum diminta user).
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bo Specification Architect M1 Wave 3 Remediation) Applied all 14 clarification resolutions (CB-01..CB-14) to spec/spec-process-m1-wave3-reliability-observability.md, bumping it from v1.0 to v1.1 with a new English REMEDIATION STATUS: RESOLVED block right after the H1 (projected Completeness 37/40, Clarity 28/30, Alignment 25/30 = 90/100). Key changes: new §3 block ### E-W5 (REQ-068..071) anchoring the previously orphaned AC-073..076 and defining a soft M1 exit gate with explicit "carry-over terbuka"; explicit send_ready/receive_ready/delivery_ready formulas (REQ-062) plus new HEALTH_INBOUND_STALE_MS; new group_name_cache_size/event_buffer_size gauges; REQ-052 rewritten to PID+heartbeat lock with automatic takeover on dead/stale owner (no new dependency, Windows+Android-safe); REQ-063 rewritten with a new socket_status field plus an N-consecutive-failures debounce before downgrading status; REQ-044/046 rewritten around new decision D-14 (third WhatsApp account, clean session, Arm H1 sends FROM the test account not from the production number) with OI-001 expanded to two external suppliers; REQ-066 rewritten as Gateway-only record-only with the unsupported "closes ASSUMPTION-009" claim removed from §10, gated by a brand-new hard-gate OI-002 (verify Baileys 6.7.24 messages.update payload shape + numeric-status mapping before implementing REQ-066); three brand-new heartbeat-worker REQs (072-074) and three new ACs (077-079) extending Ticket 12/E-W2, with ASSUMPTION-015 corrected from "five things" to all 8 original E-W2 REQs plus the new heartbeat ones; REQ-049 rewritten to state the 8000ms budget covers ONLY postToCI4 with the true ~16000ms worst case documented against the 5000ms SHUTDOWN_DRAIN_MS; LOG_LEVEL=info documented in §4.7 for completeness (CB-12, already verified against code); HEALTH_PROBE_ENABLED=1-in-production reinforced in §4.7 with the contradictory §9 "Ask first" bullet removed (CB-13). Existing REQ/AC/CON/SEC/GUD numbering was preserved; all new items use continuation numbers as required. The clarification report file itself was read but NOT edited (out of this skill's /spec/-only scope). Next: user chose to proceed to /sdlc-plan-tasks in a fresh session, with OI-002 and OI-001/D-14 provisioning as mandatory upstream gates recorded in the handoff prompt; no commit/push done yet. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bp — Planner Architect: plan M1 Wave 3 WA-Gateway Ticket 05/12–15)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, terverifikasi ada).
+- **Current SDLC Phase:** Planning (`/sdlc-plan-tasks`), persona **Planner Architect**. **Tanpa perubahan kode sumber** (hanya menulis di `/plan/`).
+- **Active Artifacts:**
+  - `plan/plan-process-m1-wave3-reliability-observability-v1.0.md` — 🆕 `status: 'Planned'`; **9 fase / 46 task** (termasuk VERIFY/APPROVAL/DEPLOY); menunggu `/sdlc-clarify-reqs` (Readiness Score belum dinilai).
+  - Upstream yang dibaca: spec Wave 3 v1.1, `docs/audit/clarification-report-m1-wave3-reliability-observability-2026-09-29.md`, `docs/GATEWAY-REQUIREMENTS.md`, `docs/TODO-CHAT.md`, `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1, `CONTEXT.md`, `docs/adr/`.
+- **Achieved Milestones:**
+  - Menyusun plan 9 fase dari spec v1.1: (1) Fondasi (worktree+branch+config §4.7+metrik registry), (2) Ticket 12 worker correctness, (3) Ticket 13 structured logging, (4) Ticket 14 GW-20 metrik+health (diawali OI-002), (5) Ticket 14 GW-21 receipt, (6) DEPLOY, (7) Ticket 05 crash/restart + H1/H2, (8) Ticket 15 matriks + kriteria keluar M1, (9) penutupan.
+  - **Lima pagar wajib dipatuhi:** (1) OI-002 = TASK-019 (tugas pertama Ticket 14, gerbang keras `Dep` TASK-027/028 REQ-066); (2) OI-001/D-14 = TASK-033 (gerbang TASK-038); (3) Wave 3 Gateway-only (CON-015) — Ticket 06–11/16 tidak dispesifikasikan ulang, hanya diverifikasi di Fase 8; (4) tanpa perbaikan akar GW-11/GW-25 — hanya ukur/bedakan H1/H2; (5) bagian **"carry-over terbuka"** di TASK-041/043 (REQ-070).
+  - **4 keputusan user terekam:** (a) granularitas breakdown disetujui; (b) base worktree diverifikasi via git saat TASK-001 (tidak hardcode SHA); (c) `GROUP_NAME_CACHE_MAX_ENTRIES` bawaan **500** (gap §4.7 walau REQ-053 menuntutnya → **RISK-001**); (d) gerbang OI-001 diperlonggar — kode instrumentasi/harness TASK-034..037 boleh dikerjakan lebih dulu, **hanya TASK-038** (eksekusi protokol nyata) yang diblokir.
+- **Dead-Ends (Do NOT Repeat):**
+  - `glob` mengembalikan "No files found" untuk `.claude/instructions/memory.instructions.md` — lihat KB **DE-53**: `glob` tidak menembus dot-directory; gunakan `read` pada direktori lalu `read` berkas langsung.
+  - `edit` pada akhir berkas besar ini tidak punya `oldString` unik (baris `<!-- checkpoint-tail -->` terakhir >2000 karakter, terpotong di `read`). **Correct:** lampirkan lewat berkas temp + skrip Node kecil (`fs.appendFileSync`, normalisasi CRLF) alih-alih anchor `---` yang berulang.
+- **Updated Files:**
+  - `plan/plan-process-m1-wave3-reliability-observability-v1.0.md` — baru (46 task, 10 seksi).
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - `src/observability/metrics.js` ditaruh di **Fase 1 (Fondasi)** sebagai primitif lintas-potong (dipakai Ticket 12/13/14) untuk mencegah dependency inversion; OI-002 tetap tugas pertama Ticket 14.
+  - `incoming_queue`/`outgoing_operations` hanya ditambah kolom aditif; tidak ada task AuliaPos (CON-015 dokumen).
+  - Blocker OI-001/OI-002 dicatat sebagai RISK-003/RISK-004 (High), bukan asumsi yang memblokir; `TASK-033`/`TASK-019` adalah gerbangnya.
+- **Next Action / Pending:**
+  - **Sesi baru:** `/sdlc-clarify-reqs` atas `@plan/plan-process-m1-wave3-reliability-observability-v1.0.md` (lampirkan spec v1.1). Plan-only; tidak ada kode dieksekusi.
+  - **Blocker terbuka (di luar kendali tim):** OI-001 (akun Gateway uji ketiga + nomor kontak uji, D-14) dan OI-002 (verifikasi payload `messages.update` Baileys 6.7.24 + tabel pemetaan status).
+  - Belum ada commit/push (belum diminta user).
+  - Carried forward dari sesi lain: C3/GW-25, ASSUMPTION-007, D1/D2, B1/B2/B3/B8, plan go-live 7bk/7bl (menunggu transkripsi resolusi).
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bp Planner Architect M1 Wave 3 Plan) Ran /sdlc-plan-tasks as Planner Architect to author plan/plan-process-m1-wave3-reliability-observability-v1.0.md (status Planned; 9 phases / 46 tasks each phase ending VERIFY+APPROVAL, plus a DEPLOY phase) from spec v1.1. All five user fences are encoded: OI-002 is TASK-019, the first task of the Ticket 14 phase, and hard-gates the REQ-066 receipt handler tasks (TASK-027/028); OI-001/D-14 is TASK-033, the gate for TASK-038 (real-protocol execution) only; Wave 3 is Gateway-only with Ticket 06-11/16 never re-specified (only verified in the Phase 8 matrix); no GW-11/GW-25 root-cause fixes, only H1/H2 measurement; and TASK-041/043 carry the mandatory "carry-over terbuka" section (REQ-070). Four user decisions recorded: breakdown granularity approved; worktree base SHA verified via git at TASK-001 (not hardcoded); GROUP_NAME_CACHE_MAX_ENTRIES default 500 added to close the §4.7 gap for REQ-053 (RISK-001); and the OI-001 gate relaxed so instrumentation/harness code (TASK-034..037) may proceed while only TASK-038 is blocked. Metrics registry placed in Phase 1 foundation to avoid dependency inversion; OI-002 stays the first Ticket 14 task. Next: /sdlc-clarify-reqs on the plan in a NEW session. -->
+
+---
