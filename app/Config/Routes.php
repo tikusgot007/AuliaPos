@@ -131,6 +131,8 @@ $routes->get('/produk/edit/(:num)', 'Produk::edit/$1', ['filter' => 'auth']);
 $routes->post('/produk/update/(:num)', 'Produk::update/$1', ['filter' => 'auth']);
 $routes->post('/produk/hapus/(:num)', 'Produk::hapus/$1', ['filter' => 'auth']);
 $routes->post('/produk/update-inline', 'Produk::updateInline', ['filter' => 'auth']);
+$routes->post('/produk/kunci/(:num)', 'Produk::kunci/$1', ['filter' => 'auth']);
+$routes->post('/produk/buka-kunci/(:num)', 'Produk::bukaKunci/$1', ['filter' => 'auth']);
 
 // Route Kategori (CRUD)
 $routes->get('/kategori', 'Kategori::index', ['filter' => 'auth']);

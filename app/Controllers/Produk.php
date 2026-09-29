@@ -234,6 +234,53 @@ class Produk extends BaseController
     }
 
     /**
+     * Kunci produk (is_locked = 1) supaya tidak bisa dihapus/dinonaktifkan.
+     * Hanya admin.
+     */
+    public function kunci($id)
+    {
+        if (session()->get('role') !== 'admin') {
+            return redirect()->to('/produk')->with('error', 'Akses ditolak. Hanya admin.');
+        }
+
+        $model = new ProdukModel();
+
+        if (!$model->find((int) $id)) {
+            return redirect()->to('/produk')->with('error', 'Produk tidak ditemukan.');
+        }
+
+        if ($model->update((int) $id, ['is_locked' => 1])) {
+            return redirect()->to('/produk')->with('success', 'Produk berhasil dikunci.');
+        }
+
+        return redirect()->to('/produk')->with('error', 'Gagal mengunci produk.');
+    }
+
+    /**
+     * Buka kunci produk (is_locked = 0). Hanya admin; ID khusus ditolak.
+     */
+    public function bukaKunci($id)
+    {
+        if (session()->get('role') !== 'admin') {
+            return redirect()->to('/produk')->with('error', 'Akses ditolak. Hanya admin.');
+        }
+
+        $model = new ProdukModel();
+
+        [$boleh, $alasan] = $model->bolehBukaKunci((int) $id);
+
+        if (!$boleh) {
+            return redirect()->to('/produk')->with('error', $alasan);
+        }
+
+        if ($model->update((int) $id, ['is_locked' => 0])) {
+            return redirect()->to('/produk')->with('success', 'Kunci produk dibuka.');
+        }
+
+        return redirect()->to('/produk')->with('error', 'Gagal membuka kunci produk.');
+    }
+
+    /**
      * API: Data produk untuk DataTables (server-side)
      */
     public function getProdukData()

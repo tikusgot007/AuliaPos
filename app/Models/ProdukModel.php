@@ -82,7 +82,7 @@ class ProdukModel extends Model
 
         $db = \Config\Database::connect();
         $builder = $db->table('produk')
-            ->select('produk.id, produk.barcode, produk.nama, produk.kategori_id, produk.satuan, produk.harga_jual, produk.harga_beli, produk.is_active, kategori.nama as kategori_nama')
+            ->select('produk.id, produk.barcode, produk.nama, produk.kategori_id, produk.satuan, produk.harga_jual, produk.harga_beli, produk.is_active, produk.is_locked, kategori.nama as kategori_nama')
             ->join('kategori', 'kategori.id = produk.kategori_id', 'left');
 
         // Kontrak: status diperlakukan sebagai SCOPE dataset, bukan filter.
@@ -372,6 +372,26 @@ class ProdukModel extends Model
 
         if ((int) $produk['is_locked'] === 1) {
             return [false, 'Produk terkunci (is_locked = 1), tidak boleh dinonaktifkan.'];
+        }
+
+        return [true, null];
+    }
+
+    /**
+     * Cek apakah kunci sebuah produk boleh dibuka. ID khusus (1, 2, 4)
+     * diproteksi di kode, jadi kuncinya tidak boleh dibuka. Mengunci produk
+     * (is_locked = 1) selalu boleh selama produk ada.
+     *
+     * @return array{0: bool, 1: ?string} [boleh, alasan-jika-tidak]
+     */
+    public function bolehBukaKunci(int $id): array
+    {
+        if (in_array($id, self::ID_KHUSUS, true)) {
+            return [false, 'ID ' . $id . ' adalah ID khusus (Banner/Manual/Custom), kuncinya tidak boleh dibuka.'];
+        }
+
+        if (!$this->find($id)) {
+            return [false, 'Produk tidak ditemukan.'];
         }
 
         return [true, null];
