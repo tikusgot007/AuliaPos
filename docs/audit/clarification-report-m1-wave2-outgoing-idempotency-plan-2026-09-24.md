@@ -1,14 +1,14 @@
 # 🔍 Clarification Report [Review Iteration 1]
 
-**Target Document:** `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, status `Planned`, commit `57de122`)
+**Target Document:** `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, status `Planned`, commit `57de122`)
 
 **Reference Documents:**
 
 - `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 (commit `7897d38`) — sumber tunggal REQ-020..REQ-041, AC-019..AC-046, D-05..D-13, dan A-1..A-8.
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` v1.2 — pola VERIFY/APPROVAL/DEPLOY, CON-005, dan pola TASK-019 (DEPLOY) / TASK-017 (VERIFY nyata) yang dipakai ulang.
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` v1.2 — pola VERIFY/APPROVAL/DEPLOY, CON-005, dan pola TASK-019 (DEPLOY) / TASK-017 (VERIFY nyata) yang dipakai ulang.
 - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-2026-09-24.md` — Readiness 88/100 (PROCEED); keputusan R-1..R-3 dan A-1..A-8 yang sudah tertanam di spec v1.1.
 - `docs/audit/clarification-report-m1-wave1-incoming-reliability-plan-2026-09-21.md` — pola bentuk laporan klarifikasi level plan (Readiness 92/100).
-- `plan/plan-bugfix-inbox-test-db-isolation-v1.0.md` (**`Completed`**, 2026-09-24) dan `docs/ARCHITECTURE.md` §5/§11 — isolasi database uji AuliaPos; **bukti baru di luar plan M1 W2** yang mengubah cara migrasi TASK-016 harus dijalankan.
+- `plan-bugfix-inbox-test-db-isolation-v1.0.md` (**`Completed`**, 2026-09-24) dan `docs/ARCHITECTURE.md` §5/§11 — isolasi database uji AuliaPos; **bukti baru di luar plan M1 W2** yang mengubah cara migrasi TASK-016 harus dijalankan.
 - `docs/GATEWAY-REQUIREMENTS.md`, `docs/TODO-CHAT.md` (Ticket 06–11), `docs/decisions/2026-09-21-m1-ticket01-baseline.md` (Baseline 3 dan 4).
 
 **Batas sesi:** sesi ini **hanya audit dan pertanyaan**. Plan dan spec **tidak** ditulis ulang, tidak ada kode yang ditulis, dan tidak ada keputusan yang diterapkan ke dokumen mana pun.
@@ -69,7 +69,7 @@ Dua temuan berikut **tidak** membatalkan rencana, tetapi harus diperbaiki di dok
 
 ### F-02 — `php spark migrate` (TASK-016/CON-014) bertabrakan dengan isolasi DB uji yang sudah `Completed`
 
-- **Rujukan:** TASK-016 ("Jalankan `php spark migrate` hanya pada database uji"), CON-014, `plan/plan-bugfix-inbox-test-db-isolation-v1.0.md`, `docs/ARCHITECTURE.md:298-308`.
+- **Rujukan:** TASK-016 ("Jalankan `php spark migrate` hanya pada database uji"), CON-014, `plan-bugfix-inbox-test-db-isolation-v1.0.md`, `docs/ARCHITECTURE.md:298-308`.
 - **Temuan:** `php spark migrate` pada environment biasa (`development`) memakai grup `default` (`aulia_kasirdb`) sebagai tempat riwayat migrasi, sementara migrasi bergrup `inbox` diterapkan ke **`aulia_inboxdb` (database nyata)** — bukan ke `aulia_inboxdb_test`. Sebaliknya, `aulia_inboxdb_test` adalah **salinan skema** (`mysqldump --no-data`), bukan hasil migrasi; plan bugfix itu sendiri mencatat bahwa setelah migrasi `inbox` baru, skema DB uji akan **drift** dan uji gagal dengan `Unknown column/table` sampai langkah sinkronisasi di `docs/ARCHITECTURE.md` §11 dijalankan ulang. Jadi kalimat TASK-016 saat ini **tidak dapat dieksekusi apa adanya**: satu tafsir melanggar CON-014 (menyentuh DB kerja), tafsir lain membuat uji Fase 4 gagal karena skema DB uji tidak ikut berubah.
 - **Opsi jawaban:**
   - **(a) Tulis perintah eksplisit untuk DB uji saja (rekomendasi analis):** `set CI_ENVIRONMENT=testing` + `php spark migrate --dbgroup inbox`, lalu verifikasi `SHOW COLUMNS FROM messages` pada `aulia_inboxdb_test`; catat bahwa DB kerja masih butuh langkah terpisah (F-01).

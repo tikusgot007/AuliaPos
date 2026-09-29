@@ -29,7 +29,7 @@
 - **Requirement (F3):** `quoted_media_available` (`REQ-008`).
   - **Resolution:** `0` **only** when `media_confirmed_gone_at IS NOT NULL`; `1` when the row is a media message and not confirmed-gone (locally stored or still live-fetchable); `NULL` when the source is not a media message. **Spec drift correction:** `REQ-008` refers to a non-existent `media_status` column; the real seams are `media_local_filename`, `media_download_attempted_at`, and `media_confirmed_gone_at` (`app/Models/MessageModel.php:54-56`; `app/Controllers/Inbox.php:418-499`). Route to `/sdlc-define-specs`.
 - **Requirement (F6):** quoting the cashier's own outgoing message.
-  - **Resolution:** Add an optional **`fromMe`** field to the `quoted` object (additive; `absent = false`). Outgoing source → `fromMe: true`; incoming source → `fromMe: false`. This lets Gateway reconstruct the Baileys `key` correctly without AuliaPos needing to know the bot number. Requires an additive spec Section 4.1 update and alignment with `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md`.
+  - **Resolution:** Add an optional **`fromMe`** field to the `quoted` object (additive; `absent = false`). Outgoing source → `fromMe: true`; incoming source → `fromMe: false`. This lets Gateway reconstruct the Baileys `key` correctly without AuliaPos needing to know the bot number. Requires an additive spec Section 4.1 update and alignment with `plan-feature-balas-pesan-wa-gateway-v1.0.md`.
 - **Requirement (F5):** `TASK-011` not-found detection via string comparison of `quoted_snippet`.
   - **Resolution:** Not-found ⇒ `quoted_sender_label = NULL` and `quoted_snippet` = payload snippet as-is (or `"Pesan tidak ditemukan"` when empty); found ⇒ `quoted_sender_label` is **always non-NULL** (mandatory fallback to `sender_jid` / generic "Pelanggan" / "Anda"). The UI renders the generic label based on `quoted_sender_label === NULL`, not by string matching. Deterministic and requires no new column.
 - **Requirement (F4):** "Terkirim tanpa kutipan" marker persistence (`AC-003`).
@@ -46,9 +46,9 @@
 
 ## 4. 📝 Next Steps
 
-- **Update `plan/plan-feature-balas-pesan-auliapos-v1.0.md`:** add the F1 conversation-boundary guard, F2 soft-deleted-inclusive lookup, F3 media-availability mapping (fixing the `media_status` reference), F5 `quoted_sender_label`-based not-found discriminator, and the F4 ephemeral-marker note.
+- **Update `plan-feature-balas-pesan-auliapos-v1.0.md`:** add the F1 conversation-boundary guard, F2 soft-deleted-inclusive lookup, F3 media-availability mapping (fixing the `media_status` reference), F5 `quoted_sender_label`-based not-found discriminator, and the F4 ephemeral-marker note.
 - **Update `spec/spec-design-balas-pesan.md`:** correct `REQ-008` to real media columns; add the optional `fromMe` field to Section 4.1/4.1.1 (`REQ-001`/`REQ-001a`); fix Section 12 snapshot wording.
-- **Update `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md`:** accept and use `fromMe` when building the Baileys `quoted` object.
+- **Update `plan-feature-balas-pesan-wa-gateway-v1.0.md`:** accept and use `fromMe` when building the Baileys `quoted` object.
 - **Carry-forward (not this plan's authoring scope):** the live PRD GH-015 AC divergence (audit `consistency-audit-balas-pesan-teruskan-2026-09-27-reaudit.md`, lines 54-57) remains for `/sdlc-draft-prd`.
 - **Glossary/ADR:** No new canonical terms and no ADR required (no decision meets the ADR Triple Gate; `CONTEXT.md` unchanged per spec Section 10).
 

@@ -1,7 +1,7 @@
 # Handoff Eksekusi — M3 Fase 2a TB-03 (Riwayat Handoff: endpoint baca + panel UI)
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` (TB-03 = TASK-009..TASK-011) dan `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q9). Bila ada konflik, Plan menang (RISK-01) — dokumen ini hanya brief operasional untuk sesi `/sdlc-write-code` berikutnya.
+> **Dokumen ini non-normatif.** Sumber normatif tetap `plan-feature-m3-operational-inbox-fase2a-v1.0.md` (TB-03 = TASK-009..TASK-011) dan `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q9). Bila ada konflik, Plan menang (RISK-01) — dokumen ini hanya brief operasional untuk sesi `/sdlc-write-code` berikutnya.
 
 ## 1. Status & prasyarat
 
@@ -80,6 +80,6 @@ Semua test masuk ke `tests/session/InboxHandoffTest.php` (pola yang sudah ada: `
 
 ## 9. Rujukan
 
-- `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` (TB-03, TEST-04, FILE-04/05/06/08)
+- `plan-feature-m3-operational-inbox-fase2a-v1.0.md` (TB-03, TEST-04, FILE-04/05/06/08)
 - `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q7, Q9)
 - `.claude/instructions/memory.instructions.md` (checkpoint TB-01 dan TB-02)

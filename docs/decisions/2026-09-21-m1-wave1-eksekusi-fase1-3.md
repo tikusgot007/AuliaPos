@@ -1,6 +1,6 @@
 # M1 Gelombang 1 — Eksekusi Fase 1–3 (2026-09-21)
 
-> **Catatan pembaca:** dokumen ini append-only, melanjutkan `2026-09-21-handoff-m1-wave1-eksekusi-lokal.md`. Semua kode ada di repo **WA-Gateway** (worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`), mengikuti `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` dan `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1). Dikerjakan lewat `/sdlc-write-code` dengan berhenti di tiap APPROVAL.
+> **Catatan pembaca:** dokumen ini append-only, melanjutkan `2026-09-21-handoff-m1-wave1-eksekusi-lokal.md`. Semua kode ada di repo **WA-Gateway** (worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`), mengikuti `plan-process-m1-wave1-incoming-reliability-v1.0.md` dan `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1). Dikerjakan lewat `/sdlc-write-code` dengan berhenti di tiap APPROVAL.
 >
 > **Legenda bukti:** **Simulasi** = skrip `test/simulate-*.js` dengan mock `sock` dan database sementara. **Nyata** = Gateway sungguhan dengan koneksi WhatsApp. **Semua bukti di dokumen ini adalah Simulasi. Belum ada bukti Nyata.**
 
@@ -84,7 +84,7 @@
 
 ## Referensi
 
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (kolom Completed sudah diisi)
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` (kolom Completed sudah diisi)
 - `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1)
 - `docs/decisions/2026-09-21-handoff-m1-wave1-eksekusi-lokal.md`
 - `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md`

@@ -1,7 +1,7 @@
 # Handoff — M3 Fase 1e (Pencarian Isi Pesan), Sesi Code Review
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `spec/spec-design-m3-operational-inbox-fase1.md` (rev 1.4) dan `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4, `Completed`). Bila terjadi konflik, Spec + Plan menang.
+> **Dokumen ini non-normatif.** Sumber normatif tetap `spec/spec-design-m3-operational-inbox-fase1.md` (rev 1.4) dan `plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4, `Completed`). Bila terjadi konflik, Spec + Plan menang.
 
 ## 1. Prompt siap paste
 
@@ -11,7 +11,7 @@ Salin blok berikut ke **sesi baru** (persona review) dan lampirkan berkasnya:
 /sdlc-code-review
 
 Attach: @spec/spec-design-m3-operational-inbox-fase1.md (rev 1.4)
-Attach: @plan/plan-feature-m3-operational-inbox-fase1-v1.0.md (v1.4, status Completed)
+Attach: plan-feature-m3-operational-inbox-fase1-v1.0.md (v1.4, status Completed)
 Attach: @docs/walkthrough-m3-fase1e-message-search-2026-09-25.md (bukti AC-014..AC-016)
 Attach: @docs/audit/clarification-report-m3-fase1e-message-search-2026-09-25.md (R-01..R-06, F-01..F-05)
 
@@ -100,6 +100,6 @@ Peta berkas yang berubah:
 ## 7. Rujukan
 
 - `spec/spec-design-m3-operational-inbox-fase1.md` (rev 1.4) — REQ-014..REQ-017, CL-016..CL-021, AC-014..AC-016.
-- `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4) — Phase 5 / TASK-023..TASK-029.
+- `plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4) — Phase 5 / TASK-023..TASK-029.
 - `docs/walkthrough-m3-fase1e-message-search-2026-09-25.md` — walkthrough fase (bukti + batas).
 - `docs/audit/clarification-report-m3-fase1e-message-search-2026-09-25.md` — klarifikasi Fase 1e.

@@ -12,7 +12,7 @@ the deployment to the live folder.
 | Live Gateway process | `node src/app/index.js` from `C:\Projects\WA-Gateway`, PID `24636`, port `3000` |
 | `auth/` | Not touched by the deploy (see §5) |
 | AuliaPos application code | Unchanged |
-| Plan | `plan/plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md` (TASK-001..014 done) |
+| Plan | `plan-bugfix-wa-gateway-viewonce-unsupported-v1.0.md` (TASK-001..014 done) |
 
 ## 2. Corrected Root Cause
 

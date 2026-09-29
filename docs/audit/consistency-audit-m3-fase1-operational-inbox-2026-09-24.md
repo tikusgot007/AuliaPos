@@ -29,7 +29,7 @@
 - **Documents Analyzed:**
   - [x] PRD: `prd-20260922-0141-chat-whatsapp-inbox.md` v1.3
   - [x] Spec: `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.2
-  - [x] Plan: `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2
+  - [x] Plan: `plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2
 - **Also checked:** `app/Controllers/Inbox.php`, `app/Views/inbox/index.php`, `tests/session/OperationalInboxConversationTest.php`, `CONTEXT.md`, `docs/adr/0001-reuse-response-state-for-queue-view-status.md`
 - **Standards Compliance:** PASS
 
@@ -97,7 +97,7 @@
 > [!SUCCESS]
 > **REMEDIATION STATUS: RESOLVED for Plan scope (Fase 1d plan + ST-01/ST-02)**
 > This audit report has been remediated by Planner Architect on 2026-09-24.
-> - **Resolved:** NG-01 at plan level: `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2 adds Phase 4 (Fase 1d, TASK-020 five-column `q` predicate + AC-013 a–g tests, TASK-021 VERIFY incl. AC-013 h and a CON-003 boundary check, TASK-022 APPROVAL); status back to `In progress` until TASK-022. ST-01: `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` rev 1.1, TASK-001..014 ticked with evidence, status `Completed`. ST-02: `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` rev 1.1, TASK-101..110 and TASK-201..205 ticked with evidence (TASK-203 stays VOID), status `Completed`. Evidence re-checked against code and git history; all Fase 2a commits are in `v2.3` (PR #41); suite re-run `vendor/bin/phpunit --no-coverage` OK 317 tests / 1061 assertions.
+> - **Resolved:** NG-01 at plan level: `plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.2 adds Phase 4 (Fase 1d, TASK-020 five-column `q` predicate + AC-013 a–g tests, TASK-021 VERIFY incl. AC-013 h and a CON-003 boundary check, TASK-022 APPROVAL); status back to `In progress` until TASK-022. ST-01: `plan-feature-m3-operational-inbox-fase2a-v1.0.md` rev 1.1, TASK-001..014 ticked with evidence, status `Completed`. ST-02: `plan-refactor-m3-fase2a-handoff-collision-v1.0.md` rev 1.1, TASK-101..110 and TASK-201..205 ticked with evidence (TASK-203 stays VOID), status `Completed`. Evidence re-checked against code and git history; all Fase 2a commits are in `v2.3` (PR #41); suite re-run `vendor/bin/phpunit --no-coverage` OK 317 tests / 1061 assertions.
 > - **Still open:** Fase 1d code (`/sdlc-write-code`, TASK-020..022). GH-010 / Fase 1e is not in any Spec yet (out of scope per Spec §1.1). PRD §9.2 is now behind: it still says Fase 1d "Plan belum" and that the Fase 2a plans are not synced (`/sdlc-draft-prd`, status text only). Four approvals (Fase 1 TASK-006, Fase 2a TASK-008/011, refactor TASK-205) are marked implied, with no written record. The "karakter" wording in code stays a code-review TODO.
 > - **Projected Readiness Score:** 95/100 (Completeness 38/40, Clarity 29/30, Alignment 28/30).
 
@@ -118,7 +118,7 @@
 
 > [!SUCCESS]
 > **REMEDIATION STATUS: PARTIALLY RESOLVED (Plan scope, REFINE step 1)**
-> This audit report has been remediated by Planner Architect on 2026-09-24 in `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (editorial only, no new tasks, status stays `Completed`).
+> This audit report has been remediated by Planner Architect on 2026-09-24 in `plan-feature-m3-operational-inbox-fase1-v1.0.md` (editorial only, no new tasks, status stays `Completed`).
 > - **Resolved:** NG-02 (the Phase 3 NOTE now points to Spec AC-010..AC-012). NG-03 (TASK-015 `AC Ref` + AC-010, TASK-016 `AC Ref` + AC-011, TASK-018 VERIFY names Spec AC-010..AC-012).
 > - **Still open:** ST-03 and the PRD minor gaps (`/sdlc-draft-prd`); NG-01, NG-04, NG-05 (`/sdlc-define-specs`); ST-01/ST-02 (Fase 2a plans, separate session).
 > - **Projected Readiness Score:** 91/100 (Completeness 37/40, Clarity 28/30, Alignment 26/30).
@@ -143,7 +143,7 @@
 - **Documents Analyzed:**
   - [x] PRD: `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 (unchanged since Iteration 1)
   - [x] Spec: `spec/spec-design-m3-operational-inbox-fase1.md` rev 1.1
-  - [x] Plan: `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.1 (+ `plan-refactor-m3-fase1c-inbox-screen-v1.0.md`; both Fase 2a plans, status only)
+  - [x] Plan: `plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.1 (+ `plan-refactor-m3-fase1c-inbox-screen-v1.0.md`; both Fase 2a plans, status only)
 - **Also checked:** `app/Views/inbox/index.php`, `app/Controllers/Inbox.php` (`catatanInternal()`), `tests/session/OperationalInboxScreenTest.php`, `.claude/instructions/memory.instructions.md` (review record of `dd9e864`)
 - **Standards Compliance:** PASS (minor terminology finding, §3)
 
@@ -226,7 +226,7 @@
 
 > [!SUCCESS]
 > **REMEDIATION STATUS: PARTIALLY RESOLVED (Plan scope only)**
-> This audit report has been remediated by Planner Architect on 2026-09-24 in `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.1.
+> This audit report has been remediated by Planner Architect on 2026-09-24 in `plan-feature-m3-operational-inbox-fase1-v1.0.md` rev 1.1.
 > - **Resolved in the Plan:** MC-01..03 (new Phase 3: TASK-015 Internal Note input, TASK-016 SLA Timer dot, TASK-017 search box, TASK-018 VERIFY, TASK-019 APPROVAL). CT-01 (TASK-001..011 ticked with code evidence, `status` back to `In progress`). CT-02 on the Plan side (TASK-011, TASK-013, ASSUMPTION-001, RISK-002, TEST-003 no longer say `findAll(500)`).
 > - **Still open (outside Plan scope):** CT-02 in Spec §9, CT-03 (Spec §4.3), the REQ-012 AC and screen-level ACs in the Spec (`/sdlc-define-specs`). ST-03 PRD §9.2 (`/sdlc-draft-prd`). ST-01/ST-02 (Fase 2a plans). All Minor Gaps.
 > - **Projected Readiness Score:** 78/100 (Completeness 33/40, Clarity 23/30, Alignment 22/30). The Critical Flaw Veto is lifted at plan level: GH-002 now has an owning task. It stays true in the running app until TASK-015 is coded.
@@ -253,7 +253,7 @@
 - **Documents Analyzed:**
   - [x] PRD: `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1
   - [x] Spec: `spec/spec-design-m3-operational-inbox-fase1.md` v1.0
-  - [x] Plan: `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` v1.0 (+ both Fase 2a plans, status only)
+  - [x] Plan: `plan-feature-m3-operational-inbox-fase1-v1.0.md` v1.0 (+ both Fase 2a plans, status only)
 - **Also checked:** `CONTEXT.md`, `docs/adr/0001-reuse-response-state-for-queue-view-status.md`, `app/Controllers/Inbox.php`, `app/Views/inbox/index.php`, `app/Config/Routes.php`
 - **Standards Compliance:** PASS with minor terminology findings (§3)
 
@@ -280,8 +280,8 @@
 
 **Stale status (outside Fase 1, requested by the user):**
 
-- **ST-01:** `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` says `status: 'Planned'`, `last_updated: 2026-09-22`, 0/14 tasks marked. The code contains TASK-004 (Handoff dialog, index.php:547), TASK-007 (409 notice + reload button, index.php:567) and TASK-010 (history panel, index.php:1336). `docs/audit/code-review-m3-fase2a-2026-09-23.md` also exists.
-- **ST-02:** `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` says `status: "Planned"`, 1/15 marked, and that one is TASK-203, which is VOID. The code already contains TASK-202 (referenced at index.php:948-953). The other TASK-1xx/2xx items were not checked one by one; that needs a separate verification.
+- **ST-01:** `plan-feature-m3-operational-inbox-fase2a-v1.0.md` says `status: 'Planned'`, `last_updated: 2026-09-22`, 0/14 tasks marked. The code contains TASK-004 (Handoff dialog, index.php:547), TASK-007 (409 notice + reload button, index.php:567) and TASK-010 (history panel, index.php:1336). `docs/audit/code-review-m3-fase2a-2026-09-23.md` also exists.
+- **ST-02:** `plan-refactor-m3-fase2a-handoff-collision-v1.0.md` says `status: "Planned"`, 1/15 marked, and that one is TASK-203, which is VOID. The code already contains TASK-202 (referenced at index.php:948-953). The other TASK-1xx/2xx items were not checked one by one; that needs a separate verification.
 - **ST-03:** PRD §9.2 still says M3 Fase 1a/1b "Kode belum dimulai" and Fase 2a "Spec belum dibuat, Plan belum". In reality all of these are merged.
 
 ### ⚠️ Minor Gaps (Assumed / Backlog)
@@ -319,7 +319,7 @@ Score is below 80, so the next phase is not unlocked. First step:
 /sdlc-plan-tasks Revise plan-feature-m3-operational-inbox-fase1-v1.0.md per consistency audit 2026-09-24:
 add UI tasks for GH-002 note input, GH-004 sla_color, and Layar 7 search (MC-01..03),
 tick TASK-001..011 with evidence, set status back to In Progress, fix the findAll(500) text (CT-02).
-Attach: @spec/spec-design-m3-operational-inbox-fase1.md @plan/plan-feature-m3-operational-inbox-fase1-v1.0.md
+Attach: @spec/spec-design-m3-operational-inbox-fase1.md plan-feature-m3-operational-inbox-fase1-v1.0.md
 ```
 
 Then `/sdlc-define-specs` for CT-02, CT-03 and the REQ-012 AC, and `/sdlc-draft-prd` for PRD §9.2.

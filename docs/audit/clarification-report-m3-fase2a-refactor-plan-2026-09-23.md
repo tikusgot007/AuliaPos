@@ -11,7 +11,7 @@ tags: [clarification, inbox, m3, handoff, collision-detection]
 > **REMEDIATION STATUS: RESOLVED** — applied 2026-09-23 by `/sdlc-plan-tasks` (Planner Architect), surgical text edits
 > only. No source code, test, PRD or Spec file was touched.
 
-**Plan amended in place:** `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` (+112 / -29 lines).
+**Plan amended in place:** `plan-refactor-m3-fase2a-handoff-collision-v1.0.md` (+112 / -29 lines).
 **Source of the five amendments:** this report, Section 2 (CR-03/CR-04 resolutions) and Section 4 (Next Steps 1-5).
 
 **The five locked amendments, as applied:**
@@ -53,9 +53,9 @@ Critical Flaw Veto). Above the 80 threshold, so the amended plan is viable for `
 
 **Date:** 2026-09-23
 **Branch:** `feature/m3-operational-inbox-fase1a-task001` @ `25f85ee` (working tree clean)
-**Target document:** `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` v1.0 (Refactor Plan)
+**Target document:** `plan-refactor-m3-fase2a-handoff-collision-v1.0.md` v1.0 (Refactor Plan)
 **Upstream context:** `docs/audit/code-review-m3-fase2a-2026-09-23.md`;
-`plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 (wins on conflict, RISK-01);
+`plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 (wins on conflict, RISK-01);
 `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` v1.0;
 `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q9);
 `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1; `CONTEXT.md`
@@ -252,5 +252,5 @@ None. Three near-blockers were found (all inside Phase 2 tasks) and are fully re
 >
 > Recommendation: **PROCEED** — all three interrogated items are locked with zero-cost resolutions, Phase 1 is
 > executable unchanged, and the five Phase 2 amendments are additive text fixes. Apply the amendments to
-> `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` (or fold them into the same `/sdlc-write-code` session
+> `plan-refactor-m3-fase2a-handoff-collision-v1.0.md` (or fold them into the same `/sdlc-write-code` session
 > after Phase 1), then execute Phase 2 with `/sdlc-write-code`.

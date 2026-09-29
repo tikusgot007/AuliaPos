@@ -208,7 +208,7 @@ class MessageModel extends Model
      * `id` ASC (= urutan insert = urutan pengiriman Gateway) membuat
      * urutannya deterministik dan menjadi kontrak query, bukan efek
      * samping dari execution plan index komposit
-     * (bugfix plan: plan/plan-bugfix-inbox-message-ordering-v1.0.md).
+     * (bugfix plan: plan-bugfix-inbox-message-ordering-v1.0.md).
      */
     public function getByConversation(int $conversationId, int $limit = 200): array
     {

@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > Laporan ini **non-normatif**. Sumber normatif tetap `spec/spec-design-m3-operational-inbox-fase1.md` (rev 1.4)
-> dan `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4, `Completed`). Bila terjadi konflik, Spec + Plan menang.
+> dan `plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4, `Completed`). Bila terjadi konflik, Spec + Plan menang.
 
 | Item | Nilai |
 | --- | --- |
@@ -131,7 +131,7 @@ Seluruh 12 pertanyaan kepatuhan dijawab PASS, kecuali satu cacat yang bersembuny
 - Worst Spec: `[SPEC-01]`.
 - Rekomendasi: **Proceed to Refactoring Plan** — jangan merge apa adanya.
 
-Rencana perbaikan: `plan/plan-refactor-m3-fase1e-message-search-v1.0.md`.
+Rencana perbaikan: `plan-refactor-m3-fase1e-message-search-v1.0.md`.
 
 ## 6. Batas Verifikasi
 

@@ -3,7 +3,7 @@
 > **Catatan pembaca:** dokumen ini melanjutkan
 > `2026-09-21-m1-wave1-eksekusi-fase1-3.md`. Dikerjakan lewat
 > `/sdlc-write-code` mengikuti
-> `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.2):
+> `plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.2):
 > **TASK-019 (DEPLOY)** lalu **TASK-017 (VERIFY/APPROVAL, AC-001)**.
 > Panduan operasional:
 > `docs/runbooks/runbook-m1-wave1-task017-ac001-2026-09-23.md`.
@@ -156,7 +156,7 @@ AuliaPos `messages` 35 baris (33 di antaranya percakapan `4220`), 0 duplikat.
 
 ## 5. Referensi
 
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.2) —
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.2) —
   TASK-017, TASK-018, TASK-019, §9.
 - `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1) — definisi
   AC-001 (tidak diubah).

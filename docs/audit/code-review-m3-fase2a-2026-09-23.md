@@ -4,7 +4,7 @@
 **Reviewer:** `/sdlc-code-review` (Expert Code Reviewer) — sesi terpisah, **nol perubahan source code**
 **Branch / HEAD:** `feature/m3-operational-inbox-fase1a-task001` @ `3968aa0` (origin sinkron, working tree bersih)
 **Reviewed range:** `600515c~1..HEAD` (seluruh Fase 2a) dan `b9f0e27..HEAD` (TB-02..TB-04)
-**Normative upstream:** `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 (menang bila konflik, RISK-01),
+**Normative upstream:** `plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 (menang bila konflik, RISK-01),
 `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q9), `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1
 **Baseline dijalankan ulang:** `vendor/bin/phpunit --no-coverage` → **OK (283 tests, 867 assertions)**
 
@@ -17,7 +17,7 @@
 - **Spec Axis (B):** 22 dari 22 ID (REQ/CON) terpetakan ke kode; 20 punya test atau bukti statis setara.
   Dua celah: satu kontrak terkunci tanpa test (Q5) dan satu drift tafsir gerbang `belum_diambil` (Minor, butuh keputusan produk).
 - **Verdict:** 0 Blocker, 0 Critical, 2 Major, 8 Minor. Aman untuk dilanjutkan; perbaikan berupa patch set kecil
-  (lihat `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md`).
+  (lihat `plan-refactor-m3-fase2a-handoff-collision-v1.0.md`).
 - **Testing strategy assessment:** test inti menguji perilaku nyata, bukan mock — `C01`/`C02`/`E06` gagal bila conditional
   write diganti read-then-write, `C03` gagal bila `transRollback()` dihapus, dan suite regresi Fase 1 tetap hijau.
   `C03` memakai trigger MariaDB sungguhan dengan cleanup ganda (`finally` + `setUp`). Yang tumpul hanya mikro-kontrak
@@ -256,7 +256,7 @@ klik dobel cepat → satu request; kasir dinonaktifkan setelah dialog dibuka →
   (0 Blocker, 0 Critical). Dipadatkan menjadi **2 Major, 8 Minor**.
 - **Worst Standards Issue:** CR-01 — validasi tipe payload (`summary`/`next_action`/`note` non-skalar lolos sebagai `"Array"`).
 - **Worst Spec Issue:** CR-02 — kontrak terkunci Q5 (`expected_owner` absen = 400) tanpa test (mutation-insensitive).
-- **Recommendation:** **Proceed to Refactoring Plan** — eksekusi `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md`
+- **Recommendation:** **Proceed to Refactoring Plan** — eksekusi `plan-refactor-m3-fase2a-handoff-collision-v1.0.md`
   lewat `/sdlc-write-code` (Fase 1), sambil menjalankan `/sdlc-clarify-reqs` untuk item yang bergantung keputusan produk (Fase 2).
   Blocker/Critical nol, sehingga **tidak ada alasan menahan rilis Fase 2a**.
 

@@ -1,7 +1,7 @@
 # Walkthrough — M3 Fase 1e: Pencarian Isi Pesan + Match Snippet
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `spec/spec-design-m3-operational-inbox-fase1.md` (rev 1.4; REQ-014..REQ-017, CL-016..CL-021, AC-014..AC-016) dan `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4; Phase 5 / TASK-023..TASK-029, status `Completed`). Bila terjadi konflik, Spec + Plan menang.
+> **Dokumen ini non-normatif.** Sumber normatif tetap `spec/spec-design-m3-operational-inbox-fase1.md` (rev 1.4; REQ-014..REQ-017, CL-016..CL-021, AC-014..AC-016) dan `plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4; Phase 5 / TASK-023..TASK-029, status `Completed`). Bila terjadi konflik, Spec + Plan menang.
 
 ## 1. Ringkasan
 
@@ -154,7 +154,7 @@ Semua perubahan Fase 1e bisa dibalik tanpa langkah database karena tidak ada per
 ## 12. Rujukan
 
 - `spec/spec-design-m3-operational-inbox-fase1.md` (rev 1.4) — REQ-014..REQ-017, CL-016..CL-021, AC-014..AC-016.
-- `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4, `Completed`) — Phase 5 / TASK-023..TASK-029 beserta bukti per task.
+- `plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4, `Completed`) — Phase 5 / TASK-023..TASK-029 beserta bukti per task.
 - `docs/audit/clarification-report-m3-fase1e-message-search-2026-09-25.md` — klarifikasi Fase 1e (Readiness 87/100; R-01..R-06, F-01..F-05).
 - `docs/handoff-m3-fase1e-code-review-2026-09-25.md` — brief siap pakai untuk sesi `/sdlc-code-review`.
 - `prd-20260922-0141-chat-whatsapp-inbox.md` — GH-010 (pencarian isi pesan).

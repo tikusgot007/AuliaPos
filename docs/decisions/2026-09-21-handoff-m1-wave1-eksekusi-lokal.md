@@ -8,7 +8,7 @@
 
 Ada dua jalur kerja M1 Ticket 02 yang berjalan **tidak sinkron**:
 
-1. **Plan resmi** (`plan/plan-process-m1-wave1-incoming-reliability-v1.0.md`, v1.1, Readiness proyeksi 94/100, sudah di-*clarify* lewat `docs/audit/clarification-report-m1-wave1-incoming-reliability-2026-09-21.md`) — merge ke `v2.2` lewat PR #36/#37 **sebelum** sesi sandbox mulai kerja. Plan ini dirancang untuk dieksekusi di worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`, lewat `/sdlc-write-code`.
+1. **Plan resmi** (`plan-process-m1-wave1-incoming-reliability-v1.0.md`, v1.1, Readiness proyeksi 94/100, sudah di-*clarify* lewat `docs/audit/clarification-report-m1-wave1-incoming-reliability-2026-09-21.md`) — merge ke `v2.2` lewat PR #36/#37 **sebelum** sesi sandbox mulai kerja. Plan ini dirancang untuk dieksekusi di worktree `C:\projects\WA-Gateway-m1`, branch `feature/stage-1-reliability`, lewat `/sdlc-write-code`.
 2. **Kerja ad-hoc sandbox** (repo WA-Gateway, branch `claude/buka-todo-chat-omnc7k`) — sesi sandbox **tidak tahu plan resmi ini ada** saat mulai kerja (diminta lanjut dari `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` langsung tanpa cek `/plan/` dulu). Menghasilkan fix E-01, E-03, E-04, E-05, E-06, E-09 dengan pendekatan sendiri (bukan sesuai spec), lalu **ter-merge ke `feature/stage-1-reliability`** lewat PR #2 sebelum konflik disadari.
 
 ## Yang sudah terjadi di `feature/stage-1-reliability` (WA-Gateway)
@@ -28,7 +28,7 @@ Setelah PR #2 dan PR #3 (revert), state `feature/stage-1-reliability` sekarang:
 
 ## Keputusan yang perlu diambil di sesi lokal ini
 
-Plan resmi (`plan/plan-process-m1-wave1-incoming-reliability-v1.0.md`) adalah **rencana yang lebih matang** — sudah lewat proses spec → clarify → plan → clarify, readiness 94/100, requirement bernomor (REQ-001 s/d REQ-019), acceptance criteria bernomor (AC-001 s/d AC-018), alternatif yang dipertimbangkan dan ditolak dengan alasan eksplisit (ALT-001 s/d ALT-004). Rekomendasi kuat: **jadikan plan resmi ini sumber kebenaran, bukan kerja ad-hoc sandbox.**
+Plan resmi (`plan-process-m1-wave1-incoming-reliability-v1.0.md`) adalah **rencana yang lebih matang** — sudah lewat proses spec → clarify → plan → clarify, readiness 94/100, requirement bernomor (REQ-001 s/d REQ-019), acceptance criteria bernomor (AC-001 s/d AC-018), alternatif yang dipertimbangkan dan ditolak dengan alasan eksplisit (ALT-001 s/d ALT-004). Rekomendasi kuat: **jadikan plan resmi ini sumber kebenaran, bukan kerja ad-hoc sandbox.**
 
 Sebelum mulai eksekusi TASK-001 dst., putuskan salah satu:
 
@@ -39,7 +39,7 @@ Yang **tidak disarankan**: melanjutkan kode ad-hoc sebagai final tanpa mencocokk
 
 ## Instruksi eksekusi
 
-1. **Baca dulu** `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` dan `spec/spec-process-m1-wave1-incoming-reliability.md` (repo AuliaPos) secara utuh — jangan cuma dari ringkasan di dokumen ini.
+1. **Baca dulu** `plan-process-m1-wave1-incoming-reliability-v1.0.md` dan `spec/spec-process-m1-wave1-incoming-reliability.md` (repo AuliaPos) secara utuh — jangan cuma dari ringkasan di dokumen ini.
 2. **Jangan** kerja di `C:\projects\WA-Gateway` (Gateway produksi aktif) — plan resmi eksplisit minta worktree terpisah `C:\projects\WA-Gateway-m1` (CON-005). Siapkan worktree itu dulu kalau belum ada.
 3. Branch kerja: `feature/stage-1-reliability` (sudah berisi commit ad-hoc E-03/E-04/E-05/E-09 dari sandbox — lihat tabel di atas untuk apa yang perlu diperiksa ulang per task).
 4. Jalankan lewat `/sdlc-write-code`, ikuti EXECUTION DIRECTIVE di plan: fase demi fase, **berhenti di tiap TASK-xxx APPROVAL** menunggu persetujuan eksplisit user.
@@ -54,7 +54,7 @@ Yang **tidak disarankan**: melanjutkan kode ad-hoc sebagai final tanpa mencocokk
 ## Referensi
 
 - `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` — audit asli E-01 s/d E-09
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — plan resmi (sumber kebenaran)
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` — plan resmi (sumber kebenaran)
 - `spec/spec-process-m1-wave1-incoming-reliability.md` — spec resmi
 - `docs/audit/clarification-report-m1-wave1-incoming-reliability-2026-09-21.md` — hasil klarifikasi
 - WA-Gateway PR #2 (merge ad-hoc), PR #3 (revert E-01/E-06) — riwayat lengkap ada di git log `feature/stage-1-reliability`

@@ -2,7 +2,7 @@
 title: Ticket 04 — Verifikasi Nyata Jalur Fallback JSON (IncomingBufferJsonFile) di Build Android
 date: 2026-09-25
 repo: WA-Gateway (dieksekusi read-only, tidak ada commit kode)
-related_plan: plan/plan-process-m1-wave1-incoming-reliability-v1.0.md (TASK-015, REQ-016/017, AC-012)
+related_plan: plan-process-m1-wave1-incoming-reliability-v1.0.md (TASK-015, REQ-016/017, AC-012)
 related_assumption: spec/spec-process-m1-wave2-outgoing-idempotency.md ASSUMPTION-007
 ---
 
@@ -136,7 +136,7 @@ ter-flush sekaligus saat koneksi/Gateway pulih — bukan insiden tunggal.
 konfigurasi `.env` di sisi device Gateway. `/sdlc-bug-report` terpisah untuk item ini **tidak
 diperlukan lagi**.
 
-**Catatan silang penting untuk `plan/plan-bugfix-inbox-message-ordering-v1.0.md`:** proses flush
+**Catatan silang penting untuk `plan-bugfix-inbox-message-ordering-v1.0.md`:** proses flush
 backlog di atas adalah bukti nyata tambahan (bukan hanya simulasi) bahwa pesan yang tertunda lama
 bisa masuk ke `messages` dengan urutan `id` (kedatangan) yang **tidak selaras** dengan urutan
 `message_timestamp` aslinya — mis. percakapan `11745` baris `id=260` (`message_timestamp

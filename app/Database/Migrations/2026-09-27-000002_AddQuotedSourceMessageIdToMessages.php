@@ -14,7 +14,7 @@ use CodeIgniter\Database\Migration;
  * dijalankan. Snapshot hanya punya `quoted_wa_message_id` (ID WhatsApp),
  * sedangkan endpoint media butuh ID lokal -- tanpa kolom ini fallback
  * tampilan tidak dapat direalisasikan (lihat ALT-001 di
- * `plan/plan-refactor-balas-pesan-tahap3-v1.0.md`).
+ * `plan-refactor-balas-pesan-tahap3-v1.0.md`).
  *
  * SENGAJA snapshot beku, BUKAN foreign key hidup (spec Section 9 "Never do"):
  * tidak ada constraint referensial, konsisten dengan keempat kolom kutipan

@@ -130,7 +130,7 @@ class ConversationModel extends Model
      * BELAKANGAN. `Model::update()` biasa akan menimpa kolom itu apa
      * adanya, membuat SLA Timer dan urutan daftar percakapan
      * "mundur" ke masa lalu (bugfix plan:
-     * plan/plan-bugfix-inbox-last-message-at-monotonic-v1.0.md).
+     * plan-bugfix-inbox-last-message-at-monotonic-v1.0.md).
      *
      * Guard + tulis dilakukan dalam SATU statement UPDATE supaya
      * atomic (tidak ada read-then-write race antar request yang

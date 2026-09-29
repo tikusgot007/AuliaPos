@@ -2,7 +2,7 @@
 
 > [!IMPORTANT]
 > **Dokumen non-normatif.** Sumber normatif tetap
-> `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` dan
+> `plan-process-m1-wave1-incoming-reliability-v1.0.md` dan
 > `spec/spec-process-m1-wave1-incoming-reliability.md`. Bila ada konflik, keduanya menang.
 > Dokumen ini hanya panduan operasional untuk menjalankan satu task VERIFY.
 
@@ -118,7 +118,7 @@ cmd /c "pm2 restart wa-gateway"
 
 ## 9. Rujukan
 
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — TASK-017/018, RISK-003/004, §9 Rollback.
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` — TASK-017/018, RISK-003/004, §9 Rollback.
 - `spec/spec-process-m1-wave1-incoming-reliability.md` — AC-001 dan batas kelulusan AC-001…AC-018.
 - `docs/proposal-amandemen-plan-m1-wave1-2026-09-23.md` — usulan perubahan plan yang melandasi runbook ini.
 - `docs/decisions/*` pada branch `v2.2` — log eksekusi Fase 1–3 dan baseline pengukuran.

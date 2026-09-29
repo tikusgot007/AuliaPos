@@ -5,8 +5,8 @@
 > [!NOTE]
 > Laporan ini **non-normatif**. Sumber normatif tetap
 > `spec/spec-design-grup-tahap2-identitas.md` (v1.3),
-> `plan/plan-feature-grup-tahap2-wa-gateway-v1.0.md`,
-> `plan/plan-feature-grup-tahap2-auliapos-v1.0.md`, dan `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` (v1.1).
+> `plan-feature-grup-tahap2-wa-gateway-v1.0.md`,
+> `plan-feature-grup-tahap2-auliapos-v1.0.md`, dan `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` (v1.1).
 > Bila terjadi konflik, Spec + Plan menang. Laporan ini **tidak mengubah kode aplikasi apa pun**.
 
 | Item | Nilai |
@@ -214,7 +214,7 @@ Berkas yang ditinjau:
   `CON-003`/PRD GH-013).
 - **Recommendation:** **Proceed to Refactoring Plan** — jangan merge apa adanya. Item code-side
   (`CORR-01`, `CORR-02`, `CORR-03`, `SEC-01`, `ARCH-01`, test fidelity) ditangani lewat
-  `plan/plan-refactor-grup-tahap2-identitas-v1.0.md`. Item dokumentasi (`SPEC-01` (keputusan),
+  `plan-refactor-grup-tahap2-identitas-v1.0.md`. Item dokumentasi (`SPEC-01` (keputusan),
   `SPEC-02`, `SPEC-03`, `SPEC-04`) **bukan** lingkup kode; diteruskan ke `/sdlc-plan-tasks` dan
   `/sdlc-define-specs`.
 

@@ -6,7 +6,7 @@
 > - **Target spec:** `spec/spec-design-balas-pesan.md` bumped to **v1.4** (2026-09-27).
 > - **Resolutions applied:** all nine (F1-1..F1-4, F2-1..F2-4, F3-1) on `REQ-008`, `REQ-011`, Section 4.1, Section 4.1.1, Section 4.2, Section 4.3, Section 12, `AC-005` (+ Section 6/13 test hooks).
 > - **Projected Readiness Score:** 96/100 (Completeness 40/40, Clarity 29/30, Alignment 27/30).
-> - **Carry-forward (unchanged, out of authoring scope):** PRD GH-015 AC divergence; `plan/plan-feature-balas-pesan-auliapos-v1.0.md` `TASK-002` still names plain `MessageModel::find()` and must be updated after spec v1.4 approval.
+> - **Carry-forward (unchanged, out of authoring scope):** PRD GH-015 AC divergence; `plan-feature-balas-pesan-auliapos-v1.0.md` `TASK-002` still names plain `MessageModel::find()` and must be updated after spec v1.4 approval.
 
 # 🔍 Clarification Report [Review Iteration 1]
 
@@ -76,8 +76,8 @@ None. The single material issue (F1-1) was resolved in-session; no blocking ambi
 ## 4. 📝 Next Steps
 
 - **`/sdlc-define-specs` (authoring agent):** apply the nine resolutions above to `REQ-008`, `REQ-011`, `Section 4.1`, `Section 4.1.1`, `Section 4.2`, `Section 4.3`, `Section 12`, and `AC-005`; add the soft-delete-inclusive lookup requirement and the display-time media fallback. Bump the spec version to v1.4.
-- **`plan/plan-feature-balas-pesan-auliapos-v1.0.md`:** after spec v1.4 is approved, align `TASK-002`/`TASK-006`/`TASK-010` (soft-delete-inclusive lookup, two-condition `0`, `1` heuristic, display-time media fallback). The current `TASK-002` reference to `MessageModel::find()` contradicts Section 12 and must be corrected.
-- **`plan/plan-feature-balas-pesan-wa-gateway-v1.0.md`:** use `fromMe` and fill `key.participant` from the bot JID for outgoing sources.
+- **`plan-feature-balas-pesan-auliapos-v1.0.md`:** after spec v1.4 is approved, align `TASK-002`/`TASK-006`/`TASK-010` (soft-delete-inclusive lookup, two-condition `0`, `1` heuristic, display-time media fallback). The current `TASK-002` reference to `MessageModel::find()` contradicts Section 12 and must be corrected.
+- **`plan-feature-balas-pesan-wa-gateway-v1.0.md`:** use `fromMe` and fill `key.participant` from the bot JID for outgoing sources.
 - **Glossary/ADR:** No new canonical terms; no ADR required (no decision meets the ADR Triple Gate; `CONTEXT.md` unchanged).
 - **Carry-forward (not this session's authoring scope):** the live PRD GH-015 AC divergence remains for `/sdlc-draft-prd`.
 

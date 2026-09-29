@@ -189,7 +189,7 @@ The TASK-015 record commit lands after the TASK-016 code commit for the reason a
 
 ### 6.2 What is being asked
 
-- **Stop here.** TASK-021 is an explicit owner-approval gate. Phase 5 was not started: no WA-Gateway action, no `pm2` restart, no real AC-027/AC-042 measurement, no live-database migration, no `git push`, and no front-matter change to `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (still `status: 'Planned'`).
+- **Stop here.** TASK-021 is an explicit owner-approval gate. Phase 5 was not started: no WA-Gateway action, no `pm2` restart, no real AC-027/AC-042 measurement, no live-database migration, no `git push`, and no front-matter change to `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (still `status: 'Planned'`).
 - **Suite result for the decision:** `OK (349 tests, 1209 assertions)` after the F-03 fix — 0 failures, 0 errors, 0 skips (the pre-fix boundary was `348 / 1197`; see §5.1 and §7).
 - **Both decisions are now resolved:**
   1. **F-03** (§4): **resolved** — owner chose option (a), implemented as an extension of TASK-017 (`94845a0`) with a controller test and a red-check.

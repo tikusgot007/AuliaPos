@@ -9,8 +9,8 @@
 **Normative upstream context:**
 `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 (GH-006, GH-007);
 `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` v1.2;
-`plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0;
-`plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` v1.0;
+`plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0;
+`plan-refactor-m3-fase2a-handoff-collision-v1.0.md` v1.0;
 `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` (K-01..K-09);
 `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q9);
 `docs/audit/clarification-report-m3-fase2a-refactor-plan-2026-09-23.md` (CR-03/CR-04);
@@ -36,7 +36,7 @@
 - **Documents Analyzed:**
   - [x] PRD: `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1
   - [x] Spec: `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` v1.2
-  - [x] Plan: `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 + `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` v1.0
+  - [x] Plan: `plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 + `plan-refactor-m3-fase2a-handoff-collision-v1.0.md` v1.0
 - **Standards Compliance:** **FAIL** (see Section 3 — `docs/adr/` absent; missing K-01 ADR).
 
 ## 2. 🔍 Traceability Findings
@@ -55,9 +55,9 @@ None. The score is above the 80 threshold without a Critical Flaw Veto.
 - **Dangling reference (F-07).** `docs/adr/` is absent on the active branch, yet it is referenced by Spec §14, `docs/ARCHITECTURE.md`, `spec/...fase1.md`, `plan/...fase1...md`, and PRD §8.3.
   - **Handling:** `[Assumed / Backlog]` - Restore `docs/adr/0001-reuse-response-state-for-queue-view-status.md` (exists on branch `v2.2`) so the reference stops dangling.
   - **Corrective owner:** `/code-janitor` (light restore) or the ADR authoring path.
-- **Version drift.** `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` (Introduction + §8) still cites Spec `v1.0`; the Spec is now `v1.2`.
+- **Version drift.** `plan-feature-m3-operational-inbox-fase2a-v1.0.md` (Introduction + §8) still cites Spec `v1.0`; the Spec is now `v1.2`.
   - **Handling:** `[Assumed / Backlog]` - Text-only sync.
-- **Internal plan inconsistency.** `plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md` CON-002 summarises the gate order without the *fail-fast 409* step that TASK-201 adds.
+- **Internal plan inconsistency.** `plan-refactor-m3-fase2a-handoff-collision-v1.0.md` CON-002 summarises the gate order without the *fail-fast 409* step that TASK-201 adds.
   - **Handling:** `[Assumed / Backlog]` - Text alignment.
 
 ### ✅ Verified Aligned (No Action)

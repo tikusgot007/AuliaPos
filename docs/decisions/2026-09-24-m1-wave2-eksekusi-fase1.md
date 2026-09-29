@@ -1,7 +1,7 @@
 # M1 Gelombang 2 — Eksekusi Fase 1: Tracer Bullet Idempotensi Kirim Teks/Media (2026-09-24)
 
 > **Catatan pembaca:** dokumen ini mencatat eksekusi **Fase 1 (TASK-001..TASK-006)**
-> dari `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `57de122`)
+> dari `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `57de122`)
 > lewat `/sdlc-write-code`, mengikuti `spec/spec-process-m1-wave2-outgoing-idempotency.md`
 > (v1.1). Kode ada di repo **WA-Gateway** (worktree `C:\projects\WA-Gateway-m1w2`,
 > branch `feature/m1-wave2-outgoing-idempotency`); dokumen ini disimpan di repo AuliaPos

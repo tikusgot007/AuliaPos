@@ -1,7 +1,7 @@
 # Prompt & Handoff — `/sdlc-write-code` M1 Gelombang 2, Fase 3 (2026-09-24)
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `57de122`) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 (commit `7897d38`). Bila terjadi konflik, **Plan + Spec menang**. Dokumen ini hanya brief operasional + prompt siap paste untuk sesi `/sdlc-write-code` berikutnya (Fase 3).
+> **Dokumen ini non-normatif.** Sumber normatif tetap `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `57de122`) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 (commit `7897d38`). Bila terjadi konflik, **Plan + Spec menang**. Dokumen ini hanya brief operasional + prompt siap paste untuk sesi `/sdlc-write-code` berikutnya (Fase 3).
 
 ## 1. Prompt siap paste
 
@@ -10,7 +10,7 @@ Salin blok berikut ke **sesi baru** (lampirkan berkasnya, jangan hanya menyebut 
 ```text
 /sdlc-write-code
 
-Attach: @plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md (v1.0, status Planned, commit 57de122;
+Attach: plan-process-m1-wave2-outgoing-idempotency-v1.0.md (v1.0, status Planned, commit 57de122;
         kolom Completed TASK-001..010 sudah terisi)
 Attach: @spec/spec-process-m1-wave2-outgoing-idempotency.md (v1.1, commit 7897d38)
 Attach: @docs/decisions/2026-09-24-m1-wave2-eksekusi-fase2.md (hasil Fase 2: penyimpangan P-8..P-12, TASK-010 APPROVED)
@@ -114,7 +114,7 @@ Diambil langsung dari `C:\projects\WA-Gateway-m1w2` (HEAD `e0f5585`):
 
 ## 6. Sumber referensi
 
-- `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — TASK-011..TASK-014 (§2 Phase 3), CON-006, CON-013, TEST-004, TEST-010.
+- `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — TASK-011..TASK-014 (§2 Phase 3), CON-006, CON-013, TEST-004, TEST-010.
 - `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 — REQ-033..REQ-038, AC-033..AC-038, D-06/D-07, A-6/A-8a/A-8b/A-8c, §2 (enum reason), §12 Kasus 6-7.
 - `docs/decisions/2026-09-24-m1-wave2-eksekusi-fase2.md` — hasil Fase 2, penyimpangan P-8..P-12, TASK-010 APPROVED.
 - `docs/decisions/2026-09-24-m1-wave2-eksekusi-fase1.md` — hasil Fase 1, penyimpangan P-1..P-7, temuan T-1 (5 skrip gelombang 1 tanpa `SQLITE_PATH` temp).

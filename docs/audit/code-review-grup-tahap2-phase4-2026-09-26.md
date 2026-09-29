@@ -128,5 +128,5 @@ dirender, dan nilai DB tidak berubah.
   `'Pengirim'` alih-alih tanpa identitas.
 - **Rekomendasi:** **Proceed to Refactoring Plan.** Delta Phase 4 patuh spec dan
   boleh digabung; celah invarian `SEC-02` diperbaiki lewat
-  `plan/plan-refactor-sender-identity-label-hardening-v1.0.md` sebelum menutup
+  `plan-refactor-sender-identity-label-hardening-v1.0.md` sebelum menutup
   refactor.

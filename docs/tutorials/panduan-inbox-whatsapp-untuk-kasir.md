@@ -257,4 +257,4 @@ Lakukan berurutan pada percakapan uji:
   Note.
 - `CONTEXT.md` — istilah baku: Handoff, Handoff Summary, Next Action, Handoff Note, Collision
   Detection, Belum Diambil, Tanpa Pemilik.
-- `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` — rencana implementasi.
+- `plan-feature-m3-operational-inbox-fase2a-v1.0.md` — rencana implementasi.

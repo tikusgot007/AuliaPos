@@ -14,7 +14,7 @@ tags: [process, gateway, whatsapp, baileys, m1, reliability, observability, logg
 
 Plan ini mengeksekusi `spec/spec-process-m1-wave3-reliability-observability.md` (v1.1) untuk menutup **Ticket 05** (crash/restart & uji pembeda dekripsi), **Ticket 12** (worker correctness), **Ticket 13** (structured logging), **Ticket 14** (metrics/health GW-20 + receipt GW-21), dan **Ticket 15** (matriks uji keandalan penuh & kriteria keluar M1), sesuai `docs/TODO-CHAT.md` dan `docs/GATEWAY-REQUIREMENTS.md` (GW-20, GW-21; rujukan GW-11, GW-19, GW-25). Gelombang ini **tidak mengubah** jaminan gelombang 1 (Ticket 02–04) maupun gelombang 2 (Ticket 06–11); ia membuktikan, mengukur, dan membuat terlihat apa yang sudah dibangun.
 
-Bentuk plan, pola **VERIFY/APPROVAL/DEPLOY**, penomoran `REQ`/`CON`/`SEC`/`GUD`, dan gaya tabel mengikuti `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (dirujuk spec §14) agar traceability lintas-gelombang M1 tetap utuh.
+Bentuk plan, pola **VERIFY/APPROVAL/DEPLOY**, penomoran `REQ`/`CON`/`SEC`/`GUD`, dan gaya tabel mengikuti `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (dirujuk spec §14) agar traceability lintas-gelombang M1 tetap utuh.
 
 **Kode hanya di repo WA-Gateway** — Wave 3 **Gateway-only** (CON-015): tidak ada task AuliaPos di plan ini. Kerja **hanya** di worktree baru `C:\projects\WA-Gateway-m1w3`, branch `feature/m1-wave3-reliability-observability`. Folder live `C:\projects\WA-Gateway` bersifat **read-only sampai TASK-031 (DEPLOY)**. Folder `auth/` dan versi Baileys (6.7.24) tidak disentuh (CON-014).
 
@@ -253,7 +253,7 @@ Penomoran requirement mengikuti spec v1.1 apa adanya (REQ-042..REQ-074 melanjutk
 - **DEP-004**: Node.js 20 dan PM2 (`wa-gateway`) di Aan-PC — prasyarat TASK-001 dan TASK-031.
 - **DEP-005**: Gelombang 2 (`outgoing_operations`, `incoming_queue.dead_lettered_at`, `outgoingOperationService`) sudah live — Wave 3 hanya menambah kolom `receipt_*` dan mengonsumsi baris yang ada (DAT-001).
 - **DEP-006**: AuliaPos `POST /api/inbox/gateway/status` (heartbeat) dan `POST /api/inbox/gateway/messages` (event) — kontrak MUST tidak berubah (CON-011, EXT-002).
-- **DEP-007**: `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — pola VERIFY/APPROVAL/DEPLOY, CON-011 (folder live read-only), dan pola TASK-022 (DEPLOY) yang dipakai ulang di TASK-031.
+- **DEP-007**: `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — pola VERIFY/APPROVAL/DEPLOY, CON-011 (folder live read-only), dan pola TASK-022 (DEPLOY) yang dipakai ulang di TASK-031.
 - **DEP-008**: `docs/audit/clarification-report-m1-wave3-reliability-observability-2026-09-29.md` (Readiness 71/100 → proyeksi 90/100, PROCEED) — sumber 14 resolusi CB-01..CB-14 yang sudah tertanam di spec v1.1.
 - **DEP-009**: **OI-001/D-14** (dua pemasok luar: akun Gateway uji ketiga + nomor kontak uji) — prasyarat TASK-038; **bukan** dapat diturunkan dari kode (DAT-002). Status: BELUM tersedia.
 - **DEP-010**: **OI-002** (bentuk payload `messages.update` 6.7.24 + tabel pemetaan status numerik → `receipt_state`) — prasyarat TASK-027/TASK-028; ditutup lewat TASK-019 (spec §1.2, EXT-001).
@@ -336,7 +336,7 @@ Seluruh tag `[ASSUMPTION-*]` spec v1.1 diekstrak apa adanya; task yang bergantun
 - `spec/spec-process-m1-wave3-reliability-observability.md` v1.1 — sumber tunggal REQ-042..REQ-074, AC-047..AC-079, OI-001/OI-002, D-14, ASSUMPTION-012..021, SEC/CON/GUD Wave 3.
 - `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 — REQ-020..REQ-041, AC-019..AC-046, dan pola yang dilanjutkan (penomoran REQ/AC/CON).
 - `spec/spec-process-m1-wave1-incoming-reliability.md` v1.1 — AC-001..AC-018 dan CON-001..004 (dasar gelombang 1).
-- `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — pola bentuk plan, CON-011 (folder live read-only), dan pola TASK-022 (DEPLOY).
+- `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — pola bentuk plan, CON-011 (folder live read-only), dan pola TASK-022 (DEPLOY).
 - `docs/audit/clarification-report-m1-wave3-reliability-observability-2026-09-29.md` — Readiness 71/100 → proyeksi 90/100 (PROCEED); 14 resolusi CB-01..CB-14.
 - `docs/GATEWAY-REQUIREMENTS.md` — GW-20 (health) dan GW-21 (receipt); rujukan GW-11/GW-19/GW-25.
 - `docs/TODO-CHAT.md` — M1 Ticket 05, 12–15; risiko P0 #3/#4/#5; butir C3 (GW-25 belum tereproduksi).

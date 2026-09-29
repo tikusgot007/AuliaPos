@@ -317,7 +317,7 @@ touches the live WhatsApp session), and **Phase 5** (shadow period with human do
 - `docs/adr/0003-single-pc-store-hours-gateway-topology.md` (topology decision, this plan's ADR)
 - `docs/TODO-CHAT.md` (master status reference; stale `:98` line corrected by TASK-042)
 - `docs/ARCHITECTURE.md` (§9 deployment, §12 database topology, §13 Inbox module)
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (offline `append` handling and AC-001
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` (offline `append` handling and AC-001
   evidence, 30/30, 0 lost, 0 duplicates)
 - `spec/spec-design-inbox-read-authorization.md` (read-only mirror is consistent with open-read rules)
 - `docs/GATEWAY-REQUIREMENTS.md` (GW-08, GW-09, GW-25)

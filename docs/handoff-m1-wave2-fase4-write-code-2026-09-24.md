@@ -1,7 +1,7 @@
 # Prompt & Handoff — `/sdlc-write-code` M1 Gelombang 2, Fase 4 (2026-09-24)
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `4fba319`) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 (commit `7897d38`). Bila terjadi konflik, **Plan + Spec menang**. Dokumen ini adalah brief operasional + prompt siap paste untuk sesi `/sdlc-write-code` Fase 4. **Kenapa dokumen ini ada:** sesi 2026-09-24 diminta menjalankan **Fase 5** (TASK-022..TASK-024) dengan asumsi Fase 4 selesai dan TASK-021 disetujui — verifikasi read-only membuktikan asumsi itu **tidak benar** (§5.4), sehingga Fase 5 dibatalkan sebelum menyentuh folder live, dan pekerjaan dialihkan ke handoff Fase 4 ini. Tidak ada kode, migration, deploy, atau `pm2 restart` yang dijalankan.
+> **Dokumen ini non-normatif.** Sumber normatif tetap `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `4fba319`) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 (commit `7897d38`). Bila terjadi konflik, **Plan + Spec menang**. Dokumen ini adalah brief operasional + prompt siap paste untuk sesi `/sdlc-write-code` Fase 4. **Kenapa dokumen ini ada:** sesi 2026-09-24 diminta menjalankan **Fase 5** (TASK-022..TASK-024) dengan asumsi Fase 4 selesai dan TASK-021 disetujui — verifikasi read-only membuktikan asumsi itu **tidak benar** (§5.4), sehingga Fase 5 dibatalkan sebelum menyentuh folder live, dan pekerjaan dialihkan ke handoff Fase 4 ini. Tidak ada kode, migration, deploy, atau `pm2 restart` yang dijalankan.
 
 ## 1. Prompt siap paste
 
@@ -10,7 +10,7 @@ Salin blok berikut ke **sesi baru** (lampirkan berkasnya, jangan hanya menyebut 
 ```text
 /sdlc-write-code
 
-Attach: @plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md (v1.0, status Planned, commit 4fba319;
+Attach: plan-process-m1-wave2-outgoing-idempotency-v1.0.md (v1.0, status Planned, commit 4fba319;
         kolom Completed TASK-001..014 sudah terisi)
 Attach: @spec/spec-process-m1-wave2-outgoing-idempotency.md (v1.1, commit 7897d38)
 Attach: @docs/decisions/2026-09-24-m1-wave2-phase3-incoming-dead-letter.md (Fase 3 ditutup, TASK-014 APPROVED)
@@ -179,7 +179,7 @@ Konsekuensinya TASK-022 **dibatalkan** pada sesi itu: plan §2 menetapkan `Dep` 
 
 ## 6. Sumber referensi
 
-- `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — TASK-015..TASK-021 (§2 Phase 4), CON-012/CON-014, RISK-002, RISK-007, RISK-008, RISK-012, TEST-008, TEST-010, §9 Rollback Fase 4.
+- `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — TASK-015..TASK-021 (§2 Phase 4), CON-012/CON-014, RISK-002, RISK-007, RISK-008, RISK-012, TEST-008, TEST-010, §9 Rollback Fase 4.
 - `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 — REQ-039..REQ-041, AC-041/AC-044/AC-045/AC-046, D-12, ASSUMPTION-002/005/010, §4.7 (langkah 3–6).
 - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-plan-2026-09-24.md` — F-01/F-02 (blocker), K-08/K-09/K-10/K-13, §4 Next Steps.
 - `docs/decisions/2026-09-24-m1-wave2-phase3-incoming-dead-letter.md` — penutupan Fase 3, commit Gateway, batas bukti.

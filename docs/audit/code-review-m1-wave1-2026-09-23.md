@@ -6,7 +6,7 @@
 `feature/stage-1-reliability` @ `065f683` (working tree bersih, diverifikasi sebelum dan sesudah review)
 **Reviewed range:** `e18f716..065f683` — 21 komit, 21 berkas, `+2825 / −48` (angka cocok dengan decision log deploy)
 **Normative upstream:** `spec/spec-process-m1-wave1-incoming-reliability.md` v1.1,
-`plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` v1.2 (`Completed`),
+`plan-process-m1-wave1-incoming-reliability-v1.0.md` v1.2 (`Completed`),
 `docs/decisions/2026-09-21-m1-wave1-eksekusi-fase1-3.md`, `docs/decisions/2026-09-23-m1-wave1-deploy-dan-ac001.md`
 **Metode:** dua reviewer paralel (Standards+Security, Spec) + verifikasi ulang oleh orchestrator. Setiap `file:line`
 di bawah diambil ulang dari berkas `065f683`, bukan dari diff. Folder live `C:\projects\WA-Gateway`, `auth/`, dan PM2 tidak disentuh.
@@ -25,7 +25,7 @@ di bawah diambil ulang dari berkas `065f683`, bukan dari diff. Folder live `C:\p
   ter-commit, jadi buktinya tidak bisa diulang). Dari 7 penyimpangan yang dideklarasikan, 6 cukup didokumentasikan.
   Poin (g) **tidak akurat**: `OWN_SENT_TTL_MS` negatif atau `0` diterima dan diam-diam mematikan filter kiriman sendiri.
 - **Verdict:** **0 P0, 1 P1, 14 P2** (5 wajib, sisanya NIT/OPTIONAL/FYI). Tidak ada temuan yang membatalkan AC-001.
-  Perbaikan dikumpulkan di `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md`.
+  Perbaikan dikumpulkan di `plan-refactor-m1-wave1-incoming-reliability-v1.0.md`.
 - **Testing strategy assessment:** uji inti menguji perilaku nyata, bukan sekadar mock. Contohnya: AC-002 menyuntik `append`
   di tengah `sendTextMessage` asli; AC-011 memakai berkas korup sungguhan dan memeriksa 3 berkas yang dipindah; AC-010
   mengukur waktu nyata (±2015 ms); dan pelaksana mencatat uji mutasi pada TASK-009/010/013/014/015. Yang lemah:
@@ -324,7 +324,7 @@ setelah start, lewat kode `065f683` yang sungguh berjalan di folder live. AC-001
 - **Total Findings:** Standards 12 (1 P1, 4 P2 wajib/opsional-berdampak, 7 NIT/OPTIONAL/FYI), Spec 6 (2 P2 wajib, 4 OPTIONAL/NIT/FYI). **0 P0.**
 - **Worst Standards Issue:** CR-01. Start SQLite memperlakukan error sementara sebagai korup, dan kegagalan constructor jatuh diam-diam ke buffer JSON (jalur kehilangan pesan senyap, terbukti direproduksi).
 - **Worst Spec Issue:** CR-13 (sisa E-05, cache `null` permanen), setara dengan CR-14 (salinan decision log basi di repo kode). Tidak ada REQ yang dilanggar.
-- **Recommendation:** **Proceed to Refactoring Plan** — `plan/plan-refactor-m1-wave1-incoming-reliability-v1.0.md`.
+- **Recommendation:** **Proceed to Refactoring Plan** — `plan-refactor-m1-wave1-incoming-reliability-v1.0.md`.
   - Fase 1 (CR-01) sebaiknya selesai **sebelum** PR `feature/stage-1-reliability` → `master` dibuat. Kodenya sudah berjalan di folder live, tetapi pemicunya jarang, sehingga tidak ada alasan rollback.
   - Fase 2 (P2 wajib) bisa ikut PR yang sama atau PR susulan.
   - CR-05, CR-06, CR-07, CR-08, CR-09, CR-10, dan CR-11 **tidak** masuk plan dan dicatat sebagai backlog gelombang berikutnya (RISK-004/005: gelombang tidak diperluas).

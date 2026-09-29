@@ -51,7 +51,7 @@ Audiens: developer yang akan menjalankan `/sdlc-clarify-reqs` → `/sdlc-plan-ta
 ### 1.2 Open Questions & Assumptions
 
 - **ASSUMPTION-001:** seluruh staff yang login saling dipercaya (model **shared inbox** toko kecil); tidak ada kebutuhan privasi antar-staff di level percakapan. Bila kelak ada percakapan yang harus privat terhadap staff lain, spec ini **wajib** ditinjau ulang.
-- **ASSUMPTION-002:** guard kepemilikan media `SEC-002`/`TASK-103` (`plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md:50`) **dibatalkan** karena premisnya ("pemanggil yang tidak berhak atas percakapan pemiliknya") tidak lagi berlaku di bawah aturan baca terbuka.
+- **ASSUMPTION-002:** guard kepemilikan media `SEC-002`/`TASK-103` (`plan-refactor-balas-pesan-tahap3-review2-v1.0.md:50`) **dibatalkan** karena premisnya ("pemanggil yang tidak berhak atas percakapan pemiliknya") tidak lagi berlaku di bawah aturan baca terbuka.
 - **CLARIFICATION NEEDED:** tidak ada. Kedua keputusan di atas sudah dikonfirmasi pemilik proyek (2026-09-27): media ikut dibuka seperti teks.
 - **Catatan cakupan:** dari seluruh endpoint baca, **hanya `media()`** yang saat ini membatasi; endpoint baca lain sudah terbuka. Karena itu satu-satunya perubahan kode di spec ini adalah pembukaan `media()`.
 
@@ -74,7 +74,7 @@ Istilah kerja tambahan (bukan istilah bisnis baru):
 ## 3. Requirements, Constraints & Guidelines
 
 - **REQ-001 (baca terbuka):** Seluruh staff yang login (role `admin` maupun `kasir`) **boleh membaca seluruh percakapan tanpa dibatasi `assigned_to`** — daftar percakapan, thread pesan, lampiran media, riwayat Handoff, status Gateway, dan jumlah perlu-dibalas. Ini menegaskan **CL-004** (`spec-design-m3-operational-inbox-fase1.md:86`) dan memperluasnya secara eksplisit ke endpoint thread dan media.
-- **REQ-002 (media ikut dibuka):** `GET /inbox/media/(:num)` **wajib menyajikan** media kepada setiap staff yang login, tanpa memandang kepemilikan percakapan pemilik media. Guard `cekOwnership()` di `Inbox::media()` (`app/Controllers/Inbox.php:425-431`) **dihapus**; pemuatan percakapan (`:416-423`) **dipertahankan** karena masih dipakai untuk memastikan `404` saat percakapan pemilik pesan tidak ada (lihat C-1, `docs/audit/clarification-report-inbox-read-authorization-2026-09-27.md`). Pemeriksaan `404` untuk pesan/percakapan yang tidak ditemukan **tetap**, tidak berubah menjadi `403`. REQ ini **menggantikan** `SEC-002`/`TASK-103` (`plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md:50`).
+- **REQ-002 (media ikut dibuka):** `GET /inbox/media/(:num)` **wajib menyajikan** media kepada setiap staff yang login, tanpa memandang kepemilikan percakapan pemilik media. Guard `cekOwnership()` di `Inbox::media()` (`app/Controllers/Inbox.php:425-431`) **dihapus**; pemuatan percakapan (`:416-423`) **dipertahankan** karena masih dipakai untuk memastikan `404` saat percakapan pemilik pesan tidak ada (lihat C-1, `docs/audit/clarification-report-inbox-read-authorization-2026-09-27.md`). Pemeriksaan `404` untuk pesan/percakapan yang tidak ditemukan **tetap**, tidak berubah menjadi `403`. REQ ini **menggantikan** `SEC-002`/`TASK-103` (`plan-refactor-balas-pesan-tahap3-review2-v1.0.md:50`).
   - **Pengecualian tulis (C-2):** penulisan penanda `media_confirmed_gone_at` pada jalur `410` (`:531-535`) **boleh dipicu staff mana pun yang login**, bukan hanya pemegang percakapan — lihat definisi "Penanda Objektif" di Section 2. Ini bukan pelanggaran `REQ-003`; ini satu-satunya pengecualian tulis pada endpoint `media()` dan tidak berlaku untuk endpoint tulis lain.
 - **REQ-003 (tulis terbatas pemegang):** Seluruh operasi tulis yang mengubah keadaan percakapan **tetap** dibatasi pemegang (`assigned_to` = user yang login) atau admin, lewat `cekOwnership()` — pola yang sudah ada, **tidak diubah**. Matriks lengkap di Section 4.
 - **REQ-004 (Internal Note terbuka):** Penulisan Internal Note (`POST /inbox/percakapan/(:num)/catatan`, `Inbox::catatanInternal()` `app/Controllers/Inbox.php:1217`) **tetap** boleh dilakukan semua staff, tanpa `cekOwnership()` — konsisten `SEC-001` M3 Fase 1 dan pernyataan pemilik proyek ("semua bisa tulis internal note").
@@ -247,6 +247,6 @@ Konsistensi teks dan media inilah alasan REQ-002: bila teks percakapan terbuka u
 - [`spec-design-m3-operational-inbox-fase1.md`](./spec-design-m3-operational-inbox-fase1.md) — sumber `CL-004` (baca terbuka) dan `SEC-001` (Internal Note tanpa `cekOwnership()`)
 - [`spec-design-balas-pesan.md`](./spec-design-balas-pesan.md) — memakai `GET /inbox/media/(:num)` sebagai seam live-fetch kutipan (REQ-008b)
 - [`spec-design-grup-tahap1-tab-inbox.md`](./spec-design-grup-tahap1-tab-inbox.md) — aturan grup (`CON-004`, `CON-006`)
-- `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — `TASK-103`/`SEC-002` yang digantikan REQ-002
+- `plan-refactor-balas-pesan-tahap3-review2-v1.0.md` — `TASK-103`/`SEC-002` yang digantikan REQ-002
 - `docs/audit/consistency-audit-balas-pesan-tahap3-review3-2026-09-27.md` — temuan `ALT-003`/`AUTHZ-02` yang ditutup spec ini
 - `docs/CHAT.md` §18 (Developer Invariants)

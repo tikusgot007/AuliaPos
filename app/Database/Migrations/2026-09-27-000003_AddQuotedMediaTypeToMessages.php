@@ -14,7 +14,7 @@ use CodeIgniter\Database\Migration;
  * UI dapat memilih representasi kutipan per tipe (thumbnail/tautan/label)
  * TANPA menebak dari `quoted_snippet` -- caption dapat menggantikan label
  * jenis, sehingga penebakan string akan salah (lihat ALT-001 di
- * `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md`).
+ * `plan-refactor-balas-pesan-tahap3-review2-v1.0.md`).
  *
  * SENGAJA snapshot beku, BUKAN foreign key hidup (spec Section 9 "Never do"):
  * tidak ada constraint referensial, konsisten dengan kolom kutipan lain di

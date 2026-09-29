@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-23
 **Branch:** `feature/m3-operational-inbox-fase1a-task001` @ `d472a91`
-**Target document:** `plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 (Plan)
+**Target document:** `plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 (Plan)
 **Upstream context:** `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` v1.0, `prd-20260922-0141-chat-whatsapp-inbox.md` v1.1 (GH-006, GH-007), `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` (K-01 to K-09), `CONTEXT.md`, `docs/ARCHITECTURE.md`, `.claude/instructions/memory.instructions.md` (Fase 2a Spec Clarification checkpoint 97/100)
 **Locked inputs honoured (not re-interrogated):** dedicated GET handoff newest-first without touching GET messages; selesai rejection = 409; cap 4096; kasir-only target (admin 403); named 409 + `User #{id}`; Asia/Jakarta; FK CASCADE with soft-delete keeping history; free-text next_action; initiator = assignee except belum_diambil + AC-H08
 

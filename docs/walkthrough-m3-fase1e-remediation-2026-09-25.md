@@ -1,7 +1,7 @@
 # Walkthrough — M3 Fase 1e: Remediasi Temuan Code Review
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `spec/spec-design-m3-operational-inbox-fase1.md` (rev 1.4) dan `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4, `Completed`). Rencana pelaksana remediasi ini adalah `plan/plan-refactor-m3-fase1e-message-search-v1.0.md` (v1.0). Bila terjadi konflik, Spec + Plan menang.
+> **Dokumen ini non-normatif.** Sumber normatif tetap `spec/spec-design-m3-operational-inbox-fase1.md` (rev 1.4) dan `plan-feature-m3-operational-inbox-fase1-v1.0.md` (v1.4, `Completed`). Rencana pelaksana remediasi ini adalah `plan-refactor-m3-fase1e-message-search-v1.0.md` (v1.0). Bila terjadi konflik, Spec + Plan menang.
 
 ## 1. Ringkasan
 
@@ -23,7 +23,7 @@ Dua fase dikirim sebagai dua commit terpisah, sesuai DEP-005, supaya perbaikan p
 | 1 | `2a538af` | 2 berkas, +109 / -4 |
 | 2 | `0919960` | 1 berkas, +40 / -3 |
 
-Status rencana: **Completed** — `plan/plan-refactor-m3-fase1e-message-search-v1.0.md` §8. Fase 3 ditolak pemilik proyek dan dipindahkan menjadi TODO berjalan.
+Status rencana: **Completed** — `plan-refactor-m3-fase1e-message-search-v1.0.md` §8. Fase 3 ditolak pemilik proyek dan dipindahkan menjadi TODO berjalan.
 
 ## 2. Fase 1 — predikat escape-once (`app/Controllers/Inbox.php`)
 

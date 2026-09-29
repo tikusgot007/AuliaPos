@@ -593,7 +593,7 @@ Kasus 10 (Ticket 12, worker heartbeat CB-11):
 
 - `spec/spec-process-m1-wave1-incoming-reliability.md` v1.1 — gelombang 1 (AC-001..AC-018, CON-001..004, REQ-001..019).
 - `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 — gelombang 2 (AC-019..AC-046, SEC-001..002, CON-005..010, REQ-020..041; penomoran yang dilanjutkan di sini).
-- `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — pola TASK/APPROVAL/VERIFY/DEPLOY dan RISK-009 (pagar scope).
+- `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — pola TASK/APPROVAL/VERIFY/DEPLOY dan RISK-009 (pagar scope).
 - `docs/GATEWAY-REQUIREMENTS.md` — GW-20, GW-21 (dan rujukan GW-11, GW-19, GW-25).
 - `docs/TODO-CHAT.md` — Ticket 05 dan 12–15, risiko P0 #3/#4/#5, butir C3.
 - `docs/decisions/2026-09-21-m1-ticket01-baseline.md` — Baseline 2/3/4 dan bagian "Analisis lanjutan … error dekripsi" (H1/H2, nomor kedua).

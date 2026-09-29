@@ -20,8 +20,8 @@
 - **Documents Analyzed:**
   - [x] PRD: `prd-20260926-0024-whatsapp-grup-balas-teruskan.md` (**v1.2** — bumped since last audit)
   - [x] Spec: `spec/spec-design-balas-pesan.md` (v1.8, unchanged)
-  - [x] Plan: `plan/plan-refactor-balas-pesan-tahap3-review2-v1.0.md` (v1.0, "Completed")
-  - [x] Plan: `plan/plan-refactor-balas-pesan-tahap3-v1.0.md` (v1.1, "Completed")
+  - [x] Plan: `plan-refactor-balas-pesan-tahap3-review2-v1.0.md` (v1.0, "Completed")
+  - [x] Plan: `plan-refactor-balas-pesan-tahap3-v1.0.md` (v1.1, "Completed")
   - Cross-referenced: `CONTEXT.md`, `docs/adr/0001-...md`, `docs/ARCHITECTURE.md`, prior audit `docs/audit/consistency-audit-balas-pesan-tahap3-review2-2026-09-27.md`, git history (`git log`), and live test execution.
 - **Standards Compliance:** PASS on ADR mechanics; FAIL (non-blocking, unchanged) on `CONTEXT.md` substance and `docs/ARCHITECTURE.md` accuracy.
 

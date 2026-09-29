@@ -1,7 +1,7 @@
 # Prompt & Handoff — M1 Gelombang 2, Fase 5: Deploy & Pengukuran Nyata (2026-09-24)
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1. Bila terjadi konflik, **Plan + Spec menang**. **Kenapa dokumen ini ada:** Fase 4 (TASK-015..TASK-021) sudah selesai dan **TASK-021 sudah DISETUJUI pemilik**, sehingga gerbang Fase 5 terbuka — tetapi Fase 5 **tidak boleh** dieksekusi dari sesi AuliaPos yang mengerjakan Fase 4 karena menyentuh repo WA-Gateway, proses Gateway aktif, dan database kerja berisi data nyata (alasan di §3.4). Sesi itu berhenti tanpa deploy, tanpa `pm2`, dan tanpa migrasi produksi.
+> **Dokumen ini non-normatif.** Sumber normatif tetap `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1. Bila terjadi konflik, **Plan + Spec menang**. **Kenapa dokumen ini ada:** Fase 4 (TASK-015..TASK-021) sudah selesai dan **TASK-021 sudah DISETUJUI pemilik**, sehingga gerbang Fase 5 terbuka — tetapi Fase 5 **tidak boleh** dieksekusi dari sesi AuliaPos yang mengerjakan Fase 4 karena menyentuh repo WA-Gateway, proses Gateway aktif, dan database kerja berisi data nyata (alasan di §3.4). Sesi itu berhenti tanpa deploy, tanpa `pm2`, dan tanpa migrasi produksi.
 
 ## 1. Prompt siap paste
 
@@ -10,7 +10,7 @@ Salin blok berikut ke **sesi baru** (lampirkan berkasnya, jangan hanya menyebut 
 ```text
 /sdlc-write-code
 
-Attach: @plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md (status Planned;
+Attach: plan-process-m1-wave2-outgoing-idempotency-v1.0.md (status Planned;
         TASK-015..TASK-021 terisi, TASK-021 APPROVED, TASK-022 memuat sub-langkah (f))
 Attach: @spec/spec-process-m1-wave2-outgoing-idempotency.md (v1.1)
 Attach: @docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md (§4 F-01/F-03, §5 bukti,
@@ -143,7 +143,7 @@ Setelah pemilik menyatakan Wave 2 selesai: ubah front-matter plan `status: 'Plan
 
 ## 6. Sumber referensi
 
-- `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — TASK-022 (termasuk sub-langkah (f)), TASK-023, TASK-024, CON-011/CON-014, RISK-002, §9 Rollback Fase 4.
+- `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` — TASK-022 (termasuk sub-langkah (f)), TASK-023, TASK-024, CON-011/CON-014, RISK-002, §9 Rollback Fase 4.
 - `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 — REQ-039..REQ-041, AC-027, AC-031/AC-032/AC-040/AC-042/AC-043, ASSUMPTION-009, §13 prosedur pengukuran.
 - `docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md` — §4 keputusan F-01/F-03, §5 bukti verifikasi, §6 ringkasan commit per task, §8 TASK-021 APPROVED.
 - `docs/decisions/2026-09-24-m1-wave2-phase3-incoming-dead-letter.md` — penutupan Fase 3, commit Gateway, batas bukti.

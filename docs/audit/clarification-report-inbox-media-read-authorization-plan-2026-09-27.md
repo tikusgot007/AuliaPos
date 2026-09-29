@@ -6,7 +6,7 @@
 > **REMEDIATION STATUS: RESOLVED**
 > This audit report has been remediated by Planner Architect.
 > - **Projected Readiness Score:** 99/100
-> - All six resolutions in Section 2 were folded into `plan/plan-refactor-inbox-media-read-authorization-v1.0.md` (v1.0 → v1.1): TASK-001 now splits the comment update into two separate C-1/REQ-002 comments; TASK-002 now also fixes the stale class docblock and stale assertion message; TASK-003 now adds the `InboxMediaAuthSpy::$gatewayResponse` mutable property plus the third `gatewayMediaDownloadCalls` assertion; TASK-004 now adds the missing `seedMessage()` helper before the new anchor test; TASK-007 now targets a new named `### Media Read Authorization` sub-section instead of an ambiguous "after the table (or ...)" placement. No requirement, phase structure, or `Dep` graph was altered — a v1.1 revision note documents the change without disturbing existing task numbering.
+> - All six resolutions in Section 2 were folded into `plan-refactor-inbox-media-read-authorization-v1.0.md` (v1.0 → v1.1): TASK-001 now splits the comment update into two separate C-1/REQ-002 comments; TASK-002 now also fixes the stale class docblock and stale assertion message; TASK-003 now adds the `InboxMediaAuthSpy::$gatewayResponse` mutable property plus the third `gatewayMediaDownloadCalls` assertion; TASK-004 now adds the missing `seedMessage()` helper before the new anchor test; TASK-007 now targets a new named `### Media Read Authorization` sub-section instead of an ambiguous "after the table (or ...)" placement. No requirement, phase structure, or `Dep` graph was altered — a v1.1 revision note documents the change without disturbing existing task numbering.
 
 **Readiness Score:** 91/100
 **Status:** Good Enough
@@ -56,7 +56,7 @@ None — every finding in this session was resolved via a direct question to the
 
 ## 4. 📝 Next Steps
 
-- `/sdlc-plan-tasks` must fold the six resolutions above into TASK-001, TASK-002, TASK-003, TASK-004, and TASK-007 of `plan/plan-refactor-inbox-media-read-authorization-v1.0.md`.
+- `/sdlc-plan-tasks` must fold the six resolutions above into TASK-001, TASK-002, TASK-003, TASK-004, and TASK-007 of `plan-refactor-inbox-media-read-authorization-v1.0.md`.
 - No new domain term was introduced → `CONTEXT.md` unchanged.
 - No architectural decision passed the Triple Gate → no new ADR.
 - Proceed to `/sdlc-write-code` once the plan is updated with these resolutions.
@@ -70,7 +70,7 @@ None — every finding in this session was resolved via a direct question to the
 
 ## 5. Evidence Index
 
-- `plan/plan-refactor-inbox-media-read-authorization-v1.0.md` — target plan (v1.0), all 9 tasks across 2 phases.
+- `plan-refactor-inbox-media-read-authorization-v1.0.md` — target plan (v1.0), all 9 tasks across 2 phases.
 - `spec/spec-design-inbox-read-authorization.md` — source spec (v1.1), REQ-001–REQ-005, SEC-001, AC-001–AC-009.
 - `app/Controllers/Inbox.php` — `media()` `:396-551` (SEC-002 comment `:410-415`, conversation lookup `:416-423`, ownership guard to remove `:425-431`, `410` write `:531-535`); `apiMessages()` `:303-332`; `cekOwnership()` `:761-773`.
 - `tests/session/InboxMediaAuthTest.php` — full file read (216 lines): class docblock `:12-18`, 4 existing tests `:79-152`, `InboxMediaAuthSpy` `:205-215`.

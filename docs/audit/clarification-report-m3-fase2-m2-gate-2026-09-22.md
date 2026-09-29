@@ -22,7 +22,7 @@
 - `spec/spec-design-m3-operational-inbox-fase1.md` §1.1 (Out of Scope)
 - `docs/ARCHITECTURE.md` §12 (baris 275-285)
 
-**Upstream context yang di-attach:** `blueprint-m3-operational-inbox.md`, `prd-20260922-0141-chat-whatsapp-inbox.md`, `spec/spec-design-m3-operational-inbox-fase1.md`, `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md`, `docs/ARCHITECTURE.md`, `memory.instructions.md`, `.claude/instructions/memory.instructions.md`.
+**Upstream context yang di-attach:** `blueprint-m3-operational-inbox.md`, `prd-20260922-0141-chat-whatsapp-inbox.md`, `spec/spec-design-m3-operational-inbox-fase1.md`, `plan-feature-m3-operational-inbox-fase1-v1.0.md`, `docs/ARCHITECTURE.md`, `memory.instructions.md`, `.claude/instructions/memory.instructions.md`.
 
 **Readiness Score:** 79/100
 **Status:** Below Threshold — skor mentah 82/100 diturunkan oleh **Critical Flaw Veto**
@@ -40,7 +40,7 @@
 
 - **Requirement:** `prd-20260922-0141-chat-whatsapp-inbox.md` §2.3 baris 41 - *"Fase 2 (Handoff antar staff dengan ringkasan, Collision detection, Auto-assignment) - menunggu M2 (State Consistency) selesai..."*
   - **Issue:** Dinyatakan sebagai **Non-Goal**, sementara sesi ini justru membuka jalur untuk menspesifikasikannya. Tanpa amandemen PRD, Spec 2a tidak punya induk requirement sehingga traceability putus di audit berikutnya.
-- **Requirement:** `spec/spec-design-m3-operational-inbox-fase1.md` §1.1 dan `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` REQ-002 - keduanya merujuk `docs/adr/0001-reuse-response-state-for-queue-view-status.md`.
+- **Requirement:** `spec/spec-design-m3-operational-inbox-fase1.md` §1.1 dan `plan-feature-m3-operational-inbox-fase1-v1.0.md` REQ-002 - keduanya merujuk `docs/adr/0001-reuse-response-state-for-queue-view-status.md`.
   - **Issue:** Folder `docs/adr/` **tidak ada** di branch aktif (`F-07`). Rujukan audit-trail terpenting modul Inbox menggantung, sehingga prinsip *single source of truth* yang menjadi dasar keputusan hari ini tidak bisa diverifikasi pembaca di branch ini.
 - **Requirement:** `blueprint-m3-operational-inbox.md` baris 5 dan `spec/spec-design-m3-operational-inbox-fase1.md` baris 13 - keduanya menyebut `Panduan_Layar_AuliaPos_M3.md` sebagai *dasar* penyusunan; `spec` §1.1 menyebut `status-proyek-master.md` sebagai rujukan status M2.
   - **Issue:** `git log --all --diff-filter=A --name-only` membuktikan **kedua file tidak pernah ditambahkan di seluruh history git** (`F-10`, `F-11`). Dokumen yang seharusnya menjadi sumber otoritatif perilaku Layar Handoff tidak dapat diakses dari mana pun, sehingga definisi Fase 2 tidak boleh diklaim "sesuai dokumen dasar" - harus dinyatakan berasal dari keputusan sesi ini.

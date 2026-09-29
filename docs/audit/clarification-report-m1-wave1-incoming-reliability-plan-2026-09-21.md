@@ -1,6 +1,6 @@
 # 🔍 Clarification Report [Review Iteration 2]
 
-**Target Document:** `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.0), dengan rujukan `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1) dan `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` (E-01..E-09).
+**Target Document:** `plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.0), dengan rujukan `spec/spec-process-m1-wave1-incoming-reliability.md` (v1.1) dan `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` (E-01..E-09).
 
 **Readiness Score:** 92/100
 **Status:** Good Enough

@@ -581,7 +581,7 @@ Kasus 10 (edge, TTL & pruneTerminal):
 ## 14. Related Specifications / Further Reading
 
 - `spec/spec-process-m1-wave1-incoming-reliability.md` v1.1 — gelombang 1 (pesan masuk, buffer, `ownSentRegistry`, AC-001..AC-018, CON-001..004, REQ-001..019 yang penomorannya dilanjutkan di sini).
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — contoh bentuk plan dan pola APPROVAL/VERIFY/DEPLOY yang akan dipakai gelombang ini.
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` — contoh bentuk plan dan pola APPROVAL/VERIFY/DEPLOY yang akan dipakai gelombang ini.
 - `docs/GATEWAY-REQUIREMENTS.md` — GW-09 (idempotensi kirim keluar) dan GW-19 (batas percobaan/dead-letter).
 - `docs/decisions/2026-09-21-m1-ticket01-baseline.md` — Baseline 3 (duplikat pada retry `/send`) dan Baseline 4 (`attempts` naik sampai 8 tanpa batas; pemulihan 115 detik).
 - `docs/decisions/2026-09-21-m1-ticket02-audit-enqueue.md` — E-01..E-09 (konteks antrean masuk yang diberi batas percobaan).

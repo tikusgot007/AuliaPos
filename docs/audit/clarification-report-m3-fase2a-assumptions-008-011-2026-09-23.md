@@ -24,8 +24,8 @@ tags: [clarification, inbox, m3, handoff, collision-detection, assumptions]
 **Branch:** `feature/m3-operational-inbox-fase1a-task001`
 **Target document:** `spec/spec-design-m3-operational-inbox-fase2a-handoff-collision.md` v1.1
 **Upstream context:** `docs/audit/clarification-report-m3-fase2a-refactor-plan-2026-09-23.md`;
-`plan/plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 (wins on conflict, RISK-01);
-`plan/plan-refactor-m3-fase2a-handoff-collision-v1.0.md`; `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` (K-01..K-09);
+`plan-feature-m3-operational-inbox-fase2a-v1.0.md` v1.0 (wins on conflict, RISK-01);
+`plan-refactor-m3-fase2a-handoff-collision-v1.0.md`; `docs/audit/clarification-report-m3-fase2-m2-gate-2026-09-22.md` (K-01..K-09);
 `docs/audit/clarification-report-m3-fase2a-plan-2026-09-23.md` (Q1–Q9); `CONTEXT.md`;
 `tests/session/InboxHandoffTest.php`; `app/Controllers/Inbox.php`
 **Interrogation focus:** ASSUMPTION-008..011 (per user request), extended during REFINE

@@ -1,7 +1,7 @@
 # Handoff — M1 Gelombang 2, Sesi Code Review (Wave 2 ditutup 2026-09-24)
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 dan `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (kini `Completed`). Bila terjadi konflik, Plan + Spec menang.
+> **Dokumen ini non-normatif.** Sumber normatif tetap `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 dan `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (kini `Completed`). Bila terjadi konflik, Plan + Spec menang.
 
 ## 1. Prompt siap paste
 
@@ -11,7 +11,7 @@ Salin blok berikut ke **sesi baru** dan lampirkan berkasnya:
 /sdlc-code-review
 
 Attach: @spec/spec-process-m1-wave2-outgoing-idempotency.md (v1.1)
-Attach: @plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md (status Completed)
+Attach: plan-process-m1-wave2-outgoing-idempotency-v1.0.md (status Completed)
 Attach: @docs/decisions/2026-09-24-m1-wave2-phase5-deploy.md (deploy + pengukuran nyata §8)
 Attach: @docs/decisions/2026-09-24-m1-wave2-phase4-aulias-pos-caller.md (sisi AuliaPos §4-§8)
 Attach: @docs/decisions/2026-09-24-m1-wave2-phase3-incoming-dead-letter.md (dead-letter Gateway)
@@ -112,4 +112,4 @@ Peta berkas yang berubah:
 - `docs/decisions/2026-09-24-m1-wave2-phase3-incoming-dead-letter.md` — dead-letter antrean masuk.
 - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-plan-2026-09-24.md` — K-04/K-08/K-10/K-13.
 - `build/delay-proxy.js` + `build/scratch-delay-proxy-check.js` — alat ukur (gitignored, dapat dijalankan ulang).
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` v1.2 — pola DEPLOY/VERIFY gelombang 1.
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` v1.2 — pola DEPLOY/VERIFY gelombang 1.

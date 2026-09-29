@@ -1,7 +1,7 @@
 # Prompt & Handoff — `/sdlc-write-code` M1 Gelombang 2, Fase 1 (2026-09-24)
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `57de122`) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 (commit `7897d38`). Bila terjadi konflik, **Plan + Spec menang**. Dokumen ini hanya brief operasional + prompt siap paste untuk sesi `/sdlc-write-code` berikutnya.
+> **Dokumen ini non-normatif.** Sumber normatif tetap `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `57de122`) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 (commit `7897d38`). Bila terjadi konflik, **Plan + Spec menang**. Dokumen ini hanya brief operasional + prompt siap paste untuk sesi `/sdlc-write-code` berikutnya.
 
 ## 1. Prompt siap paste
 
@@ -10,10 +10,10 @@ Salin blok berikut ke sesi baru (lampirkan berkasnya, jangan hanya menyebut nama
 ```text
 /sdlc-write-code
 
-Attach: @plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md (v1.0, status Planned, commit 57de122)
+Attach: plan-process-m1-wave2-outgoing-idempotency-v1.0.md (v1.0, status Planned, commit 57de122)
 Attach: @docs/audit/clarification-report-m1-wave2-outgoing-idempotency-plan-2026-09-24.md (Readiness 82/100, PROCEED)
 Attach: @spec/spec-process-m1-wave2-outgoing-idempotency.md (v1.1, commit 7897d38)
-Opsional (pola bentuk): @plan/plan-process-m1-wave1-incoming-reliability-v1.0.md (v1.2)
+Opsional (pola bentuk): plan-process-m1-wave1-incoming-reliability-v1.0.md (v1.2)
 
 LINGKUP SESI INI: FASE 1 SAJA — TASK-001..TASK-006 (tracer bullet idempotensi kirim teks), lalu BERHENTI
 di TASK-006 (APPROVAL). Jangan menyentuh Fase 2-5.
@@ -133,9 +133,9 @@ Baca struktur aktual **sebelum** mengedit; fakta berikut berasal dari pembacaan 
 
 ## 9. Rujukan
 
-- `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, `57de122`) — **normatif**, berisi EXECUTION DIRECTIVE.
+- `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, `57de122`) — **normatif**, berisi EXECUTION DIRECTIVE.
 - `spec/spec-process-m1-wave2-outgoing-idempotency.md` (v1.1, `7897d38`) — REQ-020..REQ-041, AC-019..AC-046, DDL, env, matriks respons.
 - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-plan-2026-09-24.md` — Readiness 82/100, PROCEED, F-01/F-02, K-01..K-15.
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.2) — pola VERIFY/APPROVAL/DEPLOY dan pelajaran CR (DB sementara, guard statis).
-- `plan/plan-bugfix-inbox-test-db-isolation-v1.0.md` (`Completed`) + `docs/ARCHITECTURE.md` §5/§11 — isolasi DB uji dan langkah sinkronisasi skema.
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.2) — pola VERIFY/APPROVAL/DEPLOY dan pelajaran CR (DB sementara, guard statis).
+- `plan-bugfix-inbox-test-db-isolation-v1.0.md` (`Completed`) + `docs/ARCHITECTURE.md` §5/§11 — isolasi DB uji dan langkah sinkronisasi skema.
 - `.claude/instructions/memory.instructions.md` — checkpoint 2026-09-24 (klarifikasi plan M1 W2).

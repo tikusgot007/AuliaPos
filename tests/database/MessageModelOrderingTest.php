@@ -4,7 +4,7 @@ use App\Models\MessageModel;
 use CodeIgniter\Test\CIUnitTestCase;
 
 /**
- * Bugfix plan `plan/plan-bugfix-inbox-message-ordering-v1.0.md`
+ * Bugfix plan `plan-bugfix-inbox-message-ordering-v1.0.md`
  * (Part B, GW-11): `MessageModel::getByConversation()` MUST return a
  * deterministic order for every conversation, including when several
  * rows share the same `message_timestamp` (REQ-001/REQ-002). The tie

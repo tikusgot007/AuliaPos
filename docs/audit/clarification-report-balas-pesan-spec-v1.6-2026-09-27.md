@@ -1,6 +1,6 @@
 # 🔍 Clarification Report [Review Iteration 1]
 
-**Scope:** Amandemen v1.6 pada `spec/spec-design-balas-pesan.md` (REQ-008b baru, revisi REQ-008/AC-005, kolom `quoted_source_message_id`), dipicu oleh `ALT-001` di `plan/plan-refactor-balas-pesan-tahap3-v1.0.md`.
+**Scope:** Amandemen v1.6 pada `spec/spec-design-balas-pesan.md` (REQ-008b baru, revisi REQ-008/AC-005, kolom `quoted_source_message_id`), dipicu oleh `ALT-001` di `plan-refactor-balas-pesan-tahap3-v1.0.md`.
 
 **Readiness Score:** 92/100
 **Status:** Good Enough (≥ 80) — User memilih **PROCEED**
@@ -24,7 +24,7 @@ Tidak ada.
   - **Resolution:** Untuk baris `quoted_source_message_id = NULL` dengan `quoted_media_available = 1`, `renderKotakKutipan()` **hanya** menampilkan label teks generik jenis media dari `quoted_snippet` (mis. `"[Foto]"`) — **tanpa** elemen `<img>`/pratinjau media apa pun. Ini konsisten dengan syarat AC-005 *"bukan gambar rusak"* dan menghindari risiko broken-image icon karena tidak ada ID valid untuk live-fetch.
 
 - **Requirement:** `ALT-001` (plan) — *"RESOLVED (2026-09-27): ... TASK-201/TASK-202 remediasi ini dilanjutkan dengan kontrak baru (bukan dibatalkan)"*
-  - **Resolution:** Meski `ALT-001` sudah ditandai RESOLVED, teks deskripsi `TASK-201` (instruksi "STOP dan jalankan ALT-001") dan `TASK-202` (hanya menguji 1 dari 3 cabang AC-005) di `plan/plan-refactor-balas-pesan-tahap3-v1.0.md` masih belum direvisi mengikuti mekanisme v1.6. Disepakati: teks task **perlu direvisi eksplisit** (bukan cukup rujukan ke spec) agar `/sdlc-write-code` tidak mengeksekusi instruksi usang. Tindak lanjut: item ini diteruskan ke `/sdlc-plan-tasks`, di luar kewenangan penulisan skill ini.
+  - **Resolution:** Meski `ALT-001` sudah ditandai RESOLVED, teks deskripsi `TASK-201` (instruksi "STOP dan jalankan ALT-001") dan `TASK-202` (hanya menguji 1 dari 3 cabang AC-005) di `plan-refactor-balas-pesan-tahap3-v1.0.md` masih belum direvisi mengikuti mekanisme v1.6. Disepakati: teks task **perlu direvisi eksplisit** (bukan cukup rujukan ke spec) agar `/sdlc-write-code` tidak mengeksekusi instruksi usang. Tindak lanjut: item ini diteruskan ke `/sdlc-plan-tasks`, di luar kewenangan penulisan skill ini.
 
 ## 3. ⚠️ Assumed / Auto-Resolved / Out of Scope (The 20% we skip)
 
@@ -36,7 +36,7 @@ Tidak ada.
 
 ## 4. 📝 Next Steps
 
-- **Wajib:** Revisi teks `TASK-201`/`TASK-202` di `plan/plan-refactor-balas-pesan-tahap3-v1.0.md` agar konsisten dengan mekanisme REQ-008b (target `GET /inbox/media/(:quoted_source_message_id)`, tiga cabang AC-005 termasuk cabang (c) murni-teks) dan menghapus instruksi "STOP dan jalankan ALT-001" yang sudah usang — via `/sdlc-plan-tasks`.
+- **Wajib:** Revisi teks `TASK-201`/`TASK-202` di `plan-refactor-balas-pesan-tahap3-v1.0.md` agar konsisten dengan mekanisme REQ-008b (target `GET /inbox/media/(:quoted_source_message_id)`, tiga cabang AC-005 termasuk cabang (c) murni-teks) dan menghapus instruksi "STOP dan jalankan ALT-001" yang sudah usang — via `/sdlc-plan-tasks`.
 - **Opsional (non-blocking):** Tambahkan catatan known-limitation soft-delete-vs-live-fetch di REQ-008b pada revisi spec berikutnya — via `/sdlc-define-specs`.
 - **Opsional (non-blocking):** Catat gap otorisasi `Inbox::media()` sebagai temuan keamanan terpisah — via `/sdlc-bug-report` atau audit keamanan mandiri.
 - Tidak ada canonical term baru — `CONTEXT.md` tidak berubah.

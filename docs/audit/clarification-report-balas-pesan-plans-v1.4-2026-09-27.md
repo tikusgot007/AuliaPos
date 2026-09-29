@@ -5,11 +5,11 @@
 > The spec-side remediation of this audit report has been applied by the Specification Architect; the plan-side remediation has been applied by the Planner Architect.
 > - **Projected Readiness Score:** 93/100
 > - **Artifact revised:** `spec/spec-design-balas-pesan.md` → **v1.5** (Section 4.3/12: F-A intra-conversation `400` guard + F-D source-lookup failure taxonomy; `REQ-011`/`REQ-013`: F-B `quoted_sender_label IS NULL` not-found discriminator + non-NULL found-label with `"Pengirim"` fallback; `REQ-001`/`REQ-001a`/`CON-001`: F-C malformed-`quoted` degradation). Additive only; no other requirement changed; no new ADR; `CONTEXT.md` unchanged.
-> - **Plan-side remediation applied (additive; no `AC`/`REQ` changed):** `plan/plan-feature-balas-pesan-auliapos-v1.0.md` → TASK-002/006 (F-A intra-conversation `400` guard + F-D source-lookup taxonomy), TASK-010 (F-B non-NULL `quoted_sender_label` with `"Pengirim"` fallback), TASK-011 (F-B `quoted_sender_label IS NULL`-only not-found discriminator), F-E recorded as `[Assumed]` (ASSUMPTION-008/009/010), spec pointers → v1.5; `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md` → TASK-001/002 (F-C malformed-`quoted` degradation), spec pointers → v1.5. Report Next Steps 1 and 3 are **complete**.
+> - **Plan-side remediation applied (additive; no `AC`/`REQ` changed):** `plan-feature-balas-pesan-auliapos-v1.0.md` → TASK-002/006 (F-A intra-conversation `400` guard + F-D source-lookup taxonomy), TASK-010 (F-B non-NULL `quoted_sender_label` with `"Pengirim"` fallback), TASK-011 (F-B `quoted_sender_label IS NULL`-only not-found discriminator), F-E recorded as `[Assumed]` (ASSUMPTION-008/009/010), spec pointers → v1.5; `plan-feature-balas-pesan-wa-gateway-v1.0.md` → TASK-001/002 (F-C malformed-`quoted` degradation), spec pointers → v1.5. Report Next Steps 1 and 3 are **complete**.
 
 # 🔍 Clarification Report [Review Iteration 2]
 
-**Target:** `plan/plan-feature-balas-pesan-auliapos-v1.0.md` + `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md` (revised) vs `spec/spec-design-balas-pesan.md` v1.4
+**Target:** `plan-feature-balas-pesan-auliapos-v1.0.md` + `plan-feature-balas-pesan-wa-gateway-v1.0.md` (revised) vs `spec/spec-design-balas-pesan.md` v1.4
 **Readiness Score:** 89/100
 **Status:** Good Enough
 
@@ -57,9 +57,9 @@ None remaining. The one blocking finding (F-A) was resolved in-session; the scor
 
 ## 4. 📝 Next Steps
 
-- **Update `plan/plan-feature-balas-pesan-auliapos-v1.0.md`:** add the F-A conversation-boundary `400` guard; the F-B label-based not-found discriminator (with the `"Pengirim"` fallback for found rows); and the F-D lookup failure taxonomy, in `TASK-002`, `TASK-006`, `TASK-010`, and `TASK-011` (plus their automated tests).
+- **Update `plan-feature-balas-pesan-auliapos-v1.0.md`:** add the F-A conversation-boundary `400` guard; the F-B label-based not-found discriminator (with the `"Pengirim"` fallback for found rows); and the F-D lookup failure taxonomy, in `TASK-002`, `TASK-006`, `TASK-010`, and `TASK-011` (plus their automated tests).
 - **Update `spec/spec-design-balas-pesan.md` (via `/sdlc-define-specs`):** add the intra-conversation source rule to Section 4.3 + Section 12; align the not-found discriminator wording in `REQ-011`/`REQ-013`; note the malformed-`quoted` degradation under `REQ-001`/`CON-001`; bump to v1.5.
-- **Update `plan/plan-feature-balas-pesan-wa-gateway-v1.0.md`:** state the F-C degradation explicitly in `TASK-001`/`TASK-002` (malformed `quoted` -> send without quote, `quote_applied:false`, logged).
+- **Update `plan-feature-balas-pesan-wa-gateway-v1.0.md`:** state the F-C degradation explicitly in `TASK-001`/`TASK-002` (malformed `quoted` -> send without quote, `quote_applied:false`, logged).
 - **Carry-forward (unchanged, out of scope):** PRD GH-015 AC divergence remains for `/sdlc-draft-prd`.
 - **Glossary/ADR:** No new canonical terms and no ADR required (no decision meets the ADR Triple Gate; `CONTEXT.md` unchanged per spec Section 10).
 

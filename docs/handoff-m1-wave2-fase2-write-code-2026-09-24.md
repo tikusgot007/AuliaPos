@@ -1,7 +1,7 @@
 # Prompt & Handoff — `/sdlc-write-code` M1 Gelombang 2, Fase 2 (2026-09-24)
 
 > [!IMPORTANT]
-> **Dokumen ini non-normatif.** Sumber normatif tetap `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `57de122`) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 (commit `7897d38`). Bila terjadi konflik, **Plan + Spec menang**. Dokumen ini hanya brief operasional + prompt siap paste untuk sesi `/sdlc-write-code` berikutnya.
+> **Dokumen ini non-normatif.** Sumber normatif tetap `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (v1.0, commit `57de122`) dan `spec/spec-process-m1-wave2-outgoing-idempotency.md` v1.1 (commit `7897d38`). Bila terjadi konflik, **Plan + Spec menang**. Dokumen ini hanya brief operasional + prompt siap paste untuk sesi `/sdlc-write-code` berikutnya.
 
 ## 1. Prompt siap paste
 
@@ -10,7 +10,7 @@ Salin blok berikut ke **sesi baru** (lampirkan berkasnya, jangan hanya menyebut 
 ```text
 /sdlc-write-code
 
-Attach: @plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md (v1.0, status Planned, commit 57de122;
+Attach: plan-process-m1-wave2-outgoing-idempotency-v1.0.md (v1.0, status Planned, commit 57de122;
         kolom Completed TASK-001..006 sudah terisi)
 Attach: @spec/spec-process-m1-wave2-outgoing-idempotency.md (v1.1, commit 7897d38)
 Attach: @docs/decisions/2026-09-24-m1-wave2-eksekusi-fase1.md (hasil Fase 1: penyimpangan P-1..P-7, temuan T-1)
@@ -140,7 +140,7 @@ Branch `feature/m1-wave2-outgoing-idempotency`, HEAD `5a48311`:
 
 ## 9. Rujukan
 
-- `plan/plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (`57de122`) — **normatif**, berisi EXECUTION DIRECTIVE.
+- `plan-process-m1-wave2-outgoing-idempotency-v1.0.md` (`57de122`) — **normatif**, berisi EXECUTION DIRECTIVE.
 - `spec/spec-process-m1-wave2-outgoing-idempotency.md` (v1.1, `7897d38`) — REQ-020..REQ-041, AC-019..AC-046, DDL, env, matriks respons.
 - `docs/decisions/2026-09-24-m1-wave2-eksekusi-fase1.md` — hasil Fase 1, penyimpangan P-1..P-7, temuan T-1, batas jujur.
 - `docs/audit/clarification-report-m1-wave2-outgoing-idempotency-plan-2026-09-24.md` — Readiness 82/100, F-01/F-02, K-01..K-15.

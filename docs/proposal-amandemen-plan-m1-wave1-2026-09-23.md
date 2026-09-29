@@ -2,14 +2,14 @@
 
 > [!IMPORTANT]
 > **Dokumen non-normatif (usulan).** Sumber normatif tetap
-> `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md`. Dokumen ini **tidak mengubah** plan;
+> `plan-process-m1-wave1-incoming-reliability-v1.0.md`. Dokumen ini **tidak mengubah** plan;
 > ia hanya mengusulkan empat perubahan supaya dieksekusi oleh `/sdlc-plan-tasks`. Bila ada konflik,
 > plan yang berlaku sampai perubahan benar-benar diterapkan.
 
 | Item | Nilai |
 | --- | --- |
 | Tanggal | 2026-09-23 |
-| Plan target | `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.1, status `In progress`) |
+| Plan target | `plan-process-m1-wave1-incoming-reliability-v1.0.md` (v1.1, status `In progress`) |
 | Task terdampak | TASK-017, RISK-003, + satu task baru (TASK-019) |
 | Alasan utama | Kode M1 belum berjalan di folder live → TASK-017 berisiko mengukur kode lama |
 | Dikonfirmasi user | Tidak ada pengguna Inbox produksi; tidak ada pelanggan yang menunggu di nomor itu |
@@ -95,6 +95,6 @@ Yang **dihapus**: kalimat *"berdampak langsung ke staf yang memakai Inbox"* dan 
 ## 5. Rujukan
 
 - `docs/runbooks/runbook-m1-wave1-task017-ac001-2026-09-23.md` — panduan eksekusi TASK-017.
-- `plan/plan-process-m1-wave1-incoming-reliability-v1.0.md` — dokumen yang akan diamandemen.
+- `plan-process-m1-wave1-incoming-reliability-v1.0.md` — dokumen yang akan diamandemen.
 - `spec/spec-process-m1-wave1-incoming-reliability.md` — AC-001 dan DoD Gelombang 1.
 - `docs/decisions/*` pada `v2.2` — baseline, audit enqueue, dan log eksekusi Fase 1–3.

@@ -2,7 +2,7 @@
 
 ## 1. Status and Scope
 
-Plan: `plan/plan-bugfix-inbox-media-unavailable-v1.0.md` (**Completed**).
+Plan: `plan-bugfix-inbox-media-unavailable-v1.0.md` (**Completed**).
 Two repositories:
 
 | Repo | Change | Commit |

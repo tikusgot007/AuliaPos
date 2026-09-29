@@ -10,7 +10,7 @@
 > - **Side item — ASSUMPTION-004:** promoted from `[!WARNING] ... perlu dikonfirmasi` to `[!IMPORTANT] ... CONFIRMED` with the R-01 numbers.
 > - **Side item — F-05:** the extra "FULLTEXT is not available in SQLite" rationale was removed; CL-020 was not reopened.
 > - **Side item — R-06:** REQ-017b now states that the guard is a boolean released in `.finally()`, with no timeout added.
-> - **Still owed outside this skill:** F-04 (stale claim plus missing Fase 1d/1e sections in `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md`) belongs to `/sdlc-plan-tasks`; `docs/ARCHITECTURE.md` §11 still owes a paragraph for `aulia_inboxdb_perf` and the new Spark command; PRD §9.2 and the plan still cite "Spec v1.3".
+> - **Still owed outside this skill:** F-04 (stale claim plus missing Fase 1d/1e sections in `plan-feature-m3-operational-inbox-fase1-v1.0.md`) belongs to `/sdlc-plan-tasks`; `docs/ARCHITECTURE.md` §11 still owes a paragraph for `aulia_inboxdb_perf` and the new Spark command; PRD §9.2 and the plan still cite "Spec v1.3".
 > - **Projected Readiness Score:** **96/100**
 
 **Target Document:** `spec/spec-design-m3-operational-inbox-fase1.md` v1.3 — kontrak **Fase 1e (GH-010, pencarian isi pesan)**: §1.2 (ASSUMPTION-004, CL-016..CL-021), §3 (REQ-014..REQ-017, CON-004), §4.4 (`match_snippet`), §5 (AC-014..AC-016), §6, §9, §10, §12, §13.
@@ -22,7 +22,7 @@
 - `app/Commands/RepairTotalDibayar.php` dan `docs/.../11. dokumentasi teknis untuk developer.md` (baris 246) — preseden command satu kali pakai milik proyek ini.
 - `app/Views/inbox/index.php` (baris 940–1010 dan 2493) — fungsi pemuatan daftar, pencarian `q`, dan `setInterval` 6 detik yang diaudit oleh REQ-017b.
 - `app/Controllers/Inbox.php` (`apiConversations()`), `app/Models/ConversationModel.php`, `tests/session/OperationalInboxConversationTest.php`, `app/Config/Database.php` — seam yang dipakai AC-014 dan AC-016.
-- `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` — plan Fase 1a–1c yang belum memuat Fase 1d/1e.
+- `plan-feature-m3-operational-inbox-fase1-v1.0.md` — plan Fase 1a–1c yang belum memuat Fase 1d/1e.
 
 **Batas sesi:** sesi ini hanya bertanya dan mengaudit. PRD, Spec, dan Plan **tidak** ditulis ulang, tidak ada source code yang dibuat atau diubah, dan tidak ada keputusan yang diterapkan langsung ke dokumen mana pun.
 
@@ -113,7 +113,7 @@ Catatan untuk R-04/R-05: skema `aulia_inboxdb_perf` disiapkan dengan resep baku 
 
 ### F-04 — Plan Fase 1a–1c basi dan tidak punya Fase 1d/1e
 
-**Bukti:** `plan/plan-feature-m3-operational-inbox-fase1-v1.0.md` baris 21 masih menyatakan Spec belum memuat Fase 1e, padahal Spec v1.3 sudah memuatnya; plan juga tidak punya bagian Fase 1d (GH-009) maupun Fase 1e (GH-010).
+**Bukti:** `plan-feature-m3-operational-inbox-fase1-v1.0.md` baris 21 masih menyatakan Spec belum memuat Fase 1e, padahal Spec v1.3 sudah memuatnya; plan juga tidak punya bagian Fase 1d (GH-009) maupun Fase 1e (GH-010).
 
 **Aksi:** `/sdlc-plan-tasks` menghapus klaim basi itu dan menambah bagian Fase 1d serta Fase 1e.
 
