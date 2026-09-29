@@ -318,3 +318,30 @@
 <!-- checkpoint-tail: 2026-09-29 (Phase 7bg Closing Housekeeping) Pushed all pending commits plus 2 new ones to origin/v2.3 (676ef9a..8c99cfd; verified git ls-remote == local HEAD and a clean tree); flipped plan/plan-feature-teruskan-wa-gateway-v1.0.md from status Planned to Completed (badge + last_updated 2026-09-29 + additive English [!NOTE] closure addendum stating EXT-001 is satisfied at deployed commit 4a766d2 on master, keeping the old "EXT-001 BELUM terpenuhi" line as dated TASK-005 history) as commit 1518104; and committed the previously-uncommitted memory compaction (58 checkpoints 6o..7bc -> KB + DE-56..DE-89 + 3 retained) as 8c99cfd after verifying it was a valid compaction, not truncation. Open: whether AGENTS.md commit 676ef9a intentionally dropped the Communication + Standing Rules sections. Next: commit+push this checkpoint, then choose direction A2/A3/A4. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bh — governance `AGENTS.md`: pertahankan aturan bahasa Indonesia saja)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, terverifikasi ada).
+- **Current SDLC Phase:** Housekeeping / governance (bukan tahap SDLC formal) — menutup item governance dari checkpoint 7bf/7bg.
+- **Active Artifacts:**
+  - `AGENTS.md` — section `## Communication` (versi ramping) ditambahkan kembali; rujukan menggantung beres.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Achieved Milestones:**
+  - **Keputusan owner (2026-09-29):** penghapusan `## Standing Rules` di commit `676ef9a` **dipertahankan**; yang dikembalikan **hanya kebijakan bahasa Indonesia**. Aturan yang tetap dihapus: analogi owner, prompt siap-tempel sesi berikutnya, dan closing sequence — semuanya kini **bukan** aturan tertulis lagi di `AGENTS.md`.
+  - `## Communication` ditambahkan kembali (Language + Scope: respons ke pengguna berbahasa Indonesia; artefak teknis berbahasa Inggris), ditempatkan sebelum `## Supplementary Persona`.
+  - **3 rujukan menggantung** ke `## Communication` (baris 86, 101, 279) kini punya target lagi — kebijakan bahasa terdefinisi.
+- **Dead-Ends (Do NOT Repeat):** (tidak ada yang baru)
+- **Updated Files:**
+  - `AGENTS.md` — section `## Communication` (ramping) ditambahkan kembali.
+  - `.claude/instructions/memory.instructions.md` — checkpoint ini.
+- **Decisions Made:**
+  - `## Standing Rules` (analogi owner + prompt siap-tempel + closing sequence) **tidak** dikembalikan; hanya kebijakan bahasa Indonesia yang dipertahankan. Persona Awesome Copilot ID Guide tetap ada.
+  - Karena closing sequence bukan lagi aturan tertulis, tindakan checkpoint/commit/push tetap dijalankan sebagai **kebiasaan**, bukan kewajiban `AGENTS.md`.
+- **Next Action / Pending:**
+  - Commit + push perubahan `AGENTS.md` + checkpoint ini.
+  - Pilihan arah berikutnya: **A2** (M3 Fase 2b auto-assignment, direkomendasikan), **A3** (M2), **A4** (M1 Ticket 05–16).
+  - Carried forward: C3/GW-25 (butuh nomor uji kedua); D1/D2; B1/B2/B3/B8; manual live-Gateway >15MB.
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bh Governance AGENTS.md) Owner decided to KEEP the commit-676ef9a removal of ## Standing Rules (owner-analogy rule, ready-to-paste next-session prompt, end-of-session closing sequence) and restore ONLY the Indonesian language policy: a trimmed ## Communication section (Language + Scope) was added back to AGENTS.md before the Supplementary Persona, resolving the 3 dangling references to that section (lines 86/101/279). The Awesome Copilot ID Guide persona stays. Closing sequence is no longer a written AGENTS.md rule, so checkpoint/commit/push continue as convention only. Next: commit+push, then choose direction A2/A3/A4. -->
+
+---
