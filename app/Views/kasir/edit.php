@@ -533,7 +533,7 @@
     // supaya tombol "Kelola Banner" tetap berfungsi normal.
     const RAW_DETAIL_ITEMS = <?= json_encode($detail_items, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
-    function rekonstruksiDetailBanner(nama, harga, qty, catatan) {
+    function rekonstruksiDetailBanner(nama, qty, catatan) {
         const pattern = /Banner\s+([\d.]+)mx([\d.]+)m\s*\(([\d.]+)\s*m²\)/;
         const match = String(nama || '').match(pattern);
 
@@ -572,7 +572,7 @@
             const kategoriId = Number(item.kategori_id) || 0;
             const namaProduk = item.nama_produk || '';
 
-            const detailBanner = rekonstruksiDetailBanner(namaProduk, subtotal, qty, item.catatan);
+            const detailBanner = rekonstruksiDetailBanner(namaProduk, qty, item.catatan);
             const isBanner = detailBanner !== null;
 
             cart.push({
