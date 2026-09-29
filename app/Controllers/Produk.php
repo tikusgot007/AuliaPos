@@ -96,13 +96,33 @@ class Produk extends BaseController
         ];
 
         // Barcode hanya disimpan jika tidak kosong
-        $barcode = $this->request->getPost('barcode');
+        $barcode = trim((string) $this->request->getPost('barcode'));
 
-        if (!empty($barcode)) {
+        if ($barcode !== '') {
+            if ($this->barcodeDipakai($barcode)) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('errors', ['barcode' => 'Barcode sudah dipakai produk lain.']);
+            }
+
             $data['barcode'] = $barcode;
         }
 
-        if ($model->save($data)) {
+        try {
+            $tersimpan = $model->save($data);
+        } catch (\CodeIgniter\Database\Exceptions\DatabaseException $e) {
+            if (stripos($e->getMessage(), 'Duplicate entry') !== false) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('errors', ['barcode' => 'Barcode sudah dipakai produk lain.']);
+            }
+
+            throw $e;
+        }
+
+        if ($tersimpan) {
             return redirect()
                 ->to('/produk')
                 ->with('success', 'Produk berhasil ditambahkan!');
@@ -150,15 +170,35 @@ class Produk extends BaseController
         ];
 
         // Barcode kosong menjadi NULL
-        $barcode = $this->request->getPost('barcode');
+        $barcode = trim((string) $this->request->getPost('barcode'));
 
-        if (!empty($barcode)) {
+        if ($barcode !== '') {
+            if ($this->barcodeDipakai($barcode, (int) $id)) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('errors', ['barcode' => 'Barcode sudah dipakai produk lain.']);
+            }
+
             $data['barcode'] = $barcode;
         } else {
             $data['barcode'] = null;
         }
 
-        if ($model->update($id, $data)) {
+        try {
+            $terupdate = $model->update($id, $data);
+        } catch (\CodeIgniter\Database\Exceptions\DatabaseException $e) {
+            if (stripos($e->getMessage(), 'Duplicate entry') !== false) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('errors', ['barcode' => 'Barcode sudah dipakai produk lain.']);
+            }
+
+            throw $e;
+        }
+
+        if ($terupdate) {
             return redirect()
                 ->to('/produk')
                 ->with('success', 'Produk berhasil diperbarui!');
@@ -395,6 +435,28 @@ class Produk extends BaseController
         }
 
         return (new KategoriModel())->find($id) !== null;
+    }
+
+    /**
+     * Cek apakah sebuah barcode sudah dipakai produk lain. Unique index
+     * `barcode_unique` berlaku untuk semua baris (termasuk yang nonaktif),
+     * jadi pengecekan ini juga tidak memfilter is_active.
+     *
+     * @param int|null $kecualiId ID produk yang sedang diupdate (dikecualikan).
+     */
+    private function barcodeDipakai(string $barcode, ?int $kecualiId = null): bool
+    {
+        if ($barcode === '') {
+            return false;
+        }
+
+        $builder = (new ProdukModel())->where('barcode', $barcode);
+
+        if ($kecualiId !== null) {
+            $builder->where('id !=', $kecualiId);
+        }
+
+        return $builder->first() !== null;
     }
 
     // ================================================================
