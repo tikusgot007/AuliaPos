@@ -289,3 +289,32 @@
 <!-- checkpoint-tail: 2026-09-29 (Phase 7bf Housekeeping) Pushed the pending commit 676ef9a to origin/v2.3 (verified with git ls-remote = local HEAD); synced the stale docs/TODO-CHAT.md master status doc to 29 Sep reality (Teruskan done in both repos with EXT-001 satisfied at Gateway master 4a766d2, media-bound plan chain v1.0-v1.4 + janitor A-01..A-04, ARCHITECTURE regenerate, No-Order concurrency-lock port 4865c87, plan/ = 34 plans) and committed it as 5b6a471; then fixed the 4 remaining "Row size too large (8126)" test errors (#3): root cause was NOT the ROW_FORMAT option (both information_schema.TABLES and INNODB_SYS_TABLES already reported Dynamic) but a stale PHYSICAL tablespace on aulia_inboxdb_test.messages, so ADD/DROP COLUMN failed with errno 1118 - fixed with an in-place ALTER TABLE messages ROW_FORMAT=DYNAMIC, FORCE rebuild; full suite now OK (701 tests, 2766 assertions) exit 0, up from 691 with 4 errors. Live aulia_inboxdb was probed healthy with a throwaway ADD+DROP (no schema change, live untouched). Remedy documented in docs/ARCHITECTURE.md section 9. Two dead-ends recorded: setting ROW_FORMAT alone cannot fix a stale physical format (must FORCE/rebuild), and CREATE TABLE ... LIKE clones mask the defect because fresh clones always succeed, so DDL must be tested on the real table. Open: plan-feature-teruskan-wa-gateway-v1.0.md still says status Planned though work is done/live (needs /sdlc-plan-tasks flip); and commit 676ef9a removed AGENTS.md Communication + Standing Rules (owner analogy + closing-sequence rules) with no recorded confirmation. Next: commit docs/ARCHITECTURE.md + docs/TODO-CHAT.md, then push. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bg — closing housekeeping: push `v2.3`, flip plan Teruskan Gateway, kompaksi memory)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, file terverifikasi ada).
+- **Current SDLC Phase:** Housekeeping / ad-hoc (bukan tahap SDLC formal) — menutup "closing sequence" yang menggantung dari checkpoint 7bf.
+- **Active Artifacts:**
+  - `plan/plan-feature-teruskan-wa-gateway-v1.0.md` — ✅ **Completed** (status diflip sesi ini).
+  - `.claude/instructions/memory.instructions.md` — kompaksi + checkpoint ini.
+- **Achieved Milestones:**
+  - **Push `origin/v2.3`:** 4 commit menggantung kini ter-push (`676ef9a..8c99cfd`); `git ls-remote origin refs/heads/v2.3` = HEAD lokal, `git status -sb` bersih (tidak ahead/behind).
+  - **Flip status plan Teruskan WA-Gateway:** `status: 'Planned'` → `'Completed'`, badge → `status-Completed-brightgreen`, `last_updated: 2026-09-29`, plus addendum `[!NOTE]` penutup (additif, English) yang menyatakan `EXT-001` terpenuhi pada commit ter-deploy `4a766d2`; baris lama "`EXT-001` BELUM terpenuhi" dipertahankan sebagai potret historis saat verifikasi TASK-005. Commit `1518104`.
+  - **Kompaksi memory** (pekerjaan sesi sebelumnya yang belum ter-commit) ikut di-commit: 58 checkpoint (2026-09-27 Phase 6o → 2026-09-29 Phase 7bc) diringkas menjadi KB + DE-56..DE-89 + 3 checkpoint terakhir (291 baris). Commit `8c99cfd`.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** memperlakukan diff memory besar (2170 baris terhapus, `git diff --stat`) sebagai penghapusan tak sengaja/truncation. **Reason:** itu hasil kompaksi `memory-manager` yang sah (KB + tabel DE-01..DE-89 + 3 checkpoint, 291 baris), bukan korupsi. **Correct:** verifikasi struktur dulu (HEAD vs worktree, rentang DE, jumlah checkpoint) sebelum commit; jangan menyimpulkan korupsi dari `--stat` saja.
+- **Updated Files:**
+  - `plan/plan-feature-teruskan-wa-gateway-v1.0.md` — status `Completed` + addendum penutup.
+  - `.claude/instructions/memory.instructions.md` — kompaksi + checkpoint ini.
+- **Decisions Made:**
+  - Kompaksi memory yang belum ter-commit **di-commit**, bukan di-revert, setelah diverifikasi utuh — mempertahankan hasil kompaksi.
+  - Plan Teruskan Gateway ditutup sebagai `Completed` karena `EXT-001` (bukti commit Gateway ter-deploy) sudah terpenuhi nyata.
+- **Next Action / Pending:**
+  - **Commit + push** checkpoint ini (`v2.3`).
+  - **Governance belum dikonfirmasi:** commit `676ef9a` menghapus section `## Communication` + `## Standing Rules` dari `AGENTS.md`; perlu keputusan owner apakah disengaja.
+  - Pilihan arah berikutnya: **A2** (M3 Fase 2b auto-assignment), **A3** (M2 State Consistency), **A4** (M1 Ticket 05–16).
+  - Carried forward: C3/GW-25 (butuh nomor uji kedua); D1/D2; B1/B2/B3/B8; manual live-Gateway >15MB.
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bg Closing Housekeeping) Pushed all pending commits plus 2 new ones to origin/v2.3 (676ef9a..8c99cfd; verified git ls-remote == local HEAD and a clean tree); flipped plan/plan-feature-teruskan-wa-gateway-v1.0.md from status Planned to Completed (badge + last_updated 2026-09-29 + additive English [!NOTE] closure addendum stating EXT-001 is satisfied at deployed commit 4a766d2 on master, keeping the old "EXT-001 BELUM terpenuhi" line as dated TASK-005 history) as commit 1518104; and committed the previously-uncommitted memory compaction (58 checkpoints 6o..7bc -> KB + DE-56..DE-89 + 3 retained) as 8c99cfd after verifying it was a valid compaction, not truncation. Open: whether AGENTS.md commit 676ef9a intentionally dropped the Communication + Standing Rules sections. Next: commit+push this checkpoint, then choose direction A2/A3/A4. -->
+
+---
