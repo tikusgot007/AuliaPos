@@ -876,6 +876,10 @@ class Produk extends BaseController
      * database SAAT INI (bukan percaya nilai dari CSV), kembalikan ringkasan
      * + rincian per baris. Dipakai bersama oleh previewImport() dan
      * eksekusiImport() supaya logic validasinya satu tempat saja.
+     *
+     * Untuk baris yang sudah ada, kolom Aktif/Locked yang KOSONG berarti
+     * "pertahankan nilai di database" (bukan memaksa 1/0); baris INSERT
+     * memakai default (aktif = 1, locked = 0).
      */
     private function validasiCsv(string $path): array
     {
@@ -1054,6 +1058,17 @@ class Produk extends BaseController
                 $ringkasan['error']++;
                 $baris[] = $item;
                 continue;
+            }
+
+            // Kolom Aktif/Locked yang KOSONG berarti pertahankan nilai yang ada
+            // di database, bukan memaksa 1/0. Ini mencegah produk ter-unlock
+            // atau ter-reaktivasi tanpa sengaja saat kolom dikosongkan.
+            if ($aktif === '') {
+                $item['is_active'] = (int) $produkAda['is_active'];
+            }
+
+            if ($locked === '') {
+                $item['is_locked'] = (int) $produkAda['is_locked'];
             }
 
             if ($aksi === 'NONAKTIF') {

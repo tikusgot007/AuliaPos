@@ -18,6 +18,7 @@
                 <li>Download CSV audit di bawah — berisi semua produk beserta statistik pemakaiannya.</li>
                 <li>Buka di Excel, isi kolom <strong>Aksi</strong> di baris yang perlu diubah: <code>NONAKTIF</code>, <code>HAPUS</code>, <code>PERTAHANKAN</code>, atau kosongkan (sama artinya dengan PERTAHANKAN — field lain tetap boleh diubah).</li>
                 <li>Untuk barang baru: tambah baris baru, kosongkan kolom <strong>ID</strong>, isi <strong>Aksi = INSERT</strong>.</li>
+                <li>Kolom <strong>Aktif</strong> dan <strong>Locked</strong>: biarkan apa adanya untuk mempertahankan status sekarang. Mengosongkannya <em>tidak</em> mengubah status. Isi <code>1</code> atau <code>0</code> hanya bila memang ingin mengubah status produk tersebut.</li>
                 <li><strong>Simpan sebagai CSV</strong> (bukan .xlsx) sebelum upload di sini.</li>
                 <li>Upload → cek ringkasan &amp; rincian per baris → baru klik "Konfirmasi &amp; Jalankan" kalau sudah yakin.</li>
             </ol>
