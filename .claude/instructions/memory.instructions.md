@@ -2309,6 +2309,38 @@
 
 ---
 
+## 📝 Session Checkpoint: 2026-09-29 (Phase 7bf - housekeeping: push tertunda, sinkronisasi TODO-CHAT, remedy row-size DB test)
+
+- **Active Memory Path:** `.claude/instructions/memory.instructions.md` (fast path via `AGENTS.md`, file terverifikasi ada).
+- **Current SDLC Phase:** Housekeeping / ad-hoc (bukan tahap SDLC formal) - push commit tertunda, sinkronisasi dokumen status master, dan perbaikan infrastruktur DB test.
+- **Active Artifacts:**
+  - `docs/TODO-CHAT.md` - disinkronkan ke 29 Sep 2026 (Teruskan selesai, media-bound, view-once deployed, baseline test), commit `5b6a471`; lalu direvisi lagi untuk baseline pasca-remedy (belum commit).
+  - `docs/ARCHITECTURE.md` - section 9 ditambah bullet remedy row-size (belum commit).
+- **Achieved Milestones:**
+  - **Push #1:** commit tertunda `676ef9a` di-push ke `origin/v2.3`; diverifikasi `git ls-remote origin refs/heads/v2.3` = HEAD lokal (`git status -sb` bersih).
+  - **Sinkronisasi `docs/TODO-CHAT.md`** (dokumen status master sebelumnya basi: HEAD `bbb91c4`, 577 test, "Tahap 4 belum ada plan", C4 view-once "belum deploy"): HEAD AuliaPos `676ef9a` / Gateway `4a766d2`, fitur Teruskan SELESAI dua repo (`EXT-001` terpenuhi, live di `master`), media-bound plan v1.0-v1.4 + janitor A-01..A-04, regenerate `docs/ARCHITECTURE.md`, port concurrency-lock No Order `4865c87`, `plan/` = 34 plan. Commit `5b6a471`.
+  - **#3 Remedy 4 error `Row size too large (8126)`:** akar masalah BUKAN opsi `ROW_FORMAT` (metadata sudah `Dynamic` di `information_schema.TABLES` DAN `INNODB_SYS_TABLES`), melainkan **keadaan fisik** tabel `aulia_inboxdb_test.messages` yang tertinggal non-DYNAMIC walau metadata mengaku Dynamic, sehingga `ADD/DROP COLUMN` gagal errno 1118. Fix: `ALTER TABLE aulia_inboxdb_test.messages ROW_FORMAT=DYNAMIC, FORCE;` (rebuild in-place). Suite penuh `OK (701 tests, 2766 assertions), exit 0` (dari 691 dengan 4 error). DB live (`aulia_inboxdb`) terbukti sehat lewat probe `ADD COLUMN` + `DROP COLUMN` (kolom probe dibersihkan); live tidak diubah. Nol perubahan kode/spec.
+  - Dokumentasi remedy di `docs/ARCHITECTURE.md` section 9 (gejala, sebab, perintah rebuild, cara probe DB live).
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** memperbaiki dengan menyetel opsi `ALTER TABLE messages ROW_FORMAT=DYNAMIC`. **Reason:** tabel sudah `Dynamic` menurut metadata, jadi menyetel opsi tidak mengubah apa pun; error berasal dari keadaan fisik. **Correct:** `ALTER TABLE ... FORCE` (rebuild in-place).
+  - **Attempted:** mereproduksi error di klon (`CREATE TABLE ... LIKE` / dump) untuk mengisolasi penyebab. **Reason:** SEMUA klon (termasuk dari tabel test) sukses DROP - jadi definisi kolom, CHECK constraint, FK, dan opsi ROW_FORMAT terbukti BUKAN penyebab; hanya tabel asli yang rusak fisiknya. **Correct:** uji DDL langsung pada tabel asli (`ALTER ... FORCE`); jangan menyimpulkan dari klon.
+  - **Catatan:** jumlah test suite naik 691 -> 701 setelah remedy; sebab pasti belum dikonfirmasi (kemungkinan test yang sebelumnya ter-abort kini jalan penuh). Suite hijau tanpa skip.
+- **Updated Files:**
+  - `docs/TODO-CHAT.md` - sinkronisasi ke 29 Sep + koreksi baseline.
+  - `docs/ARCHITECTURE.md` - section 9 bullet remedy row-size.
+  - `.claude/instructions/memory.instructions.md` - checkpoint ini.
+- **Decisions Made:**
+  - Remedy ditempuh sebagai rebuild in-place tabel test (disposable) + dokumentasi; TIDAK ada perubahan skema/kode produksi dan TIDAK menyentuh DB live (live terbukti sehat).
+- **Next Action / Pending:**
+  - **Commit** `docs/ARCHITECTURE.md` + `docs/TODO-CHAT.md` (menyusul checkpoint ini), lalu **push**.
+  - `plan/plan-feature-teruskan-wa-gateway-v1.0.md` masih `status: 'Planned'` di disk walau pekerjaannya selesai & live (`4a766d2`) -> perlu di-flip via `/sdlc-plan-tasks` (atau `/code-janitor`).
+  - **Governance belum dikonfirmasi:** commit `676ef9a` menghapus section `## Communication` + `## Standing Rules` dari `AGENTS.md` (aturan analogi-owner, prompt siap-tempel, urutan penutup sesi). Memory KB masih menganggapnya aturan permanen; perlu keputusan owner apakah disengaja.
+  - Carried forward (tak disentuh sesi ini): manual live-Gateway >15MB (owner-run); `docs/TODO-CHAT.md` items 11-13; D1/D2; C3 (GW-25); B1/B2/B3/B8.
+
+<!-- checkpoint-tail: 2026-09-29 (Phase 7bf Housekeeping) Pushed the pending commit 676ef9a to origin/v2.3 (verified with git ls-remote = local HEAD); synced the stale docs/TODO-CHAT.md master status doc to 29 Sep reality (Teruskan done in both repos with EXT-001 satisfied at Gateway master 4a766d2, media-bound plan chain v1.0-v1.4 + janitor A-01..A-04, ARCHITECTURE regenerate, No-Order concurrency-lock port 4865c87, plan/ = 34 plans) and committed it as 5b6a471; then fixed the 4 remaining "Row size too large (8126)" test errors (#3): root cause was NOT the ROW_FORMAT option (both information_schema.TABLES and INNODB_SYS_TABLES already reported Dynamic) but a stale PHYSICAL tablespace on aulia_inboxdb_test.messages, so ADD/DROP COLUMN failed with errno 1118 - fixed with an in-place ALTER TABLE messages ROW_FORMAT=DYNAMIC, FORCE rebuild; full suite now OK (701 tests, 2766 assertions) exit 0, up from 691 with 4 errors. Live aulia_inboxdb was probed healthy with a throwaway ADD+DROP (no schema change, live untouched). Remedy documented in docs/ARCHITECTURE.md section 9. Two dead-ends recorded: setting ROW_FORMAT alone cannot fix a stale physical format (must FORCE/rebuild), and CREATE TABLE ... LIKE clones mask the defect because fresh clones always succeed, so DDL must be tested on the real table. Open: plan-feature-teruskan-wa-gateway-v1.0.md still says status Planned though work is done/live (needs /sdlc-plan-tasks flip); and commit 676ef9a removed AGENTS.md Communication + Standing Rules (owner analogy + closing-sequence rules) with no recorded confirmation. Next: commit docs/ARCHITECTURE.md + docs/TODO-CHAT.md, then push. -->
+
+---
+
 ---
 
 

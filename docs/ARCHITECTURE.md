@@ -274,6 +274,15 @@ aulia/  (project root)
 - **Test-database setup (one-time, Inbox):** create `aulia_inboxdb_test` schema-only from
   `aulia_inboxdb`. `php spark migrate` cannot build it (migration history lives in `default`). Re-run
   the schema dump whenever a new Inbox migration is added, or tests fail with unknown column/table.
+- **Test-DB row-size ceiling (`Row size too large ... 8126`, errno 1118):** `messages` carries many
+  VARCHAR snapshot columns, so its computed maximum row size sits right at InnoDB's 8126-byte limit.
+  Any `ADD COLUMN` / `DROP COLUMN` on it can then fail **even though `information_schema` reports
+  `ROW_FORMAT=Dynamic`** — the physical tablespace can lag the metadata after an earlier manual
+  `ALTER ... ROW_FORMAT`. Rebuild the shared test table in place:
+  `ALTER TABLE aulia_inboxdb_test.messages ROW_FORMAT=DYNAMIC, FORCE;` (or re-run the schema dump
+  above), then re-run `vendor/bin/phpunit --no-coverage`. Before assuming a schema change is unsafe
+  on the live DB, probe it with a throwaway `ADD COLUMN` + `DROP COLUMN`; a healthy
+  `aulia_inboxdb.messages` accepts both. Verified 2026-09-29 (suite `OK (701 tests, 2766 assertions)`).
 
 ## 10. Testing Strategy
 

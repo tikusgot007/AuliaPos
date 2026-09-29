@@ -35,7 +35,7 @@ Fitur-fitur berikut sudah thru **PRD → Spec → Plan → Kode → Review** dan
 
 ### Baseline test terbaru
 
-- **691 test / 2714 assertion** (29 Sep 2026, `vendor/bin/phpunit --no-coverage`) — tetapi **4 error pra-eksisting** `Row size too large (8126)` (errno 1118) di 4 test migrasi (`GatewayOperationIdMigrationTest`, `IsForwardedMigrationTest`, `QuoteColumnsMigrationTest`, `QuotedSourceMessageIdMigrationTest`), karena tabel `messages` di `aulia_inboxdb_test` belum `ROW_FORMAT=DYNAMIC`. Sisanya lulus. **Exit-0 penuh baru tercapai setelah 4 error konfigurasi tabel itu dibereskan** — bukan bug kode, dan bukan regresi. Angka ini naik tiap sesi yang menambah test — jangan pakai angka beku sebagai gerbang.
+- **701 test / 2766 assertion, OK, exit 0** (29 Sep 2026, `vendor/bin/phpunit --no-coverage`). **4 error `Row size too large (8126)` sudah DIBERESKAN:** tabel `aulia_inboxdb_test.messages` ternyata berada dalam keadaan fisik non-DYNAMIC walaupun metadatanya melaporkan `Dynamic`; rebuild in-place (`ALTER TABLE messages ROW_FORMAT=DYNAMIC, FORCE`) memperbaikinya, dan DB live (`aulia_inboxdb`) terbukti sehat lewat probe ADD+DROP. Remedy tercatat di `docs/ARCHITECTURE.md` §9. Angka ini naik tiap sesi yang menambah test — jangan pakai angka beku sebagai gerbang.
 
 ---
 
