@@ -437,6 +437,7 @@ ${tombolNonaktif}
                 search: 'Cari:',
                 lengthMenu: 'Tampilkan _MENU_ data',
                 info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',
+                infoFiltered: '(disaring dari _MAX_ total data)',
                 infoEmpty: 'Tidak ada data',
                 zeroRecords: 'Produk tidak ditemukan',
                 emptyTable: 'Belum ada data produk',

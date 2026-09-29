@@ -85,8 +85,11 @@ class ProdukModel extends Model
             ->select('produk.id, produk.barcode, produk.nama, produk.kategori_id, produk.satuan, produk.harga_jual, produk.harga_beli, produk.is_active, kategori.nama as kategori_nama')
             ->join('kategori', 'kategori.id = produk.kategori_id', 'left');
 
-        // Scope status masuk ke base query, sehingga ikut menentukan
-        // recordsTotal (default tetap "hanya aktif" seperti sebelumnya).
+        // Kontrak: status diperlakukan sebagai SCOPE dataset, bukan filter.
+        // Karena itu ia masuk ke base query dan ikut menentukan recordsTotal
+        // (default tetap "hanya aktif" seperti sebelumnya). kategori_id dan
+        // terkunci adalah filter kolom, sehingga hanya memengaruhi
+        // recordsFiltered bersama pencarian global.
         if ($status === 'nonaktif') {
             $builder->where('produk.is_active', 0);
         } elseif ($status === 'aktif') {
