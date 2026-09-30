@@ -32,3 +32,14 @@ Thumbs.db
 
 # === AI tool local state (Kilo worktrees, agent manager) ===
 .kilo/
+
+# === SDLC planning/verification artifacts -- intentionally local only (CON-006) ===
+# Plan and verification scripts live in the working tree only; they are not
+# part of the shipped application. Checkpoints that must persist belong in
+# docs/sesi/ (tracked).
+/plan/
+/verify/
+
+# === Agent rules -- MUST stay tracked, never ignore ===
+# AGENTS.md is shared project knowledge (see AGENTS.md section 14).
+!AGENTS.md
