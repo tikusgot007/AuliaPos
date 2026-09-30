@@ -109,6 +109,13 @@ java.lang.StackOverflowError: stack size 1037KB
 
 ## 6. Apakah Gateway Custom Penyebab Kerusakan WhatsApp di HP? — TIDAK
 
+> **DIPERBARUI 2026-09-30 (lihat §13 di akhir dokumen).** Kesimpulan "TIDAK"
+> di bagian ini sekarang dianggap **terlalu percaya diri dan tidak lengkap**.
+> Argumen di bawah hanya membantah satu vektor (payload jaringan), padahal
+> kekhawatiran utama adalah kemungkinan efek samping ke app-state/storage
+> lokal HP — vektor berbeda yang tidak dibahas di sini. Baca §13 sebelum
+> memakai bagian ini sebagai dasar keputusan.
+
 Investigasi kode (Gateway + CI4) menemukan **3 lapis pembatas independen** yang justru mencegah masalah tipe ini:
 
 | Lapis | Bukti |
@@ -247,3 +254,43 @@ if (status === 'connected'
   kirim WA 1x ke ADMIN_ALERT_PHONE;
 }
 ```
+
+---
+
+## 13. ADENDUM 2026-09-30 — Koreksi atas §6, investigasi forensik lanjutan
+
+User mempertanyakan kesimpulan §6 karena korelasi waktu (hari pertama
+Gateway jalan, crash HP muncul beberapa jam kemudian) terasa bukan
+kebetulan. Investigasi lanjutan dilakukan sebelum Gateway dinyalakan
+kembali ke nomor toko. Detail lengkap ada di
+`docs/sesi/2026-09-30-investigasi-akar-penyebab-degraded.md`; ringkasan:
+
+**Data forensik baru (bukan asumsi — diverifikasi langsung dari log
+Gateway dan `adb shell dumpsys dropbox` di HP):**
+
+1. **Tidak ada riwayat crash WhatsApp Business SEBELUM Gateway pernah
+   jalan** (dropbox HP menyimpan riwayat 36 jam sebelum Gateway hidup,
+   kosong dari crash WA). Ini mendukung kecurigaan user.
+2. **Crash tetap berlanjut 40 menit SETELAH proses Gateway benar-benar
+   mati total** (bukan sekadar disconnect — proses `node.exe` tidak ada).
+   Ini membantah model "aktivitas real-time Gateway = penyebab langsung
+   tiap crash".
+3. **Reinstall app (bukan perubahan apa pun di sisi Gateway) menyembuhkan
+   total** — nol crash pada jam-jam berikutnya.
+4. **Referensi publik** (GitHub Issues Baileys #2074, NousResearch
+   hermes-agent #63277, moryoav/ha-addons #7) mengonfirmasi pola
+   "@lid + SessionError memicu korupsi koneksi" dan "status API
+   melaporkan `connected` padahal sesi bermasalah" adalah masalah yang
+   sudah dikenal di ekosistem Baileys, bukan unik ke setup ini.
+
+**Kesimpulan revisi (masih hipotesis kerja, bukan bukti final):**
+Linking Gateway kemungkinan memicu penulisan data korup di storage lokal
+WhatsApp Business (lewat jalur `@lid` yang dikenal rawan di Baileys), dan
+data korup itu menjadi bom waktu yang meledak berulang **terlepas dari**
+status Gateway hidup/mati — bukan "Gateway aktif menyebabkan crash
+langsung", tapi juga bukan murni kebetulan seperti klaim §6 di atas.
+
+**Dampak pada keputusan**: sebelum Gateway dinyalakan lagi ke nomor
+toko, disarankan uji dulu di nomor/HP terpisah, atau minimal pantau
+ketat 4-6 jam pertama setelah link. Lihat checkpoint sesi investigasi
+untuk detail dan status keputusan.
