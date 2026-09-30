@@ -412,8 +412,22 @@ class InboxGatewayApi extends BaseController
         // parseTimestamp() di atas.
         $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
 
+        // Pencegahan insiden 2026-09-29 (WA-Gateway
+        // src/whatsapp/connectionManager.js _recordDecryptFailure()):
+        // field TAMBAHAN opsional, TIDAK mengubah kontrak lama. Gateway
+        // versi lama yang belum mengirim field ini -> fallback 'ok'
+        // (kolom DB NOT NULL DEFAULT 'ok', lihat migration
+        // AddSessionHealthToGatewayStatus). Divalidasi longgar (bukan 400
+        // keras) supaya heartbeat tetap tersimpan walau field ini rusak --
+        // sinyal degraded yang hilang lebih baik daripada heartbeat yang
+        // gagal total karena field tambahan ini.
+        $sessionHealth = isset($payload['session_health']) && $payload['session_health'] === 'degraded'
+            ? 'degraded'
+            : 'ok';
+
         $data = [
             'status'            => $status,
+            'session_health'    => $sessionHealth,
             'phone'             => $payload['phone'] ?? null,
             'gateway_version'   => $payload['gateway_version'] ?? null,
             'last_heartbeat_at' => $now,

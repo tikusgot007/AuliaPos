@@ -770,6 +770,17 @@ class Inbox extends BaseController
      * GatewayStatusModel::isUsable()), effective_status diturunkan
      * jadi 'disconnected' supaya UI tidak menampilkan status
      * "Terhubung" yang menyesatkan.
+     *
+     * Pencegahan insiden 2026-09-29: 'usable'/'effective_status' di atas
+     * HANYA mendeteksi Gateway proses mati/socket tertutup -- TIDAK
+     * mendeteksi kasus sesi "connected" tapi diam-diam gagal memproses
+     * SEMUA pesan (Signal Protocol session corrupt/desync). Untuk kasus
+     * itu, Gateway melapor `session_health: 'degraded'` lewat heartbeat
+     * (lihat WA-Gateway src/whatsapp/connectionManager.js
+     * _recordDecryptFailure()); effective_status diturunkan jadi
+     * 'degraded' (BUKAN 'disconnected' -- socket-nya memang masih hidup,
+     * beda kondisi, beda tindakan yang perlu operator lakukan: Logout +
+     * scan QR ulang, bukan sekadar tunggu reconnect).
      */
     private function buildGatewayStatusPayload(GatewayStatusModel $model): array
     {
@@ -777,10 +788,19 @@ class Inbox extends BaseController
         $usable = $model->isUsable();
 
         $rawStatus = $status['status'] ?? 'disconnected';
-        $effectiveStatus = ($rawStatus === 'connected' && !$usable) ? 'disconnected' : $rawStatus;
+        $sessionHealth = $status['session_health'] ?? 'ok';
+
+        if ($rawStatus === 'connected' && !$usable) {
+            $effectiveStatus = 'disconnected';
+        } elseif ($rawStatus === 'connected' && $sessionHealth === 'degraded') {
+            $effectiveStatus = 'degraded';
+        } else {
+            $effectiveStatus = $rawStatus;
+        }
 
         return [
             'raw_status'        => $rawStatus,
+            'session_health'    => $sessionHealth,
             'effective_status'  => $effectiveStatus,
             'phone'             => $status['phone'] ?? null,
             'last_heartbeat_at' => $status['last_heartbeat_at'] ?? null,

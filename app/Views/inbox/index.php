@@ -476,6 +476,11 @@
         background-color: #6c757d !important;
     }
 
+    /* Pencegahan insiden 2026-09-29 -- lihat STATUS_GATEWAY_LABEL.degraded */
+    #gatewayStatusBadge.bg-danger {
+        background-color: #dc3545 !important;
+    }
+
     /* ========================================================== */
     /* PANEL RIWAYAT HANDOFF (TB-03/TASK-010)                      */
     /* ========================================================== */
@@ -3607,6 +3612,17 @@
             text: 'Logout',
             kelas: 'bg-secondary',
             icon: 'fa-sign-out-alt'
+        },
+        // Pencegahan insiden 2026-09-29: status socket masih 'connected'
+        // tapi Gateway mendeteksi sesi tidak benar-benar bisa memproses
+        // pesan (lihat WA-Gateway connectionManager.js sessionHealth).
+        // Warna beda dari 'connecting' (kuning) supaya kasir/admin tidak
+        // mengira ini cuma sedang menyambung ulang -- ini butuh tindakan
+        // manual (Logout + scan QR ulang), bukan sekadar menunggu.
+        degraded: {
+            text: 'Bermasalah, perlu scan ulang',
+            kelas: 'bg-danger',
+            icon: 'fa-exclamation-triangle'
         },
     };
 

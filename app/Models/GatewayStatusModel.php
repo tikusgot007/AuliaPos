@@ -28,6 +28,7 @@ class GatewayStatusModel extends Model
     protected $allowedFields = [
         'id',
         'status',
+        'session_health',
         'phone',
         'gateway_version',
         'last_heartbeat_at',
