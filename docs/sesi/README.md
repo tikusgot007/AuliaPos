@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-01 | [Adapter Evolution API (`evolution-gateway`): uji end-to-end + perbaikan bug + dukungan grup](2026-10-01-evolution-gateway-adapter.md) | selesai (uji via UI Inbox POS) |
 | 2026-09-30 | [Riset pengganti Baileys + spike adapter Fonnte (uji nyata end-to-end)](2026-09-30-riset-pengganti-baileys-dan-spike-fonnte.md) | sebagian (riset + spike Fonnte terbukti; keputusan solusi final ditahan) |
 | 2026-09-30 | [Analisis Baileys (@lid), requirement offline, arah pengganti](2026-09-30-analisis-baileys-dan-requirement-offline.md) | sebagian (analisis selesai; keputusan solusi ditahan) |
 | 2026-09-30 | [Investigasi akar penyebab insiden WA Gateway degraded](2026-09-30-investigasi-akar-penyebab-degraded.md) | sebagian (investigasi selesai; keputusan nyalakan Gateway ditahan) |
