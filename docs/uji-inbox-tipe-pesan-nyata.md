@@ -32,10 +32,10 @@ Saran: pakai satu nomor pengirim saja agar pemeriksaan mudah difilter.
 
 | # | Yang dikirim | Cara kirim | Hasil yang diharapkan |
 | --- | --- | --- | --- |
-| 6 | **Foto view-once** | Attach foto → pilih "1× lihat" / View once | 1 baris penanda **`unsupported`**: "[Pelanggan mengirim pesan lihat-sekali — ...]", media **tidak** diunduh. |
+| 6 | **Foto view-once** | Attach foto → pilih "1× lihat" / View once | 1 baris penanda **`unsupported`**: "Customer mengirim pesan lihat-sekali — cek WhatsApp Web.", media **tidak** diunduh. |
 | 7 | **Dokumen + keterangan** | Attach dokumen + tulis caption sebelum kirim | 1 baris **`document`** + caption. |
 | 8 | **Reaction** | Tekan lama sebuah pesan → pilih emoji | **Tidak ada baris baru** dan **tidak ada dead-letter**. |
-| 9 | **Video note** (video bulat) | Rekam video singkat mode pesan video | 1 baris **`unsupported`** dengan penanda "video singkat". |
+| 9 | **Video note** (video bulat) | Rekam video singkat mode pesan video | 1 baris **`unsupported`**: "Customer mengirim video singkat — cek WhatsApp Web." |
 | 10 | **File audio** (bukan voice note) | Attach → Audio (file musik) | 1 baris **`audio`** (mime `audio/mpeg`), placeholder sama seperti voice note. |
 | 11 | **Berkas > 64 MB** | Attach → Document (berkas besar) | 1 baris penanda **`unsupported`**: "Customer mengirim file besar diatas 64mb — cek WhatsApp Web.", tanpa unduhan media. |
 
