@@ -32,7 +32,7 @@ Saran: pakai satu nomor pengirim saja agar pemeriksaan mudah difilter.
 
 | # | Yang dikirim | Cara kirim | Hasil yang diharapkan |
 | --- | --- | --- | --- |
-| 6 | **Foto view-once** | Attach foto → pilih "1× lihat" / View once | 1 baris **`image`** (pembungkus dibuka). |
+| 6 | **Foto view-once** | Attach foto → pilih "1× lihat" / View once | 1 baris penanda **`unsupported`**: "[Pelanggan mengirim pesan lihat-sekali — ...]", media **tidak** diunduh. |
 | 7 | **Dokumen + keterangan** | Attach dokumen + tulis caption sebelum kirim | 1 baris **`document`** + caption. |
 | 8 | **Reaction** | Tekan lama sebuah pesan → pilih emoji | **Tidak ada baris baru** dan **tidak ada dead-letter**. |
 | 9 | **Video note** (video bulat) | Rekam video singkat mode pesan video | 1 baris **`unsupported`** dengan penanda "video singkat". |
@@ -56,6 +56,11 @@ Saran: pakai satu nomor pengirim saja agar pemeriksaan mudah difilter.
   penanda teks (`unsupported`) supaya tidak hilang. Batas badan webhook adapter
   160 MB, jadi berkas sampai ~120 MB tetap sampai sebagai penanda; di atas itu
   masih akan ditolak 413 (perlu mode tanpa base64 / unduh on-demand).
+- **View-once butuh patch Evolution.** WhatsApp mengirim view-once ke perangkat
+  tertaut TANPA isi pesan (`key.isViewOnce=true`), dan Evolution 2.3.7 membuang
+  pesan tanpa isi sebelum webhook dikirim. Tanpa patch di
+  `docs/evolution-viewonce-patch.md` (repo adapter), pesannya hilang total.
+  Isinya sengaja tidak diambil — hanya baris penanda.
 - **Lokasi live** ("Lokasi terkini") menampilkan tanda "(langsung)"; lokasi
   biasa tidak.
 
@@ -100,7 +105,7 @@ Pengirim: `628563324637` (tampil "Muhammad Anshar"). Nomor tujuan `6288108232392
 | 3 | Kontak | `contactMessage` | ✅ `contact` + vCard | nomor dari vCard |
 | 4 | Voice note | `audioMessage` (ogg/opus) | ✅ `audio` | — |
 | 5 | Balasan tombol | — | ⏭️ dilewati | butuh template dari toko |
-| 6 | View-once | **tidak ada** | ⚠️ tidak teruji | pesan tidak pernah sampai ke Evolution |
+| 6 | View-once | `messages.upsert` (tanpa isi) | ✅ `unsupported` "lihat-sekali" | setelah patch Evolution (sebelumnya hilang total) |
 | 7a | Dokumen 176 KB (tanpa caption) | `documentMessage` | ✅ `document` | — |
 | 7b | Dokumen 27 MB (caption) | `documentMessage` | ✅ `document` + caption | **awalnya HILANG** (batas 16 MB) → pulih setelah fix |
 | 8 | Reaction | `reactionMessage` | ✅ tidak ada baris | noise |
