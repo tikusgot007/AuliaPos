@@ -42,6 +42,11 @@ class InboxQuoteSnapshotService
         'sticker'  => '[Stiker]',
         'audio'    => '[Audio]',
         'video'    => '[Video]',
+        // Tahap 4: lokasi & kontak tidak punya file (jadi tetap `null` di
+        // TIPE_MEDIA), tapi tetap butuh label agar kutipan balasannya tidak
+        // tampil sebagai "Pesan tidak ditemukan" saat `text`-nya kosong.
+        'location' => '[Lokasi]',
+        'contact'  => '[Kontak]',
     ];
 
     /**

@@ -220,8 +220,12 @@ class InboxGatewayApi extends BaseController
                     'kind'      => 'location',
                     'latitude'  => (float) $lat,
                     'longitude' => (float) $lng,
-                    'name'      => isset($extra['name']) ? (string) $extra['name'] : null,
-                    'address'   => isset($extra['address']) ? (string) $extra['address'] : null,
+                    // Gateway tak tepercaya: batasi panjang seperti `group_name`
+                    // (SEC-01) supaya satu request tidak menulis JSON tak terbatas.
+                    'name'      => isset($extra['name']) && is_scalar($extra['name'])
+                        ? mb_substr((string) $extra['name'], 0, 255) : null,
+                    'address'   => isset($extra['address']) && is_scalar($extra['address'])
+                        ? mb_substr((string) $extra['address'], 0, 255) : null,
                     'live'      => (bool) ($extra['live'] ?? false),
                 ]);
             } else {
@@ -236,11 +240,18 @@ class InboxGatewayApi extends BaseController
 
                 $clean = [];
                 foreach ($contacts as $contact) {
+                    // Batas jumlah kontak + panjang field: `extra` datang dari
+                    // Gateway (tak tepercaya), sama seperti batas SEC-01.
+                    if (count($clean) >= 50) {
+                        break;
+                    }
                     if (!is_array($contact)) {
                         continue;
                     }
-                    $name  = isset($contact['display_name']) ? trim((string) $contact['display_name']) : '';
-                    $vcard = isset($contact['vcard']) ? (string) $contact['vcard'] : '';
+                    $name  = isset($contact['display_name']) && is_scalar($contact['display_name'])
+                        ? trim(mb_substr((string) $contact['display_name'], 0, 255)) : '';
+                    $vcard = isset($contact['vcard']) && is_scalar($contact['vcard'])
+                        ? mb_substr((string) $contact['vcard'], 0, 20000) : '';
                     if ($name === '' && $vcard === '') {
                         continue;
                     }

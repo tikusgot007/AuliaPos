@@ -2256,10 +2256,13 @@
     function renderAksiTeruskan(m) {
         if (!aksiPesanTersedia(m)) return '';
 
-        if (m.message_type === 'audio' || m.message_type === 'video') {
+        if (m.message_type === 'audio' || m.message_type === 'video'
+            || m.message_type === 'location' || m.message_type === 'contact') {
+            const jenis = (m.message_type === 'audio' || m.message_type === 'video')
+                ? 'audio/video' : 'lokasi/kontak';
             return '<button type="button" class="btn btn-outline-secondary btn-sm" disabled' +
-                ' title="Teruskan — audio/video tidak dapat diteruskan">' +
-                '<i class="fas fa-share"></i> Teruskan — audio/video tidak dapat diteruskan</button>';
+                ' title="Teruskan — ' + jenis + ' tidak dapat diteruskan">' +
+                '<i class="fas fa-share"></i> Teruskan — ' + jenis + ' tidak dapat diteruskan</button>';
         }
 
         return '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="bukaPemilihTeruskan(' + m.id + ')">' +
@@ -2292,7 +2295,9 @@
             document: '[Dokumen]',
             sticker: '[Stiker]',
             audio: '[Audio]',
-            video: '[Video]'
+            video: '[Video]',
+            location: '[Lokasi]',
+            contact: '[Kontak]'
         };
 
         return labelMedia[m.message_type] || '[Pesan tanpa teks]';
