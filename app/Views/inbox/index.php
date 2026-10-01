@@ -2884,6 +2884,26 @@
             return '<div style="font-style:normal;">' + baris + '</div>';
         }
 
+        // Penanda teks (`unsupported`): samakan FORMAT dengan placeholder
+        // audio/video -- kotak abu-abu + ikon + teks, bukan bubble teks biasa.
+        // Ikon dipilih dari kata kunci penanda; default ikon netral.
+        if (m.message_type === 'unsupported') {
+            const teks = (m.text || '').trim();
+            let ikon = 'fa-comment-slash';
+            if (/lihat-sekali/i.test(teks)) ikon = 'fa-eye-slash';
+            else if (/video singkat/i.test(teks)) ikon = 'fa-video';
+            else if (/polling/i.test(teks)) ikon = 'fa-poll';
+            else if (/undangan acara/i.test(teks)) ikon = 'fa-calendar-day';
+            else if (/katalog produk/i.test(teks)) ikon = 'fa-box-open';
+            else if (/file besar/i.test(teks)) ikon = 'fa-file';
+            else if (/album/i.test(teks)) ikon = 'fa-images';
+            else if (/tombol|daftar/i.test(teks)) ikon = 'fa-reply';
+
+            return '<div class="inbox-media-unavailable" style="font-style:normal;">' +
+                '<i class="fas ' + ikon + '"></i> ' + escapeHtmlInbox(teks || '[Pesan belum didukung]') +
+                '</div>';
+        }
+
         return escapeHtmlInbox(m.text);
     }
 
