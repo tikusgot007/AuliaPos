@@ -2,11 +2,11 @@
 
 - **Tanggal**: 2026-10-01
 - **Status**: selesai
-- **Repo / branch**: `evolution-gateway` (repo baru, `master`) — adapter AuliaPos ↔ Evolution API. Konsumen: `aulia-app` `v2.4` (kode tidak diubah).
+- **Repo / branch**: `WA-Gateway` branch **`spike/evolution`** (commit `b8cefba`, sudah di-push ke `origin`) — adapter AuliaPos ↔ Evolution API, mengikuti pola `spike/fonnte`. Kode asal juga tersimpan di repo terpisah `C:\Projects\evolution-gateway` (commit `ea1cd98`). Konsumen: `aulia-app` `v2.4` (kode tidak diubah).
 
 ## Selesai
 
-- Repo baru `evolution-gateway` (`C:\Projects\evolution-gateway`): adapter Node.js yang mempertahankan kontrak HTTP WA-Gateway sehingga AuliaPos tidak diubah; mesin durability SQLite (buffer masuk, retry, dead-letter, idempotensi `operation_id`) di-reuse dari `spike/fonnte`. Commit `ea1cd98`.
+- Adapter Evolution ditambahkan ke repo **`WA-Gateway`** sebagai branch **`spike/evolution`** (commit `b8cefba`, di-push ke `origin`): `src/evolution/*`, `src/api/evolutionServer.js`, `src/app/evolution.js`, script `start:evolution`, blok `config.evolution`, test `simulate-evolution-*`. Mempertahankan kontrak HTTP CI4 sehingga AuliaPos tidak diubah; mesin durability SQLite (buffer masuk, retry, dead-letter, idempotensi `operation_id`) di-reuse dari `spike/fonnte` (tidak menyentuh file master). Kode asal juga di repo terpisah `C:\Projects\evolution-gateway` (commit `ea1cd98`).
 - Evolution API v2.3.7 dijalankan native di mesin dev (Node + **PostgreSQL 16**), instance `aulia-uji` (nomor uji `62881082323928`).
 - Uji end-to-end via UI Inbox AuliaPos: teks, gambar, dokumen, sticker, quote teks, quote sticker, forward teks, grup (masuk & keluar).
 - Perbaikan bug saat uji: (1) media keluar `media_ref` kosong ("Gambar tidak tersedia"); (2) `sendSticker` gagal `500 Invalid URL`; (3) quote **sticker** muncul di WhatsApp Web tapi tidak di HP (field `bytes` terkirim sebagai objek JSON, bukan base64).
@@ -38,9 +38,10 @@
 
 ## Titik masuk sesi berikutnya
 
-- **Baca**: `plan/2026-10-01-evolution-gateway-adapter.md`; `C:\Projects\evolution-gateway\README.md` + `docs/CHANGELOG.md` (commit `ea1cd98`).
+- **Baca**: `plan/2026-10-01-evolution-gateway-adapter.md`; branch `WA-Gateway` **`spike/evolution`** (`src/evolution/*`, `.env.example` blok `EVOLUTION_*`). Catatan adapter juga ada di `C:\Projects\evolution-gateway` (`README.md`, `docs/CHANGELOG.md`).
 - **Jalankan**:
   - PostgreSQL: `"C:\Program Files\PostgreSQL\16\bin\pg_ctl.exe" -D C:\Projects\pgdata-evolution -o "-p 5432" start`
   - Evolution API: `cd C:\Projects\evolution-api-server && npm run start` (port 8080)
-  - Adapter: `cd C:\Projects\evolution-gateway && npm start` (port 3000)
-  - Test adapter: `cd C:\Projects\evolution-gateway && npm test`
+  - Adapter (branch `spike/evolution`): `cd C:\Projects\WA-Gateway && npm run start:evolution` (port 3000)
+  - Test adapter: `cd C:\Projects\WA-Gateway && node test/simulate-evolution-adapter.js && node test/simulate-evolution-boot.js`
+- **Deploy ke PC gateway (`aulia3`)**: PC itu sudah punya checkout `WA-Gateway`; cukup `git fetch origin && git checkout spike/evolution` lalu siapkan `.env` (`EVOLUTION_*`, `CI4_*`) + jalankan stack Evolution (PostgreSQL + Evolution API).
