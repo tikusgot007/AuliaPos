@@ -463,9 +463,19 @@ Terverifikasi dari dokumentasi API resmi mereka (`/docs`):
 | **Unofficial (perangkat QR scan)** | `/v1/send-message`, `/v1/broadcast-message` | butuh `device_id` | teks bebas kapan saja; bisa kirim ke grup; ada `delay` anti-ban minimum 30 detik |
 | **WhatsApp Business API resmi (WABA)** | `/v1/waba/*` | butuh `waba_id` | **template wajib** untuk pesan yang dimulai bisnis; **balas bebas hanya dalam 24 jam**; tanpa grup |
 
-Auth API: `user_code` + `secret` (+ `device_id` atau `waba_id`). Media dikirim
-via **`media_url`** (bukan base64). Webhook tersedia untuk status pengiriman &
-balasan. Base URL: `https://api.kirimi.id`.
+Auth API: **di body, bukan header** — `user_code` + `secret` (+ `device_id` untuk
+jalur QR, atau `waba_id` untuk jalur WABA). Base URL: `https://api.kirimi.id`.
+Respons selalu beramplop `{ success, data, message }` (periksa `success`, bukan
+hanya kode HTTP). Media: `media_url` (URL publik) atau unggah langsung via
+`/v1/send-message-file` (multipart, maks 50 MB). **Idempotensi bawaan** lewat
+`clientMsgId` / header `Idempotency-Key` (diingat 24 jam; replay → header
+`Idempotent-Replayed: true`; sedang diproses → 409 `IDEMPOTENCY_IN_PROGRESS`;
+timeout → 409 `DELIVERY_UNKNOWN`) — sejalan dengan `operation_id` adapter kita.
+Ada `/v1/message-status` untuk melacak status kirim (processing/sent/failed/
+unknown, data 7 hari). Webhook mengirim `message.sent`, `message.ack`,
+`message.failed`.
+**Nuansa penting:** `/v1/send-message` (jalur QR) **otomatis fallback ke WABA**
+untuk pesan teks individual bila device punya mapping WABA aktif.
 
 ### 11.2 Harga paket Kirimi (terverifikasi dari blog + docs resmi Kirimi, 2026)
 
@@ -498,27 +508,65 @@ Detail teknis (docs resmi `kirimi.id/docs`):
   - Nuansa: sesi di-host di server Kirimi (bukan PC toko), jadi untuk kasus
     "PC mati semalam" ia lebih baik daripada Baileys lokal. Tetapi arsitekturnya
     tetap **linked device**, bukan server-side resmi → tidak memenuhi syarat keras.
-- **Jalur resmi WABA Kirimi** (`/v1/waba/*`) = **relevan dan bisa memenuhi syarat**,
-  termasuk klaim mendukung **Coexistence**. TAPI **harga WABA tidak dipublikasikan**
-  (lewat konsultasi/penawaran) → **tidak bisa diklaim "termurah"** dan tidak bisa
-  dibandingkan head-to-head dengan angka.
+- **Jalur resmi WABA Kirimi** (`/v1/waba/*`) = **relevan dan bisa memenuhi syarat**.
+  Kontraknya sekarang **terverifikasi detail** (referensi API lengkap, 2026-09-30):
+  - `POST /v1/waba/send-message` — kirim template (business-initiated), wajib
+    `template_name` yang sudah **disetujui Meta**; `header` wajib bila template
+    punya header media/teks dinamis; **tidak mendukung grup**.
+  - `POST /v1/waba/messages/reply` — balas bebas teks **hanya dalam jendela 24
+    jam** sejak pesan masuk terakhir; mendukung `text`/`image`/`document`/`audio`/
+    `video`/`interactive`; **tidak mendukung grup**.
+  - `POST /v1/waba/templates/sync` — sinkron status template dari Meta (limit
+    10x/jam).
+  - `POST /v1/waba/conversations` — daftar percakapan aktif (untuk membangun
+    Inbox tanpa bergantung penuh pada webhook).
+  - **Sukses ≠ sampai**: respons WABA hanya berarti Meta *menerima* permintaan
+    (`delivery_status: "accepted"`), bukan terkirim. Status akhir (`message.sent`/
+    `message.ack`/`message.failed`) baru datang lewat **webhook**, async. Adapter
+    apa pun untuk WABA **wajib** menangani ini (jangan simpulkan sukses dari
+    respons endpoint saja) — pola ini **konsisten** dengan `operation_id`/status
+    async yang sudah dipakai WA-Gateway.
+  - **Konfirmasi silang penting**: dokumen ini menegaskan **1 Oktober 2026 Meta
+    mulai menagih pesan layanan & template utility dalam jendela 24 jam**
+    (sebelumnya gratis) — **cocok** dengan temuan §10.4/§17 sebelumnya dari sumber
+    berbeda (360dialog/Gupshup). Kredibilitas temuan itu naik karena dikonfirmasi
+    independen dari provider lokal.
+  - **Harga langganan WABA tetap tidak dipublikasikan** di referensi ini (hanya
+    kontrak endpoint) → **masih tidak bisa diklaim "termurah"**, perlu diminta
+    langsung ke Kirimi.
 - Kirimi **mengklaim** status "Meta Tech Provider" (logo di footer) dan dukungan
   Coexistence — **belum diverifikasi** ke direktori Meta.
-- **Kontrak API berbeda** dari WA-Gateway (auth `user_code`/`secret`, media via
-  `media_url` bukan base64, endpoint `/v1/waba/*`) → tetap perlu **bridge/adapter**,
-  bukan drop-in.
+- **WhatsApp Flow** (`/member/v1/waba/send-flow`) — form interaktif (booking/survey/
+  order) via WABA. **Bukan API server-to-server**: endpoint ini dipanggil dari
+  dashboard dengan sesi login, **tidak bisa dipakai dari backend AuliaPos**.
+  Dicatat untuk kelengkapan, bukan kandidat integrasi.
+- **OTP v2** (`/v2/otp/send`) punya 3 metode berbeda biaya: **whatsapp** (provider
+  resmi Kirimi, Rp 595/OTP terkirim, tanpa nomor sendiri), **waba_user** (WABA
+  sendiri, Rp 0 dari Kirimi tapi Meta menagih conversation Authentication, butuh
+  langganan), **device** (device QR sendiri, gratis, butuh fitur `otp_wa` di
+  paket). Tidak relevan untuk Inbox pelanggan, tapi relevan bila AuliaPos nanti
+  butuh verifikasi OTP staf/pelanggan.
+- **Kontrak API berbeda** dari WA-Gateway (auth di **body** bukan header,
+  `user_code`/`secret`, media via `media_url`/multipart bukan base64,
+  endpoint `/v1/waba/*`) → tetap perlu **bridge/adapter**, bukan drop-in. Namun
+  adapter jadi **lebih sederhana** dari dugaan awal karena Kirimi sudah punya
+  idempotensi (`clientMsgId`) dan pelacakan status (`/v1/message-status`) bawaan
+  — mengurangi sebagian pekerjaan yang biasanya ditangani sendiri oleh buffer
+  WA-Gateway (meski buffer durable SQLite tetap perlu untuk sisi *masuk*).
 
 ### 11.4 Kesimpulan Kirimi
 
-- **Jangan pakai paket murah Kirimi (Rp 29–99 rb)** untuk Inbox toko: itu unofficial
-  dan mengulang masalah yang sedang dihindari.
+- **Jangan pakai jalur QR Kirimi (Rp 29–99 rb)** untuk Inbox toko: itu unofficial
+  dan mengulang masalah yang sedang dihindari (§14: `@lid`/ban/tanpa jaminan).
 - **Jalur resmi WABA Kirimi layak dimintai penawaran**, karena lokal + support
-  Bahasa Indonesia; tetapi tanpa harga publik, ia **belum bisa disebut termurah**.
-  Langkah: minta **penawaran resmi WABA + tarif per pesan + dukungan Coexistence +
-  bukti status Meta Tech Provider**, lalu bandingkan dengan Gupshup/Twilio.
+  Bahasa Indonesia + kontrak API sudah terverifikasi lengkap (§11.3). Tetap
+  **tanpa harga publik** → belum bisa disebut termurah. Langkah: minta
+  **penawaran resmi WABA + tarif per pesan + dukungan Coexistence + bukti status
+  Meta Tech Provider**, lalu bandingkan dengan Gupshup/Twilio/360dialog.
 - Status sampai sekarang: **Gupshup tetap kandidat termurah yang terverifikasi**
-  (USD 0,001/pesan, tanpa langganan, documented Coexistence); Kirimi WABA masuk
-  daftar "perlu penawaran".
+  dengan angka publik (USD 0,001/pesan, tanpa langganan, documented Coexistence);
+  Kirimi WABA masuk daftar "perlu penawaran" — tapi sekarang dengan **kontrak
+  teknis yang sudah lengkap**, sehingga siap dibandingkan begitu harga didapat.
 
 ---
 
@@ -896,8 +944,11 @@ bawah **terverifikasi dari dokumentasi/halaman harga resmi masing-masing (2026-0
 |---|---|---|
 | Gratis | Rp 0, 1.000 pesan/bln, **tanpa media** | Starter, 1.000 pesan/bln, **tanpa media** |
 | **Paket termurah yang bisa kirim media** | **Super Rp 165.000/bln** | **Lite Rp 29.000/bln** |
-| Batas ukuran file | **4 MB** | **64 MB** |
+| Batas ukuran file | **4 MB** | **64 MB** (`media_url`) / **50 MB** (unggah multipart) |
 | Balas/quote | `inboxid` (wajib aktifkan fitur Inbox di device) | `quotedMessageId` (langsung, tanpa prasyarat fitur tambahan) |
+| **Idempotensi bawaan** | tidak ada — harus dibuat sendiri | **ya**: `clientMsgId` / header `Idempotency-Key` (24 jam), 409 `IDEMPOTENCY_IN_PROGRESS`, replay header `Idempotent-Replayed` |
+| **Pelacakan status kirim** | terbatas | **`/v1/message-status`** (processing/sent/failed/unknown, 7 hari) |
+| **Sukses ≠ terkirim** | tidak dinyatakan eksplisit | **eksplisit**: WABA balas `delivery_status: "accepted"`; status akhir lewat webhook `message.sent`/`ack`/`failed` |
 | Jalur WABA resmi | tidak ditemukan | **ya** (`/v1/waba/*`) — jalur upgrade di provider yang sama |
 | Auth | `Authorization: <token>` | `user_code` + `secret` + `device_id`/`waba_id` |
 | Webhook | ya | ya |
@@ -924,3 +975,13 @@ bawah **terverifikasi dari dokumentasi/halaman harga resmi masing-masing (2026-0
 - **Nilai tambah Kirimi:** jalur **WABA resmi** di provider yang sama berarti toko bisa
   **mulai murah (unofficial) lalu naik ke resmi** tanpa ganti vendor — sesuatu yang
   Fonnte belum tawarkan.
+- **Nilai tambah teknis tambahan (terkonfirmasi §11.3):** idempotensi bawaan
+  (`clientMsgId`) dan endpoint pelacakan status (`/v1/message-status`) berarti
+  sebagian pekerjaan yang biasanya ditangani manual oleh buffer WA-Gateway
+  (idempotensi `operation_id`, status pengiriman) **sudah disediakan Kirimi**.
+  Ini **mengurangi kompleksitas adapter**, bukan mengubah status unofficial-nya.
+- **Peringatan desain penting untuk adapter WABA (bila nanti dipakai):** endpoint
+  WABA Kirimi mengembalikan sukses begitu Meta **menerima** request, bukan begitu
+  pesan **sampai**. Adapter/bridge **wajib** menunggu status akhir dari webhook
+  sebelum melaporkan "terkirim" ke CI4 — pola yang sama dengan status async yang
+  sudah ada di `outgoingOperationService` WA-Gateway, jadi bisa dipetakan langsung.
