@@ -1,3 +1,6 @@
+# Contoh public/.htaccess AuliaPos (TIDAK dilacak Git).
+# Salin ke public/.htaccess lalu sesuaikan RewriteBase: dev /aulia-app/ , produksi /aulia/
+
 # Disable directory browsing
 Options -Indexes
 

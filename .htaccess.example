@@ -1,3 +1,6 @@
+# Contoh .htaccess root AuliaPos (TIDAK dilacak Git).
+# Salin ke .htaccess lalu sesuaikan RewriteBase: dev /aulia-app/ , produksi /aulia/
+
 Options -Indexes
 RewriteEngine On
 RewriteBase /aulia-app/

@@ -43,3 +43,10 @@ Thumbs.db
 # === Agent rules -- MUST stay tracked, never ignore ===
 # AGENTS.md is shared project knowledge (see AGENTS.md section 14).
 !AGENTS.md
+
+# === Override lingkungan -- .htaccess beda dev vs produksi ===
+# RewriteBase dev = /aulia-app/ , produksi = /aulia/ . File nyata sengaja TIDAK
+# dilacak supaya `git pull` di server tidak menimpa RewriteBase produksi
+# (pernah dijaga manual dengan skip-worktree). Contoh: .htaccess.example.
+/.htaccess
+/public/.htaccess
