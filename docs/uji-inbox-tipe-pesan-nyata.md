@@ -36,7 +36,8 @@ Saran: pakai satu nomor pengirim saja agar pemeriksaan mudah difilter.
 | 7 | **Dokumen + keterangan** | Attach dokumen + tulis caption sebelum kirim | 1 baris **`document`** + caption. |
 | 8 | **Reaction** | Tekan lama sebuah pesan → pilih emoji | **Tidak ada baris baru** dan **tidak ada dead-letter**. |
 | 9 | **Video note** (video bulat) | Rekam video singkat mode pesan video | 1 baris **`unsupported`** dengan penanda "video singkat". |
-| 10 | **File audio** (bukan voice note) | Attach → Audio (file musik) | 1 baris **`document`** — beda dari voice note (kasus 4). |
+| 10 | **File audio** (bukan voice note) | Attach → Audio (file musik) | 1 baris **`audio`** (mime `audio/mpeg`), placeholder sama seperti voice note. |
+| 11 | **Berkas > 64 MB** | Attach → Document (berkas besar) | 1 baris penanda **`unsupported`**: "Customer mengirim file besar diatas 64mb — cek WhatsApp Web.", tanpa unduhan media. |
 
 ## 4. Catatan penting
 
@@ -47,8 +48,14 @@ Saran: pakai satu nomor pengirim saja agar pemeriksaan mudah difilter.
   saat fitur template dipakai.
 - **Album:** foto bisa tiba beberapa detik **setelah** wadah album (yang sengaja
   dilewati). Yang benar adalah baris gambar muncul, bukan baris "album".
-- **Voice note vs file audio:** voice note (tahan mic) = `audio`; file audio
-  (attach) = `document`. Jangan tertukar saat menilai.
+- **Voice note vs file audio:** keduanya tiba sebagai `audioMessage` → baris
+  `audio`. Bedanya hanya mime: voice note `audio/ogg; codecs=opus`, file audio
+  (attach) `audio/mpeg`. Dugaan awal "file audio = document" TERBUKTI SALAH
+  pada Android (uji 2026-10-01).
+- **Berkas besar (> 64 MB):** TIDAK diunduh/disimpan — dikirim sebagai baris
+  penanda teks (`unsupported`) supaya tidak hilang. Batas badan webhook adapter
+  160 MB, jadi berkas sampai ~120 MB tetap sampai sebagai penanda; di atas itu
+  masih akan ditolak 413 (perlu mode tanpa base64 / unduh on-demand).
 - **Lokasi live** ("Lokasi terkini") menampilkan tanda "(langsung)"; lokasi
   biasa tidak.
 
@@ -82,17 +89,27 @@ Ganti `62812xxxxxxx` dengan nomor HP pengirim dalam format `62812...@s.whatsapp.
    atau tabel `Message` di PostgreSQL Evolution).
 4. Laporkan temuan + cuplikan log.
 
-## 8. Tabel hasil (isi saat menjalankan)
+## 8. Hasil uji nyata — 2026-10-01 (Android)
 
-| # | Kasus | Waktu kirim | Muncul di Inbox? | Tipe benar? | Catatan |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Album 3 foto | | | | |
-| 2 | Lokasi | | | | |
-| 3 | Kontak | | | | |
-| 4 | Voice note | | | | |
-| 5 | Balasan tombol | (dilewati) | | | |
-| 6 | View-once | | | | |
-| 7 | Dokumen + caption | | | | |
-| 8 | Reaction | | (harusnya TIDAK ada) | | |
-| 9 | Video note | | | | |
-| 10 | File audio | | | | |
+Pengirim: `628563324637` (tampil "Muhammad Anshar"). Nomor tujuan `62881082323928`.
+
+| # | Kasus | Node Evolution | Hasil | Catatan |
+| --- | --- | --- | --- | --- |
+| 1 | Album foto (7 foto) | `albumMessage` + 7 `imageMessage` | ✅ 7× `image`, tanpa baris album | wadah album dilewati |
+| 2 | Lokasi | `locationMessage` | ✅ `location` + koordinat | — |
+| 3 | Kontak | `contactMessage` | ✅ `contact` + vCard | nomor dari vCard |
+| 4 | Voice note | `audioMessage` (ogg/opus) | ✅ `audio` | — |
+| 5 | Balasan tombol | — | ⏭️ dilewati | butuh template dari toko |
+| 6 | View-once | **tidak ada** | ⚠️ tidak teruji | pesan tidak pernah sampai ke Evolution |
+| 7a | Dokumen 176 KB (tanpa caption) | `documentMessage` | ✅ `document` | — |
+| 7b | Dokumen 27 MB (caption) | `documentMessage` | ✅ `document` + caption | **awalnya HILANG** (batas 16 MB) → pulih setelah fix |
+| 8 | Reaction | `reactionMessage` | ✅ tidak ada baris | noise |
+| 9 | Video note | `ptvMessage` | ✅ `unsupported` "video singkat" | belum didukung penuh |
+| 10 | File audio (attach) | `audioMessage` (mpeg) | ✅ `audio` | ekspektasi dokumen salah (lihat §4) |
+| 11 | Berkas > 64 MB | — | ⏭️ tidak diuji | pengirim tidak punya berkas >64 MB |
+
+Hasil antrean setelah uji: `completed=35, dead=0, pending=0`.
+
+**Temuan dari uji ini:** berkas > ±12 MB hilang senyap karena batas badan
+webhook 16 MB (ditemukan lewat kasus 7b). Sudah diperbaiki — lihat riwayat
+commit adapter (`fix(evolution): handle oversized incoming media ...`).
