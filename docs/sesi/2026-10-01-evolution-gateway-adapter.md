@@ -45,3 +45,17 @@
   - Adapter (branch `spike/evolution`): `cd C:\Projects\WA-Gateway && npm run start:evolution` (port 3000)
   - Test adapter: `cd C:\Projects\WA-Gateway && node test/simulate-evolution-adapter.js && node test/simulate-evolution-boot.js`
 - **Deploy ke PC gateway (`aulia3`)**: PC itu sudah punya checkout `WA-Gateway`; cukup `git fetch origin && git checkout spike/evolution` lalu siapkan `.env` (`EVOLUTION_*`, `CI4_*`) + jalankan stack Evolution (PostgreSQL + Evolution API).
+
+## Adendum (2026-10-01, sesi lanjutan)
+
+Catatan di atas menggambarkan tahap awal (branch `spike/evolution`). Setelahnya, pekerjaan
+dipindah ke branch **`evolution`** dan stack di-**produksi di aulia3**, lalu dilanjutkan
+dengan perbaikan dead-letter/tipe pesan, berkas besar, view-once, dan media `ondemand`.
+
+- Rujukan terkini: **`docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`**.
+- Keputusan yang sudah **superseded**: "Mode `WHATSAPP-BAILEYS` … nomor uji terpisah" — produksi
+  kini memakai nomor toko `62881082323928` di instance `aulia-toko` (gateway = nomor toko,
+  dipair lewat QR).
+- TODO lama "Siapkan stack produksi di PC gateway (Docker)" — **superseded**: dipasang **native**
+  (Node LTS + PostgreSQL 16) sebagai Windows service/task, tanpa Docker/Redis.
+
