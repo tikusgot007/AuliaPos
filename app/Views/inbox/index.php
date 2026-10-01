@@ -2736,6 +2736,22 @@
         el.outerHTML = htmlMediaTidakTersedia(kategori, jenis);
     }
 
+    // Tahap 4: `extra_json` datang sebagai string JSON dari API; parse aman
+    // (data lama/tipe lain tidak punya kolom ini).
+    function parseExtraJson(m) {
+        if (!m || !m.extra_json) return null;
+        try { return JSON.parse(m.extra_json); } catch (e) { return null; }
+    }
+
+    // Ambil nomor telepon dari vCard kontak WhatsApp (baris TEL;...:+62...).
+    function nomorDariVcard(vcard) {
+        if (!vcard) return null;
+        const hasil = String(vcard).match(/TEL[^:]*:\s*([+0-9()\-.\s]+)/i);
+        if (!hasil) return null;
+        const digit = hasil[1].replace(/[^0-9]/g, '');
+        return digit.length >= 8 ? digit : null;
+    }
+
     function renderIsiPesan(m) {
         const urlMedia = '<?= base_url('/inbox/media/') ?>' + m.id;
 
@@ -2824,6 +2840,43 @@
                 '<i class="fas ' + icon + '"></i> Customer mengirim ' + label + ' — cek WhatsApp Web.' +
                 '</div>' +
                 (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+        }
+
+        // Tahap 4 -- lokasi: kartu berisi nama/alamat + tautan peta.
+        if (m.message_type === 'location') {
+            const extra = parseExtraJson(m);
+            if (extra && extra.kind === 'location') {
+                const koordinat = extra.latitude + ', ' + extra.longitude;
+                const peta = 'https://www.google.com/maps?q=' + encodeURIComponent(koordinat);
+                const judul = extra.name ? escapeHtmlInbox(extra.name) : 'Lokasi';
+                const alamat = extra.address
+                    ? '<div style="font-size:12px;opacity:.75;">' + escapeHtmlInbox(extra.address) + '</div>'
+                    : '';
+                const langsung = extra.live
+                    ? ' <span style="font-size:11px;opacity:.75;">(langsung)</span>'
+                    : '';
+                return '<a href="' + peta + '" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit;">' +
+                    '<i class="fas fa-map-marker-alt" style="color:#e11d48;"></i> <strong>' + judul + '</strong>' + langsung +
+                    '<div style="font-size:12px;opacity:.75;">' + escapeHtmlInbox(koordinat) + '</div>' + alamat +
+                    '</a>';
+            }
+            return '<div class="inbox-media-unavailable" style="font-style:normal;"><i class="fas fa-map-marker-alt"></i> Lokasi</div>';
+        }
+
+        // Tahap 4 -- kontak: daftar nama + nomor (dari vCard).
+        if (m.message_type === 'contact') {
+            const extra = parseExtraJson(m);
+            const daftar = extra && Array.isArray(extra.contacts) ? extra.contacts : [];
+            if (!daftar.length) {
+                return '<div class="inbox-media-unavailable" style="font-style:normal;"><i class="fas fa-address-card"></i> Kontak</div>';
+            }
+            const baris = daftar.map(function (c) {
+                const nama = c && c.display_name ? escapeHtmlInbox(c.display_name) : 'Kontak';
+                const nomor = c ? nomorDariVcard(c.vcard) : null;
+                const telp = nomor ? ' <span style="opacity:.75;">+' + escapeHtmlInbox(nomor) + '</span>' : '';
+                return '<div style="font-size:13px;"><i class="fas fa-user"></i> ' + nama + telp + '</div>';
+            }).join('');
+            return '<div style="font-style:normal;">' + baris + '</div>';
         }
 
         return escapeHtmlInbox(m.text);

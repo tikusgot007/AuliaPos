@@ -188,6 +188,79 @@ class InboxGatewayApi extends BaseController
             }
         }
 
+        // --- Tahap 4: lokasi & kontak (data terstruktur, TANPA file) --------
+        // Disimpan di kolom JSON `extra_json`; UI merendernya (peta/kontak).
+        // Validasi ini adalah trust boundary: bentuk dari Gateway tidak dipercaya.
+        $extraColumns = [];
+
+        if (in_array($messageType, ['location', 'contact'], true)) {
+            $extra = $payload['extra'] ?? null;
+
+            if (!is_array($extra) || ($extra['kind'] ?? null) !== $messageType) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field 'extra' (kind='{$messageType}') wajib diisi untuk message_type='{$messageType}'.",
+                ]);
+            }
+
+            if ($messageType === 'location') {
+                $lat = $extra['latitude'] ?? null;
+                $lng = $extra['longitude'] ?? null;
+
+                if (!is_numeric($lat) || !is_numeric($lng)
+                    || (float) $lat < -90.0 || (float) $lat > 90.0
+                    || (float) $lng < -180.0 || (float) $lng > 180.0) {
+                    return $this->response->setStatusCode(400)->setJSON([
+                        'status'  => 'error',
+                        'message' => "Koordinat lokasi tidak valid.",
+                    ]);
+                }
+
+                $extraColumns['extra_json'] = json_encode([
+                    'kind'      => 'location',
+                    'latitude'  => (float) $lat,
+                    'longitude' => (float) $lng,
+                    'name'      => isset($extra['name']) ? (string) $extra['name'] : null,
+                    'address'   => isset($extra['address']) ? (string) $extra['address'] : null,
+                    'live'      => (bool) ($extra['live'] ?? false),
+                ]);
+            } else {
+                $contacts = $extra['contacts'] ?? null;
+
+                if (!is_array($contacts) || $contacts === []) {
+                    return $this->response->setStatusCode(400)->setJSON([
+                        'status'  => 'error',
+                        'message' => "Field 'extra.contacts' wajib diisi untuk message_type='contact'.",
+                    ]);
+                }
+
+                $clean = [];
+                foreach ($contacts as $contact) {
+                    if (!is_array($contact)) {
+                        continue;
+                    }
+                    $name  = isset($contact['display_name']) ? trim((string) $contact['display_name']) : '';
+                    $vcard = isset($contact['vcard']) ? (string) $contact['vcard'] : '';
+                    if ($name === '' && $vcard === '') {
+                        continue;
+                    }
+                    $clean[] = [
+                        'display_name' => $name !== '' ? $name : null,
+                        'vcard'        => $vcard !== '' ? $vcard : null,
+                    ];
+                }
+
+                if ($clean === []) {
+                    return $this->response->setStatusCode(400)->setJSON([
+                        'status'  => 'error',
+                        'message' => "Field 'extra.contacts' tidak berisi kontak valid.",
+                    ]);
+                }
+
+                $extraColumns['extra_json'] = json_encode(['kind' => 'contact', 'contacts' => $clean]);
+            }
+        }
+
         $messageTimestamp = $this->parseTimestamp($payload['message_timestamp']);
         if ($messageTimestamp === null) {
             return $this->response->setStatusCode(400)->setJSON([
@@ -306,7 +379,7 @@ class InboxGatewayApi extends BaseController
             // mana yang mengirim -- Baileys/Gateway tidak punya info itu.
             'sent_by_user_id'   => null,
             'send_status'       => $direction === 'outgoing' ? 'sent' : 'received',
-        ], $mediaColumns, $quoteColumns));
+        ], $mediaColumns, $extraColumns, $quoteColumns));
 
         // --- Update conversation ---------------------------------------------
         // `last_message_at`/`last_message_direction` TIDAK ditulis buta di

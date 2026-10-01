@@ -77,6 +77,9 @@ class MessageModel extends Model
         // dibangun dari kolom ini SAJA (REQ-008), bukan dari
         // `forward_marker_applied` Gateway.
         'is_forwarded',
+        // Tahap 4: data terstruktur untuk pesan non-file (lokasi & kontak),
+        // JSON. Nullable -- baris tipe lain tetap NULL.
+        'extra_json',
         'deleted_at',
     ];
 
