@@ -1,126 +1,60 @@
 # Checkpoint Sesi
 
 - **Tanggal**: 2026-10-02
-- **Status**: selesai (fix + regression test hijau)
-- **Tier**: B (bug fix) — `app/Controllers/InboxGatewayApi.php`
-- **Sumber laporan**: `X:\Penjelasan masalah untuk tim 01.pdf` (4 halaman, screenshot; diekstrak lewat render PDF → gambar).
-- **Repo / branch**: `aulia-app` `v2.4`.
+- **Status**: selesai
+- **Repo / branch**: `aulia-app` (`C:\xampp\htdocs\aulia-app`) branch `v2.4`; produksi POS `W:\htdocs\aulia` (branch `v2.4`).
 
-## Masalah
+## Selesai
 
-Saat staff membalas chat customer langsung dari **WhatsApp Web/HP** (bukan dari
-POS), nama kontak di Inbox POS berubah dari nama customer menjadi nama staff.
+- Perbaikan bug Inbox: `conversations.whatsapp_name` tidak lagi tertimpa push
+  name STAFF saat staff membalas dari WA Web/HP. Akar masalah:
+  `InboxGatewayApi::messages()` menulis `whatsapp_name` dari `contact_name`
+  untuk semua pesan; pada pesan outgoing (`fromMe=true`) field itu berisi push
+  name staff. Guard `direction === 'incoming'` dipasang di **kedua** jalur:
+  update (`app/Controllers/InboxGatewayApi.php:355`) dan create
+  (`:330`, nama tidak dioper ke `resolveConversationId()` Langkah 4).
+  — commit `04f037c`.
+- Harness feature test ber-DB ditambahkan: `phpunit.feature.xml`,
+  `tests/_support/bootstrap-feature.php` (guard fail-closed ke
+  `aulia_inboxdb_test`), `tests/feature/InboxGatewayApiWhatsappNameTest.php`
+  (4 test; merah sebelum fix, hijau sesudah). — commit `04f037c`.
+- Docblock `app/Models/ConversationModel.php` diselaraskan; entri
+  `docs/CHANGELOG.md`; `docs/TODO.md` + **TODO-T5**. — commit `04f037c`.
+- Push `v2.4` ke `origin` (`365862a..04f037c`); fast-forward produksi
+  `W:\htdocs\aulia` `d033d64..04f037c`; smoke `GET http://AULIA-SERVER2/aulia`
+  = HTTP 200. Sumber laporan: `X:\Penjelasan masalah untuk tim 01.pdf`
+  (screenshot, 4 halaman; dibaca lewat render PDF → gambar).
 
-Contoh: Customer "Ahmad" mengirim pesan → Inbox menampilkan "Ahmad". Staff
-"James" membalas dari WA Web/HP → Inbox list berubah jadi "James".
+## Keputusan penting
 
-## Root cause
+- Guard `direction` diterapkan di jalur update **dan** create — alasan: temuan
+  review menunjukkan conversation BARU yang dibuat oleh pesan outgoing tetap
+  ter-nama staff; memperbaiki hanya jalur update menyisakan bug.
+- Feature test ber-DB dipisah dari `phpunit.xml` (pure-logic) lewat
+  `phpunit.feature.xml` + guard fail-closed — alasan: test DB tidak boleh ikut
+  `composer test` default dan tidak boleh menyentuh `aulia_inboxdb` nyata.
+- Deploy produksi dijalankan atas instruksi eksplisit user meskipun
+  `docs/deploy.md` §0 umumnya melarang agen — alasan: rentang pull murni kode
+  (tanpa migrasi, `composer.lock`, `.htaccess`, atau `.env`).
 
-`app/Controllers/InboxGatewayApi.php:341-342` (`messages()`) menulis
-`conversations.whatsapp_name` dari `payload['contact_name']` untuk **semua**
-pesan (incoming maupun outgoing), hanya dengan syarat nilainya berbeda.
+## Tersisa
 
-Untuk pesan yang disinkronkan dari WA Web/HP, Gateway mengirim
-`direction='outgoing'` dengan `fromMe=true`; `contact_name` pada event itu
-adalah **push name staff** yang membalas, bukan customer. Jadi nama
-percakapan tertimpa nama staff.
+- Lihat `docs/TODO.md`: **TODO-T5** (hubungkan `tests/feature` /
+  `phpunit.feature.xml` ke `composer test`/CI).
+- Tidak ada item TODO lain yang ditutup di sesi ini.
 
-Alur:
+## Belum diverifikasi / risiko
 
-```text
-WhatsApp Web/HP (Staff)
-  → Evolution webhook (fromMe=true, pushName='James')
-  → POST /api/inbox/gateway/messages
-  → InboxGatewayApi::messages()  (app/Controllers/InboxGatewayApi.php:53)
-  → UPDATE conversations SET whatsapp_name='James'  (line 341-342)
-```
+- Belum diuji end-to-end lewat Gateway + WhatsApp asli; verifikasi di level
+  HTTP endpoint dengan payload yang meniru kontrak Gateway.
+- Percakapan yang sudah telanjur bernama staff TIDAK diperbaiki retroaktif;
+  nama pulih saat customer berikutnya mengirim pesan incoming.
+- Jika Apache produksi memakai OPcache `validate_timestamps=0`, file PHP baru
+  perlu restart PHP/Apache agar terbaca.
 
-Alur POS tidak bermasalah karena tidak melewati endpoint ini (menyimpan
-langsung ke database, tanpa menyentuh `whatsapp_name`). Verifikasi: tidak ada
-jalur lain di `app/` yang menulis `whatsapp_name` selain
-`ConversationModel::insert()` (conversation baru) dan blok ini.
+## Titik masuk sesi berikutnya
 
-## Fix
-
-Menambahkan syarat `$direction === 'incoming'` sebelum update `whatsapp_name`,
-konsisten dengan pola pengecekan `direction` yang sudah dipakai untuk status
-percakapan di baris ~412:
-
-```php
-if ($direction === 'incoming'
-    && $whatsappNameFromPayload !== null
-    && $whatsappNameFromPayload !== $conversation['whatsapp_name']) {
-    $update['whatsapp_name'] = $whatsappNameFromPayload;
-}
-```
-
-`$direction` sudah dihitung di baris 74; tidak ada variabel/kolom/skema baru.
-
-**Lanjutan (temuan review, jalur create).** Guard di atas hanya menutup jalur
-UPDATE. `resolveConversationId()` Langkah 4 (conversation BARU) tetap menulis
-`whatsapp_name` dari argumen keempatnya, dan pemanggil selalu mengoper
-`$whatsappNameFromPayload`. Akibatnya, pesan outgoing dari WA Web/HP untuk
-chat_id yang belum dikenal (mis. staff memulai chat baru dari HP) tetap
-membuat conversation baru bernama staff. Fix dilengkapi dengan tidak mengoper
-nama untuk outgoing:
-
-```php
-$whatsappNameForResolve = $direction === 'incoming' ? $whatsappNameFromPayload : null;
-$resolved = $conversationModel->resolveConversationId($chatId, $jidType, $canonicalPhone, $whatsappNameForResolve, $knownLid);
-```
-
-Jalur reconciliation (`attachAliasToConversation()`) sudah diperiksa: tidak
-menyentuh `whatsapp_name`, jadi tidak ada celah di sana.
-
-## Dampak
-
-- Hanya mengubah perilaku pesan outgoing dari WA Web/HP (`direction='outgoing'`,
-  `sent_by_user_id=NULL`).
-- Pesan incoming tetap memutakhirkan `whatsapp_name` dengan nama customer
-  (tidak ada regresi).
-- Alur kirim dari POS tidak lewat endpoint ini → tidak terpengaruh.
-- `contact_name` (nama manual customer profile) tetap tidak pernah disentuh di
-  sini.
-
-## Verifikasi
-
-- **Infrastruktur test DB**: `Config\Database::__construct()` sudah
-  mengalihkan grup `inbox` ke `aulia_inboxdb_test` saat `ENVIRONMENT=testing`
-  (`app/Config/Database.php:297-310`). Ditambah fail-closed guard baru di
-  `tests/_support/bootstrap-feature.php` (config + koneksi live harus
-  menunjuk ke `aulia_inboxdb_test`, kalau tidak proses test dihentikan).
-- **Config baru**: `phpunit.feature.xml` (terpisah dari `phpunit.xml`
-  pure-logic) — hanya menjalankan `tests/feature`.
-- **Test**: `tests/feature/InboxGatewayApiWhatsappNameTest.php` (4 test):
-  - `testOutgoingMessageFromWaWebDoesNotOverwriteWhatsappName` — **gagal
-    (merah) sebelum fix**: `assertSame('Ahmad', ...)` dapat `'James'`;
-    **hijau setelah fix** (jalur update).
-  - `testOutgoingMessageForUnknownChatIdCreatesConversationWithoutStaffName` —
-    **gagal (merah) sebelum guard create**: `assertNull($row['whatsapp_name'])`
-    dapat `'James'`; **hijau setelah fix** (jalur create).
-  - `testIncomingMessageStillUpdatesWhatsappName` — hijau (regression guard).
-  - `testDefaultDirectionIsIncomingAndStillUpdatesWhatsappName` — hijau
-    (kontrak `direction` opsional/default `incoming`).
-- **Hasil**:
-  - `php vendor/phpunit/phpunit/phpunit --configuration phpunit.feature.xml`
-    → `OK (4 tests, 11 assertions)`.
-  - `php vendor/phpunit/phpunit/phpunit --configuration phpunit.xml`
-    → `OK (32 tests, 1028 assertions)` (tidak ada regresi).
-  - `php -l` pada file yang diubah/dibuat → tidak ada syntax error.
-- **Cara menjalankan ulang**: `phpunit.feature.xml` butuh kredensial
-  `database.inbox.hostname/username/password` dari `.env` (nama database
-  dipaksa `aulia_inboxdb_test` oleh config saat testing). Database test dan
-  tabelnya (`conversations`, `conversation_identities`, `messages`, dst) sudah
-  ada di mesin dev.
-
-## Belum diverifikasi / catatan
-
-- Belum diuji end-to-end lewat Gateway + WhatsApp asli; verifikasi dilakukan
-  pada level HTTP endpoint (feature test) dengan payload yang meniru kontrak
-  Gateway (`fromMe=true`, `contact_name`=push name staff).
-- Test mengasumsikan `contact_name` pada payload outgoing benar-benar berisi
-  push name staff. Ini sesuai payload yang diamati pada laporan bug dan
-  kontrak `InboxGatewayApi::messages()`; kalau Gateway mengubah semantik field
-  ini, test perlu ditinjau.
-- Entri `docs/CHANGELOG.md` ditambahkan karena perilaku yang terlihat user
-  berubah (nama percakapan tidak lagi berubah jadi nama staff).
+- **Baca**: `docs/sesi/2026-10-02-bug-nama-conversation-wa-web.md`,
+  `tests/feature/InboxGatewayApiWhatsappNameTest.php`, commit `04f037c`.
+- **Jalankan**: `php vendor/phpunit/phpunit/phpunit --configuration phpunit.feature.xml`
+  (butuh kredensial `database.inbox.*`; nama DB dipaksa `aulia_inboxdb_test`).
