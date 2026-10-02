@@ -154,6 +154,11 @@ class Inbox extends BaseController
             // Sumber sama dengan validasi server (UserModel::daftarKasirAktif,
             // Q6) -- server tetap 403 kalau dropdown basi (RISK-05).
             'daftarKasir'    => (new UserModel())->daftarKasirAktif(),
+            // Peta id => inisial/username SEMUA user (bukan hanya kasir
+            // aktif) -- dipakai JS untuk resolve label singkat di panel
+            // Riwayat Handoff, yang bisa menunjuk ke admin (lihat
+            // UserModel::labelMapAll()).
+            'semuaUserLabel' => (new UserModel())->labelMapAll(),
             // PRN-301: daftar tipe lampiran forwardable SATU sumber kebenaran --
             // view memakai konstanta server ini (bukan salinannya sendiri),
             // supaya rute otomatis UI dan guard server (TIPE_TERUSKAN_LAMPIRAN
@@ -864,7 +869,7 @@ class Inbox extends BaseController
         if ($userIds) {
             $users = (new UserModel())->whereIn('id', $userIds)->findAll();
             foreach ($users as $user) {
-                $namesByUserId[$user['id']] = $user['nama'] ?: $user['username'];
+                $namesByUserId[$user['id']] = $user['inisial'] ?: $user['username'];
             }
         }
 
@@ -912,7 +917,7 @@ class Inbox extends BaseController
         if ($userIds) {
             $users = (new UserModel())->whereIn('id', $userIds)->findAll();
             foreach ($users as $user) {
-                $namesByUserId[$user['id']] = $user['nama'] ?: $user['username'];
+                $namesByUserId[$user['id']] = $user['inisial'] ?: $user['username'];
             }
         }
 
@@ -961,7 +966,7 @@ class Inbox extends BaseController
         }
 
         $penangan = (new UserModel())->find($assignedTo);
-        $namaPenangan = $penangan ? ($penangan['nama'] ?: $penangan['username']) : ('User #' . $assignedTo);
+        $namaPenangan = $penangan ? ($penangan['inisial'] ?: $penangan['username']) : ('User #' . $assignedTo);
 
         return "Percakapan ini sedang ditangani oleh {$namaPenangan}. Hanya {$namaPenangan} atau admin yang bisa membalas/menghapusnya.";
     }
@@ -1967,7 +1972,7 @@ class Inbox extends BaseController
             ]);
         }
 
-        $targetNama = ($target['nama'] ?? null) ?: ('Kasir #' . $toUserId);
+        $targetNama = ($target['inisial'] ?? null) ?: ('Kasir #' . $toUserId);
         log_message('info', "Inbox::handoffPercakapan sukses. conversation_id={$conversationId}, from={$assignedTo}, to={$toUserId}, initiated_by={$userId}, handoff_id={$handoffId}");
 
         // Sukses = envelope tutupPercakapan() (DEP-05/GUD-H01) + id
@@ -1998,7 +2003,7 @@ class Inbox extends BaseController
     {
         $pemilik = $currentOwnerId !== null ? (new UserModel())->find($currentOwnerId) : null;
         $namaPemilik = $pemilik
-            ? ($pemilik['nama'] ?: $pemilik['username'])
+            ? ($pemilik['inisial'] ?: $pemilik['username'])
             : 'User #' . $currentOwnerId;
 
         return $this->response->setStatusCode(409)->setJSON([
@@ -2210,7 +2215,7 @@ class Inbox extends BaseController
             $assignedTerkini = $conversationTerkini['assigned_to'] ? (int) $conversationTerkini['assigned_to'] : null;
 
             $penangan = $assignedTerkini ? (new UserModel())->find($assignedTerkini) : null;
-            $namaPenangan = $penangan ? ($penangan['nama'] ?: $penangan['username']) : ('User #' . $assignedTerkini);
+            $namaPenangan = $penangan ? ($penangan['inisial'] ?: $penangan['username']) : ('User #' . $assignedTerkini);
 
             return $this->response->setStatusCode(409)->setJSON([
                 'status'  => 'error',
@@ -3275,7 +3280,7 @@ class Inbox extends BaseController
             $user = (new UserModel())->find($sumber['sent_by_user_id']);
 
             if ($user !== null) {
-                $nama = trim((string) ($user['nama'] ?: ($user['username'] ?? '')));
+                $nama = trim((string) ($user['inisial'] ?: ($user['username'] ?? '')));
 
                 if ($nama !== '') {
                     return $nama;

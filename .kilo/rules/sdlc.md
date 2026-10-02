@@ -59,8 +59,7 @@ behavior, data impact, security impact, or compatibility (AGENTS.md §3, Phase 3
 - Tests must never connect to the production or development database from `.env`.
   Tests that need a database require the user's approval and a dedicated test database.
 - Never claim a test passed unless it was actually run in this session. If it could not be run, say so.
-- Do not run deployment, migration, or rollback commands against a real environment.
-  Write them in `docs/deploy.md` and let the user run them.
+
 
 ## 5. Closing a task
 

@@ -926,7 +926,7 @@
                             <option value="">-- Pilih kasir --</option>
                             <?php foreach (($daftarKasir ?? []) as $kasir): ?>
                                 <?php if ((int) $kasir['id'] !== (int) $currentUserId): ?>
-                                    <option value="<?= (int) $kasir['id'] ?>"><?= esc($kasir['nama'] ?: ('Kasir #' . $kasir['id'])) ?></option>
+                                    <option value="<?= (int) $kasir['id'] ?>"><?= esc($kasir['inisial'] ?: ($kasir['username'] ?: ('Kasir #' . $kasir['id']))) ?></option>
                                 <?php endif; ?>
                             <?php endforeach; ?>
                         </select>
@@ -2083,12 +2083,14 @@
     // ================================================================
     // RIWAYAT HANDOFF (TB-03/TASK-010) -- panel daftar penyerahan
     // ================================================================
-    // Nama staff di-resolve dari daftarKasir yang MEMANG sudah ada di
-    // halaman ini (sumber Q6, sama dengan dropdown dialog Handoff) --
-    // kontrak GET (P-04) sengaja hanya mengirim id, jadi tidak ada field
-    // nama di response. Id di luar daftar (mis. akun non-aktif/dihapus)
-    // jatuh ke 'Kasir #id', sejalan dengan fallback "User #{id}" di server.
-    const namaKasirById = <?= json_encode((object) array_column($daftarKasir ?? [], 'nama', 'id'), JSON_UNESCAPED_UNICODE) ?>;
+    // Label staff (inisial) di-resolve dari semuaUserLabel -- SEMUA user
+    // (bukan hanya kasir aktif seperti $daftarKasir/dropdown Handoff),
+    // karena from/to/initiated_by riwayat Handoff bisa menunjuk ke admin
+    // (mis. admin mengambil-alih percakapan). Kontrak GET (P-04) sengaja
+    // hanya mengirim id, jadi tidak ada field nama di response -- lookup
+    // nama dilakukan di sini. Id di luar peta (mis. akun dihapus) jatuh
+    // ke 'Kasir #id', sejalan dengan fallback "User #{id}" di server.
+    const namaKasirById = <?= json_encode((object) ($semuaUserLabel ?? []), JSON_UNESCAPED_UNICODE) ?>;
 
     function namaStaffHandoff(id) {
         if (id === null || id === undefined || id === '') return 'Belum diambil';

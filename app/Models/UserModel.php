@@ -43,11 +43,33 @@ class UserModel extends Model
      */
     public function daftarKasirAktif(): array
     {
-        return $this->select('id, nama')
+        return $this->select('id, nama, inisial, username')
             ->where('role', 'kasir')
             ->where('is_active', 1)
             ->orderBy('nama', 'ASC')
             ->findAll();
+    }
+
+    /**
+     * Peta id => label singkat ('inisial' kalau terisi, fallback
+     * 'username') untuk SEMUA user, tanpa filter role/is_active --
+     * dipakai untuk resolve nama singkat di UI Inbox (badge, riwayat
+     * handoff, label pengirim) yang BISA menunjuk ke admin atau user
+     * non-aktif (beda dari daftarKasirAktif() yang memang sengaja
+     * dibatasi role='kasir' untuk keperluan target Handoff).
+     *
+     * @return array<int, string>
+     */
+    public function labelMapAll(): array
+    {
+        $users = $this->select('id, inisial, username')->findAll();
+
+        $peta = [];
+        foreach ($users as $user) {
+            $peta[(int) $user['id']] = $user['inisial'] ?: $user['username'];
+        }
+
+        return $peta;
     }
 
     /**
