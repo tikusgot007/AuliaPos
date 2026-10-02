@@ -26,9 +26,12 @@ use CodeIgniter\Model;
  * - `contact_name` = nama MANUAL customer profile (diisi kasir lewat
  *   fitur edit profil). TIDAK PERNAH ditimpa otomatis oleh event
  *   WhatsApp apa pun.
- * - `whatsapp_name` = push name dari WhatsApp, SELALU dimutakhirkan
- *   Gateway setiap pesan masuk baru, TIDAK dilindungi (memang boleh
- *   berubah kapan saja mengikuti WhatsApp).
+ * - `whatsapp_name` = push name dari WhatsApp, dimutakhirkan Gateway
+ *   untuk setiap pesan INCOMING baru (push name CUSTOMER), TIDAK
+ *   dilindungi (memang boleh berubah kapan saja mengikuti WhatsApp).
+ *   Pesan OUTGOING yang disinkronkan dari WA Web/HP TIDAK menyentuh
+ *   kolom ini -- payload-nya membawa push name STAFF, bukan customer
+ *   (lihat InboxGatewayApi::messages()).
  * - UI menampilkan `contact_name ?: whatsapp_name ?: ...` (manual
  *   menang kalau ada).
  *

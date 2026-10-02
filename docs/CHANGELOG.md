@@ -14,6 +14,24 @@ Format entri:
 
 ---
 
+## 2026-10-02 — Inbox: nama conversation tidak lagi berubah saat staff balas dari WA Web/HP
+
+- Aturan lama: endpoint webhook Gateway (`InboxGatewayApi::messages()`)
+  menulis `conversations.whatsapp_name` untuk SEMUA pesan (incoming maupun
+  outgoing) selama nilainya berbeda. Untuk pesan outgoing yang disinkronkan
+  dari WhatsApp Web/HP (`fromMe=true`), `contact_name` di payload adalah push
+  name STAFF yang membalas, sehingga nama percakapan berubah menjadi nama
+  staff.
+- Aturan baru: `whatsapp_name` hanya dimutakhirkan dari push name customer
+  untuk pesan **incoming** (`direction='incoming'`). Pesan outgoing dari WA
+  Web/HP tidak lagi menyentuh `whatsapp_name`, sehingga nama percakapan tetap
+  nama customer.
+- Alasan: nama percakapan harus merefleksikan identitas customer, bukan staff
+  yang membalas dari luar POS (laporan bug dari tim, dokumen "Penjelasan
+  masalah untuk tim 01").
+- Referensi: `docs/sesi/2026-10-02-bug-nama-conversation-wa-web.md`,
+  `tests/feature/InboxGatewayApiWhatsappNameTest.php`.
+
 ## 2026-10-02 — Standardisasi pemilih tanggal/rentang/periode
 
 - Aturan lama: tiap halaman mendefinisikan locale, preset, mode terapkan, dan

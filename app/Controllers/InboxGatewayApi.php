@@ -321,7 +321,14 @@ class InboxGatewayApi extends BaseController
             $knownLid = (string) $payload['identity_hint']['lid'];
         }
 
-        $resolved = $conversationModel->resolveConversationId($chatId, $jidType, $canonicalPhone, $whatsappNameFromPayload, $knownLid);
+        // whatsapp_name HANYA boleh diisi dari push name CUSTOMER saat pesan
+        // incoming. Untuk outgoing (disinkronkan dari WA Web/HP) contact_name
+        // adalah push name STAFF, jadi JANGAN dioper ke resolveConversationId()
+        // -- kalau dioper, conversation BARU yang dibuat Langkah 4 langsung
+        // ter-nama staff (bug 2026-10-02, lihat
+        // tests/feature/InboxGatewayApiWhatsappNameTest.php).
+        $whatsappNameForResolve = $direction === 'incoming' ? $whatsappNameFromPayload : null;
+        $resolved = $conversationModel->resolveConversationId($chatId, $jidType, $canonicalPhone, $whatsappNameForResolve, $knownLid);
         $conversationId = $resolved['conversation_id'];
         $conversation   = $conversationModel->find($conversationId);
 
@@ -330,15 +337,24 @@ class InboxGatewayApi extends BaseController
             log_message('info', "InboxGatewayApi::messages() reconciliation: chat_id={$chatId} (jid_type={$jidType}) ditempelkan ke conversation_id={$conversationId} yang sudah ada lewat {$viaApa}.");
         }
 
-        // whatsapp_name SELALU dimutakhirkan (push name boleh berubah kapan
-        // saja, TIDAK dilindungi) -- BEDA dari contact_name (nama manual
-        // customer profile) yang TIDAK PERNAH disentuh di sini sama sekali,
-        // hanya lewat Inbox::updateCustomerProfile(). phone (ter-verifikasi)
-        // juga selalu dimutakhirkan untuk jid_type='pn' -- idempotent/aman
+        // whatsapp_name dimutakhirkan HANYA untuk pesan MASUK (direction=
+        // 'incoming'): push name customer boleh berubah kapan saja dan
+        // TIDAK dilindungi untuk pesan incoming. Untuk pesan outgoing yang
+        // disinkronkan dari WA Web/HP (fromMe=true), `contact_name` di
+        // payload adalah push name STAFF yang membalas, BUKAN customer --
+        // menulisnya ke whatsapp_name akan mengubah nama conversation
+        // menjadi nama staff (bug 2026-10-02, lihat
+        // tests/feature/InboxGatewayApiWhatsappNameTest.php). BEDA dari
+        // contact_name (nama manual customer profile) yang TIDAK PERNAH
+        // disentuh di sini sama sekali, hanya lewat
+        // Inbox::updateCustomerProfile(). phone (ter-verifikasi) juga
+        // selalu dimutakhirkan untuk jid_type='pn' -- idempotent/aman
         // karena satu chat_id @pn seharusnya konsisten dengan nomor yang sama.
         if (!$resolved['created']) {
             $update = [];
-            if ($whatsappNameFromPayload !== null && $whatsappNameFromPayload !== $conversation['whatsapp_name']) {
+            if ($direction === 'incoming'
+                && $whatsappNameFromPayload !== null
+                && $whatsappNameFromPayload !== $conversation['whatsapp_name']) {
                 $update['whatsapp_name'] = $whatsappNameFromPayload;
             }
             if ($canonicalPhone !== null && $canonicalPhone !== $conversation['phone']) {
