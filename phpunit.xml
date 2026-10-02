@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Minimal PHPUnit config for pure-logic tests (no framework bootstrap, no database).
+  Compatible with PHPUnit 9.6 and 10.5+ (no coverage/source section on purpose).
+  Run: vendor/bin/phpunit
+-->
+<phpunit bootstrap="vendor/autoload.php"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         beStrictAboutTestsThatDoNotTestAnything="true">
+    <testsuites>
+        <testsuite name="unit">
+            <directory suffix="Test.php">tests/unit</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <ini name="error_reporting" value="-1"/>
+        <env name="TZ" value="Asia/Jakarta"/>
+    </php>
+</phpunit>
