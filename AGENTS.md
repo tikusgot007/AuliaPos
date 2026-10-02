@@ -543,3 +543,15 @@ Before declaring the task complete:
 * [ ] Business-rule documentation was updated when required.
 * [ ] Verification results are reported truthfully.
 * [ ] No unverified claim is presented as verified.
+
+# 21. TODO / Backlog
+
+`docs/TODO.md` is the single, central backlog.
+
+* Read `docs/TODO.md` at the **start** of every session, before working, and name
+  the items relevant to the user's request.
+* When an item is finished and verified, **delete** its line from `docs/TODO.md`,
+  and reference that item's **ID** in the commit message.
+* New findings discovered while working must be recorded there, not only in chat.
+* Do not create a second TODO list elsewhere; checkpoints and other documents
+  only point to this file.

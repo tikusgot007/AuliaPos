@@ -30,6 +30,9 @@ When unsure between tiers, pick the higher one and say so.
 
 Use `docs/requirements/TEMPLATE.md` and `docs/design/TEMPLATE.md` as starting points.
 
+For every tier, Phase 1 starts by reading `docs/TODO.md`: name the items relevant to
+the request, and record any new finding discovered while working there (AGENTS.md §21).
+
 ## 3. Approval gates
 
 Wait for an explicit "OK" / "Lanjut" from the user (AGENTS.md §3) at each gate.
@@ -63,3 +66,6 @@ behavior, data impact, security impact, or compatibility (AGENTS.md §3, Phase 3
 
 Final report is 2-4 lines (AGENTS.md §18): what changed and where, which verification ran
 and its result, what remains unverified.
+
+Before reporting, update `docs/TODO.md`: delete the line of every item that is finished
+and verified, and add any new finding discovered during the work (AGENTS.md §21).

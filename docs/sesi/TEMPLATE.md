@@ -15,9 +15,9 @@ Ringkas saja — ini catatan operasional, bukan laporan panjang.
 
 - <keputusan> — alasan: <alasan>
 
-## Tersisa / TODO
+## Tersisa
 
-- [ ] <item> (owner: <siapa>)
+Lihat/pindahkan ke `docs/TODO.md`.
 
 ## Belum diverifikasi / risiko
 
