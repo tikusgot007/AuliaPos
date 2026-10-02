@@ -1,10 +1,12 @@
 # TODO / Backlog Terpusat
 
-> Baca file ini di **AWAL setiap sesi** sebelum bekerja. Perbarui setiap kali item
-> selesai (hapus barisnya) atau ada temuan baru. Format:
+> Baca file ini di **AWAL setiap sesi** sebelum bekerja. Perbarui setiap kali ada
+> temuan baru, atau item selesai (lihat aturan penghapusan di bawah). Format:
 > `- [ ] **ID** ringkas — prioritas — ref`.
 >
-> Saat menutup item: hapus barisnya dan sebut **ID**-nya di pesan commit.
+> Saat menutup item: usulkan ke user untuk menghapus barisnya, lalu **tunggu
+> persetujuan eksplisit** sebelum menghapusnya. Jangan dihapus sepihak. Setelah
+> disetujui, hapus baris itu dan sebut **ID**-nya di pesan commit.
 > Jangan membuat daftar TODO kedua di tempat lain; checkpoint hanya menunjuk ke sini.
 
 ## Prioritas Tinggi
@@ -16,7 +18,6 @@
 ## Prioritas Sedang
 
 - [ ] **TODO-T1** Perbaiki `Tagihan::tagihanOrder()` (`app/Controllers/Tagihan.php:93-123`): kolom 8 "Sisa" masih dipetakan ke `transaksi.grand_total` (bug yang sama sudah diperbaiki di `Transaksi` pada review S3b). Urutkan pakai ekspresi `grand_total - total_dibayar` (atau jadikan kolom 8 non-orderable) — sedang — ref `docs/sesi/2026-10-02-server-side-datatables.md` (dulu juga tercatat sebagai TODO-F4)
-- [ ] **TODO-T2** Rapikan duplikasi aset DataTables/Buttons dari CDN di `app/Views/laporan/index.php:180-198` (duplikat dengan `layout/main.php`, termasuk `jquery.dataTables` & `dataTables.bootstrap5` dua kali) — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md` (dulu juga tercatat sebagai TODO-H4)
 - [ ] **TODO-T3** Verifikasi jalur merge arsip (SQLite) saat arsip **terisi** untuk S2 (`laporan_pembayaran`), S3b (`transaksi`), dan S4 (`periode`). Saat ini arsip kosong sehingga hanya jalur live yang teruji; bentuk SQL arsip S4 sudah divalidasi lewat PDO — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
 - [ ] **TODO-T4** Tombol Print pada tabel server-side (item-harian, laporan-pembayaran, tagihan, transaksi, periode) hanya mencetak halaman aktif; pertimbangkan cetak seluruh hasil terfilter — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
@@ -28,4 +29,3 @@
 
 - [ ] **TODO-H1** Bersihkan data uji Inbox (2 percakapan uji: `628563324637@s.whatsapp.net`, `6281913500707@s.whatsapp.net`) — higiene — ref `docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`
 - [ ] **TODO-H2** (opsional) Samakan teks baris Inbox lama dengan gaya penanda baru — higiene
-- [ ] **TODO-H5** (opsional) Refactor dropdown Bulan+Tahun `laporan/index.php` ke partial `components/month_year_picker.php` — higiene — ref `docs/sesi/2026-10-02-standardisasi-pemilih-tanggal.md`

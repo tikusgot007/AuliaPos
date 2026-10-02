@@ -67,5 +67,7 @@ behavior, data impact, security impact, or compatibility (AGENTS.md §3, Phase 3
 Final report is 2-4 lines (AGENTS.md §18): what changed and where, which verification ran
 and its result, what remains unverified.
 
-Before reporting, update `docs/TODO.md`: delete the line of every item that is finished
-and verified, and add any new finding discovered during the work (AGENTS.md §21).
+Before reporting, update `docs/TODO.md`: add any new finding discovered during the
+work, and for every item that is finished and verified propose deleting its line
+and ask the user for explicit approval before removing it. Do not delete a line
+unilaterally (AGENTS.md §21).
