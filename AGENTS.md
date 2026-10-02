@@ -141,6 +141,8 @@ If something has not been checked, state that it is **not yet verified** and ins
 
 Every task, bug fix, or new feature follows these phases.
 
+The tiered SDLC workflow (Tier A/B/C), approval gates, and phase rules are defined in `.kilo/rules/sdlc.md`; read it together with this file.
+
 ## Phase 1 — Understand the Spec & Check Impact
 
 ### Do not write code yet.

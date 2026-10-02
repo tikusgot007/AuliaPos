@@ -29,9 +29,16 @@ Thumbs.db
 
 # === Test/build artifacts ===
 /build/
+.phpunit.cache/
+.phpunit.result.cache
 
 # === AI tool local state (Kilo worktrees, agent manager) ===
-.kilo/
+# .kilo/ is local AI state EXCEPT the tracked SDLC workflow and agents.
+.kilo/*
+!.kilo/agent/
+!.kilo/rules/
+.kilo/agent-manager.json
+.kilo/worktrees/
 
 # === SDLC planning/verification artifacts -- intentionally local only (CON-006) ===
 # Plan and verification scripts live in the working tree only; they are not
