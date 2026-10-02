@@ -23,6 +23,7 @@
         <div class="card-body">
 
             <form
+                id="formFilterItemHarian"
                 method="get"
                 class="row g-3 align-items-end">
 
@@ -56,15 +57,15 @@
 
                     <input
                         type="hidden"
-                        name="tanggal_mulai"
-                        id="tanggal_mulai"
-                        value="<?= esc($tanggal_mulai) ?>">
+                        name="tanggal_awal"
+                        id="tanggal_awal"
+                        value="<?= esc($tanggal_awal) ?>">
 
                     <input
                         type="hidden"
-                        name="tanggal_sampai"
-                        id="tanggal_sampai"
-                        value="<?= esc($tanggal_sampai) ?>">
+                        name="tanggal_akhir"
+                        id="tanggal_akhir"
+                        value="<?= esc($tanggal_akhir) ?>">
 
                 </div>
 
@@ -242,16 +243,7 @@
                         Jumlah Baris
                     </div>
 
-                    <div class="fs-4 fw-bold text-primary">
-
-                        <?= number_format(
-                            $jumlahBaris,
-                            0,
-                            ',',
-                            '.'
-                        ) ?>
-
-                    </div>
+                    <div class="fs-4 fw-bold text-primary" id="summaryJumlahBaris">0</div>
 
                 </div>
 
@@ -270,17 +262,7 @@
                         Subtotal Item
                     </div>
 
-                    <div class="fs-4 fw-bold">
-
-                        Rp
-                        <?= number_format(
-                            $totalSubtotal,
-                            0,
-                            ',',
-                            '.'
-                        ) ?>
-
-                    </div>
+                    <div class="fs-4 fw-bold">Rp <span id="summarySubtotal">0</span></div>
 
                 </div>
 
@@ -299,17 +281,7 @@
                         Nilai Terjual / Teralokasi
                     </div>
 
-                    <div class="fs-4 fw-bold text-success">
-
-                        Rp
-                        <?= number_format(
-                            $totalTeralokasi,
-                            0,
-                            ',',
-                            '.'
-                        ) ?>
-
-                    </div>
+                    <div class="fs-4 fw-bold text-success">Rp <span id="summaryTeralokasi">0</span></div>
 
                 </div>
 
@@ -401,193 +373,31 @@
 
                     <tbody>
 
-                        <?php if (
-                            empty($rows)
-                        ): ?>
-
-                            <tr>
-
-                                <td
-                                    colspan="8"
-                                    class="text-center
-                                       text-muted
-                                       py-5">
-
-                                    <i
-                                        class="fas fa-inbox fa-2x mb-2 d-block">
-                                    </i>
-
-                                    Tidak ada data pada
-                                    periode/filter tersebut.
-
-                                </td>
-
-                            </tr>
-
-                        <?php else: ?>
-
-                            <?php foreach (
-                                $rows
-                                as $row
-                            ): ?>
-
-                                <tr>
-
-                                    <td>
-
-                                        <?= date(
-                                            'd-m-Y',
-                                            strtotime(
-                                                $row['tanggal_pembayaran']
-                                            )
-                                        ) ?>
-
-                                    </td>
-
-                                    <td>
-                                        <?= esc(
-                                            $row['kode_invoice'] ?? '-'
-                                        ) ?>
-                                    </td>
-                                    <td>
-
-                                        <?= esc(
-                                            $row['kategori_nama']
-                                        ) ?>
-
-                                    </td>
-
-
-                                    <td>
-
-                                        <?= esc(
-                                            $row['nama_produk']
-                                        ) ?>
-
-                                    </td>
-
-
-                                    <td class="text-end">
-
-                                        <?= rtrim(
-                                            rtrim(
-                                                number_format(
-                                                    $row['jumlah_item'],
-                                                    2,
-                                                    ',',
-                                                    '.'
-                                                ),
-                                                '0'
-                                            ),
-                                            ','
-                                        ) ?>
-
-                                    </td>
-
-
-                                    <td class="text-end">
-
-                                        Rp
-                                        <?= number_format(
-                                            $row['subtotal_item'],
-                                            0,
-                                            ',',
-                                            '.'
-                                        ) ?>
-
-                                    </td>
-
-
-                                    <td class="text-end">
-
-                                        Rp
-                                        <?= number_format(
-                                            $row['total_pembayaran'],
-                                            0,
-                                            ',',
-                                            '.'
-                                        ) ?>
-
-                                    </td>
-
-
-                                    <td
-                                        class="text-end
-                                           fw-bold">
-
-                                        Rp
-                                        <?= number_format(
-                                            $row['total_teralokasi'],
-                                            0,
-                                            ',',
-                                            '.'
-                                        ) ?>
-
-                                    </td>
-
-                                </tr>
-
-                            <?php endforeach; ?>
-
-                        <?php endif; ?>
 
                     </tbody>
 
-
-                    <?php if (
-                        !empty($rows)
-                    ): ?>
 
                         <tfoot
                             class="table-light">
 
                             <tr>
 
-                                <th
-                                    colspan="5">
+                                <th>TOTAL</th>
 
-                                    TOTAL
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                                <th></th>
 
-                                </th>
+                                <th class="text-end" id="ftSubtotal">Rp 0</th>
 
-                                <th
-                                    class="text-end">
+                                <th class="text-end">-</th>
 
-                                    Rp
-                                    <?= number_format(
-                                        $totalSubtotal,
-                                        0,
-                                        ',',
-                                        '.'
-                                    ) ?>
-
-                                </th>
-
-                                <th
-                                    class="text-end">
-
-                                    -
-
-                                </th>
-
-                                <th
-                                    class="text-end">
-
-                                    Rp
-                                    <?= number_format(
-                                        $totalTeralokasi,
-                                        0,
-                                        ',',
-                                        '.'
-                                    ) ?>
-
-                                </th>
+                                <th class="text-end" id="ftTeralokasi">Rp 0</th>
 
                             </tr>
 
                         </tfoot>
-
-                    <?php endif; ?>
 
                 </table>
 
@@ -604,294 +414,128 @@
      DATE RANGE PICKER
      ========================================================= -->
 
-<link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
-
-<script
-    src="https://cdn.jsdelivr.net/npm/moment/min/moment.min.js">
-</script>
-
-<script
-    src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js">
-</script>
 <script>
     $(document).ready(function() {
 
+        const exportUrl = '<?= base_url('laporan/item-harian-export') ?>';
+
+        function filterParams() {
+            return {
+                tanggal_awal: $('#tanggal_awal').val(),
+                tanggal_akhir: $('#tanggal_akhir').val(),
+                kategori_id: $('[name="kategori_id"]').val(),
+                metode: $('[name="metode"]').val(),
+                keyword: $('[name="keyword"]').val()
+            };
+        }
+
+        function rupiah(n) {
+            return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+        }
+
         const table = $('#tableItemHarian').DataTable({
-
+            serverSide: true,
+            processing: true,
             responsive: true,
-
             pageLength: 50,
-
             dom: 'Bfrtip',
-
-            buttons: [
-
-                {
-                    extend: 'copyHtml5',
-                    text: '<i class="fas fa-copy"></i> Copy',
-                    className: 'btn btn-secondary btn-sm',
-
-                    exportOptions: {
-                        columns: ':visible'
-                    }
-                },
-
-                {
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel"></i> Excel',
-                    className: 'btn btn-success btn-sm',
-
-                    title: 'Item Harian ' +
-                        '<?= esc($tanggal_mulai) ?>' +
-                        ' s/d ' +
-                        '<?= esc($tanggal_sampai) ?>',
-
-                    exportOptions: {
-                        columns: ':visible',
-
-                        format: {
-                            body: function(data, row, column, node) {
-
-                                if (typeof data !== 'string') {
-                                    return data;
-                                }
-
-                                // Hapus HTML jika ada
-                                let value = $('<div>')
-                                    .html(data)
-                                    .text()
-                                    .trim();
-
-                                // Hapus Rp dan spasi
-                                value = value.replace(/^Rp\s*/i, '');
-
-                                // Hapus pemisah ribuan
-                                value = value.replace(/\./g, '');
-
-                                // Ubah koma desimal menjadi titik
-                                value = value.replace(/,/g, '.');
-
-                                // Kalau memang angka, kirim sebagai number
-                                if (
-                                    value !== '' &&
-                                    !isNaN(value)
-                                ) {
-                                    return Number(value);
-                                }
-
-                                return value;
-                            }
-                        }
-                    }
-                },
-
-                {
-                    extend: 'csvHtml5',
-                    text: '<i class="fas fa-file-csv"></i> CSV',
-                    className: 'btn btn-info btn-sm',
-
-                    fieldSeparator: ';',
-
-                    title: 'Item_Harian_' +
-                        '<?= esc($tanggal_mulai) ?>' +
-                        '_' +
-                        '<?= esc($tanggal_sampai) ?>',
-
-                    exportOptions: {
-                        columns: ':visible'
-                    }
-                },
-
-                {
-                    extend: 'print',
-                    text: '<i class="fas fa-print"></i> Print',
-                    className: 'btn btn-primary btn-sm',
-
-                    exportOptions: {
-                        columns: ':visible'
-                    }
+            ajax: {
+                url: '<?= base_url('laporan/item-harian-data') ?>',
+                data: function(d) {
+                    Object.assign(d, filterParams());
                 }
+            },
+            columns: [
+                { data: 'tanggal_pembayaran' },
+                { data: 'kategori_nama' },
+                { data: 'kode_invoice' },
+                { data: 'nama_produk' },
+                { data: 'jumlah_item', className: 'text-end' },
+                { data: 'subtotal_item', className: 'text-end', render: function(d) { return rupiah(d); } },
+                { data: 'total_pembayaran', className: 'text-end', render: function(d) { return rupiah(d); } },
+                { data: 'total_teralokasi', className: 'text-end', render: function(d) { return rupiah(d); } }
             ],
-
+            order: [[0, 'asc'], [7, 'desc']],
+            footerCallback: function() {
+                const json = this.api().ajax.json() || {};
+                const totals = json.totals || {};
+                $('#ftSubtotal').text(rupiah(totals.subtotal_item));
+                $('#ftTeralokasi').text(rupiah(totals.total_teralokasi));
+                $('#summaryJumlahBaris').text(Number(json.recordsFiltered || 0).toLocaleString('id-ID'));
+                $('#summarySubtotal').text(Number(totals.subtotal_item || 0).toLocaleString('id-ID'));
+                $('#summaryTeralokasi').text(Number(totals.total_teralokasi || 0).toLocaleString('id-ID'));
+            },
             language: {
-
+                processing: 'Memuat...',
                 search: 'Cari:',
-
                 lengthMenu: 'Tampilkan _MENU_ data per halaman',
-
                 zeroRecords: 'Data tidak ditemukan',
-
                 info: 'Menampilkan _START_ - _END_ dari _TOTAL_ data',
-
                 infoEmpty: 'Tidak ada data',
-
                 infoFiltered: '(difilter dari _MAX_ total data)',
-
                 paginate: {
-
                     first: 'Pertama',
                     last: 'Terakhir',
                     next: '→',
                     previous: '←'
                 }
-            }
-
+            },
+            buttons: [
+                {
+                    text: '<i class="fas fa-copy"></i> Copy',
+                    className: 'btn btn-secondary btn-sm',
+                    action: function() {
+                        $.get(exportUrl, filterParams()).done(function(csv) {
+                            if (window.navigator.clipboard) {
+                                window.navigator.clipboard.writeText(csv);
+                            }
+                        });
+                    }
+                },
+                {
+                    text: '<i class="fas fa-file-excel"></i> Excel/CSV',
+                    className: 'btn btn-success btn-sm',
+                    action: function() {
+                        window.location = exportUrl + '?' + $.param(filterParams());
+                    }
+                },
+                {
+                    text: '<i class="fas fa-print"></i> Print',
+                    className: 'btn btn-primary btn-sm',
+                    action: function() {
+                        window.print();
+                    }
+                }
+            ]
         });
 
-    });
-</script>
-<script>
-    $(document).ready(function() {
+        $('#formFilterItemHarian').on('submit', function(e) {
+            e.preventDefault();
+            table.ajax.reload();
+        });
 
-        const $input =
-            $('#filterItemHarian');
-
-        const $mulai =
-            $('#tanggal_mulai');
-
-        const $sampai =
-            $('#tanggal_sampai');
-
+        const $input = $('#filterItemHarian');
+        const $mulai = $('#tanggal_awal');
+        const $sampai = $('#tanggal_akhir');
 
         $input.daterangepicker({
-
-            startDate: moment(
-                $mulai.val(),
-                'YYYY-MM-DD'
-            ),
-
-            endDate: moment(
-                $sampai.val(),
-                'YYYY-MM-DD'
-            ),
-
-            locale: {
-
-                format: 'DD/MM/YYYY',
-
-                applyLabel: 'Terapkan',
-
-                cancelLabel: 'Batal',
-
-                customRangeLabel: 'Custom',
-
-                daysOfWeek: [
-                    'Mg',
-                    'Sn',
-                    'Sl',
-                    'Rb',
-                    'Km',
-                    'Jm',
-                    'Sb'
-                ],
-
-                monthNames: [
-                    'Januari',
-                    'Februari',
-                    'Maret',
-                    'April',
-                    'Mei',
-                    'Juni',
-                    'Juli',
-                    'Agustus',
-                    'September',
-                    'Oktober',
-                    'November',
-                    'Desember'
-                ]
-            },
-
+            startDate: moment($mulai.val(), 'YYYY-MM-DD'),
+            endDate: moment($sampai.val(), 'YYYY-MM-DD'),
+            locale: AuliaDateRange.locale(),
+            ranges: AuliaDateRange.ranges(),
             showDropdowns: true,
-
-            autoApply: true,
-
-            opens: 'left',
-
-            ranges: {
-
-                'Hari Ini': [
-                    moment(),
-                    moment()
-                ],
-
-                '7 Hari Terakhir': [
-                    moment().subtract(
-                        6,
-                        'days'
-                    ),
-                    moment()
-                ],
-
-                '30 Hari Terakhir': [
-                    moment().subtract(
-                        29,
-                        'days'
-                    ),
-                    moment()
-                ],
-
-                'Bulan Ini': [
-                    moment().startOf(
-                        'month'
-                    ),
-                    moment().endOf(
-                        'month'
-                    )
-                ],
-
-                'Bulan Lalu': [
-                    moment()
-                    .subtract(
-                        1,
-                        'month'
-                    )
-                    .startOf('month'),
-
-                    moment()
-                    .subtract(
-                        1,
-                        'month'
-                    )
-                    .endOf('month')
-                ]
-            }
-
+            opens: 'left'
         });
 
-
-        $input.on(
-            'apply.daterangepicker',
-            function(
-                ev,
-                picker
-            ) {
-
-                $mulai.val(
-                    picker.startDate.format(
-                        'YYYY-MM-DD'
-                    )
-                );
-
-                $sampai.val(
-                    picker.endDate.format(
-                        'YYYY-MM-DD'
-                    )
-                );
-
-                $input.val(
-                    picker.startDate.format(
-                        'DD/MM/YYYY'
-                    ) +
-                    ' - ' +
-                    picker.endDate.format(
-                        'DD/MM/YYYY'
-                    )
-                );
-            }
-        );
-
+        $input.on('apply.daterangepicker', function(ev, picker) {
+            $mulai.val(picker.startDate.format('YYYY-MM-DD'));
+            $sampai.val(picker.endDate.format('YYYY-MM-DD'));
+            $input.val(
+                picker.startDate.format('DD/MM/YYYY') +
+                ' - ' +
+                picker.endDate.format('DD/MM/YYYY')
+            );
+        });
 
         $input.val(
             $mulai.val().split('-').reverse().join('/') +
@@ -901,3 +545,4 @@
 
     });
 </script>
+

@@ -1667,14 +1667,14 @@ class Laporan extends BaseController
 
         $tanggalMulai = trim(
             (string) (
-                $this->request->getGet('tanggal_mulai')
+                $this->request->getGet('tanggal_awal')
                 ?? date('Y-m-01')
             )
         );
 
         $tanggalSampai = trim(
             (string) (
-                $this->request->getGet('tanggal_sampai')
+                $this->request->getGet('tanggal_akhir')
                 ?? date('Y-m-d')
             )
         );
@@ -1738,424 +1738,589 @@ class Laporan extends BaseController
             ->getResultArray();
 
 
-        // =========================================================
-        // QUERY DARI DATABASE VIEW
-        // =========================================================
-
-        $builder = $db
-            ->table('v_pembayaran_item_harian')
-            ->select('
-        tanggal_pembayaran,
-        transaksi_id,
-        kode_invoice,
-        kategori_id,
-        nama_produk,
-        SUM(jumlah) AS jumlah_item,
-        SUM(subtotal_item) AS subtotal_item,
-        SUM(jumlah_pembayaran) AS total_pembayaran,
-        SUM(nilai_teralokasi) AS total_teralokasi
-    ')
-            ->where(
-                'tanggal_pembayaran >=',
-                $tanggalMulai
-            )
-            ->where(
-                'tanggal_pembayaran <=',
-                $tanggalSampai
-            );
-
-
-        // =========================================================
-        // FILTER KATEGORI
-        // =========================================================
-
-        if ($kategoriId !== '') {
-
-            $builder->where(
-                'kategori_id',
-                (int) $kategoriId
-            );
-        }
-
-
-        // =========================================================
-        // FILTER NAMA PRODUK
-        // =========================================================
-
-        if ($keyword !== '') {
-
-            $builder->like(
-                'nama_produk',
-                $keyword
-            );
-        }
-
-
-        // =========================================================
-        // FILTER METODE
-        // =========================================================
-
-        if ($metode !== '') {
-            $builder->where(
-                'metode',
-                strtolower($metode)
-            );
-        }
-        // =========================================================
-        // GROUPING
-        // =========================================================
-
-        $rows = $builder
-            ->groupBy([
-                'tanggal_pembayaran',
-                'transaksi_id',
-                'kode_invoice',
-                'kategori_id',
-                'nama_produk'
-            ])
-            ->orderBy(
-                'tanggal_pembayaran',
-                'ASC'
-            )
-            ->orderBy(
-                'total_teralokasi',
-                'DESC'
-            )
-            ->get()
-            ->getResultArray();
-
-        // =========================================================
-        // LENGKAPI DENGAN ARCHIVE
-        // =========================================================
-        // VIEW live tidak menjangkau data yang sudah di-archive. Query
-        // & agregasi (GROUP BY/SUM) yang SAMA PERSIS dijalankan di
-        // SQLite archive (lihat TransaksiArchiveService::getItemHarianMentah()),
-        // hasilnya sudah teragregasi jadi tinggal digabung (bukan
-        // dijumlah ulang -- satu transaksi cuma ada di satu sumber).
-        try {
-            $archiveService = new \App\Services\TransaksiArchiveService();
-            $rowsArchive = $archiveService->getItemHarianMentah(
-                $tanggalMulai,
-                $tanggalSampai,
-                $kategoriId !== '' ? (int) $kategoriId : null,
-                $keyword !== '' ? $keyword : null,
-                $metode !== '' ? $metode : null
-            );
-
-            if (!empty($rowsArchive)) {
-                $rows = array_merge($rows, $rowsArchive);
-
-                // Urutkan ulang gabungannya (masing-masing sumber sudah
-                // terurut sendiri, tapi gabungan keduanya belum tentu).
-                usort($rows, function ($a, $b) {
-                    $cmpTanggal = strcmp($a['tanggal_pembayaran'], $b['tanggal_pembayaran']);
-                    if ($cmpTanggal !== 0) return $cmpTanggal;
-                    return $b['total_teralokasi'] <=> $a['total_teralokasi'];
-                });
-            }
-        } catch (\Throwable $e) {
-            log_message('error', 'Laporan itemHarian() gagal baca archive: ' . $e->getMessage());
-        }
-
-
-        // =========================================================
-        // MAP KATEGORI
-        // =========================================================
-
-        $kategoriMap = [];
-
-        foreach ($kategoriRows as $kategori) {
-
-            $kategoriMap[(int) $kategori['id']] = $kategori['nama'];
-        }
-
-
-        // =========================================================
-        // NORMALISASI HASIL
-        // =========================================================
-
-        foreach ($rows as &$row) {
-
-            $row['kategori_nama'] =
-                $kategoriMap[(int) $row['kategori_id']] ?? 'Tanpa Kategori';
-
-            $row['jumlah_item'] =
-                (float) (
-                    $row['jumlah_item']
-                    ?? 0
-                );
-
-            $row['subtotal_item'] =
-                (float) (
-                    $row['subtotal_item']
-                    ?? 0
-                );
-
-            $row['total_pembayaran'] =
-                (float) (
-                    $row['total_pembayaran']
-                    ?? 0
-                );
-
-            $row['total_teralokasi'] =
-                (float) (
-                    $row['total_teralokasi']
-                    ?? 0
-                );
-        }
-
-        unset($row);
-
-
-        // =========================================================
-        // SUMMARY
-        // =========================================================
-
-        $jumlahBaris = count($rows);
-
-        $totalSubtotal = 0;
-        $totalTeralokasi = 0;
-
-        foreach ($rows as $row) {
-
-            $totalSubtotal +=
-                $row['subtotal_item'];
-
-            $totalTeralokasi +=
-                $row['total_teralokasi'];
-        }
-
-
-        // =========================================================
-        // RETURN
-        // =========================================================
-
         return view(
             'layout/main',
             [
-
-                'title' =>
-                'Item Harian',
-
-                'content' =>
-                'laporan/item_harian',
-
-                'tanggal_mulai' =>
-                $tanggalMulai,
-
-                'tanggal_sampai' =>
-                $tanggalSampai,
-
-                'kategoriRows' =>
-                $kategoriRows,
-
-                'kategoriId' =>
-                $kategoriId,
-
-                'keyword' =>
-                $keyword,
-
-                'metode' =>
-                $metode,
-
-                'rows' =>
-                $rows,
-
-                'jumlahBaris' =>
-                $jumlahBaris,
-
-                'totalSubtotal' =>
-                $totalSubtotal,
-
-                'totalTeralokasi' =>
-                $totalTeralokasi,
+                'title'         => 'Item Harian',
+                'content'       => 'laporan/item_harian',
+                'tanggal_awal'  => $tanggalMulai,
+                'tanggal_akhir' => $tanggalSampai,
+                'kategoriRows'  => $kategoriRows,
+                'kategoriId'    => $kategoriId,
+                'keyword'       => $keyword,
+                'metode'        => $metode,
             ]
         );
     }
-    public function pembayaran()
-{
-    $db = db_connect();
 
-    // =========================================================
-    // FILTER
-    // =========================================================
+    /**
+     * Filter bersama untuk laporan Item Harian.
+     */
+    private function itemHarianFilterBag(): array
+    {
+        $tanggalMulai = trim((string) ($this->request->getGet('tanggal_awal') ?? date('Y-m-01')));
+        $tanggalSampai = trim((string) ($this->request->getGet('tanggal_akhir') ?? date('Y-m-d')));
+        $kategoriId = trim((string) ($this->request->getGet('kategori_id') ?? ''));
+        $keyword = trim((string) ($this->request->getGet('keyword') ?? ''));
+        $metode = trim((string) ($this->request->getGet('metode') ?? ''));
 
-    $tanggalMulai = trim((string) (
-        $this->request->getGet('tanggal_mulai')
-        ?? date('Y-m-d')   // <-- diubah dari 'Y-m-01' ke 'Y-m-d'
-    ));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalMulai)) {
+            $tanggalMulai = date('Y-m-01');
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalSampai)) {
+            $tanggalSampai = date('Y-m-d');
+        }
+        if ($tanggalMulai > $tanggalSampai) {
+            [$tanggalMulai, $tanggalSampai] = [$tanggalSampai, $tanggalMulai];
+        }
 
-    $tanggalSampai = trim((string) (
-        $this->request->getGet('tanggal_sampai')
-        ?? date('Y-m-d')
-    ));
-
-    $metode = trim((string) (
-        $this->request->getGet('metode')
-        ?? ''
-    ));
-
-    $keyword = trim((string) (
-        $this->request->getGet('keyword')
-        ?? ''
-    ));
-
-    if (!preg_match(
-        '/^\d{4}-\d{2}-\d{2}$/',
-        $tanggalMulai
-    )) {
-        $tanggalMulai = date('Y-m-d');   // <-- diubah dari 'Y-m-01'
-    }
-
-    if (!preg_match(
-        '/^\d{4}-\d{2}-\d{2}$/',
-        $tanggalSampai
-    )) {
-        $tanggalSampai = date('Y-m-d');
-    }
-
-    if ($tanggalMulai > $tanggalSampai) {
-        [$tanggalMulai, $tanggalSampai] = [
-            $tanggalSampai,
-            $tanggalMulai
+        return [
+            'tanggal_awal'  => $tanggalMulai,
+            'tanggal_akhir' => $tanggalSampai,
+            'kategori_id'   => $kategoriId,
+            'keyword'       => $keyword,
+            'metode'        => $metode,
         ];
     }
 
-    // =========================================================
-    // QUERY DATABASE VIEW
-    // =========================================================
-
-    $builder = $db
-        ->table('v_daftar_pembayaran')
-        ->select('
-            pembayaran_id,
-            transaksi_id,
-            kode_invoice,
-            tanggal_transaksi,
-            tanggal_pembayaran,
-            nama_pelanggan,
-            nama_kasir,
-            username_kasir,
-            inisial_kasir,
-            metode,
-            jumlah,
-            uang_diterima,
-            kembalian,
-            keterangan,
-            pelanggan_id,
-            kasir_id
-        ')
-        ->where(
-            'tanggal_pembayaran >=',
-            $tanggalMulai . ' 00:00:00'
-        )
-        ->where(
-            'tanggal_pembayaran <=',
-            $tanggalSampai . ' 23:59:59'
-        );
-
-    if ($metode !== '') {
-        $builder->where(
-            'metode',
-            strtolower($metode)
+    private function itemHarianBaseBuilder($db)
+    {
+        return $db->table('v_pembayaran_item_harian')->select(
+            'tanggal_pembayaran, transaksi_id, kode_invoice, kategori_id, nama_produk, ' .
+            'SUM(jumlah) AS jumlah_item, SUM(subtotal_item) AS subtotal_item, ' .
+            'SUM(jumlah_pembayaran) AS total_pembayaran, SUM(nilai_teralokasi) AS total_teralokasi'
         );
     }
 
-    if ($keyword !== '') {
-        $builder->groupStart()
-            ->like('kode_invoice', $keyword)
-            ->orLike('nama_pelanggan', $keyword)
-            ->orLike('nama_kasir', $keyword)
-            ->orLike('keterangan', $keyword)
-            ->groupEnd();
-    }
-
-    $rows = $builder
-        ->orderBy('tanggal_pembayaran', 'DESC')   // <-- diubah dari ASC
-        ->orderBy('pembayaran_id', 'DESC')        // <-- diubah dari ASC
-        ->get()
-        ->getResultArray();
-
-    // =========================================================
-    // LENGKAPI DENGAN ARCHIVE
-    // =========================================================
-    // Sama pola dengan itemHarian(): VIEW live tidak menjangkau data
-    // yang sudah di-archive, jadi archive di-query terpisah dengan
-    // filter yang sama (metode/keyword) lalu digabung & diurutkan
-    // ulang di sini.
-    try {
-        $archiveService = new \App\Services\TransaksiArchiveService();
-        $rowsArchive = $archiveService->getDaftarPembayaranMentah(
-            $tanggalMulai . ' 00:00:00',
-            $tanggalSampai . ' 23:59:59',
-            $metode !== '' ? $metode : null,
-            $keyword !== '' ? $keyword : null
-        );
-
-        if (!empty($rowsArchive)) {
-            $rows = array_merge($rows, $rowsArchive);
-
-            usort($rows, function ($a, $b) {
-                $cmpTanggal = strcmp($b['tanggal_pembayaran'], $a['tanggal_pembayaran']);
-                if ($cmpTanggal !== 0) return $cmpTanggal;
-                return $b['pembayaran_id'] <=> $a['pembayaran_id'];
-            });
+    private function itemHarianApplyFilters($builder, array $f)
+    {
+        $builder->where('tanggal_pembayaran >=', $f['tanggal_awal'])
+            ->where('tanggal_pembayaran <=', $f['tanggal_akhir']);
+        if ($f['kategori_id'] !== '') {
+            $builder->where('kategori_id', (int) $f['kategori_id']);
         }
-    } catch (\Throwable $e) {
-        log_message('error', 'Laporan pembayaran() gagal baca archive: ' . $e->getMessage());
+        if ($f['keyword'] !== '') {
+            $builder->like('nama_produk', $f['keyword']);
+        }
+        if ($f['metode'] !== '') {
+            $builder->where('metode', strtolower($f['metode']));
+        }
+        return $builder;
     }
 
-    // =========================================================
-    // SUMMARY
-    // =========================================================
+    private function itemHarianGroupColumns(): array
+    {
+        return ['tanggal_pembayaran', 'transaksi_id', 'kode_invoice', 'kategori_id', 'nama_produk'];
+    }
 
-    $totalPembayaran = 0;
-    $totalTunai = 0;
-    $totalQris = 0;
-    $totalTransfer = 0;
+    private function itemHarianLiveCount($db, array $f): int
+    {
+        $inner = $this->itemHarianApplyFilters($this->itemHarianBaseBuilder($db), $f);
+        $inner->groupBy($this->itemHarianGroupColumns());
+        $sql = $inner->getCompiledSelect();
+        $row = $db->query('SELECT COUNT(*) AS c FROM (' . $sql . ') t')->getRowArray();
+        return (int) ($row['c'] ?? 0);
+    }
 
-    foreach ($rows as $row) {
+    private function itemHarianLiveTotals($db, array $f): array
+    {
+        $b = $this->itemHarianApplyFilters($db->table('v_pembayaran_item_harian'), $f);
+        $b->select('COALESCE(SUM(subtotal_item),0) AS total_subtotal, COALESCE(SUM(nilai_teralokasi),0) AS total_teralokasi');
+        $r = $b->get()->getRowArray();
+        return [
+            'subtotal'   => (float) ($r['total_subtotal'] ?? 0),
+            'teralokasi' => (float) ($r['total_teralokasi'] ?? 0),
+        ];
+    }
 
-        $jumlah = (float) (
-            $row['jumlah'] ?? 0
-        );
+    private function itemHarianLiveRows($db, array $f, array $order, int $limit = 0, int $offset = 0): array
+    {
+        $b = $this->itemHarianApplyFilters($this->itemHarianBaseBuilder($db), $f);
+        $b->groupBy($this->itemHarianGroupColumns());
+        foreach ($order as [$col, $dir]) {
+            $b->orderBy($col, $dir);
+        }
+        if ($limit > 0) {
+            $b->limit($limit, $offset);
+        }
+        return $b->get()->getResultArray();
+    }
 
-        $metodeRow = strtolower(
-            trim((string) (
-                $row['metode'] ?? ''
-            ))
-        );
+    private function itemHarianOrder(): array
+    {
+        $map = [
+            0 => 'tanggal_pembayaran',
+            1 => 'kategori_id',
+            2 => 'kode_invoice',
+            3 => 'nama_produk',
+            4 => 'jumlah_item',
+            5 => 'subtotal_item',
+            6 => 'total_pembayaran',
+            7 => 'total_teralokasi',
+        ];
 
-        $totalPembayaran += $jumlah;
+        $out = [];
+        $order = $this->request->getGet('order');
+        if (is_array($order)) {
+            foreach ($order as $o) {
+                $idx = (int) ($o['column'] ?? -1);
+                if (!isset($map[$idx])) {
+                    continue;
+                }
+                $dir = strtolower((string) ($o['dir'] ?? 'asc')) === 'desc' ? 'DESC' : 'ASC';
+                $out[] = [$map[$idx], $dir];
+            }
+        }
+        if ($out === []) {
+            $out = [['tanggal_pembayaran', 'ASC'], ['total_teralokasi', 'DESC']];
+        }
+        return $out;
+    }
 
-        if ($metodeRow === 'tunai') {
-            $totalTunai += $jumlah;
-        } elseif ($metodeRow === 'qris') {
-            $totalQris += $jumlah;
-        } elseif ($metodeRow === 'transfer') {
-            $totalTransfer += $jumlah;
+    private function itemHarianSortRows(array $rows, array $order): array
+    {
+        usort($rows, function ($a, $b) use ($order) {
+            foreach ($order as [$col, $dir]) {
+                $av = $a[$col] ?? null;
+                $bv = $b[$col] ?? null;
+                $cmp = (is_numeric($av) && is_numeric($bv))
+                    ? ($av <=> $bv)
+                    : strcmp((string) $av, (string) $bv);
+                if ($cmp !== 0) {
+                    return $dir === 'DESC' ? -$cmp : $cmp;
+                }
+            }
+            return 0;
+        });
+        return $rows;
+    }
+
+    private function itemHarianKategoriMap($db): array
+    {
+        $map = [];
+        foreach ($db->table('kategori')->select('id, nama')->get()->getResultArray() as $k) {
+            $map[(int) $k['id']] = $k['nama'];
+        }
+        return $map;
+    }
+
+    private function itemHarianArchiveRows(array $f): array
+    {
+        try {
+            $svc = new \App\Services\TransaksiArchiveService();
+            return $svc->getItemHarianMentah(
+                $f['tanggal_awal'],
+                $f['tanggal_akhir'],
+                $f['kategori_id'] !== '' ? (int) $f['kategori_id'] : null,
+                $f['keyword'] !== '' ? $f['keyword'] : null,
+                $f['metode'] !== '' ? $f['metode'] : null
+            );
+        } catch (\Throwable $e) {
+            log_message('error', 'ItemHarian archive: ' . $e->getMessage());
+            return [];
         }
     }
 
-    $jumlahBaris = count($rows);
+    /**
+     * API: data Item Harian untuk DataTables (server-side).
+     */
+    public function itemHarianData()
+    {
+        $f = $this->itemHarianFilterBag();
+        $draw = (int) ($this->request->getGet('draw') ?? 1);
+        $start = max(0, (int) ($this->request->getGet('start') ?? 0));
+        $length = (int) ($this->request->getGet('length') ?? 25);
+        if ($length <= 0) {
+            $length = 25;
+        }
+        $order = $this->itemHarianOrder();
 
-    return view('layout/main', [
-        'title' => 'Laporan Pembayaran',
-        'content' => 'transaksi/laporan_pembayaran',
+        $db = db_connect();
+        $liveCount = $this->itemHarianLiveCount($db, $f);
+        $archiveRows = $this->itemHarianArchiveRows($f);
+        $archiveCount = count($archiveRows);
 
-        'tanggal_mulai' => $tanggalMulai,
-        'tanggal_sampai' => $tanggalSampai,
+        if ($archiveCount === 0) {
+            $rows = $this->itemHarianLiveRows($db, $f, $order, $length, $start);
+            $total = $liveCount;
+        } else {
+            // ponytail: arsip diharapkan kecil & selalu lebih lama dari live; jalur ini
+            // menarik seluruh live untuk range lalu merge-sort penuh. Upgrade ke paging
+            // lintas sumber bila arsip membesar.
+            $rows = $this->itemHarianSortRows(
+                array_merge($this->itemHarianLiveRows($db, $f, $order), $archiveRows),
+                $order
+            );
+            $rows = array_slice($rows, $start, $length);
+            $total = $liveCount + $archiveCount;
+        }
 
-        'metode' => $metode,
-        'keyword' => $keyword,
+        $kategoriMap = $this->itemHarianKategoriMap($db);
+        $data = [];
+        foreach ($rows as $row) {
+            $data[] = [
+                'tanggal_pembayaran' => $row['tanggal_pembayaran'] ?? '',
+                'kategori_nama'      => $kategoriMap[(int) ($row['kategori_id'] ?? 0)] ?? 'Tanpa Kategori',
+                'kode_invoice'       => $row['kode_invoice'] ?? '-',
+                'nama_produk'        => $row['nama_produk'] ?? '-',
+                'jumlah_item'        => (float) ($row['jumlah_item'] ?? 0),
+                'subtotal_item'      => (float) ($row['subtotal_item'] ?? 0),
+                'total_pembayaran'   => (float) ($row['total_pembayaran'] ?? 0),
+                'total_teralokasi'   => (float) ($row['total_teralokasi'] ?? 0),
+            ];
+        }
 
-        'rows' => $rows,
+        $totals = $this->itemHarianLiveTotals($db, $f);
+        foreach ($archiveRows as $r) {
+            $totals['subtotal'] += (float) ($r['subtotal_item'] ?? 0);
+            $totals['teralokasi'] += (float) ($r['total_teralokasi'] ?? 0);
+        }
 
-        'jumlahBaris' => $jumlahBaris,
-        'totalPembayaran' => $totalPembayaran,
-        'totalTunai' => $totalTunai,
-        'totalQris' => $totalQris,
-        'totalTransfer' => $totalTransfer,
-    ]);
-}
+        return $this->response->setJSON([
+            'draw'            => $draw,
+            'recordsTotal'    => $total,
+            'recordsFiltered' => $total,
+            'data'            => $data,
+            'totals'          => [
+                'subtotal_item'    => $totals['subtotal'],
+                'total_teralokasi' => $totals['teralokasi'],
+            ],
+        ]);
+    }
+
+    /**
+     * Ekspor CSV seluruh baris terfilter (server-side).
+     */
+    public function itemHarianExport()
+    {
+        $f = $this->itemHarianFilterBag();
+        $db = db_connect();
+        $order = [['tanggal_pembayaran', 'ASC'], ['total_teralokasi', 'DESC']];
+
+        $rows = $this->itemHarianSortRows(
+            array_merge($this->itemHarianLiveRows($db, $f, $order), $this->itemHarianArchiveRows($f)),
+            $order
+        );
+        $kategoriMap = $this->itemHarianKategoriMap($db);
+
+        $fh = fopen('php://temp', 'r+');
+        fwrite($fh, "\xEF\xBB\xBF");
+        fputcsv($fh, ['Tanggal', 'Kategori', 'Invoice', 'Item', 'Qty', 'Subtotal Item', 'Pembayaran', 'Nilai Terjual'], ';');
+        foreach ($rows as $row) {
+            fputcsv($fh, [
+                $row['tanggal_pembayaran'] ?? '',
+                $kategoriMap[(int) ($row['kategori_id'] ?? 0)] ?? 'Tanpa Kategori',
+                $row['kode_invoice'] ?? '-',
+                $row['nama_produk'] ?? '-',
+                (float) ($row['jumlah_item'] ?? 0),
+                (float) ($row['subtotal_item'] ?? 0),
+                (float) ($row['total_pembayaran'] ?? 0),
+                (float) ($row['total_teralokasi'] ?? 0),
+            ], ';');
+        }
+        rewind($fh);
+        $csv = stream_get_contents($fh);
+        fclose($fh);
+
+        $filename = 'Item_Harian_' . $f['tanggal_awal'] . '_' . $f['tanggal_akhir'] . '.csv';
+
+        return $this->response
+            ->setHeader('Content-Type', 'text/csv; charset=UTF-8')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setBody($csv);
+    }
+
+
+    public function pembayaran()
+    {
+        $f = $this->pembayaranFilterBag();
+
+        return view('layout/main', [
+            'title'         => 'Laporan Pembayaran',
+            'content'       => 'transaksi/laporan_pembayaran',
+            'tanggal_awal'  => $f['tanggal_awal'],
+            'tanggal_akhir' => $f['tanggal_akhir'],
+            'metode'        => $f['metode'],
+            'keyword'       => $f['keyword'],
+        ]);
+    }
+
+    /**
+     * Filter bersama untuk Laporan Pembayaran.
+     */
+    private function pembayaranFilterBag(): array
+    {
+        $tanggalMulai = trim((string) ($this->request->getGet('tanggal_awal') ?? date('Y-m-d')));
+        $tanggalSampai = trim((string) ($this->request->getGet('tanggal_akhir') ?? date('Y-m-d')));
+        $metode = trim((string) ($this->request->getGet('metode') ?? ''));
+        $keyword = trim((string) ($this->request->getGet('keyword') ?? ''));
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalMulai)) {
+            $tanggalMulai = date('Y-m-d');
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalSampai)) {
+            $tanggalSampai = date('Y-m-d');
+        }
+        if ($tanggalMulai > $tanggalSampai) {
+            [$tanggalMulai, $tanggalSampai] = [$tanggalSampai, $tanggalMulai];
+        }
+
+        return [
+            'tanggal_awal'  => $tanggalMulai,
+            'tanggal_akhir' => $tanggalSampai,
+            'metode'        => $metode,
+            'keyword'       => $keyword,
+        ];
+    }
+
+    private function pembayaranBaseBuilder($db)
+    {
+        return $db->table('v_daftar_pembayaran')->select(
+            'pembayaran_id, transaksi_id, kode_invoice, tanggal_transaksi, tanggal_pembayaran, ' .
+            'nama_pelanggan, nama_kasir, username_kasir, inisial_kasir, metode, jumlah, ' .
+            'uang_diterima, kembalian, keterangan, pelanggan_id, kasir_id'
+        );
+    }
+
+    private function pembayaranApplyFilters($builder, array $f)
+    {
+        $builder->where('tanggal_pembayaran >=', $f['tanggal_awal'] . ' 00:00:00')
+            ->where('tanggal_pembayaran <=', $f['tanggal_akhir'] . ' 23:59:59');
+
+        if ($f['metode'] !== '') {
+            $builder->where('metode', strtolower($f['metode']));
+        }
+
+        if ($f['keyword'] !== '') {
+            $builder->groupStart()
+                ->like('kode_invoice', $f['keyword'])
+                ->orLike('nama_pelanggan', $f['keyword'])
+                ->orLike('nama_kasir', $f['keyword'])
+                ->orLike('keterangan', $f['keyword'])
+                ->groupEnd();
+        }
+
+        return $builder;
+    }
+
+    private function pembayaranLiveCount($db, array $f): int
+    {
+        return (int) $this->pembayaranApplyFilters($db->table('v_daftar_pembayaran'), $f)->countAllResults();
+    }
+
+    private function pembayaranLiveTotals($db, array $f): array
+    {
+        $b = $this->pembayaranApplyFilters($db->table('v_daftar_pembayaran'), $f);
+        $b->select(
+            'COALESCE(SUM(jumlah),0) AS total, ' .
+            "COALESCE(SUM(CASE WHEN LOWER(metode)='tunai' THEN jumlah ELSE 0 END),0) AS tunai, " .
+            "COALESCE(SUM(CASE WHEN LOWER(metode)='qris' THEN jumlah ELSE 0 END),0) AS qris, " .
+            "COALESCE(SUM(CASE WHEN LOWER(metode)='transfer' THEN jumlah ELSE 0 END),0) AS transfer"
+        );
+        $r = $b->get()->getRowArray();
+        return [
+            'total'    => (float) ($r['total'] ?? 0),
+            'tunai'    => (float) ($r['tunai'] ?? 0),
+            'qris'     => (float) ($r['qris'] ?? 0),
+            'transfer' => (float) ($r['transfer'] ?? 0),
+        ];
+    }
+
+    private function pembayaranLiveRows($db, array $f, array $order, int $limit = 0, int $offset = 0): array
+    {
+        $b = $this->pembayaranApplyFilters($this->pembayaranBaseBuilder($db), $f);
+        foreach ($order as [$col, $dir]) {
+            $b->orderBy($col, $dir);
+        }
+        if ($limit > 0) {
+            $b->limit($limit, $offset);
+        }
+        return $b->get()->getResultArray();
+    }
+
+    private function pembayaranOrder(): array
+    {
+        $map = [
+            0 => 'tanggal_pembayaran',
+            1 => 'kode_invoice',
+            2 => 'nama_pelanggan',
+            3 => 'nama_kasir',
+            4 => 'metode',
+            5 => 'jumlah',
+            6 => 'uang_diterima',
+            7 => 'kembalian',
+            8 => 'keterangan',
+        ];
+
+        $out = [];
+        $order = $this->request->getGet('order');
+        if (is_array($order)) {
+            foreach ($order as $o) {
+                $idx = (int) ($o['column'] ?? -1);
+                if (!isset($map[$idx])) {
+                    continue;
+                }
+                $dir = strtolower((string) ($o['dir'] ?? 'desc')) === 'asc' ? 'ASC' : 'DESC';
+                $out[] = [$map[$idx], $dir];
+            }
+        }
+        if ($out === []) {
+            $out = [['tanggal_pembayaran', 'DESC'], ['pembayaran_id', 'DESC']];
+        }
+        return $out;
+    }
+
+    private function pembayaranSortRows(array $rows, array $order): array
+    {
+        usort($rows, function ($a, $b) use ($order) {
+            foreach ($order as [$col, $dir]) {
+                $av = $a[$col] ?? null;
+                $bv = $b[$col] ?? null;
+                $cmp = (is_numeric($av) && is_numeric($bv))
+                    ? ($av <=> $bv)
+                    : strcmp((string) $av, (string) $bv);
+                if ($cmp !== 0) {
+                    return $dir === 'ASC' ? $cmp : -$cmp;
+                }
+            }
+            return 0;
+        });
+        return $rows;
+    }
+
+    private function pembayaranArchiveRows(array $f): array
+    {
+        try {
+            $svc = new \App\Services\TransaksiArchiveService();
+            return $svc->getDaftarPembayaranMentah(
+                $f['tanggal_awal'] . ' 00:00:00',
+                $f['tanggal_akhir'] . ' 23:59:59',
+                $f['metode'] !== '' ? $f['metode'] : null,
+                $f['keyword'] !== '' ? $f['keyword'] : null
+            );
+        } catch (\Throwable $e) {
+            log_message('error', 'Pembayaran archive: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    private function pembayaranRowForJson(array $row): array
+    {
+        return [
+            'tanggal_pembayaran' => $row['tanggal_pembayaran'] ?? '',
+            'kode_invoice'       => $row['kode_invoice'] ?? '-',
+            'nama_pelanggan'     => $row['nama_pelanggan'] ?? '-',
+            'nama_kasir'         => $row['nama_kasir'] ?? '-',
+            'inisial_kasir'      => $row['inisial_kasir'] ?? '',
+            'username_kasir'     => $row['username_kasir'] ?? '',
+            'metode'             => strtolower(trim((string) ($row['metode'] ?? ''))),
+            'jumlah'             => (float) ($row['jumlah'] ?? 0),
+            'uang_diterima'      => (float) ($row['uang_diterima'] ?? 0),
+            'kembalian'          => (float) ($row['kembalian'] ?? 0),
+            'keterangan'         => $row['keterangan'] ?? '',
+        ];
+    }
+
+    /**
+     * API: data Laporan Pembayaran untuk DataTables (server-side).
+     */
+    public function pembayaranData()
+    {
+        $f = $this->pembayaranFilterBag();
+        $draw = (int) ($this->request->getGet('draw') ?? 1);
+        $start = max(0, (int) ($this->request->getGet('start') ?? 0));
+        $length = (int) ($this->request->getGet('length') ?? 25);
+        if ($length <= 0) {
+            $length = 25;
+        }
+        $order = $this->pembayaranOrder();
+
+        $db = db_connect();
+        $liveCount = $this->pembayaranLiveCount($db, $f);
+        $archiveRows = $this->pembayaranArchiveRows($f);
+        $archiveCount = count($archiveRows);
+
+        if ($archiveCount === 0) {
+            $rows = $this->pembayaranLiveRows($db, $f, $order, $length, $start);
+            $total = $liveCount;
+        } else {
+            // ponytail: arsip diharapkan kecil & lebih lama dari live; jalur ini
+            // menarik seluruh live untuk range lalu merge-sort penuh. Upgrade ke
+            // paging lintas sumber bila arsip membesar.
+            $rows = $this->pembayaranSortRows(
+                array_merge($this->pembayaranLiveRows($db, $f, $order), $archiveRows),
+                $order
+            );
+            $rows = array_slice($rows, $start, $length);
+            $total = $liveCount + $archiveCount;
+        }
+
+        $data = array_map([$this, 'pembayaranRowForJson'], $rows);
+
+        $totals = $this->pembayaranLiveTotals($db, $f);
+        foreach ($archiveRows as $r) {
+            $j = (float) ($r['jumlah'] ?? 0);
+            $m = strtolower(trim((string) ($r['metode'] ?? '')));
+            $totals['total'] += $j;
+            if ($m === 'tunai') {
+                $totals['tunai'] += $j;
+            } elseif ($m === 'qris') {
+                $totals['qris'] += $j;
+            } elseif ($m === 'transfer') {
+                $totals['transfer'] += $j;
+            }
+        }
+
+        return $this->response->setJSON([
+            'draw'            => $draw,
+            'recordsTotal'    => $total,
+            'recordsFiltered' => $total,
+            'data'            => $data,
+            'totals'          => $totals,
+        ]);
+    }
+
+    /**
+     * Ekspor CSV seluruh baris terfilter (server-side).
+     */
+    public function pembayaranExport()
+    {
+        $f = $this->pembayaranFilterBag();
+        $db = db_connect();
+        $order = [['tanggal_pembayaran', 'DESC'], ['pembayaran_id', 'DESC']];
+
+        $rows = $this->pembayaranSortRows(
+            array_merge($this->pembayaranLiveRows($db, $f, $order), $this->pembayaranArchiveRows($f)),
+            $order
+        );
+
+        $fh = fopen('php://temp', 'r+');
+        fwrite($fh, "\xEF\xBB\xBF");
+        fputcsv($fh, ['Tanggal Pembayaran', 'Invoice', 'Pelanggan', 'Kasir', 'Metode', 'Jumlah', 'Uang Diterima', 'Kembalian', 'Keterangan'], ';');
+        foreach ($rows as $row) {
+            fputcsv($fh, [
+                $row['tanggal_pembayaran'] ?? '',
+                $row['kode_invoice'] ?? '-',
+                $row['nama_pelanggan'] ?? '-',
+                $row['nama_kasir'] ?? '-',
+                $row['metode'] ?? '',
+                (float) ($row['jumlah'] ?? 0),
+                (float) ($row['uang_diterima'] ?? 0),
+                (float) ($row['kembalian'] ?? 0),
+                $row['keterangan'] ?? '',
+            ], ';');
+        }
+        rewind($fh);
+        $csv = stream_get_contents($fh);
+        fclose($fh);
+
+        $filename = 'Laporan_Pembayaran_' . $f['tanggal_awal'] . '_' . $f['tanggal_akhir'] . '.csv';
+
+        return $this->response
+            ->setHeader('Content-Type', 'text/csv; charset=UTF-8')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setBody($csv);
+    }
+
+
 }

@@ -1,7 +1,7 @@
 <div class="card">
     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Daftar Tagihan Belum Lunas</h5>
-        <span class="badge bg-dark"><?= count($tagihan) ?> tagihan</span>
+        <span class="badge bg-dark"><span id="badgeJumlahTagihan">0</span> tagihan</span>
     </div>
     <div class="card-body">
         <!-- ========================================== -->
@@ -10,7 +10,7 @@
         <!-- Rentang tanggal pakai date range picker (satu input),  -->
         <!-- lihat #filterTanggal & init-nya di section scripts.    -->
         <?php $sayaAktif = service('request')->getGet('saya') == '1'; ?>
-        <form method="get" class="row g-2 mb-3 align-items-end flex-nowrap overflow-auto">
+        <form id="formFilterTagihan" method="get" class="row g-2 mb-3 align-items-end flex-nowrap overflow-auto">
             <?php if ($sayaAktif): ?>
                 <input type="hidden" name="saya" value="1">
             <?php endif; ?>
@@ -88,75 +88,6 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (!empty($tagihan)): ?>
-                        <?php foreach ($tagihan as $i => $t):
-                            // Pastikan semua field tersedia, beri default jika null
-                            $totalDibayar = $t['total_dibayar'] ?? $t['dibayar'] ?? 0;
-                            $grandTotal   = $t['grand_total'] ?? $t['total'] ?? 0;
-                            $sisa         = $grandTotal - $totalDibayar;
-
-                            // Status di halaman Tagihan mengikuti kondisi pembayaran.
-                            // Status pekerjaan transaksi (proses/selesai/batal) ditentukan di modul transaksi.
-                            // Logic sama dengan TransaksiModel::sinkronkanPembayaran() -- dipusatkan di service.
-                            $statusPembayaran = \App\Services\KalkulasiStatusPembayaran::hitung(
-                                (float) $totalDibayar,
-                                (float) $grandTotal
-                            );
-                            $paymentClass = status_pembayaran_badge_class($statusPembayaran);
-
-                            // 🔥 Format No Order
-                            $noOrderDisplay = !empty($t['no_order']) ? format_no_order($t['no_order']) : '-';
-
-                            // 🔥 Format tanggal singkat "29 Sep 2026" (helper order_helper.php).
-                            // $ts tetap dipakai untuk data-order (sorting DataTables).
-                            $ts = strtotime($t['tanggal']);
-                            $tanggalDisplay = tanggal_singkat($t['tanggal']);
-                        ?>
-                            <tr>
-                                <td><?= $i + 1 ?></td>
-                                <td><strong><?= $t['kode_invoice'] ?? $t['invoice'] ?? '-' ?></strong></td>
-                                <td><?= $noOrderDisplay ?></td>
-                                <td data-order="<?= $ts ?>">
-                                    <?php if ($t['is_overdue']): ?>
-                                        <span class="badge bg-danger fs-6 fw-normal" title="Jatuh tempo <?= tanggal_singkat($t['jatuh_tempo']) ?>"><?= $tanggalDisplay ?></span>
-                                    <?php else: ?>
-                                        <?= $tanggalDisplay ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?= $t['pelanggan_nama'] ?? $t['nama_pelanggan'] ?? '-' ?></td>
-                                <td><?= $t['kasir_inisial'] ?? $t['kasir_nama'] ?? $t['nama_kasir'] ?? '-' ?></td>
-                                <td class="text-end"><?= number_format($grandTotal, 0, ',', '.') ?></td>
-                                <td class="text-end"><?= number_format($totalDibayar, 0, ',', '.') ?></td>
-                                <td class="text-end <?= $sisa > 0 ? 'text-danger' : 'text-success' ?>">
-                                    <?= number_format($sisa, 0, ',', '.') ?>
-                                </td>
-                                <td>
-                                    <div class="d-flex flex-wrap gap-1">
-                                        <span class="badge bg-<?= $paymentClass ?>">
-                                            <?= status_pembayaran_label($statusPembayaran) ?>
-                                        </span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <!-- Tombol Detail -->
-                                    <a href="<?= base_url('tagihan/detail/' . $t['id']) ?>" class="btn btn-sm btn-info">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-
-                                    <!-- Tombol Bayar hanya untuk tagihan yang belum lunas. -->
-                                    <?php if ($statusPembayaran != 'lunas'): ?>
-                                        <button class="btn btn-sm btn-success"
-                                            onclick="lunasiTagihan(<?= $t['id'] ?>, <?= $grandTotal ?>, <?= $sisa ?>, '<?= $t['kode_invoice'] ?? $t['invoice'] ?>')">
-                                            <i class="fas fa-hand-holding-usd"></i>
-                                        </button>
-                                    <?php endif; ?>
-
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-
-                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -183,10 +114,6 @@
             };
         </script>
         <script src="<?= base_url('assets/js/payment.js') ?>"></script>
-
-        <!-- Date Range Picker -- pola sama seperti transaksi/index.php -->
-        <script src="https://cdn.jsdelivr.net/npm/moment/min/moment.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 
         <script>
             /**
@@ -240,34 +167,13 @@
                 var endDate = akhirHidden ? moment(akhirHidden) : moment();
 
                 $('#filterTanggal').daterangepicker({
-                    locale: {
-                        format: 'DD/MM/YYYY',
-                        separator: ' - ',
-                        applyLabel: 'Terapkan',
-                        cancelLabel: 'Batal',
-                        fromLabel: 'Dari',
-                        toLabel: 'Sampai',
-                        customRangeLabel: 'Custom',
-                        weekLabel: 'M',
-                        daysOfWeek: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
-                        monthNames: ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-                            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-                        ],
-                        firstDay: 1
-                    },
+                    locale: AuliaDateRange.locale(),
+                    ranges: AuliaDateRange.ranges(),
                     startDate: startDate,
                     endDate: endDate,
                     autoUpdateInput: !!(awalHidden && akhirHidden),
                     opens: 'left',
-                    showDropdowns: true,
-                    ranges: {
-                        'Hari Ini': [moment(), moment()],
-                        'Kemarin': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                        '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
-                        '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
-                        'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
-                        'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-                    }
+                    showDropdowns: true
                 });
 
                 // Terapkan langsung saat rentang dipilih -- isi hidden
@@ -277,7 +183,7 @@
                 $('#filterTanggal').on('apply.daterangepicker', function(ev, picker) {
                     $('#tanggalAwalHidden').val(picker.startDate.format('YYYY-MM-DD'));
                     $('#tanggalAkhirHidden').val(picker.endDate.format('YYYY-MM-DD'));
-                    $(this).closest('form').trigger('submit');
+                    $('#tableTagihan').DataTable().ajax.reload();
                 });
             });
 
@@ -285,25 +191,104 @@
             // INIT DATATABLES
             // ==========================================
             $(document).ready(function() {
-                $('#tableTagihan').DataTable({
+                const table = $('#tableTagihan').DataTable({
                     responsive: true,
                     processing: true,
-                    serverSide: false,
+                    serverSide: true,
                     pageLength: 25,
+                    ajax: {
+                        url: '<?= base_url('tagihan/data') ?>',
+                        data: function(d) {
+                            d.tanggal_awal = $('#tanggalAwalHidden').val();
+                            d.tanggal_akhir = $('#tanggalAkhirHidden').val();
+                            d.kasir_id = $('[name="kasir_id"]').val();
+                            d.hanya_terlambat = $('#hanyaTerlambat').is(':checked') ? '1' : '';
+                            d.saya = $('[name="saya"]').val() || '';
+                        }
+                    },
                     // Kolom 3 = Tanggal. ASC supaya tagihan paling lama
                     // menunggak (paling perlu ditagih) tampil paling atas.
                     order: [
                         [3, 'asc']
                     ],
                     columnDefs: [{
+                        orderable: false,
+                        targets: [0, 10]
+                    }],
+                    columns: [{
+                            data: null,
                             orderable: false,
-                            targets: [0, 9]
+                            render: function(d, type, row, meta) {
+                                return meta.row + meta.settings._iDisplayStart + 1;
+                            }
                         },
                         {
-                            type: 'num',
-                            targets: [2]
+                            data: 'kode_invoice',
+                            render: function(d) {
+                                return '<strong>' + d + '</strong>';
+                            }
+                        },
+                        { data: 'no_order_display' },
+                        {
+                            data: 'tanggal_ts',
+                            render: function(d, type, row) {
+                                if (row.is_overdue) {
+                                    return '<span class="badge bg-danger fs-6 fw-normal" title="Jatuh tempo ' +
+                                        row.jatuh_tempo_display + '">' + row.tanggal_display + '</span>';
+                                }
+                                return row.tanggal_display;
+                            }
+                        },
+                        { data: 'pelanggan_nama' },
+                        { data: 'kasir' },
+                        {
+                            data: 'grand_total',
+                            className: 'text-end',
+                            render: function(d) {
+                                return Number(d).toLocaleString('id-ID');
+                            }
+                        },
+                        {
+                            data: 'total_dibayar',
+                            className: 'text-end',
+                            render: function(d) {
+                                return Number(d).toLocaleString('id-ID');
+                            }
+                        },
+                        {
+                            data: 'sisa',
+                            className: 'text-end',
+                            render: function(d) {
+                                return '<span class="' + (Number(d) > 0 ? 'text-danger' : 'text-success') +
+                                    '">' + Number(d).toLocaleString('id-ID') + '</span>';
+                            }
+                        },
+                        {
+                            data: 'status_label',
+                            render: function(d, type, row) {
+                                return '<span class="badge bg-' + row.status_class + '">' + d + '</span>';
+                            }
+                        },
+                        {
+                            data: 'id',
+                            orderable: false,
+                            render: function(d, type, row) {
+                                let html = '<a href="<?= base_url('tagihan/detail/') ?>' + d +
+                                    '" class="btn btn-sm btn-info"><i class="fas fa-eye"></i></a>';
+                                if (row.status_pembayaran !== 'lunas') {
+                                    const invoice = String(row.kode_invoice).replace(/'/g, "\\'");
+                                    html += ' <button class="btn btn-sm btn-success" onclick="lunasiTagihan(' +
+                                        d + ', ' + row.grand_total + ', ' + row.sisa + ', \'' + invoice + '\')">' +
+                                        '<i class="fas fa-hand-holding-usd"></i></button>';
+                                }
+                                return html;
+                            }
                         }
                     ],
+                    drawCallback: function() {
+                        const json = this.api().ajax.json() || {};
+                        $('#badgeJumlahTagihan').text(Number(json.recordsFiltered || 0).toLocaleString('id-ID'));
+                    },
                     language: {
                         search: "Cari:",
                         lengthMenu: "Tampilkan _MENU_ data per halaman",
@@ -318,6 +303,11 @@
                             previous: "←"
                         }
                     }
+                });
+
+                $('#formFilterTagihan').on('submit', function(e) {
+                    e.preventDefault();
+                    table.ajax.reload();
                 });
             });
         </script>

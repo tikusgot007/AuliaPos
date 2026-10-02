@@ -178,6 +178,7 @@ $routes->post('/laporan/export-excel', 'Laporan::exportExcel', ['filter' => 'aut
 
 // Route Tagihan
 $routes->get('/tagihan', 'Tagihan::index', ['filter' => 'auth']);
+$routes->get('/tagihan/data', 'Tagihan::data', ['filter' => 'auth']);
 $routes->get('/tagihan/detail/(:num)', 'Tagihan::detail/$1', ['filter' => 'auth']);
 $routes->post('/tagihan/lunasi/(:num)', 'Tagihan::lunasi/$1', ['filter' => 'auth']);
 
@@ -253,8 +254,28 @@ $routes->get(
 );
 
 $routes->get(
+    '/laporan/item-harian-data',
+    'Laporan::itemHarianData'
+);
+
+$routes->get(
+    '/laporan/item-harian-export',
+    'Laporan::itemHarianExport'
+);
+
+$routes->get(
     '/laporan-pembayaran',
     'Laporan::pembayaran',
+    ['filter' => 'auth']
+);
+$routes->get(
+    '/laporan-pembayaran-data',
+    'Laporan::pembayaranData',
+    ['filter' => 'auth']
+);
+$routes->get(
+    '/laporan-pembayaran-export',
+    'Laporan::pembayaranExport',
     ['filter' => 'auth']
 );
 $routes->post(
