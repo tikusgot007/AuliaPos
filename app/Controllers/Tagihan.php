@@ -13,6 +13,14 @@ use Config\Tagihan as TagihanConfig;
 
 class Tagihan extends BaseController
 {
+    /**
+     * Ekspresi SQL untuk kolom turunan "Sisa" pada daftar tagihan.
+     * Meniru tampilan di data(): sisa = max(0, grand_total - total_dibayar).
+     * Dipakai untuk ORDER BY kolom 8 (tidak ada kolom `sisa` di tabel).
+     * Sama dengan Transaksi::SQL_SISA.
+     */
+    private const SQL_SISA = 'GREATEST(transaksi.grand_total - transaksi.total_dibayar, 0)';
+
     public function index()
     {
         $userModel = new UserModel();
@@ -100,7 +108,7 @@ class Tagihan extends BaseController
             5  => 'users.inisial',
             6  => 'transaksi.grand_total',
             7  => 'transaksi.total_dibayar',
-            8  => 'transaksi.grand_total',
+            8  => self::SQL_SISA,
             9  => 'transaksi.status_pembayaran',
         ];
 
@@ -150,7 +158,10 @@ class Tagihan extends BaseController
         $builder = $this->tagihanBaseBuilder($db);
         $this->tagihanApplyFilters($builder, $f, $tempoHari);
         foreach ($order as [$col, $dir]) {
-            $builder->orderBy($col, $dir);
+            // $col hanya berasal dari whitelist tagihanOrder() (tidak pernah
+            // input user mentah), jadi aman di-escape=false agar ekspresi
+            // turunan Sisa bisa dipakai apa adanya.
+            $builder->orderBy($col, $dir, false);
         }
         $rows = $builder->limit($length, $start)->get()->getResultArray();
 
@@ -158,7 +169,7 @@ class Tagihan extends BaseController
         foreach ($rows as $t) {
             $totalDibayar = (float) ($t['total_dibayar'] ?? 0);
             $grandTotal = (float) ($t['grand_total'] ?? 0);
-            $sisa = $grandTotal - $totalDibayar;
+            $sisa = max(0, $grandTotal - $totalDibayar);
             $statusPembayaran = KalkulasiStatusPembayaran::hitung($totalDibayar, $grandTotal);
             $jatuhTempo = KalkulasiJatuhTempo::hitung($t['tanggal'], $tempoHari);
 
