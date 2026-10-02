@@ -4,7 +4,7 @@
 - **Jenis**: laporan hasil spike (prototipe sekali pakai; tidak ada perubahan pada `app/`, `public/`, `tests/`)
 - **Rencana yang dijalankan**: `docs/rencana-spike-vue-advanced-chat.md`
 - **Basis**: branch `claude/pensive-feynman-lfajpe`, kode Inbox `v2.4` (commit `26a7847`); nomor baris di §3 rencana diverifikasi ulang dan cocok
-- **Kode spike**: `spike/vue-advanced-chat/` (jalankan ulang: lihat `README.md` di folder itu; data mentah: `results.json`; bukti gambar: `screenshots/`)
+- **Kode spike**: folder `spike/vue-advanced-chat/` (adapter, slot, fixture, skrip Playwright, `screenshots/`, `results.json`) sudah **dihapus dari repo** karena sekali pakai. Isinya utuh di riwayat git pada commit `deeedb1`; semua rujukan `screenshots/...`, `results.json`, dan nama berkas di laporan ini mengacu ke folder itu. Contoh membuka: `git show deeedb1:spike/vue-advanced-chat/results.json`, atau `git checkout deeedb1 -- spike/vue-advanced-chat` di salinan kerja sementara.
 - **Library**: `vue-advanced-chat@2.1.2` UMD dari CDN jsDelivr, mode `single-room`, tanpa build step
 
 ## 1. Rekomendasi
@@ -259,4 +259,4 @@ Tambahan dari spike ini:
 
 ## 8. Cara mengulang
 
-Lihat `spike/vue-advanced-chat/README.md`. Ringkas: `node make-fixtures.js`, `node serve.js 8765`, `node build-baseline.js`, lalu `node run-spike.js` dengan variabel `PLAYWRIGHT_MODULE`, `CHROMIUM_PATH`, dan `CDN_CACHE`. Satu putaran penuh memakan sekitar 3 menit (K3 saja 60 detik). Hasil terakhir ada di `spike/vue-advanced-chat/results.json`.
+Folder spike sudah dihapus dari branch ini. Pulihkan dari riwayat (`git checkout deeedb1 -- spike/vue-advanced-chat`), lalu ikuti `README.md` di folder itu. Ringkas: `node make-fixtures.js`, `node serve.js 8765`, `node build-baseline.js`, lalu `node run-spike.js` dengan variabel `PLAYWRIGHT_MODULE`, `CHROMIUM_PATH`, dan `CDN_CACHE`. Satu putaran penuh memakan sekitar 3 menit (K3 saja 60 detik). `build-baseline.js` membaca fungsi render dari `app/Views/inbox/index.php` pada rentang baris `v2.4` lama; setelah perpindahan ke `public/assets/js/inbox-thread.js` rentang itu tidak berlaku lagi, jadi pembanding baseline hanya valid terhadap commit `26a7847`.
