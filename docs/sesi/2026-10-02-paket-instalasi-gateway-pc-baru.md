@@ -1,7 +1,7 @@
 # Checkpoint Sesi
 
 - **Tanggal**: 2026-10-02
-- **Status**: sebagian — implementasi selesai & 6 cek lokal lulus; **verifikasi E2E di PC baru/VM belum**
+- **Status**: sebagian — implementasi + uji jalan nyata di PC dev selesai (7 cek lokal lulus); **uji di PC benar-benar baru/VM dari nol belum**
 - **Repo / branch**: implementasi di `C:\Projects\evolution-gateway` (`tikusgot007/WA-Gateway`, branch `master`) — **belum di-commit**. Dokumen di `aulia-app` `v2.4` (`docs/requirements`, `docs/design`, `docs/TODO.md`, checkpoint ini) — **belum di-commit**.
 
 ## Selesai
@@ -21,7 +21,7 @@
   - `scripts/setup-env.ps1`: tambah `-Ci4GatewayToken` (token dari parameter, fallback gateway lama) dan `-EvolutionEnvTemplate` (default `.env.template` bila ada, jika tidak `env.example`); tambah override Evolution menyamai config produksi aulia3 (Redis/websocket/telemetry mati, `DATABASE_DELETE_MESSAGE=true`, dll).
   - `scripts/setup-instance.js`: hapus literal `AULIA3`/`aulia-toko` di pesan "belum tertaut" (dipakai `BASE`+`INSTANCE`).
 - Verifikasi yang dijalankan (nyata):
-  - `installer/tests/run-checks.ps1` -> **6/6 lulus**.
+  - `installer/tests/run-checks.ps1` -> **7/7 lulus** (setelah perbaikan dari uji nyata).
   - `node test/simulate-evolution-adapter.js` -> **SEMUA ASSERT LULUS (0 gagal)**.
   - `node test/simulate-evolution-boot.js` -> **OK**.
 - Definisi paket: `installer/install.ps1` + `lib/` + `start/stop/status` + `apply-viewonce-patch.ps1` + `petunjuk-penggunaan.md` + `tests/`.
@@ -32,6 +32,24 @@
   4. `check-static.ps1` menyaring ekstensi manual (kuirk `-Include` + `-LiteralPath`).
   5. Token CI4 bisa lewat `-Ci4GatewayTokenFile` dan diteruskan ke `setup-env.ps1` via environment `CI4_GATEWAY_TOKEN_INPUT` (tidak tampil di command line); `check-env-parity` diperbarui menguji jalur env ini.
 - **Temuan review #6 (di luar pekerjaan ini)**: `.kilo/rules/sdlc.md:59` menghapus larangan menjalankan perintah deploy/migrasi/rollback ke lingkungan nyata. **Belum diubah** — menunggu keputusan user apakah itu disengaja.
+
+## Uji jalan nyata (2026-10-02, PC dev DESKTOP-2DIS7VC)
+
+Dijalankan `install.ps1` dengan `-InstallRoot C:\AuliaGateway-test` (root terpisah), `-PgPort 5433` (5432 dipakai setup lama), `-ServiceName postgresql-auliagw-test`, `-InstanceName aulia-test`, `-AdapterRef 686f375...` → **berhasil** (`=== INSTALASI SELESAI ===`).
+
+Terverifikasi end-to-end di PC dev: preflight resume-aware, unduh sumber + `npm ci`, patch view-once, `setup-env`, cluster + service PostgreSQL baru (5433), `prisma migrate deploy` (57 migrasi), start Evolution (8080) + adapter (3000), firewall 3000/8080 dari 127.0.0.1, instance `aulia-test` + webhook (membawa secret), `status` (`pg=True evolution=True adapter=True`), dan `install-summary.txt`. Pairing QR belum dilakukan (`state=connecting`).
+
+**7 bug ditemukan saat uji nyata** — diperbaiki, commit `ad26306`, ter-push ke `origin/evolution`:
+
+1. `Import-DotEnv` seluruh `.env` Evolution → `LOG_LEVEL` bocor ke proses anak → adapter crash di pino. (Kini hanya `DATABASE_PROVIDER`+`DATABASE_CONNECTION_URI`.)
+2. `prisma generate` `EPERM` saat Evolution memegang `query_engine-windows.dll.node` → dilewati bila client sudah ada.
+3. Output skrip anak menggantung: pipeline capture tertahan handle pipe, dan `Start-Process -Wait` ikut menunggu proses turunan → native call + redirect `*>` ke file + `$LASTEXITCODE`.
+4. `allow-lan-ports.ps1` `-Ports` (int[]) tidak terbaca lewat `powershell -File` (token kedua jatuh ke `-Profile`) → tambah `-PortList`.
+5. Installer kini kompatibel dengan ref adapter lama yang belum punya `-PortList` (fallback default 3000/8080).
+6. `install.ps1` tidak lagi memuat seluruh `.env` untuk Prisma (lihat #1).
+7. **Kebocoran log (temuan keamanan)**: `setup-instance.js` mencetak respons mentah Evolution — QR/pairing code dan header `x-adapter-webhook-secret`. Kini di-redaksi; `check-setup-instance-redaction.ps1` ditambahkan.
+
+**Perlu ditindaklanjuti di PC uji**: `C:\AuliaGateway-test\logs\install.log`/`setup-instance.out.log` masih memuat QR + webhook secret dari run sebelum perbaikan (terkonfirmasi: 1 baris secret, 2 baris QR). Bersihkan log itu dan rotasi secret webhook (`scripts\enable-webhook-secret.ps1`) bila PC ini dijadikan setup nyata.
 
 ## Keputusan penting
 
