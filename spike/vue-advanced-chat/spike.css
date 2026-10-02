@@ -1,0 +1,209 @@
+/* Copied from app/Views/inbox/index.php (v2.4 lines 175-230, 238-304, 340-372, 415-460) so slot content matches the current look. */
+    .inbox-bubble {
+        max-width: 70%;
+        padding: 8px 12px;
+        border-radius: 10px;
+        margin-bottom: 8px;
+        font-size: 0.88rem;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+
+    .inbox-bubble.incoming {
+        background: #fff;
+        margin-right: auto;
+        border-top-left-radius: 2px;
+    }
+
+    .inbox-bubble.outgoing {
+        background: #d9fdd3;
+        margin-left: auto;
+        border-top-right-radius: 2px;
+    }
+
+    .inbox-bubble.internal-note {
+        background: #fff3cd;
+        margin-left: auto;
+        margin-right: auto;
+        border: 1px dashed #d39e00;
+        max-width: 78%;
+    }
+
+    .inbox-bubble.internal-note .bubble-sender {
+        color: #856404;
+    }
+
+    .inbox-internal-label {
+        display: inline-block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #856404;
+        margin-bottom: 4px;
+    }
+
+    .inbox-bubble .bubble-meta {
+        font-size: 0.68rem;
+        color: #8a8a8a;
+        margin-top: 2px;
+        text-align: right;
+    }
+
+    .inbox-bubble .bubble-sender {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #1da47f;
+        margin-bottom: 2px;
+    }
+
+    .inbox-kutipan {
+        display: flex;
+        gap: 6px;
+        align-items: stretch;
+        background: rgba(0, 0, 0, 0.05);
+        border-left: 3px solid #1da47f;
+        border-radius: 6px;
+        padding: 4px 8px;
+        margin-bottom: 4px;
+        font-size: 0.75rem;
+        line-height: 1.3;
+        text-align: left;
+    }
+
+    .inbox-bubble.incoming .inbox-kutipan {
+        background: rgba(29, 164, 127, 0.08);
+    }
+
+    .inbox-kutipan-isi {
+        min-width: 0;
+    }
+
+    .inbox-kutipan-pengirim {
+        font-weight: 600;
+        color: #1da47f;
+        margin-bottom: 1px;
+    }
+
+    .inbox-kutipan-snippet {
+        color: #5c5c5c;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .inbox-kutipan-tak-ada {
+        font-style: italic;
+        color: #8a8a8a;
+    }
+
+    /* Fallback tampilan media kutipan (REQ-008/AC-005 v1.6): thumbnail
+       dari live-fetch GET /inbox/media/:quoted_source_message_id. */
+    .inbox-kutipan-media {
+        max-width: 140px;
+        max-height: 140px;
+        border-radius: 4px;
+        display: block;
+    }
+
+    /* Tipe media lain pada kutipan (REQ-008c v1.7): dokumen jadi tautan,
+       audio/video cukup label teks. */
+    .inbox-kutipan-dokumen {
+        color: #1da47f;
+        text-decoration: none;
+        word-break: break-word;
+    }
+
+    .inbox-kutipan-dokumen:hover {
+        text-decoration: underline;
+    }
+
+    .inbox-kutipan-sticker {
+        max-width: 96px;
+        max-height: 96px;
+    }
+
+    .bubble-aksi {
+        margin-top: 3px;
+        text-align: right;
+        opacity: 0;
+        transition: opacity 0.12s ease-in-out;
+    }
+
+    .inbox-bubble:hover .bubble-aksi {
+        opacity: 1;
+    }
+
+    .bubble-aksi .btn {
+        font-size: 0.68rem;
+        padding: 1px 6px;
+    }
+
+    /* Teruskan (Tahap 4): tombol kedua di blok aksi yang SAMA dengan "Balas". */
+    .bubble-aksi .btn + .btn {
+        margin-left: 4px;
+    }
+
+    /* REQ-008: label "Diteruskan" dibangun dari kolom `is_forwarded` saja.
+       `display: block` WAJIB: dengan `inline-block` label mengalir sebaris
+       dengan isi pesan (terbaca "DiteruskanHalo, ..." pada uji manual
+       2026-09-28). Label harus berdiri di barisnya sendiri di atas isi. */
+    .inbox-forward-label {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #6c757d;
+        margin-bottom: 4px;
+    }
+
+    .inbox-media-image {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: 6px;
+        display: block;
+        cursor: pointer;
+    }
+
+    .inbox-media-sticker {
+        max-width: 130px;
+        max-height: 130px;
+        display: block;
+    }
+
+    .inbox-media-document {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: rgba(0, 0, 0, 0.04);
+        border-radius: 6px;
+        text-decoration: none;
+        color: inherit;
+        font-size: 0.85rem;
+        word-break: break-all;
+    }
+
+    .inbox-media-document:hover {
+        background: rgba(0, 0, 0, 0.08);
+    }
+
+    .inbox-media-unavailable {
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.04);
+        border-radius: 6px;
+        color: #999;
+        font-size: 0.8rem;
+        font-style: italic;
+    }
+
+    .inbox-media-caption {
+        margin-top: 4px;
+        font-size: 0.85rem;
+    }
+
+    .inbox-thread-form {
+
+/* spike-only */
+html, body { height: 100%; margin: 0; }
+.slot-row { width: 100%; display: flex; }
+.slot-row .inbox-bubble { margin-bottom: 0; }
+.slot-row .inbox-bubble.outgoing { margin-left: auto; }
