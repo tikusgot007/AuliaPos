@@ -1,7 +1,7 @@
 # Design: Inbox thread improvements (latest-window pagination, per-message rendering)
 
 - **Date**: 2026-10-02
-- **Status**: draft (stages 1, 2 and 3 implemented; Node.js v22 confirmed available on the developer machine)
+- **Status**: approved 2026-10-02 (stages 1, 2 and 3 implemented; Node.js v22 confirmed available on the developer machine)
 - **Requirements**: `docs/requirements/2026-10-02-perbaikan-thread-inbox.md`
 - **SDLC tier**: A
 
@@ -96,4 +96,4 @@ PHP feature tests cannot run in the authoring sandbox (no MariaDB); they run on 
 
 ## 10. Approval (Gate 2)
 
-- [ ] Approved by: <name>, date: <YYYY-MM-DD>
+- [x] Approved by: Anshar, date: 2026-10-02 (approved after implementation, during review of PR #43)

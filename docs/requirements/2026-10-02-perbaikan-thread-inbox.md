@@ -1,7 +1,7 @@
 # Requirements: Perbaikan Thread Pesan Inbox
 
 - **Tanggal**: 2026-10-02
-- **Status**: direvisi 2026-10-02 (cakupan diubah setelah spike); rencana pelaksanaan disetujui user, Gate 1 tetap di bagian 9
+- **Status**: direvisi 2026-10-02 (cakupan diubah setelah spike); disetujui user 2026-10-02 (Gate 1, bagian 9)
 - **Tier SDLC**: A (fitur baru, termasuk satu perbaikan bug di poin 1). Bila ragu, naikkan tier (sdlc.md §1)
 - **Penanggung jawab**: tim pengembang AuliaPos
 - **Asal**: `docs/riset-library-ui-chat-inbox.md` (hasil riset) dan `docs/analisis-akar-masalah-gateway-f4-f5.md`. Hasil spike `docs/laporan-spike-vue-advanced-chat.md`. Keputusan user 2026-10-02: tanpa library UI (Opsi C, tampilan ditiru), **jendela 200 pesan terbaru dengan pagination** (menggantikan keputusan awal "tanpa pagination, 500 pesan")
@@ -129,4 +129,4 @@ Yang dicentang hanya perubahan batas riwayat (dicatat di `docs/CHANGELOG.md` saa
 
 ## 9. Persetujuan (Gate 1)
 
-- [ ] Disetujui oleh: <nama>, tanggal: <YYYY-MM-DD>
+- [x] Disetujui oleh: Anshar, tanggal: 2026-10-02 (persetujuan diberikan setelah implementasi, saat reviu PR #43)
