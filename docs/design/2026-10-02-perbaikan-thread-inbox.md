@@ -1,7 +1,7 @@
 # Design: Inbox thread improvements (latest-window pagination, per-message rendering)
 
 - **Date**: 2026-10-02
-- **Status**: draft (stage 1 implemented; Node.js v22 confirmed available on the developer machine)
+- **Status**: draft (stages 1 and 2 implemented; Node.js v22 confirmed available on the developer machine)
 - **Requirements**: `docs/requirements/2026-10-02-perbaikan-thread-inbox.md`
 - **SDLC tier**: A
 
@@ -38,7 +38,7 @@ Callers of `getByConversation()`: only `Inbox::apiMessages()` (verified with gre
 |---|---|---|
 | `app/Models/MessageModel.php` | `getByConversation(int $conversationId, int $limit, ?int $beforeId = null): array` returns the latest `$limit + 1` rows before the cursor (query DESC, reversed to ASC); a small helper for the cursor row | AC-1, AC-2, AC-23, AC-24 |
 | `app/Controllers/Inbox.php` | page-size constant (pattern of `CL-010`); read and validate `before_id`; trim to `$limit` and add `has_more` | AC-3, AC-25, AC-26 |
-| `public/assets/js/inbox-thread.js` (new) | pure functions (signature, merge/dedup, date label, text format, autolink) and thread rendering; `index.php` passes `base_url` and counters through one config object | AC-4 to AC-6 |
+| `public/assets/js/inbox-thread.js` (new) | thread rendering. Stage 2 implemented: the bubble HTML itself is the change signature (`renderBubbleHtml`), `rencanaPembaruanThread` is a pure planner (keep/replace/add/remove), `terapkanRencanaThread` applies it to the DOM. Later stages add merge/dedup of older pages, date label, text format, autolink; `index.php` passes `base_url` and counters through one config object | AC-4 to AC-6 |
 | `app/Views/inbox/index.php` | remove thread functions now in the new file; load the script; "Load older" button; CSS for date capsule, scroll button, ticks | AC-7 to AC-31 |
 | `tests/js/inbox-thread.test.js` (new) | `assert`-based, run with `node` | AC-6, AC-7 to AC-22 |
 | `tests/feature/InboxMessagesPaginationTest.php` (new) | latest window, boundary, same timestamp, invalid cursor | AC-1 to AC-3, AC-23 to AC-26 |
