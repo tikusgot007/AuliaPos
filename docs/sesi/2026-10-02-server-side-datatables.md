@@ -3,6 +3,10 @@
 - **Tanggal**: 2026-10-02
 - **Status**: sebagian — S1, S2, S3a, **S3b** selesai & terverifikasi; S4 belum
 - **Repo**: C:\xampp\htdocs\aulia-app (perubahan sudah di-commit s/d `d83584c`; S3b belum di-commit)
+- **Adendum (2026-10-02, sesi S4)**: S4 **sudah selesai** — cakupannya dipersempit jadi **tab Periode saja**
+  (Harian/Bulanan/Per Kategori terbukti kecil: 1 / ≤31 / 8 baris). Lihat
+  `docs/sesi/2026-10-02-server-side-periode-laporan.md`. S1–S3b di bawah sudah ter-commit
+  (`46f3550`, `f8a121c`); S4 ter-commit di `530d7b3` + `007b76d`.
 - **Terkait**:
   - `docs/requirements/2026-10-02-standardisasi-pemilih-tanggal.md`
   - `docs/design/2026-10-02-standardisasi-pemilih-tanggal.md`
@@ -86,10 +90,7 @@ ekspor CSV server-side.
 
 ## Yang belum dikerjakan
 
-### S4 `laporan` (tabel dinamis per tab)
-- `app/Views/laporan/index.php` membangun tabel dinamis `#table_<containerId>` per tab
-  (harian/periode/kategori/bulanan) dengan DataTables + buttons, diisi dari `Laporan::getData()`.
-- Perlu peta kolom per tab; paling berisiko; kerjakan terakhir.
+(kosong — lihat adendum di atas: S4 selesai di sesi terpisah, `docs/sesi/2026-10-02-server-side-periode-laporan.md`)
 
 ## Catatan penting / gotcha
 
