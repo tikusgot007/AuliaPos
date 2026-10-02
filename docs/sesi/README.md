@@ -5,7 +5,8 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
-| 2026-10-02 | [Server-side DataTables laporan/daftar (S1–S3b)](2026-10-02-server-side-datatables.md) | sebagian (S1–S3b selesai & terverifikasi; S4 `laporan` belum) |
+| 2026-10-02 | [Server-side DataTables tab Periode Laporan (S4)](2026-10-02-server-side-periode-laporan.md) | selesai (kode + verifikasi; belum di-commit) |
+| 2026-10-02 | [Server-side DataTables laporan/daftar (S1–S3b)](2026-10-02-server-side-datatables.md) | sebagian (S1–S3b selesai & terverifikasi; S4 `laporan` = tab Periode saja, lihat checkpoint S4) |
 | 2026-10-02 | [Standardisasi pemilih tanggal/rentang/periode](2026-10-02-standardisasi-pemilih-tanggal.md) | selesai (kode; verifikasi browser di `…-verifikasi.md`) |
 | 2026-10-01 | [Produksi aulia3: tipe pesan Inbox, dead-letter, berkas besar, view-once, media ondemand](2026-10-01-produksi-aulia3-inbox-tipe-pesan.md) | sebagian (kode selesai; uji backlog semalam menunggu) |
 | 2026-10-01 | [Adapter Evolution API (`evolution-gateway`): uji end-to-end + perbaikan bug + dukungan grup](2026-10-01-evolution-gateway-adapter.md) | selesai (uji via UI Inbox POS) |
