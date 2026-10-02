@@ -189,7 +189,8 @@
             </div>
 
             <div class="d-flex align-items-center gap-1">
-                <input type="date" class="form-control form-control-sm" id="cariTanggalMatrix" style="width: auto;">
+                <input type="text" class="form-control form-control-sm" id="cariTanggalMatrixPick" placeholder="Pilih tanggal" style="width: auto;" readonly autocomplete="off">
+                <input type="hidden" id="cariTanggalMatrix">
                 <button class="btn btn-outline-primary btn-sm" type="button" id="btnCariTanggalMatrix">
                     <i class="fas fa-search"></i> Cari
                 </button>
@@ -320,11 +321,10 @@
 <!-- ============================================================ -->
 <div id="jadwalTabAnalisis" class="jadwal-tab-pane d-none">
     <div class="row g-2 mb-3">
-        <div class="col-md-3">
-            <input type="date" class="form-control form-control-sm" id="analisisStart">
-        </div>
-        <div class="col-md-3">
-            <input type="date" class="form-control form-control-sm" id="analisisEnd">
+        <div class="col-md-6">
+            <input type="text" class="form-control form-control-sm" id="analisisRange" placeholder="Pilih rentang tanggal" readonly autocomplete="off">
+            <input type="hidden" id="analisisStart">
+            <input type="hidden" id="analisisEnd">
         </div>
         <div class="col-md-3">
             <select class="form-select form-select-sm" id="filterDivisiAnalisis">
@@ -387,7 +387,8 @@
             <div class="modal-body">
                 <div class="mb-2">
                     <label class="form-label">Tanggal</label>
-                    <input type="date" class="form-control" id="tambahTanggal">
+                    <input type="text" class="form-control" id="tambahTanggalPick" placeholder="Pilih tanggal" readonly autocomplete="off">
+                    <input type="hidden" id="tambahTanggal">
                 </div>
                 <div class="mb-2">
                     <label class="form-label">Shift</label>
@@ -433,12 +434,10 @@
             <div class="modal-body">
                 <p class="text-danger"><i class="fas fa-exclamation-triangle"></i> Aksi ini hanya menghapus jadwal aktual, tidak menghapus master. Tidak bisa dibatalkan.</p>
                 <div class="mb-2">
-                    <label class="form-label">Dari Tanggal</label>
-                    <input type="date" class="form-control" id="hapusRangeStart">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Sampai Tanggal</label>
-                    <input type="date" class="form-control" id="hapusRangeEnd">
+                    <label class="form-label">Rentang Tanggal</label>
+                    <input type="text" class="form-control" id="hapusRange" placeholder="Pilih rentang tanggal" readonly autocomplete="off">
+                    <input type="hidden" id="hapusRangeStart">
+                    <input type="hidden" id="hapusRangeEnd">
                 </div>
             </div>
             <div class="modal-footer">
@@ -462,7 +461,8 @@
             <div class="modal-body">
                 <div class="mb-2">
                     <label class="form-label">Mulai Minggu (harus hari Senin)</label>
-                    <input type="date" class="form-control" id="applyStartMinggu">
+                    <input type="text" class="form-control" id="applyStartMingguPick" placeholder="Pilih tanggal" readonly autocomplete="off">
+                    <input type="hidden" id="applyStartMinggu">
                 </div>
                 <div class="mb-2">
                     <label class="form-label">Jumlah Minggu</label>
@@ -539,3 +539,58 @@
     };
 </script>
 <script src="<?= base_url('assets/js/jadwal.js') ?>"></script>
+<script>
+    $(document).ready(function() {
+        $('#analisisRange').daterangepicker({
+            locale: AuliaDateRange.locale(),
+            ranges: AuliaDateRange.ranges(),
+            opens: 'left',
+            showDropdowns: true
+        });
+        $('#analisisRange').on('apply.daterangepicker', function(ev, picker) {
+            $('#analisisStart').val(picker.startDate.format('YYYY-MM-DD'));
+            $('#analisisEnd').val(picker.endDate.format('YYYY-MM-DD'));
+        });
+
+        $('#hapusRange').daterangepicker({
+            locale: AuliaDateRange.locale(),
+            ranges: AuliaDateRange.ranges(),
+            opens: 'left',
+            showDropdowns: true
+        });
+        $('#hapusRange').on('apply.daterangepicker', function(ev, picker) {
+            $('#hapusRangeStart').val(picker.startDate.format('YYYY-MM-DD'));
+            $('#hapusRangeEnd').val(picker.endDate.format('YYYY-MM-DD'));
+        });
+
+        $('#cariTanggalMatrixPick').daterangepicker({
+            locale: AuliaDateRange.locale(),
+            singleDatePicker: true,
+            showDropdowns: true,
+            opens: 'left'
+        });
+        $('#cariTanggalMatrixPick').on('apply.daterangepicker', function(ev, picker) {
+            $('#cariTanggalMatrix').val(picker.startDate.format('YYYY-MM-DD'));
+        });
+
+        $('#tambahTanggalPick').daterangepicker({
+            locale: AuliaDateRange.locale(),
+            singleDatePicker: true,
+            showDropdowns: true,
+            opens: 'left'
+        });
+        $('#tambahTanggalPick').on('apply.daterangepicker', function(ev, picker) {
+            $('#tambahTanggal').val(picker.startDate.format('YYYY-MM-DD'));
+        });
+
+        $('#applyStartMingguPick').daterangepicker({
+            locale: AuliaDateRange.locale(),
+            singleDatePicker: true,
+            showDropdowns: true,
+            opens: 'left'
+        });
+        $('#applyStartMingguPick').on('apply.daterangepicker', function(ev, picker) {
+            $('#applyStartMinggu').val(picker.startDate.format('YYYY-MM-DD'));
+        });
+    });
+</script>

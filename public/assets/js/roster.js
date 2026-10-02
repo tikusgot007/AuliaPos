@@ -365,6 +365,7 @@
 
             if (state.mode === 'bulanan' && !state.bulan) {
                 state.bulan = new Date().toISOString().slice(0, 7);
+                AuliaMonthPicker.set('rosterBulan', state.bulan);
                 muatBulanan();
             }
         });
@@ -388,6 +389,7 @@
         const [t, b] = state.bulan.split('-').map(Number);
         const d = new Date(t, b - 2, 1);
         state.bulan = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        AuliaMonthPicker.set('rosterBulan', state.bulan);
         muatBulanan();
     });
 
@@ -395,7 +397,15 @@
         const [t, b] = state.bulan.split('-').map(Number);
         const d = new Date(t, b, 1);
         state.bulan = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        AuliaMonthPicker.set('rosterBulan', state.bulan);
         muatBulanan();
+    });
+
+    ['rosterBulanBulan', 'rosterBulanTahun'].forEach(function (id) {
+        el(id).addEventListener('change', function () {
+            state.bulan = AuliaMonthPicker.get('rosterBulan');
+            if (state.mode === 'bulanan') muatBulanan();
+        });
     });
 
     ['rosterFilterDivisi', 'rosterFilterShift'].forEach(function (id) {

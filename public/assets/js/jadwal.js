@@ -165,8 +165,13 @@
                     loadMaster();
                 }
                 if (mode === 'analisis' && !el('analisisStart').value) {
-                    el('analisisStart').value = state.mingguAwal;
-                    el('analisisEnd').value = tanggalPlus(state.mingguAwal, 6);
+                    AuliaDateRange.setRange(
+                        '#analisisRange',
+                        state.mingguAwal,
+                        tanggalPlus(state.mingguAwal, 6),
+                        '#analisisStart',
+                        '#analisisEnd'
+                    );
                 }
             });
         });
@@ -608,7 +613,7 @@
     // ---- TAMBAH JADWAL (multi karyawan) ----
 
     el('btnTambahJadwal') && el('btnTambahJadwal').addEventListener('click', async function () {
-        el('tambahTanggal').value = state.mingguAwal;
+        AuliaDateRange.setSingle('#tambahTanggalPick', state.mingguAwal, '#tambahTanggal');
         await muatDaftarKaryawanAktif();
         openModal('modalTambah');
     });
@@ -658,8 +663,13 @@
     // ---- HAPUS RANGE ----
 
     el('btnHapusRange') && el('btnHapusRange').addEventListener('click', function () {
-        el('hapusRangeStart').value = state.mingguAwal;
-        el('hapusRangeEnd').value = tanggalPlus(state.mingguAwal, 6);
+        AuliaDateRange.setRange(
+            '#hapusRange',
+            state.mingguAwal,
+            tanggalPlus(state.mingguAwal, 6),
+            '#hapusRangeStart',
+            '#hapusRangeEnd'
+        );
         openModal('modalHapusRange');
     });
 

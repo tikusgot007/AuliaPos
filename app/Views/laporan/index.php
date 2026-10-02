@@ -167,10 +167,6 @@
 <!-- ========================================== -->
 <?= $this->section('scripts') ?>
 
-<!-- Date Range Picker -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
-<script src="https://cdn.jsdelivr.net/npm/moment/min/moment.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <script>
@@ -209,19 +205,9 @@
         // Harian = rekap pemasukan untuk SATU tanggal kerja (bukan
         // rentang) -- sesuai definisi laporan harian yang sebenarnya.
         $('#filterHarian').daterangepicker({
-            locale: {
-                format: 'DD/MM/YYYY',
-                applyLabel: 'Terapkan',
-                cancelLabel: 'Batal',
-                daysOfWeek: ['Mg', 'Sn', 'Sl', 'Rb', 'Km', 'Jm', 'Sb'],
-                monthNames: [
-                    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-                    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-                ]
-            },
+            locale: AuliaDateRange.locale(),
             singleDatePicker: true,
             showDropdowns: true,
-            autoApply: true,
             opens: 'left',
             startDate: moment()
         });
@@ -239,32 +225,16 @@
 
         // Periode (pilih rentang)
         $('#filterPeriode').daterangepicker({
-            locale: {
-                format: 'DD/MM/YYYY'
-            },
-            autoApply: true,
-            opens: 'left',
-            ranges: {
-                'Hari Ini': [moment(), moment()],
-                '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
-                '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
-                'Bulan Ini': [moment().startOf('month'), moment().endOf('month')]
-            }
+            locale: AuliaDateRange.locale(),
+            ranges: AuliaDateRange.ranges(),
+            opens: 'left'
         });
 
         // Kategori (pilih rentang)
         $('#filterKategori').daterangepicker({
-            locale: {
-                format: 'DD/MM/YYYY'
-            },
-            autoApply: true,
-            opens: 'left',
-            ranges: {
-                'Hari Ini': [moment(), moment()],
-                '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
-                '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
-                'Bulan Ini': [moment().startOf('month'), moment().endOf('month')]
-            }
+            locale: AuliaDateRange.locale(),
+            ranges: AuliaDateRange.ranges(),
+            opens: 'left'
         });
 
         // ==========================================

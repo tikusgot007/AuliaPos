@@ -29,13 +29,11 @@
         <div class="card-body">
             <form method="get" class="form-inline">
                 <div class="form-group mr-2">
-                    <label for="tanggal_awal" class="mr-1">Dari</label>
-                    <input type="date" class="form-control" id="tanggal_awal" name="tanggal_awal" value="<?= $tanggal_awal ?>">
+                    <label for="filterPengeluaran" class="mr-1">Rentang Tanggal</label>
+                    <input type="text" class="form-control" id="filterPengeluaran" placeholder="Pilih rentang tanggal" readonly autocomplete="off">
                 </div>
-                <div class="form-group mr-2">
-                    <label for="tanggal_akhir" class="mr-1">Sampai</label>
-                    <input type="date" class="form-control" id="tanggal_akhir" name="tanggal_akhir" value="<?= $tanggal_akhir ?>">
-                </div>
+                <input type="hidden" name="tanggal_awal" id="tanggal_awal" value="<?= esc($tanggal_awal) ?>">
+                <input type="hidden" name="tanggal_akhir" id="tanggal_akhir" value="<?= esc($tanggal_akhir) ?>">
                 <div class="form-group mr-2">
                     <label for="kategori" class="mr-1">Kategori</label>
                     <select class="form-control" id="kategori" name="kategori">
@@ -158,6 +156,26 @@
 <!-- ========================================== -->
 <script>
     $(document).ready(function() {
+        var $filterPengeluaran = $('#filterPengeluaran');
+        var $tanggalAwal = $('#tanggal_awal');
+        var $tanggalAkhir = $('#tanggal_akhir');
+
+        $filterPengeluaran.daterangepicker({
+            locale: AuliaDateRange.locale(),
+            ranges: AuliaDateRange.ranges(),
+            startDate: moment($tanggalAwal.val(), 'YYYY-MM-DD'),
+            endDate: moment($tanggalAkhir.val(), 'YYYY-MM-DD'),
+            opens: 'left',
+            showDropdowns: true
+        });
+
+        AuliaDateRange.setRange('#filterPengeluaran', $tanggalAwal.val(), $tanggalAkhir.val());
+
+        $filterPengeluaran.on('apply.daterangepicker', function(ev, picker) {
+            $tanggalAwal.val(picker.startDate.format('YYYY-MM-DD'));
+            $tanggalAkhir.val(picker.endDate.format('YYYY-MM-DD'));
+        });
+
         var editId = 0;
         var isEdit = false;
 

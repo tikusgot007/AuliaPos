@@ -286,9 +286,6 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
 <!-- ========================================== -->
 <?= $this->section('scripts') ?>
 
-<!-- Date Range Picker -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
-<script src="https://cdn.jsdelivr.net/npm/moment/min/moment.min.js"></script>
 <script>
     // ================================================================
     // STATUS TRANSAKSI
@@ -366,7 +363,6 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
         kirimUbahStatusAjax(id, 'selesai');
     }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 
 <!-- ========================================== -->
 <!-- KONFIGURASI PAYMENT MODAL                   -->
@@ -482,33 +478,12 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
         var endDate = '<?= $tanggal_akhir ?>' || moment().format('YYYY-MM-DD');
 
         $('#filterTanggal').daterangepicker({
-            locale: {
-                format: 'DD/MM/YYYY',
-                separator: ' - ',
-                applyLabel: 'Terapkan',
-                cancelLabel: 'Batal',
-                fromLabel: 'Dari',
-                toLabel: 'Sampai',
-                customRangeLabel: 'Custom',
-                weekLabel: 'M',
-                daysOfWeek: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
-                monthNames: ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-                    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-                ],
-                firstDay: 1
-            },
+            locale: AuliaDateRange.locale(),
+            ranges: AuliaDateRange.ranges(),
             startDate: moment(startDate),
             endDate: moment(endDate),
             opens: 'left',
-            showDropdowns: true,
-            ranges: {
-                'Hari Ini': [moment(), moment()],
-                'Kemarin': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
-                '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
-                'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
-                'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-            }
+            showDropdowns: true
         });
 
         // ==========================================

@@ -14,6 +14,22 @@ Format entri:
 
 ---
 
+## 2026-10-02 — Standardisasi pemilih tanggal/rentang/periode
+
+- Aturan lama: tiap halaman mendefinisikan locale, preset, mode terapkan, dan
+  pemuatan aset date picker sendiri-sendiri; nama parameter rentang bercampur
+  (`tanggal_mulai/sampai` vs `tanggal_awal/akhir`).
+- Aturan baru: satu konfigurasi standar (`App\Config\DatePicker`) + helper
+  `public/assets/js/date-range.js`; locale Indonesia penuh, 6 preset, mode
+  "Terapkan", aset dipin (`moment@2.31.0`, `daterangepicker@3.1.0`) dimuat
+  global dari layout. Parameter rentang diseragamkan ke `tanggal_awal`/
+  `tanggal_akhir` (termasuk `item_harian` & `laporan_pembayaran`). Default
+  rentang per konteks dipertahankan.
+- Alasan: konsistensi UX dan menghapus duplikasi yang menyebabkan drift.
+- Referensi: `docs/requirements/2026-10-02-standardisasi-pemilih-tanggal.md`,
+  `docs/design/2026-10-02-standardisasi-pemilih-tanggal.md`,
+  `docs/sesi/2026-10-02-standardisasi-pemilih-tanggal.md`.
+
 ## 2026-09-30 — Import CSV Maintenance produk: kolom kosong Aktif/Locked
 
 - Aturan lama: kolom Aktif/Locked yang kosong di CSV dipaksa menjadi 0 saat

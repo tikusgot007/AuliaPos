@@ -246,6 +246,7 @@
                 Bulan Berikutnya <i class="fas fa-chevron-right"></i>
             </button>
         </div>
+        <?= $this->setData(['prefix' => 'rosterBulan'])->include('components/month_year_picker') ?>
     </div>
     <div class="table-responsive" style="max-height: 70vh;">
         <table class="table table-bordered table-sm align-middle">

@@ -17,14 +17,29 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
 
-    <!-- 🔥 Date Range Picker CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
+    <!-- 🔥 Date Range Picker CSS (pinned; source of truth: App\Config\DatePicker) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.css">
     <!-- ========================================== -->
     <!-- SCRIPTS (JS)                               -->
     <!-- ========================================== -->
 
     <!-- 1. JQUERY & BOOTSTRAP -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- 🔥 DATE PICKERS (global, pinned). Sumber konfigurasi: App\Config\DatePicker -->
+    <?php $__dp = new \Config\DatePicker(); ?>
+    <script>
+        window.AULIA_DATEPICKER = <?= json_encode(
+            [
+                'locale'  => $__dp->locale,
+                'presets' => $__dp->presets,
+            ],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        ) ?>;
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.31.0/min/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js"></script>
+    <script src="<?= base_url('assets/js/date-range.js') ?>"></script>
 
 
     <style>
@@ -1173,23 +1188,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 
-    <!-- 2. DATATABLES CORE -->
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-
-    <!-- 3. DATATABLES BUTTONS CORE -->
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-
-    <!-- 4. DEPENDENCIES -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-
-    <!-- 5. DATATABLES BOOTSTRAP 5 -->
-    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-
-
     <script>
         $(document).ready(function() {
             updateBadgeTagihan();
@@ -1617,9 +1615,6 @@
 
     <?= $this->renderSection('scripts') ?>
 
-
-    <!-- 6. BUTTONS BOOTSTRAP 5 -->
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
 
     <!-- 6. RESPONSIVE (TERAKHIR) -->
     <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>

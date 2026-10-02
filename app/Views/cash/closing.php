@@ -11,8 +11,11 @@
         <div class="card-body">
             <form class="form-inline" id="formBulan">
                 <div class="form-group mr-2">
-                    <label for="bulanPicker" class="mr-1">Bulan</label>
-                    <input type="month" class="form-control" id="bulanPicker" name="bulan" value="<?= esc($bulan) ?>">
+                    <?= $this->setData([
+                        'prefix' => 'bulanPicker',
+                        'bulan'  => (int) (substr((string) $bulan, 5, 2) ?: date('n')),
+                        'tahun'  => (int) (substr((string) $bulan, 0, 4) ?: date('Y')),
+                    ])->include('components/month_year_picker') ?>
                 </div>
                 <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Tampilkan</button>
             </form>
@@ -232,7 +235,7 @@
         // Ganti bulan (tanpa reload halaman)
         $('#formBulan').on('submit', function(e) {
             e.preventDefault();
-            var bulan = $('#bulanPicker').val();
+            var bulan = AuliaMonthPicker.get('bulanPicker');
             if (!bulan) return;
 
             $.ajax({
