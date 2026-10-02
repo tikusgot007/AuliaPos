@@ -77,34 +77,15 @@
             <!-- ========================================== -->
             <div class="tab-pane fade" id="bulanan" role="tabpanel">
                 <div class="row g-3 mb-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Bulan</label>
-                        <select class="form-select" id="filterBulananBulan">
-                            <?php
-                            $namaBulan = [
-                                1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-                                5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-                                9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
-                            ];
-                            $bulanSekarang = (int) date('n');
-                            foreach ($namaBulan as $angka => $nama):
-                            ?>
-                                <option value="<?= $angka ?>" <?= $angka === $bulanSekarang ? 'selected' : '' ?>><?= $nama ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                    <!-- Partial bulan+tahun bersama (closing & roster juga pakai).
+                         prefix 'filterBulanan' menghasilkan id yang sama seperti
+                         sebelumnya (filterBulananBulan / filterBulananTahun), jadi
+                         pemanggilan $('#filterBulananBulan') di loadLaporan('bulanan')
+                         tidak perlu diubah. -->
+                    <div class="col-auto">
+                        <?= $this->setData(['prefix' => 'filterBulanan'])->include('components/month_year_picker') ?>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Tahun</label>
-                        <select class="form-select" id="filterBulananTahun">
-                            <?php
-                            $tahunSekarang = (int) date('Y');
-                            for ($t = $tahunSekarang - 3; $t <= $tahunSekarang + 1; $t++):
-                            ?>
-                                <option value="<?= $t ?>" <?= $t === $tahunSekarang ? 'selected' : '' ?>><?= $t ?></option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-3 d-flex align-items-end">
+                    <div class="col-auto d-flex align-items-end">
                         <button class="btn btn-primary" onclick="loadLaporan('bulanan')">
                             <i class="fas fa-search"></i> Tampilkan
                         </button>
@@ -176,26 +157,11 @@
                                 ) ?>;
 </script>
 
-<!-- DataTables -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<!-- DataTables, Buttons, JSZip & PDFMake TIDAK dideklarasikan di sini:
+     layout/main.php sudah memuat semuanya satu kali (CSS di <head>:16-18,
+     JS di 1599-1620, di sekitar renderSection('scripts')). Versinya sama
+     persis, jadi blok ini hanya menambah permintaan sia-sia. -->
 
-<!-- 3. Dependencies untuk Ekspor (JSZip & PDFMake) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-
-<!-- 4. DataTables Buttons CORE & Export Plugins -->
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-
-<!-- 5. Integration Libraries (HARUS PALING AKHIR) -->
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
-<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 <script>
     $(document).ready(function() {
         // ==========================================
