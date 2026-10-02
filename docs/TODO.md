@@ -26,5 +26,4 @@
 
 ## Higiene
 
-- [ ] **TODO-H1** Bersihkan data uji Inbox (2 percakapan uji: `628563324637@s.whatsapp.net`, `6281913500707@s.whatsapp.net`) — higiene — ref `docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`
-- [ ] **TODO-H2** (opsional) Samakan teks baris Inbox lama dengan gaya penanda baru — higiene
+- [ ] **TODO-H1** Bersihkan data uji Inbox (2 percakapan uji: `628563324637@s.whatsapp.net`, `6281913500707@s.whatsapp.net`) — higiene — ref `docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`. Diverifikasi 2026-10-02 di produksi: hanya ada 2 percakapan itu (`id` 4 & 5), dan 2 baris `unsupported` berteks gaya lama (`[Pelanggan mengirim video singkat …]`, `[Pelanggan mengirim pesan lihat-sekali …]`) keduanya milik percakapan `id` 4. Menghapus 2 percakapan ini otomatis menghapus kedua baris tersebut (dulu dicatat sebagai TODO-H2, sudah dihapus karena tumpang-tindih).
