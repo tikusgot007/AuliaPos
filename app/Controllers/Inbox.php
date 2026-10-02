@@ -40,6 +40,9 @@ class Inbox extends BaseController
     /** Ukuran halaman GET /inbox/api/conversations (CL-010). */
     private const CONVERSATIONS_PER_PAGE = 50;
 
+    /** Ukuran halaman GET /inbox/api/conversations/(:num)/messages (AC-1, AC-23). */
+    private const MESSAGES_PER_PAGE = 200;
+
     /**
      * Pesan `400` generik untuk SEMUA kegagalan resolusi kutipan (SEC-001
      * review ronde-2): "sumber tidak ada" dan "sumber di percakapan lain"
@@ -394,10 +397,39 @@ class Inbox extends BaseController
             ]);
         }
 
+        // `before_id` opsional (AC-23): kursor pagination ke riwayat yang
+        // lebih lama. Divalidasi di batas kepercayaan: hanya bilangan bulat
+        // positif; selain itu 400 (AC-25).
+        $beforeIdRaw = $this->request->getGet('before_id');
+        $beforeId    = null;
+
+        if ($beforeIdRaw !== null && $beforeIdRaw !== '') {
+            if (!is_string($beforeIdRaw) || !ctype_digit($beforeIdRaw) || (int) $beforeIdRaw < 1) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => 'before_id harus bilangan bulat positif.',
+                ]);
+            }
+
+            $beforeId = (int) $beforeIdRaw;
+        }
+
         $messageModel = new MessageModel();
+        $page         = $messageModel->getPageByConversation($conversationId, self::MESSAGES_PER_PAGE, $beforeId);
+
+        if ($page === null) {
+            // Pesan tidak ada ATAU milik percakapan lain: satu jawaban yang
+            // sama supaya endpoint tidak menjadi oracle keberadaan pesan
+            // lintas-percakapan (AC-25).
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Pesan acuan tidak ditemukan.',
+            ]);
+        }
+
         // Grup Tahap 2 / TASK-007 (REQ-008): jid_type percakapan diteruskan
         // supaya pesan grup masuk diberi label identitas pengirim.
-        $messages = $this->attachSenderNames($messageModel->getByConversation($conversationId, 500), $conversation['jid_type']);
+        $messages = $this->attachSenderNames($page['messages'], $conversation['jid_type']);
 
         foreach ($messages as &$message) {
             $message['is_internal'] = (bool) ($message['is_internal'] ?? false);
@@ -411,6 +443,7 @@ class Inbox extends BaseController
             'status'       => 'success',
             'conversation' => $this->attachResponseState($this->attachAssignedNames([$conversation]))[0],
             'messages'     => $messages,
+            'has_more'     => $page['has_more'],
         ]);
     }
 

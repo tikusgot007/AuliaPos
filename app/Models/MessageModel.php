@@ -203,8 +203,9 @@ class MessageModel extends Model
     }
 
     /**
-     * Ambil pesan-pesan milik satu conversation, urut lama -> baru
-     * (urutan wajar untuk ditampilkan di UI chat).
+     * Satu halaman pesan milik satu conversation: `$limit` pesan TERBARU
+     * (atau `$limit` pesan tepat sebelum kursor `$beforeId`), dikembalikan
+     * urut lama -> baru (urutan wajar untuk ditampilkan di UI chat).
      *
      * Tie-breaker WAJIB: `message_timestamp` berpresisi detik, jadi dua
      * pesan yang dikirim dalam detik yang sama punya sort key identik.
@@ -212,13 +213,59 @@ class MessageModel extends Model
      * urutannya deterministik dan menjadi kontrak query, bukan efek
      * samping dari execution plan index komposit
      * (bugfix plan: plan-bugfix-inbox-message-ordering-v1.0.md).
+     *
+     * Kursor memakai kunci urutan yang SAMA `(message_timestamp, id)`, bukan
+     * `id` saja: Gateway bisa menyimpan pesan terlambat yang timestamp-nya
+     * lebih lama daripada pesan yang sudah ada, jadi batas halaman berbasis
+     * `id` akan melewatkan atau menggandakan pesan
+     * (docs/design/2026-10-02-perbaikan-thread-inbox.md).
+     *
+     * Query diambil DESC lalu dibalik supaya yang terpotong adalah pesan
+     * TERTUA, bukan terbaru (bug lama: ASC + limit mengambil yang tertua).
+     * Satu baris ekstra diambil hanya untuk menentukan `has_more`.
+     *
+     * @return array{messages: array<int, array<string, mixed>>, has_more: bool}|null
+     *         null bila `$beforeId` bukan pesan milik conversation ini.
      */
-    public function getByConversation(int $conversationId, int $limit = 200): array
+    public function getPageByConversation(int $conversationId, int $limit, ?int $beforeId = null): ?array
     {
-        return $this->where('conversation_id', $conversationId)
-            ->orderBy('message_timestamp', 'ASC')
-            ->orderBy('id', 'ASC')
-            ->limit($limit)
+        $cursor = null;
+
+        if ($beforeId !== null) {
+            // withDeleted(): kursor hanya penanda posisi; pesan yang sudah
+            // di-soft-delete tidak boleh membuat klien kehilangan jalur ke
+            // riwayat yang lebih lama.
+            $cursor = $this->withDeleted()
+                ->select('id, message_timestamp')
+                ->where('conversation_id', $conversationId)
+                ->where('id', $beforeId)
+                ->first();
+
+            if ($cursor === null) {
+                return null;
+            }
+        }
+
+        $this->where('conversation_id', $conversationId);
+
+        if ($cursor !== null) {
+            $this->groupStart()
+                ->where('message_timestamp <', $cursor['message_timestamp'])
+                ->orGroupStart()
+                    ->where('message_timestamp', $cursor['message_timestamp'])
+                    ->where('id <', $cursor['id'])
+                ->groupEnd()
+                ->groupEnd();
+        }
+
+        $rows = $this->orderBy('message_timestamp', 'DESC')
+            ->orderBy('id', 'DESC')
+            ->limit($limit + 1)
             ->findAll();
+
+        return [
+            'messages' => array_reverse(array_slice($rows, 0, $limit)),
+            'has_more' => count($rows) > $limit,
+        ];
     }
 }

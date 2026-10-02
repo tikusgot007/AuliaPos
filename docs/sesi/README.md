@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-02 | [Perbaikan thread pesan Inbox: 200 terbaru + pagination, render per pesan, tampilan ala vue-advanced-chat](2026-10-02-perbaikan-thread-inbox.md) | implementasi selesai (tes node/PHP/browser di sandbox; uji manual di server pengembang menunggu) |
 | 2026-10-02 | [Paket instalasi gateway untuk PC baru (bootstrap online, TODO-I1)](2026-10-02-paket-instalasi-gateway-pc-baru.md) | sebagian (implementasi + 6 cek lokal lulus; E2E PC baru/VM belum; belum di-commit) |
 | 2026-10-02 | [Verifikasi uji backlog media + stress test gateway (TODO-F1), temuan bug quoted/forward (TODO-F4/F5)](2026-10-02-verifikasi-backlog-stress-test-gateway.md) | selesai (verifikasi + dokumentasi; commit `26a7847`) |
 | 2026-10-02 | [Bug Inbox: nama conversation berubah jadi nama staff saat balas dari WA Web/HP](2026-10-02-bug-nama-conversation-wa-web.md) | selesai (fix + test; commit `04f037c`; produksi tersinkron) |
