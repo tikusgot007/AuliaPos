@@ -175,6 +175,8 @@ $routes->post('/transaksi/update-transaksi/(:num)', 'Transaksi::updateTransaksi/
 // Route Laporan
 $routes->get('/laporan', 'Laporan::index', ['filter' => 'auth']);
 $routes->post('/laporan/get-data', 'Laporan::getData', ['filter' => 'auth']);
+$routes->get('/laporan/periode-data', 'Laporan::periodeData', ['filter' => 'auth']);
+$routes->get('/laporan/periode-export', 'Laporan::periodeExport', ['filter' => 'auth']);
 $routes->post('/laporan/export-excel', 'Laporan::exportExcel', ['filter' => 'auth']);
 
 // Route Tagihan

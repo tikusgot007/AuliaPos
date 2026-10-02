@@ -19,6 +19,14 @@ class Laporan extends BaseController
     private const KATEGORI_DIGITAL_FOTO = 16;
     private const KATEGORI_DIGITAL_PRINTING = 4;
 
+    /**
+     * Ekspresi SQL untuk kolom turunan "Sisa Tagihan" pada tab Periode.
+     * Meniru processDetailTransaksi() (Laporan.php): sisa = grand_total -
+     * total_dibayar, TANPA clamp ke 0 (transaksi bisa lebih bayar sehingga
+     * sisa negatif -- clamp akan mengubah angka yang tampil & diurut).
+     */
+    private const SQL_SISA_PERIODE = 'transaksi.grand_total - COALESCE(transaksi.total_dibayar, 0)';
+
     public function index()
     {
         // Cek apakah user adalah admin
@@ -2320,6 +2328,391 @@ class Laporan extends BaseController
             ->setHeader('Content-Type', 'text/csv; charset=UTF-8')
             ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
             ->setBody($csv);
+    }
+
+    // ================================================================
+    // TAB PERIODE -- server-side DataTables (S4)
+    // ================================================================
+    // Hanya tab Periode yang perlu server-side: barisnya satu per transaksi
+    // (ribuan untuk rentang lebar). Harian (1 baris), Bulanan (<=31 baris),
+    // dan Per Kategori (1 baris per kategori) tetap memakai alur lama
+    // (getData() + DataTables client-side) dan tidak disentuh.
+    //
+    // Nilai kolom disalin apa adanya dari baris `transaksi`, sama seperti
+    // processDetailTransaksi() (Laporan.php) yang dipakai alur lama:
+    // subtotal/diskon/grand_total ikut dari transaksi, dan sisa_tagihan =
+    // grand_total - total_dibayar TANPA clamp ke 0.
+    // ================================================================
+
+    /**
+     * Filter & parameter paging/urut untuk tab Periode.
+     *
+     * Nilai tanggal divalidasi format YYYY-MM-DD; tidak valid -> default
+     * (awal bulan s/d hari ini, sama dengan default picker di view).
+     */
+    private function periodeFilterBag(): array
+    {
+        $tanggal_awal = trim((string) ($this->request->getGet('tanggal_awal') ?? ''));
+        $tanggal_akhir = trim((string) ($this->request->getGet('tanggal_akhir') ?? ''));
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggal_awal)) {
+            $tanggal_awal = date('Y-m-01');
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggal_akhir)) {
+            $tanggal_akhir = date('Y-m-d');
+        }
+        if ($tanggal_awal > $tanggal_akhir) {
+            [$tanggal_awal, $tanggal_akhir] = [$tanggal_akhir, $tanggal_awal];
+        }
+
+        $searchRaw = $this->request->getGet('search');
+        $search = is_array($searchRaw)
+            ? trim((string) ($searchRaw['value'] ?? ''))
+            : '';
+
+        return [
+            'tanggal_awal'  => $tanggal_awal,
+            'tanggal_akhir' => $tanggal_akhir,
+            'search'        => $search,
+        ];
+    }
+
+    /**
+     * Query dasar baris tabel Periode dari database live.
+     *
+     * Detail transaksi tidak perlu di-join: subtotal/diskon/grand_total
+     * sudah ada di tabel `transaksi`. Yang dibutuhkan hanya aturan
+     * "transaksi harus punya minimal satu detail" dari
+     * processDetailTransaksi() -- cukup EXISTS, bukan join penuh.
+     */
+    private function periodeBaseBuilder($db)
+    {
+        return $db->table('transaksi')
+            ->select('transaksi.id,
+                      transaksi.kode_invoice,
+                      transaksi.no_order,
+                      transaksi.tanggal,
+                      transaksi.subtotal,
+                      transaksi.diskon,
+                      transaksi.grand_total,
+                      transaksi.total_dibayar,
+                      transaksi.status_pembayaran,
+                      transaksi.status,
+                      pelanggan.nama AS pelanggan_nama')
+            ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
+            ->where('transaksi.status !=', 'batal')
+            ->where('EXISTS (SELECT 1 FROM detail_transaksi d WHERE d.transaksi_id = transaksi.id)', null, false);
+    }
+
+    private function periodeApplyFilters($builder, array $f): void
+    {
+        $builder
+            ->where('transaksi.tanggal >=', $f['tanggal_awal'] . ' 00:00:00')
+            ->where('transaksi.tanggal <=', $f['tanggal_akhir'] . ' 23:59:59');
+
+        if ($f['search'] !== '') {
+            // ponytail: pencarian substring (bukan prefix) diwajibkan AC-5,
+            // jadi LIKE tetap '%...%' dan tidak memakai index. Volume laporan
+            // masih wajar; upgrade ke pencarian berindeks bila perlu.
+            $builder->groupStart()
+                ->like('transaksi.kode_invoice', $f['search'])
+                ->orLike('transaksi.no_order', $f['search'])
+                ->orLike('pelanggan.nama', $f['search'])
+                ->groupEnd();
+        }
+    }
+
+    /**
+     * Whitelist kolom urut -> SQL. Indeks kolom mengikuti header tabel
+     * Periode (lihat getHeaders('periode') di view). Kolom 7 (Sisa
+     * Tagihan) memakai ekspresi turunan, bukan kolom nyata.
+     */
+    private function periodeOrder(): array
+    {
+        $map = [
+            0 => 'transaksi.tanggal',
+            1 => 'transaksi.kode_invoice',
+            2 => 'transaksi.no_order',
+            3 => 'pelanggan.nama',
+            4 => 'transaksi.subtotal',
+            5 => 'transaksi.diskon',
+            6 => 'transaksi.grand_total',
+            7 => self::SQL_SISA_PERIODE,
+            8 => 'transaksi.status_pembayaran',
+        ];
+
+        $out = [];
+        $order = $this->request->getGet('order');
+        if (is_array($order)) {
+            foreach ($order as $o) {
+                $idx = (int) ($o['column'] ?? -1);
+                if (!isset($map[$idx])) {
+                    continue;
+                }
+                $dir = strtolower((string) ($o['dir'] ?? 'asc')) === 'desc' ? 'DESC' : 'ASC';
+                $out[] = [$map[$idx], $dir];
+            }
+        }
+
+        $out[] = ['transaksi.id', 'ASC'];
+
+        return $out;
+    }
+
+    private function periodeLiveCount($db, array $f): int
+    {
+        $builder = $this->periodeBaseBuilder($db);
+        $this->periodeApplyFilters($builder, $f);
+        return (int) $builder->countAllResults();
+    }
+
+    private function periodeLiveRows($db, array $f, array $order, int $limit = 0, int $offset = 0): array
+    {
+        $builder = $this->periodeBaseBuilder($db);
+        $this->periodeApplyFilters($builder, $f);
+        foreach ($order as [$col, $dir]) {
+            // $col hanya dari whitelist periodeOrder() (tidak pernah input
+            // user mentah), jadi aman tanpa escaping agar ekspresi turunan
+            // Sisa Tagihan bisa dipakai apa adanya.
+            $builder->orderBy($col, $dir, false);
+        }
+        if ($limit > 0) {
+            $builder->limit($limit, $offset);
+        }
+        return $builder->get()->getResultArray();
+    }
+
+    /**
+     * Baris Periode dari database archive (SQLite), hanya bila ada.
+     *
+     * Hanya transaksi yang punya detail (paritas processDetailTransaksi),
+     * diurutkan/dibatasi sesuai kolom urut yang diminta agar paging
+     * lintas sumber benar. $limit = null berarti ambil semua (ekspor).
+     */
+    private function periodeArchiveRows(array $f, array $order, ?int $limit = null): array
+    {
+        try {
+            $service = new \App\Services\TransaksiArchiveService();
+            $primary = $order[0] ?? ['transaksi.tanggal', 'ASC'];
+
+            return $service->getTransaksiPeriodeMentah(
+                $f['tanggal_awal'] . ' 00:00:00',
+                $f['tanggal_akhir'] . ' 23:59:59',
+                $this->periodeArchiveOrderKey($primary[0]),
+                $primary[1],
+                $limit,
+                0,
+                $f['search']
+            );
+        } catch (\Throwable $e) {
+            log_message('error', 'Periode archive gagal: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    private function periodeArchiveCount(array $f): int
+    {
+        try {
+            $service = new \App\Services\TransaksiArchiveService();
+
+            return $service->countTransaksiPeriodeMentah(
+                $f['tanggal_awal'] . ' 00:00:00',
+                $f['tanggal_akhir'] . ' 23:59:59',
+                $f['search']
+            );
+        } catch (\Throwable $e) {
+            log_message('error', 'Periode archive count gagal: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Petakan kolom ORDER BY live ke key kolom archive.
+     */
+    private function periodeArchiveOrderKey(string $orderSql): string
+    {
+        $map = [
+            'transaksi.tanggal'           => 'tanggal',
+            'transaksi.kode_invoice'      => 'kode_invoice',
+            'transaksi.no_order'          => 'no_order',
+            'pelanggan.nama'              => 'pelanggan_nama',
+            'transaksi.subtotal'          => 'subtotal',
+            'transaksi.diskon'            => 'diskon',
+            'transaksi.grand_total'       => 'grand_total',
+            self::SQL_SISA_PERIODE        => 'sisa',
+            'transaksi.status_pembayaran' => 'status_pembayaran',
+            'transaksi.id'                => 'id',
+        ];
+
+        return $map[$orderSql] ?? 'tanggal';
+    }
+
+    /**
+     * Merge-sort live + archive untuk jalur arsip. Nama kolom ORDER BY
+     * dipetakan ke key baris hasil query; sisa_tagihan dihitung sekali
+     * supaya sama dengan nilai yang ditampilkan.
+     */
+    private function periodeSortRows(array $rows, array $order): array
+    {
+        $keyMap = [
+            'transaksi.tanggal'           => 'tanggal',
+            'transaksi.kode_invoice'      => 'kode_invoice',
+            'transaksi.no_order'          => 'no_order',
+            'transaksi.id'                => 'id',
+            'pelanggan.nama'              => 'pelanggan_nama',
+            'transaksi.subtotal'          => 'subtotal',
+            'transaksi.diskon'            => 'diskon',
+            'transaksi.grand_total'       => 'grand_total',
+            'transaksi.status_pembayaran' => 'status_pembayaran',
+            self::SQL_SISA_PERIODE        => 'sisa_tagihan',
+        ];
+
+        foreach ($rows as &$row) {
+            $row['sisa_tagihan'] = (float) ($row['grand_total'] ?? 0) - (float) ($row['total_dibayar'] ?? 0);
+        }
+        unset($row);
+
+        usort($rows, function ($a, $b) use ($order, $keyMap) {
+            foreach ($order as [$col, $dir]) {
+                $key = $keyMap[$col] ?? $col;
+                $av = $a[$key] ?? null;
+                $bv = $b[$key] ?? null;
+                $cmp = (is_numeric($av) && is_numeric($bv))
+                    ? ($av <=> $bv)
+                    : strcmp((string) $av, (string) $bv);
+                if ($cmp !== 0) {
+                    return $dir === 'DESC' ? -$cmp : $cmp;
+                }
+            }
+            return 0;
+        });
+
+        return $rows;
+    }
+
+    private function periodeRowForJson(array $row): array
+    {
+        return [
+            'tanggal'          => !empty($row['tanggal']) ? date('d/m/Y', strtotime($row['tanggal'])) : '-',
+            'invoice'          => $row['kode_invoice'] ?? '-',
+            // Sengaja mentah: alur lama (processDetailTransaksi) tidak
+            // memakai format_no_order() untuk tab ini.
+            'no_order'         => ($row['no_order'] === null || $row['no_order'] === '') ? '-' : $row['no_order'],
+            'pelanggan'        => $row['pelanggan_nama'] ?? '-',
+            'subtotal'         => (float) ($row['subtotal'] ?? 0),
+            'diskon'           => (float) ($row['diskon'] ?? 0),
+            'grand_total'      => (float) ($row['grand_total'] ?? 0),
+            'sisa_tagihan'     => (float) ($row['grand_total'] ?? 0) - (float) ($row['total_dibayar'] ?? 0),
+            'status_pembayaran' => (string) ($row['status_pembayaran'] ?? ''),
+        ];
+    }
+
+    /**
+     * API: data tab Periode untuk DataTables (server-side).
+     */
+    public function periodeData()
+    {
+        if (session()->get('role') != 'admin') {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => 'Akses ditolak. Hanya untuk admin.',
+            ]);
+        }
+
+        $f = $this->periodeFilterBag();
+        $draw = (int) ($this->request->getGet('draw') ?? 1);
+        $start = max(0, (int) ($this->request->getGet('start') ?? 0));
+        $length = (int) ($this->request->getGet('length') ?? 25);
+        if ($length <= 0) {
+            $length = 25;
+        }
+        $order = $this->periodeOrder();
+
+        $db = db_connect();
+        $liveCount = $this->periodeLiveCount($db, $f);
+        $archiveCount = $this->periodeArchiveCount($f);
+
+        if ($archiveCount === 0) {
+            $rows = $this->periodeLiveRows($db, $f, $order, $length, $start);
+            $total = $liveCount;
+        } else {
+            // ponytail: dua sumber tidak bisa di-JOIN, jadi digabung di PHP.
+            // Karena itu ambil hanya (start + length) baris teratas dari
+            // masing-masing sumber (urut kolom yang sama) -- cukup untuk
+            // mengisi halaman, tanpa menarik seluruh arsip/histori.
+            // Upgrade ke paging lintas sumber sejati bila arsip membesar.
+            $rows = $this->periodeSortRows(
+                array_merge(
+                    $this->periodeLiveRows($db, $f, $order, $start + $length),
+                    $this->periodeArchiveRows($f, $order, $start + $length)
+                ),
+                $order
+            );
+            $rows = array_slice($rows, $start, $length);
+            $total = $liveCount + $archiveCount;
+        }
+
+        $data = array_map([$this, 'periodeRowForJson'], $rows);
+
+        return $this->response->setJSON([
+            'draw'            => $draw,
+            'recordsTotal'    => $total,
+            'recordsFiltered' => $total,
+            'data'            => $data,
+        ]);
+    }
+
+    /**
+     * Ekspor CSV seluruh baris Periode yang terfilter (server-side).
+     */
+    public function periodeExport()
+    {
+        if (session()->get('role') != 'admin') {
+            return redirect()->to('/kasir')->with('error', 'Akses ditolak.');
+        }
+
+        $f = $this->periodeFilterBag();
+        $order = [['transaksi.tanggal', 'ASC'], ['transaksi.id', 'ASC']];
+
+        $db = db_connect();
+        $rows = $this->periodeSortRows(
+            array_merge(
+                $this->periodeLiveRows($db, $f, $order),
+                $this->periodeArchiveRows($f, $order)
+            ),
+            $order
+        );
+
+        $filename = 'Laporan_Periode_' . $f['tanggal_awal'] . '_' . $f['tanggal_akhir'] . '.csv';
+
+        $this->response
+            ->setHeader('Content-Type', 'text/csv; charset=UTF-8')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"');
+
+        // Ditulis langsung ke php://output (bukan ditampung penuh di memori)
+        // lalu response dikembalikan dengan body kosong.
+        $out = fopen('php://output', 'w');
+        fwrite($out, "\xEF\xBB\xBF");
+        fputcsv($out, ['Tanggal', 'Invoice', 'No Order', 'Pelanggan', 'Subtotal', 'Diskon', 'Grand Total', 'Sisa Tagihan', 'Status'], ';');
+        foreach ($rows as $row) {
+            $j = $this->periodeRowForJson($row);
+            // Angka dibulatkan ke integer agar CSV sama dengan ekspor lama
+            // (yang menampilkan format id-ID tanpa desimal).
+            fputcsv($out, [
+                $j['tanggal'],
+                $j['invoice'],
+                $j['no_order'],
+                $j['pelanggan'],
+                (int) round($j['subtotal']),
+                (int) round($j['diskon']),
+                (int) round($j['grand_total']),
+                (int) round($j['sisa_tagihan']),
+                $j['status_pembayaran'],
+            ], ';');
+        }
+        fclose($out);
+
+        return $this->response;
     }
 
 

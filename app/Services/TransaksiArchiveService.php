@@ -863,6 +863,89 @@ SQL);
     }
 
     /**
+     * Baris transaksi_archive untuk tab Laporan "Periode" (server-side).
+     *
+     * Beda dari getTransaksiMentah(): hanya transaksi yang punya minimal
+     * satu detail_transaksi_archive (paritas dengan aturan
+     * processDetailTransaksi() yang men-skip transaksi tanpa detail),
+     * mendukung filter keyword dan pengurutan/paging agar pemanggil tidak
+     * perlu menarik seluruh arsip ke PHP.
+     *
+     * @param string $orderColumn salah satu: id, tanggal, kode_invoice, no_order,
+     *                            pelanggan_nama, subtotal, diskon, grand_total, sisa,
+     *                            status_pembayaran (selain itu -> tanggal).
+     */
+    public function getTransaksiPeriodeMentah(
+        string $tglAwal,
+        string $tglAkhir,
+        string $orderColumn,
+        string $dir,
+        ?int $limit = null,
+        int $offset = 0,
+        string $keyword = ''
+    ): array {
+        $builder = $this->periodeArchiveBuilder($tglAwal, $tglAkhir, $keyword);
+        $this->applyPeriodeArchiveOrder($builder, $orderColumn, $dir);
+
+        if ($limit !== null && $limit > 0) {
+            $builder->limit($limit, $offset);
+        }
+
+        return $builder->get()->getResultArray();
+    }
+
+    /**
+     * Jumlah baris getTransaksiPeriodeMentah() tanpa menarik barisnya.
+     */
+    public function countTransaksiPeriodeMentah(string $tglAwal, string $tglAkhir, string $keyword = ''): int
+    {
+        return (int) $this->periodeArchiveBuilder($tglAwal, $tglAkhir, $keyword)->countAllResults();
+    }
+
+    private function periodeArchiveBuilder(string $tglAwal, string $tglAkhir, string $keyword)
+    {
+        $builder = $this->archive->table('transaksi_archive')
+            ->select('transaksi_archive.*')
+            ->where('transaksi_archive.tanggal >=', $tglAwal)
+            ->where('transaksi_archive.tanggal <=', $tglAkhir)
+            ->where('transaksi_archive.status !=', 'batal')
+            ->where('EXISTS (SELECT 1 FROM detail_transaksi_archive d WHERE d.transaksi_id = transaksi_archive.id)', null, false);
+
+        if ($keyword !== '') {
+            $builder->groupStart()
+                ->like('transaksi_archive.kode_invoice', $keyword)
+                ->orLike('transaksi_archive.no_order', $keyword)
+                ->orLike('transaksi_archive.pelanggan_nama', $keyword)
+                ->groupEnd();
+        }
+
+        return $builder;
+    }
+
+    private function applyPeriodeArchiveOrder($builder, string $orderColumn, string $dir): void
+    {
+        $map = [
+            'id'                => 'id',
+            'tanggal'           => 'tanggal',
+            'kode_invoice'      => 'kode_invoice',
+            'no_order'         => 'no_order',
+            'pelanggan_nama'    => 'pelanggan_nama',
+            'subtotal'          => 'subtotal',
+            'diskon'            => 'diskon',
+            'grand_total'       => 'grand_total',
+            'sisa'              => '(grand_total - COALESCE(total_dibayar, 0))',
+            'status_pembayaran' => 'status_pembayaran',
+        ];
+
+        $column = $map[$orderColumn] ?? 'tanggal';
+        $direction = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
+
+        $builder->orderBy($column, $direction, false);
+        // Tie-breaker stabil agar paging lintas sumber deterministik.
+        $builder->orderBy('id', 'ASC');
+    }
+
+    /**
      * Setara `v_daftar_pembayaran` (lihat migration baseline), tapi
      * dibaca dari archive -- SQLite BISA JOIN antar tabelnya sendiri
      * (transaksi_archive + pembayaran_archive), yang tidak bisa cuma

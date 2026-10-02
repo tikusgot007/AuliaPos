@@ -311,6 +311,13 @@
                 return;
         }
 
+        // Tab Periode memakai DataTables server-side: tidak perlu POST
+        // get-data; cukup (re)inisialisasi tabel dengan rentang ini.
+        if (jenis === 'periode') {
+            initPeriodeTable(tanggalAwal, tanggalAkhir, containerId);
+            return;
+        }
+
         // Tampilkan loading
         $('#' + containerId).html(`
         <div class="text-center py-5">
@@ -340,6 +347,185 @@
             },
             error: function() {
                 $('#' + containerId).html('<div class="alert alert-danger">Gagal memuat data. Silakan coba lagi.</div>');
+            }
+        });
+    }
+
+    // ================================================================
+    // TAB PERIODE -- DataTables server-side (S4)
+    // ================================================================
+    // Hanya tab Periode yang dipindah ke server-side (ribuan baris).
+    // Rentang aktif disimpan di sini dan dikirim sebagai parameter AJAX;
+    // tombol CSV mengarah ke endpoint ekspor server-side (seluruh baris).
+    var periodeState = { awal: null, akhir: null };
+
+    function initPeriodeTable(tanggalAwal, tanggalAkhir, containerId) {
+        periodeState.awal = tanggalAwal;
+        periodeState.akhir = tanggalAkhir;
+
+        // Sudah pernah dibuat: cukup reload dengan rentang terbaru.
+        if ($.fn.DataTable.isDataTable('#table_' + containerId)) {
+            $('#table_' + containerId).DataTable().ajax.reload();
+            return;
+        }
+
+        function fnAngka(v) {
+            if (v === undefined || v === null || isNaN(v)) {
+                return '0';
+            }
+            return Number(v).toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
+        }
+
+        // DataTables menulis hasil render lewat innerHTML, jadi kolom teks
+        // WAJIB di-escape (nama pelanggan bisa diisi kasir -> cegah stored XSS
+        // di sesi admin).
+        function fnTeks(v) {
+            if (v === undefined || v === null || v === '') {
+                return '-';
+            }
+            return $('<div>').text(String(v)).html();
+        }
+
+        var headers = getHeaders('periode');
+        var theadHtml = '<tr>' + headers.map(function(h) {
+            return '<th>' + h + '</th>';
+        }).join('') + '</tr>';
+
+        $('#' + containerId).html(
+            '<div class="table-responsive">' +
+            '<table class="table table-striped table-bordered" id="table_' + containerId + '">' +
+            '<thead>' + theadHtml + '</thead>' +
+            '<tbody></tbody>' +
+            '</table>' +
+            '</div>'
+        );
+
+        $('#table_' + containerId).DataTable({
+            responsive: true,
+            processing: true,
+            serverSide: true,
+            pageLength: 25,
+            // Default sama dengan alur lama: urut tanggal transaksi naik.
+            order: [
+                [0, 'asc']
+            ],
+            dom: 'Bfrtip',
+            buttons: [{
+                    extend: 'copyHtml5',
+                    text: '<i class="fas fa-copy"></i> Copy',
+                    className: 'btn btn-secondary btn-sm',
+                    exportOptions: {
+                        columns: ':visible'
+                    }
+                },
+                {
+                    // CSV diambil dari server (seluruh baris terfilter),
+                    // bukan lagi dari DOM (yang hanya berisi halaman aktif).
+                    text: '<i class="fas fa-file-csv"></i> CSV',
+                    className: 'btn btn-info btn-sm',
+                    action: function() {
+                        var qs = '?tanggal_awal=' + encodeURIComponent(periodeState.awal) +
+                            '&tanggal_akhir=' + encodeURIComponent(periodeState.akhir);
+                        window.location.href = '<?= base_url('/laporan/periode-export') ?>' + qs;
+                    }
+                },
+                {
+                    extend: 'excelHtml5',
+                    text: '<i class="fas fa-file-excel"></i> Excel',
+                    className: 'btn btn-success btn-sm',
+                    title: 'Laporan_' + new Date().toISOString().slice(0, 10),
+                    exportOptions: {
+                        columns: ':visible',
+                        format: {
+                            body: function(data) {
+                                if (typeof data === 'string' && data.includes('.') && !isNaN(parseFloat(data.replace(/\./g, '')))) {
+                                    return data.replace(/\./g, '').replace(/,/g, '.');
+                                }
+                                return data;
+                            }
+                        }
+                    }
+                },
+                {
+                    extend: 'pdfHtml5',
+                    text: '<i class="fas fa-file-pdf"></i> PDF',
+                    className: 'btn btn-danger btn-sm',
+                    title: 'Laporan_' + new Date().toISOString().slice(0, 10),
+                    orientation: 'landscape',
+                    pageSize: 'A4'
+                },
+                {
+                    extend: 'print',
+                    text: '<i class="fas fa-print"></i> Print',
+                    className: 'btn btn-primary btn-sm'
+                }
+            ],
+            ajax: {
+                url: '<?= base_url('/laporan/periode-data') ?>',
+                data: function(d) {
+                    d.tanggal_awal = periodeState.awal;
+                    d.tanggal_akhir = periodeState.akhir;
+                }
+            },
+            columns: [{
+                    data: 'tanggal',
+                    render: fnTeks
+                },
+                {
+                    data: 'invoice',
+                    render: fnTeks
+                },
+                {
+                    // Sengaja mentah (tanpa format_no_order) agar sama
+                    // dengan alur lama processDetailTransaksi().
+                    data: 'no_order',
+                    render: fnTeks
+                },
+                {
+                    data: 'pelanggan',
+                    render: fnTeks
+                },
+                {
+                    data: 'subtotal',
+                    className: 'text-end',
+                    render: fnAngka
+                },
+                {
+                    data: 'diskon',
+                    className: 'text-end',
+                    render: fnAngka
+                },
+                {
+                    data: 'grand_total',
+                    className: 'text-end',
+                    render: fnAngka
+                },
+                {
+                    data: 'sisa_tagihan',
+                    className: 'text-end',
+                    render: fnAngka
+                },
+                {
+                    data: 'status_pembayaran',
+                    render: fnTeks
+                }
+            ],
+            language: {
+                search: "Cari:",
+                lengthMenu: "Tampilkan _MENU_ data per halaman",
+                zeroRecords: "Data tidak ditemukan",
+                info: "Menampilkan _START_ - _END_ dari _TOTAL_ data",
+                infoEmpty: "Tidak ada data",
+                infoFiltered: "(difilter dari _MAX_ total data)",
+                paginate: {
+                    first: "Pertama",
+                    last: "Terakhir",
+                    next: "→",
+                    previous: "←"
+                }
             }
         });
     }
@@ -553,8 +739,6 @@
 
                 if (jenis === 'harian') {
                     isAngka = index >= 1;
-                } else if (jenis === 'periode') {
-                    isAngka = (index >= 4 && index <= 7);
                 } else if (jenis === 'bulanan') {
                     isAngka = (index >= 1 && index <= 10);
                 } else if (jenis === 'kategori') {
@@ -863,19 +1047,6 @@
 
                 return values;
             }
-
-            case 'periode':
-                return [
-                    row.tanggal || '',
-                    row.invoice || '',
-                    row.no_order || '',
-                    row.pelanggan || '',
-                    parseFloat(row.subtotal) || 0,
-                    parseFloat(row.diskon) || 0,
-                    parseFloat(row.grand_total) || 0,
-                    parseFloat(row.sisa_tagihan) || 0,
-                    row.status_pembayaran || ''
-                ];
 
             case 'bulanan':
                 return [
