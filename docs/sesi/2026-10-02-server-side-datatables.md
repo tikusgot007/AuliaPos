@@ -1,8 +1,8 @@
 # Checkpoint Sesi — Server-side DataTables + Review Fix
 
 - **Tanggal**: 2026-10-02
-- **Status**: sebagian — S1, S2, S3a selesai & terverifikasi; S3b, S4 belum
-- **Repo**: C:\xampp\htdocs\aulia-app (semua perubahan **belum di-commit**)
+- **Status**: sebagian — S1, S2, S3a, **S3b** selesai & terverifikasi; S4 belum
+- **Repo**: C:\xampp\htdocs\aulia-app (perubahan sudah di-commit s/d `d83584c`; S3b belum di-commit)
 - **Terkait**:
   - `docs/requirements/2026-10-02-standardisasi-pemilih-tanggal.md`
   - `docs/design/2026-10-02-standardisasi-pemilih-tanggal.md`
@@ -53,20 +53,38 @@ ekspor CSV server-side.
   - View: `app/Views/tagihan/index.php` (11 kolom + render badge/tombol).
   - Verifikasi: 511 tagihan, `hanya_terlambat` 509 (cocok DB); 25 baris/halaman; tanpa error.
 
-## Yang belum dikerjakan
+- **S3b `transaksi` — SELESAI**
+  - Controller: parsing filter dipindah ke `Transaksi::transaksiFilterBag()` (dipakai
+    `index()` + `data()`); helper `transaksiBaseBuilder`, `transaksiApplyFilters`,
+    `transaksiOrder` (whitelist kolom), `transaksiLiveCount`, `transaksiLiveRows`,
+    `transaksiArchiveRows`, `transaksiSortRows`, `transaksiRowForJson`;
+    endpoint `Transaksi::data()`.
+  - `index()` tidak lagi `findAll()` — hanya menyemai form filter.
+  - Route: `/transaksi/data`. Tanpa ekspor & tanpa footer TOTAL.
+  - View: `app/Views/transaksi/index.php` server-side; render baris (termasuk tombol
+    Bayar/Selesai/Batal sesuai role) dipindah ke `columns.render` memakai flag
+    `window.paymentModalConfig.isAdmin/isShiftLeader` yang sudah ada.
+  - Kotak "Cari:" bawaan DataTables dimatikan (`searching: false`) — pencarian tetap
+    lewat kotak search global header (`keyword`) yang mencakup live + arsip.
+  - Verifikasi: rentang 2026-01-01..2026-10-02 → default `aktif` 11.912 baris (cocok DB),
+    `kasir_id=4` 2.293 (cocok DB), status belum_lunas 511 (cocok DB), keyword "762" 40
+    (cocok DB). Headless: `serverSide=true`, 25 baris/halaman, nomor baris lanjut ke 26
+    di halaman 2, sorting kolom benar, 0 error console.
+  - **Perbaikan pasca-`/review`** (4 temuan, semua sudah diverifikasi ulang):
+    1. Nilai filter status legacy dari URL (mis. `?status_transaksi=mangkrak`) sempat hilang
+       karena `ajax.data` membaca nilai `<select>` yang tidak punya opsi untuk nilai itu.
+       Diperbaiki dengan hidden `statusTransaksiEfektif`/`statusPembayaranEfektif` yang
+       disemai dari parsing server, lalu di-`syncFilterEfektif()` saat Filter/apply date.
+    2. Kolom 8 "Sisa" sempat diurutkan dengan `grand_total`. Diperbaiki ke ekspresi
+       `Transaksi::SQL_SISA` = `GREATEST(grand_total - total_dibayar, 0)` (identik dengan
+       `transaksiRowForJson()`), plus key turunan `sisa` di `transaksiSortRows()` agar jalur
+       live dan merge sama. Catatan: `Tagihan::tagihanOrder()` masih punya defek yang sama
+       (pre-existing, di luar cakupan diff ini).
+    3. Jalur keyword tidak lagi menarik SELURUH baris live; cukup `start + length`.
+    4. Query `users` untuk validasi `kasir_id` hanya jalan bila parameter `kasir_id`
+       benar-benar dikirim.
 
-### S3b `transaksi` (paling kompleks)
-- Controller: `Transaksi::index()` (`app/Controllers/Transaksi.php:15-395`) masih memuat
-  semua baris (`findAll()`). Filter: `getDateRange()` (default hari ini),
-  `applyStatusFilters()`, kasir whitelist, `applyKeywordFilter()`.
-- **Kompleksitas**: bila ada `keyword`, hasil digabung dengan arsip
-  (`TransaksiArchiveService::cariUntukDaftarTransaksi()`, maks 200 baris) — paging lintas
-  live+arsip perlu penanganan (pola `ponytail:` full-merge seperti S1/S2 bila arsip terisi).
-- View: `app/Views/transaksi/index.php` (11 kolom `#tableTransaksi`) — render baris
-  bergantung role `$isAdminUser`/`$isShiftLeaderUser` (tombol Bayar/Selesai/Batal) +
-  badge Archive untuk `_sumber==='archive'`. Harus dipindah ke `columns.render` (kirim
-  flag role ke JS).
-- Rencana: endpoint `Transaksi::data()` + route `/transaksi/data`; tidak ada tombol ekspor.
+## Yang belum dikerjakan
 
 ### S4 `laporan` (tabel dinamis per tab)
 - `app/Views/laporan/index.php` membangun tabel dinamis `#table_<containerId>` per tab
@@ -97,6 +115,5 @@ ekspor CSV server-side.
 ## Titik masuk sesi berikutnya
 
 1. Baca: `docs/design/2026-10-02-server-side-datatables.md` §6 (schema per halaman) + checkpoint ini.
-2. Kerjakan **S3b `transaksi`** mengikuti pola S1/S2 (controller endpoint + view server-side).
-3. Lanjut **S4 `laporan`**.
-4. Setelah semua, pertimbangkan commit + perbaikan tombol Print.
+2. Kerjakan **S4 `laporan`** (tabel dinamis per tab harian/periode/kategori/bulanan) — paling berisiko, perlu peta kolom per tab.
+3. Setelah S4, pertimbangkan commit + perbaikan tombol Print (masih `window.print()` halaman aktif saja).
