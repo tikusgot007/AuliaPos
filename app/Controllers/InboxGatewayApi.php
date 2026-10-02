@@ -49,6 +49,14 @@ class InboxGatewayApi extends BaseController
      *   (beda dari 'incoming') -- cukup update last_message_at/
      *   last_message_direction, supaya Inbox POS tetap merefleksikan
      *   kenyataan tanpa mengubah keputusan status secara tidak sengaja.
+     *
+     * Field OPSIONAL `is_forwarded` (bool, TODO-F5): dikirim Gateway HANYA
+     * bila pesan MASUK dari pelanggan benar-benar hasil "Teruskan"
+     * (payload `contextInfo.isForwarded`/`forwardingScore`). Absen = bukan
+     * forward (kontrak lama tidak berubah). Disimpan apa adanya ke kolom
+     * `messages.is_forwarded` yang sudah ada -- label UI "Diteruskan"
+     * dibangun dari kolom itu. Nilai diperlakukan sebagai input tak
+     * tepercaya: dipaksa boolean di sini (lihat catatan SEC di method ini).
      */
     public function messages()
     {
@@ -393,6 +401,16 @@ class InboxGatewayApi extends BaseController
         // query sama sekali, konsisten GUD-001.
         $quoteColumns = $this->resolveKutipanMasuk($payload['quoted'] ?? null);
 
+        // --- Forward MASUK (TODO-F5) -----------------------------------------
+        // Field opsional di kontrak: Gateway hanya mengirim `is_forwarded`
+        // bila pesan MASUK dari pelanggan benar-benar hasil "Teruskan"
+        // (payload `contextInfo.isForwarded`/`forwardingScore`). Pesan biasa
+        // TIDAK mengirim field ini sama sekali, jadi absen = bukan forward.
+        // SEC (trust boundary): nilai dari Gateway tidak dipercaya -> paksa
+        // boolean; hanya true/1/'1' yang dianggap forward, nilai lain
+        // (termasuk array/objek) didegradasi ke false.
+        $isForwarded = filter_var($payload['is_forwarded'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
         // --- Insert message --------------------------------------------------
         $messageModel->insert(array_merge([
             'conversation_id'   => $conversationId,
@@ -406,6 +424,10 @@ class InboxGatewayApi extends BaseController
             // mana yang mengirim -- Baileys/Gateway tidak punya info itu.
             'sent_by_user_id'   => null,
             'send_status'       => $direction === 'outgoing' ? 'sent' : 'received',
+            // Teruskan (Tahap 4, REQ-008): penanda tunggal, `0` eksplisit
+            // pada jalur biasa. Sumber untuk pesan MASUK = Gateway (TODO-F5),
+            // untuk pesan KELUAR tetap dari jalur kirim POS (Inbox.php).
+            'is_forwarded'      => $isForwarded ? 1 : 0,
         ], $mediaColumns, $extraColumns, $quoteColumns));
 
         // --- Update conversation ---------------------------------------------
