@@ -14,6 +14,24 @@ Format entri:
 
 ---
 
+## 2026-10-02 — Inbox: riwayat thread menampilkan 200 pesan TERBARU dengan pagination
+
+- Aturan lama: thread percakapan mengambil 500 pesan **tertua**
+  (`message_timestamp ASC` + `LIMIT 500`), tanpa cara membuka pesan lain.
+  Percakapan lebih dari 500 pesan berhenti menampilkan pesan baru.
+- Aturan baru: `GET /inbox/api/conversations/{id}/messages` mengembalikan
+  200 pesan **terbaru** (urut lama ke baru). Parameter opsional `before_id`
+  mengambil 200 pesan tepat sebelum pesan itu (kursor `message_timestamp, id`),
+  dan respons memuat `has_more`. Pesan lama dibuka lewat tombol "Muat pesan
+  lama" (tahap berikutnya, belum ada di UI). Sampai tombol itu ada, pesan yang
+  lebih lama dari 200 terbaru tidak terlihat di Inbox (data tetap tersimpan).
+- Alasan: bug batas 500 memotong pesan terbaru; pagination menggantikan
+  keputusan "tanpa pagination" setelah spike `vue-advanced-chat`
+  (`docs/laporan-spike-vue-advanced-chat.md`).
+- Referensi: `docs/requirements/2026-10-02-perbaikan-thread-inbox.md` (AC-1..AC-3,
+  AC-23..AC-26), `docs/design/2026-10-02-perbaikan-thread-inbox.md`,
+  `tests/feature/InboxMessagesPaginationTest.php`
+
 ## 2026-10-02 — Inbox: nama conversation tidak lagi berubah saat staff balas dari WA Web/HP
 
 - Aturan lama: endpoint webhook Gateway (`InboxGatewayApi::messages()`)

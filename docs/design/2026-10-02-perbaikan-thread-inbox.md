@@ -1,7 +1,7 @@
 # Design: Inbox thread improvements (latest-window pagination, per-message rendering)
 
 - **Date**: 2026-10-02
-- **Status**: draft
+- **Status**: draft (stage 1 implemented; Node.js v22 confirmed available on the developer machine)
 - **Requirements**: `docs/requirements/2026-10-02-perbaikan-thread-inbox.md`
 - **SDLC tier**: A
 
@@ -54,7 +54,7 @@ Cursor query (sketch, to be validated against the real schema in stage 1):
 
 ## 5. Impact
 
-- **Database / migrations**: none. Existing composite index on the `inbox` group is expected to serve `(conversation_id, message_timestamp, id)`; **not yet verified**, check the migration before stage 1 and report if an index is missing.
+- **Database / migrations**: none. Index `(conversation_id, message_timestamp)` exists (`2026-09-07-000001_CreateInboxTables.php:222`; InnoDB appends the primary key `id`). Verified with `EXPLAIN` on MariaDB 10.11 with 20,000 rows in one conversation: the cursor query uses `conversation_id_message_timestamp`, no filesort. Walking far back reads and skips the newer rows of that conversation on the index (linear in the number of newer messages, acceptable at the expected volumes).
 - **Routes / API / response formats**: same route, new optional query parameter, new additive field `has_more`. Not breaking for the current consumer.
 - **Gateway contract**: unchanged. Other repository not touched.
 - **Existing data**: read-only.
@@ -84,8 +84,6 @@ PHP feature tests cannot run in the authoring sandbox (no MariaDB); they run on 
 
 ## 8. Not yet verified
 
-- Index coverage for the cursor query (section 5).
-- Node.js availability on the developer machine (requirements question 1); fallback is a test page at `/inbox/test`.
 - Real message volume per conversation in production beyond the 160 observed.
 
 ## 9. Approval (Gate 2)
