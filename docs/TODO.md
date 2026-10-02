@@ -17,7 +17,6 @@
 
 ## Prioritas Sedang
 
-- [ ] **TODO-T1** Perbaiki `Tagihan::tagihanOrder()` (`app/Controllers/Tagihan.php:93-123`): kolom 8 "Sisa" masih dipetakan ke `transaksi.grand_total` (bug yang sama sudah diperbaiki di `Transaksi` pada review S3b). Urutkan pakai ekspresi `grand_total - total_dibayar` (atau jadikan kolom 8 non-orderable) — sedang — ref `docs/sesi/2026-10-02-server-side-datatables.md` (dulu juga tercatat sebagai TODO-F4)
 - [ ] **TODO-T3** Verifikasi jalur merge arsip (SQLite) saat arsip **terisi** untuk S2 (`laporan_pembayaran`), S3b (`transaksi`), dan S4 (`periode`). Saat ini arsip kosong sehingga hanya jalur live yang teruji; bentuk SQL arsip S4 sudah divalidasi lewat PDO — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
 - [ ] **TODO-T4** Tombol Print pada tabel server-side (item-harian, laporan-pembayaran, tagihan, transaksi, periode) hanya mencetak halaman aktif; pertimbangkan cetak seluruh hasil terfilter — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
