@@ -12,288 +12,51 @@ use App\Models\UserModel;
 
 class Transaksi extends BaseController
 {
+    /**
+     * Ekspresi SQL untuk kolom turunan "Sisa" pada daftar transaksi.
+     * Meniru tampilan di transaksiRowForJson(): sisa =
+     * max(0, grand_total - total_dibayar). Dipakai untuk ORDER BY kolom 8
+     * (tidak ada kolom `sisa` di tabel) dan dipetakan balik ke key baris
+     * di transaksiSortRows().
+     */
+    private const SQL_SISA = 'GREATEST(transaksi.grand_total - transaksi.total_dibayar, 0)';
+
     public function index()
     {
-        $model = new TransaksiModel();
-
         /*
     |--------------------------------------------------------------------------
-    | FILTER TANGGAL
+    | FILTER (tanggal, status, kasir, keyword)
     |--------------------------------------------------------------------------
     |
-    | Default: 7 hari terakhir sampai hari ini.
-    |
-    | Jika user memilih tanggal sendiri, gunakan tanggal tersebut.
+    | Parsing query string dipindah ke transaksiFilterBag() supaya
+    | index() dan endpoint data() memakai sumber yang sama. Daftar
+    | kasir tetap diambil di sini karena dipakai untuk mengisi
+    | dropdown filter.
     |
     */
 
-        [$tanggal_awal, $tanggal_akhir] = $this->getDateRange();
+        $f = $this->transaksiFilterBag();
 
-
-        /*
-    |--------------------------------------------------------------------------
-    | FILTER STATUS PEMBAYARAN (2026-09-09, dikelompokkan)
-    |--------------------------------------------------------------------------
-    |
-    | ''            = Semua
-    | belum_lunas   = belum_bayar ATAU dp
-    | lunas         = lunas
-    |
-    | Kompatibilitas: value individual lama ('belum_bayar', 'dp')
-    | tetap didukung di backend (exact match) walau tidak lagi
-    | ditawarkan sebagai pilihan di dropdown UI.
-    |
-    */
-
-        $status_pembayaran =
-            $this->request->getGet('status_pembayaran') ?? '';
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | FILTER STATUS TRANSAKSI (2026-09-09, dikelompokkan)
-    |--------------------------------------------------------------------------
-    |
-    | ''            = Semua (proses + selesai + batal + mangkrak, tidak difilter)
-    | aktif         = proses ATAU selesai
-    | tidak_aktif   = batal ATAU mangkrak
-    |
-    | Default saat parameter TIDAK dikirim sama sekali (pertama kali
-    | buka /transaksi/index) = 'aktif'. Kalau parameter dikirim
-    | eksplisit sebagai string kosong (mis. dari link lama), tetap
-    | diperlakukan sebagai Semua, bukan di-override ke default.
-    |
-    | Catatan perubahan makna 'aktif' (menggantikan definisi P10):
-    | sebelumnya 'aktif' berarti "bukan batal" (backward-compat untuk
-    | link lama, dari sebelum status 'mangkrak' ada). Sekarang 'aktif'
-    | didefinisikan eksplisit sebagai proses+selesai saja (mangkrak
-    | masuk kelompok 'tidak_aktif'). Tidak berdampak ke data historis
-    | karena status 'mangkrak' baru dibuat di tanggal yang sama dengan
-    | perubahan ini (lihat docs Section 29).
-    |
-    | Value individual lama ('proses', 'selesai', 'batal', 'mangkrak')
-    | tetap didukung di backend untuk jaga-jaga ada link lama, walau
-    | tidak lagi ditawarkan sebagai pilihan di dropdown UI.
-    |
-    */
-
-        $status_transaksi =
-            $this->request->getGet('status_transaksi');
-
-        if ($status_transaksi === null) {
-            // Halaman dibuka tanpa parameter filter sama sekali -> default Aktif.
-            $status_transaksi = 'aktif';
-        }
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | FILTER KARYAWAN (KASIR)
-    |--------------------------------------------------------------------------
-    |
-    | Dropdown, bukan text search -- daftar kasir sedikit. kasir_id dari
-    | query string DIVALIDASI terhadap daftar user yang nyata (whitelist)
-    | sebelum dipakai di WHERE -- jangan percaya ID mentah dari luar
-    | (sama pola dengan Tagihan::index()).
-    |
-    */
-
-        $userModel = new UserModel();
         $daftar_kasir =
-            $userModel
+            (new UserModel())
             ->select('id, nama, username, inisial')
             ->orderBy('nama', 'ASC')
             ->findAll();
-
-        $kasirIdValid = array_map('intval', array_column($daftar_kasir, 'id'));
-
-        $kasir_id_filter = $this->request->getGet('kasir_id');
-        $kasir_id_filter = in_array((int) $kasir_id_filter, $kasirIdValid, true)
-            ? (int) $kasir_id_filter
-            : null;
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | KEYWORD
-    |--------------------------------------------------------------------------
-    |
-    | Digunakan untuk mencari:
-    | - kode invoice
-    | - no order
-    | - nama pelanggan
-    |
-    | Jika keyword diisi, pencarian tidak dibatasi
-    | oleh default periode 3 bulan.
-    |
-    */
-
-        $keyword =
-            trim(
-                (string) (
-                    $this->request->getGet('keyword') ?? ''
-                )
-            );
 
 
         /*
     |--------------------------------------------------------------------------
     | QUERY UTAMA
     |--------------------------------------------------------------------------
-    */
-
-        $builder = $model
-            ->select(
-                'transaksi.id,
-             transaksi.kode_invoice,
-             transaksi.no_order,
-             transaksi.tanggal,
-             transaksi.pelanggan_id,
-             transaksi.kasir_id,
-             transaksi.grand_total,
-             transaksi.total_dibayar,
-             transaksi.status_pembayaran,
-             transaksi.status,
-             transaksi.sumber,
-             users.username AS kasir_nama,
-             users.inisial AS kasir_inisial,
-             pelanggan.nama AS pelanggan_nama'
-            )
-            ->join(
-                'users',
-                'users.id = transaksi.kasir_id',
-                'left'
-            )
-            ->join(
-                'pelanggan',
-                'pelanggan.id = transaksi.pelanggan_id',
-                'left'
-            )
-            ->orderBy(
-                'transaksi.id',
-                'DESC'
-            );
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | FILTER TANGGAL
-    |--------------------------------------------------------------------------
     |
-    | Jika TIDAK ada keyword:
-    | gunakan filter tanggal.
-    |
-    | Jika ADA keyword:
-    | pencarian berlaku ke seluruh histori.
+    | Pindah ke Transaksi::data() (endpoint DataTables server-side).
+    | index() hanya menyemai form filter; baris tabel diambil per
+    | halaman dari /transaksi/data. applyDateFilter(),
+    | applyStatusFilters(), dan applyKeywordFilter() tidak berubah --
+    | sekarang dipanggil dari transaksiApplyFilters() yang dipakai
+    | kedua halaman.
     |
     */
-
-        $this->applyDateFilter(
-            $builder,
-            $keyword,
-            $tanggal_awal,
-            $tanggal_akhir
-        );
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | FILTER STATUS PEMBAYARAN + STATUS TRANSAKSI
-    |--------------------------------------------------------------------------
-    |
-    | Lihat Transaksi::applyStatusFilters() -- pemetaan nilai filter
-    | (termasuk kompatibilitas mundur & arti "Semua") tidak berubah,
-    | hanya dipindah supaya index() lebih ringkas.
-    |
-    */
-
-        $this->applyStatusFilters(
-            $builder,
-            $status_pembayaran,
-            $status_transaksi
-        );
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | FILTER KARYAWAN (KASIR)
-    |--------------------------------------------------------------------------
-    */
-
-        if ($kasir_id_filter !== null) {
-
-            $builder->where(
-                'transaksi.kasir_id',
-                $kasir_id_filter
-            );
-        }
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | FILTER KEYWORD
-    |--------------------------------------------------------------------------
-    |
-    | Lihat Transaksi::applyKeywordFilter() -- kondisi pencarian tidak
-    | berubah, hanya dipindah. Nilai balik ($parsedNoOrder) dipakai lagi
-    | di blok LENGKAPI DENGAN HASIL ARCHIVE di bawah.
-    |
-    */
-
-        $parsedNoOrder = $this->applyKeywordFilter($builder, $keyword);
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | AMBIL DATA
-    |--------------------------------------------------------------------------
-    |
-    | Untuk sementara tetap menggunakan findAll()
-    | karena halaman saat ini menggunakan DataTables
-    | client-side.
-    |
-    */
-
-        $transaksi =
-            $builder->findAll();
-
-        // Tandai eksplisit sebagai data aktif -- supaya bentuknya
-        // konsisten dengan hasil dari archive di bawah (poin 9: UI
-        // bisa menampilkan sumber Aktif/Archive per baris).
-        foreach ($transaksi as &$row) {
-            $row['_sumber'] = 'aktif';
-        }
-        unset($row);
-
-        /*
-    |--------------------------------------------------------------------------
-    | LENGKAPI DENGAN HASIL ARCHIVE (HANYA SAAT ADA KEYWORD)
-    |--------------------------------------------------------------------------
-    |
-    | Tanpa keyword, daftar ini memang dibatasi periode tanggal aktif
-    | (lihat blok FILTER TANGGAL di atas) -- archive TIDAK ikut di sini
-    | karena bukan pencarian, murni daftar transaksi berjalan.
-    |
-    | Dengan keyword, pencarian "berlaku ke seluruh histori" (sudah jadi
-    | komentar existing di atas) -- supaya itu benar-benar utuh, hasil
-    | dari database archive ikut digabung di sini (poin 9 spesifikasi
-    | Archive Transaksi: transaksi lama yang sudah di-archive tetap
-    | harus bisa ditemukan lewat pencarian yang sama).
-    |
-    */
-
-        if ($keyword !== '') {
-            try {
-                $archiveService = new \App\Services\TransaksiArchiveService();
-                $dariArchive = $archiveService->cariUntukDaftarTransaksi($keyword, $parsedNoOrder ?: null);
-                $transaksi = array_merge($transaksi, $dariArchive);
-            } catch (\Throwable $e) {
-                // Archive gagal diakses TIDAK boleh mematikan pencarian
-                // transaksi aktif -- log saja dan lanjut dengan hasil
-                // dari DB utama.
-                log_message('error', 'Transaksi::index keyword archive gagal: ' . $e->getMessage());
-            }
-        }
 
 
         /*
@@ -310,41 +73,38 @@ class Transaksi extends BaseController
             'content' =>
             'transaksi/index',
 
-            'transaksi' =>
-            $transaksi,
-
             /*
          * Filter tanggal yang sedang aktif
          */
             'tanggal_awal' =>
-            $tanggal_awal,
+            $f['tanggal_awal'],
 
             'tanggal_akhir' =>
-            $tanggal_akhir,
+            $f['tanggal_akhir'],
 
             /*
          * Filter pembayaran
          */
             'status_pembayaran' =>
-            $status_pembayaran,
+            $f['status_pembayaran'],
 
             /*
          * Filter transaksi
          */
             'status_transaksi' =>
-            $status_transaksi,
+            $f['status_transaksi'],
 
             /*
          * Filter karyawan (kasir)
          */
             'kasir_id_filter' =>
-            $kasir_id_filter,
+            $f['kasir_id'],
 
             /*
          * Keyword
          */
             'keyword' =>
-            $keyword,
+            $f['keyword'],
 
             /*
          * Daftar karyawan (kasir)
@@ -443,7 +203,7 @@ class Transaksi extends BaseController
      * oleh index() setelah filter diterapkan. $builder dimutasi by-handle.
      */
     private function applyDateFilter(
-        \CodeIgniter\Model $builder,
+        \CodeIgniter\Database\BaseBuilder $builder,
         string $keyword,
         string $tanggalAwal,
         string $tanggalAkhir
@@ -505,11 +265,11 @@ class Transaksi extends BaseController
      *     'batal' | 'proses' | 'selesai' | 'mangkrak' -> status = <nilai>  (kompat mundur)
      *     ''            -> tidak difilter (Semua)
      *
-     * $builder adalah instance Model (di CI4 Model::__call mengembalikan
-     * $this saat memproxy method builder), dimutasi by-handle.
+     * $builder adalah BaseBuilder (hasil $db->table()), dimutasi
+     * by-handle.
      */
     private function applyStatusFilters(
-        \CodeIgniter\Model $builder,
+        \CodeIgniter\Database\BaseBuilder $builder,
         string $statusPembayaran,
         string $statusTransaksi
     ): void {
@@ -635,7 +395,7 @@ class Transaksi extends BaseController
      *                  untuk pencarian archive), null jika tidak ada.
      */
     private function applyKeywordFilter(
-        \CodeIgniter\Model $builder,
+        \CodeIgniter\Database\BaseBuilder $builder,
         string $keyword
     ): ?int {
         if ($keyword === '') {
@@ -697,6 +457,318 @@ class Transaksi extends BaseController
         $builder->groupEnd();
 
         return $parsedNoOrder;
+    }
+
+    /**
+     * Filter daftar transaksi dari query string, dipakai bersama oleh
+     * index() (menyemai form filter) dan data() (endpoint DataTables).
+     *
+     * Semantik SAMA dengan parsing lama di index():
+     * - status_transaksi null (parameter benar-benar absen) -> 'aktif';
+     *   string kosong tetap dianggap "Semua";
+     * - kasir_id divalidasi terhadap daftar user nyata (whitelist);
+     *   pengecekan hanya jalan bila parameter kasir_id benar-benar dikirim
+     *   supaya tiap request tidak menambah query `users` tanpa perlu;
+     * - keyword di-trim.
+     *
+     * @return array{tanggal_awal: string, tanggal_akhir: string, status_pembayaran: string, status_transaksi: string, kasir_id: ?int, keyword: string}
+     */
+    private function transaksiFilterBag(): array
+    {
+        [$tanggal_awal, $tanggal_akhir] = $this->getDateRange();
+
+        $status_pembayaran = $this->request->getGet('status_pembayaran') ?? '';
+
+        $status_transaksi = $this->request->getGet('status_transaksi');
+        if ($status_transaksi === null) {
+            $status_transaksi = 'aktif';
+        }
+
+        $kasir_id_filter = null;
+        $kasirIdRaw = $this->request->getGet('kasir_id');
+        if ($kasirIdRaw !== null && $kasirIdRaw !== '') {
+            $kasirIdValid = array_map(
+                'intval',
+                array_column((new UserModel())->select('id')->findAll(), 'id')
+            );
+            $kasir_id_filter = in_array((int) $kasirIdRaw, $kasirIdValid, true)
+                ? (int) $kasirIdRaw
+                : null;
+        }
+
+        $keyword = trim((string) ($this->request->getGet('keyword') ?? ''));
+
+        return [
+            'tanggal_awal'      => $tanggal_awal,
+            'tanggal_akhir'     => $tanggal_akhir,
+            'status_pembayaran' => $status_pembayaran,
+            'status_transaksi'  => $status_transaksi,
+            'kasir_id'          => $kasir_id_filter,
+            'keyword'           => $keyword,
+        ];
+    }
+
+    /**
+     * Query builder dasar daftar transaksi (kolom + join sama dengan
+     * index() lama). BaseBuilder, bukan Model, mengikuti pola
+     * server-side S1/S2/Tagihan.
+     */
+    private function transaksiBaseBuilder($db)
+    {
+        return $db->table('transaksi')
+            ->select(
+                'transaksi.id,
+             transaksi.kode_invoice,
+             transaksi.no_order,
+             transaksi.tanggal,
+             transaksi.pelanggan_id,
+             transaksi.kasir_id,
+             transaksi.grand_total,
+             transaksi.total_dibayar,
+             transaksi.status_pembayaran,
+             transaksi.status,
+             transaksi.sumber,
+             users.username AS kasir_nama,
+             users.inisial AS kasir_inisial,
+             pelanggan.nama AS pelanggan_nama'
+            )
+            ->join('users', 'users.id = transaksi.kasir_id', 'left')
+            ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left');
+    }
+
+    /**
+     * Terapkan seluruh filter daftar transaksi (tanggal, status, kasir,
+     * keyword) ke builder. Urutan & pemetaan nilai tidak berubah dari
+     * index() lama.
+     */
+    private function transaksiApplyFilters($builder, array $f): void
+    {
+        $this->applyDateFilter($builder, $f['keyword'], $f['tanggal_awal'], $f['tanggal_akhir']);
+        $this->applyStatusFilters($builder, $f['status_pembayaran'], $f['status_transaksi']);
+
+        if ($f['kasir_id'] !== null) {
+            $builder->where('transaksi.kasir_id', $f['kasir_id']);
+        }
+
+        $this->applyKeywordFilter($builder, $f['keyword']);
+    }
+
+    /**
+     * Whitelist pengurutan DataTables -> kolom SQL. Cegah injeksi
+     * kolom lewat order[][column]. Tie-breaker id DESC selalu
+     * ditambahkan agar paging & merge arsip deterministik.
+     */
+    private function transaksiOrder(): array
+    {
+        $map = [
+            1 => 'transaksi.kode_invoice',
+            2 => 'transaksi.no_order',
+            3 => 'transaksi.tanggal',
+            4 => 'pelanggan.nama',
+            5 => 'users.inisial',
+            6 => 'transaksi.grand_total',
+            7 => 'transaksi.total_dibayar',
+            8 => self::SQL_SISA,
+            9 => 'transaksi.status_pembayaran',
+        ];
+
+        $out = [];
+        $order = $this->request->getGet('order');
+        if (is_array($order)) {
+            foreach ($order as $o) {
+                $idx = (int) ($o['column'] ?? -1);
+                if (!isset($map[$idx])) {
+                    continue;
+                }
+                $dir = strtolower((string) ($o['dir'] ?? 'asc')) === 'desc' ? 'DESC' : 'ASC';
+                $out[] = [$map[$idx], $dir];
+            }
+        }
+
+        $out[] = ['transaksi.id', 'DESC'];
+
+        return $out;
+    }
+
+    private function transaksiLiveCount($db, array $f): int
+    {
+        $builder = $this->transaksiBaseBuilder($db);
+        $this->transaksiApplyFilters($builder, $f);
+        return (int) $builder->countAllResults();
+    }
+
+    private function transaksiLiveRows($db, array $f, array $order, int $limit = 0, int $offset = 0): array
+    {
+        $builder = $this->transaksiBaseBuilder($db);
+        $this->transaksiApplyFilters($builder, $f);
+        foreach ($order as [$col, $dir]) {
+            // $col hanya berasal dari whitelist transaksiOrder() (tidak pernah
+            // input user mentah), jadi aman di-escape=false agar ekspresi
+            // turunan Sisa bisa dipakai apa adanya.
+            $builder->orderBy($col, $dir, false);
+        }
+        if ($limit > 0) {
+            $builder->limit($limit, $offset);
+        }
+        return $builder->get()->getResultArray();
+    }
+
+    /**
+     * Hasil pencarian di database archive (hanya bila ada keyword).
+     * Bentuk kolom disamakan oleh TransaksiArchiveService; limit 200
+     * bawaan service dipertahankan.
+     */
+    private function transaksiArchiveRows(array $f): array
+    {
+        if ($f['keyword'] === '') {
+            return [];
+        }
+
+        try {
+            $service = new \App\Services\TransaksiArchiveService();
+            $rows = $service->cariUntukDaftarTransaksi(
+                $f['keyword'],
+                $this->parseNoOrder($f['keyword']) ?: null
+            );
+        } catch (\Throwable $e) {
+            log_message('error', 'Transaksi::data keyword archive gagal: ' . $e->getMessage());
+            return [];
+        }
+
+        foreach ($rows as &$r) {
+            // Archive menyimpan kasir_nama (snapshot), bukan kasir_inisial.
+            $r['kasir_inisial'] = $r['kasir_inisial'] ?? ($r['kasir_nama'] ?? '');
+        }
+        unset($r);
+
+        return $rows;
+    }
+
+    /**
+     * Merge-sort live + archive untuk jalur keyword. Nama kolom ORDER BY
+     * (qualified) dipetakan ke key baris hasil query.
+     */
+    private function transaksiSortRows(array $rows, array $order): array
+    {
+        $keyMap = [
+            'transaksi.kode_invoice'      => 'kode_invoice',
+            'transaksi.no_order'          => 'no_order',
+            'transaksi.tanggal'           => 'tanggal',
+            'transaksi.id'                => 'id',
+            'pelanggan.nama'              => 'pelanggan_nama',
+            'users.inisial'               => 'kasir_inisial',
+            'transaksi.grand_total'       => 'grand_total',
+            'transaksi.total_dibayar'     => 'total_dibayar',
+            'transaksi.status_pembayaran' => 'status_pembayaran',
+            self::SQL_SISA                => 'sisa',
+        ];
+
+        // Sisa tidak ada di hasil query (kolom turunan); hitung sekali di sini
+        // supaya urutan pada jalur merge sama dengan urutan SQL di MySQL.
+        foreach ($rows as &$row) {
+            $row['sisa'] = max(0, (float) ($row['grand_total'] ?? 0) - (float) ($row['total_dibayar'] ?? 0));
+        }
+        unset($row);
+
+        usort($rows, function ($a, $b) use ($order, $keyMap) {
+            foreach ($order as [$col, $dir]) {
+                $key = $keyMap[$col] ?? $col;
+                $av = $a[$key] ?? null;
+                $bv = $b[$key] ?? null;
+                $cmp = (is_numeric($av) && is_numeric($bv))
+                    ? ($av <=> $bv)
+                    : strcmp((string) $av, (string) $bv);
+                if ($cmp !== 0) {
+                    return $dir === 'DESC' ? -$cmp : $cmp;
+                }
+            }
+            return 0;
+        });
+
+        return $rows;
+    }
+
+    /**
+     * Bentuk satu baris JSON untuk DataTables. Format tampilan & badge
+     * dihitung server agar view tidak perlu helper PHP.
+     */
+    private function transaksiRowForJson(array $row): array
+    {
+        $grandTotal = (float) ($row['grand_total'] ?? 0);
+        $totalDibayar = (float) ($row['total_dibayar'] ?? 0);
+        $statusPembayaran = (string) ($row['status_pembayaran'] ?? '');
+        $status = (string) ($row['status'] ?? '');
+
+        return [
+            'id'                => (int) ($row['id'] ?? 0),
+            'kode_invoice'      => $row['kode_invoice'] ?? '-',
+            'no_order_display'  => !empty($row['no_order']) ? format_no_order((int) $row['no_order']) : '-',
+            'tanggal_ts'        => strtotime((string) ($row['tanggal'] ?? '')) ?: 0,
+            'tanggal_display'   => !empty($row['tanggal']) ? tanggal_singkat($row['tanggal']) : '-',
+            'pelanggan_nama'    => $row['pelanggan_nama'] ?? '-',
+            'kasir'             => $row['kasir_inisial'] ?? ($row['kasir_nama'] ?? '-'),
+            'grand_total'       => $grandTotal,
+            'total_dibayar'     => $totalDibayar,
+            'sisa'              => max(0, $grandTotal - $totalDibayar),
+            'kelebihan'         => max(0, $totalDibayar - $grandTotal),
+            'status'            => $status,
+            'status_pembayaran' => $statusPembayaran,
+            'payment_class'     => status_pembayaran_badge_class($statusPembayaran),
+            'payment_label'     => status_pembayaran_label($statusPembayaran),
+            'status_class'      => status_transaksi_badge_class($status),
+            'status_label'      => status_transaksi_label($status),
+            'dari_archive'      => ($row['_sumber'] ?? 'aktif') === 'archive',
+        ];
+    }
+
+    /**
+     * API: data daftar transaksi untuk DataTables (server-side).
+     * Tanpa `totals` -- halaman ini tidak menampilkan baris TOTAL.
+     */
+    public function data()
+    {
+        helper('order');
+
+        $f = $this->transaksiFilterBag();
+        $draw = (int) ($this->request->getGet('draw') ?? 1);
+        $start = max(0, (int) ($this->request->getGet('start') ?? 0));
+        $length = (int) ($this->request->getGet('length') ?? 25);
+        if ($length <= 0) {
+            $length = 25;
+        }
+        $order = $this->transaksiOrder();
+
+        $db = db_connect();
+        $liveCount = $this->transaksiLiveCount($db, $f);
+        $archiveRows = $this->transaksiArchiveRows($f);
+
+        if ($archiveRows === []) {
+            $rows = $this->transaksiLiveRows($db, $f, $order, $length, $start);
+            $total = $liveCount;
+        } else {
+            // ponytail: arsip kecil (maks 200) & diharapkan lebih lama dari live.
+            // Ambil hanya (start + length) baris live teratas: cukup untuk mengisi
+            // halaman setelah digabung arsip, tanpa menarik seluruh histori.
+            // Upgrade ke paging lintas sumber dua arah bila arsip membesar.
+            $rows = $this->transaksiSortRows(
+                array_merge(
+                    $this->transaksiLiveRows($db, $f, $order, $start + $length),
+                    $archiveRows
+                ),
+                $order
+            );
+            $rows = array_slice($rows, $start, $length);
+            $total = $liveCount + count($archiveRows);
+        }
+
+        $data = array_map([$this, 'transaksiRowForJson'], $rows);
+
+        return $this->response->setJSON([
+            'draw'            => $draw,
+            'recordsTotal'    => $total,
+            'recordsFiltered' => $total,
+            'data'            => $data,
+        ]);
     }
 
     public function hariIni()

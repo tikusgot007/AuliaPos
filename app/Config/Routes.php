@@ -163,6 +163,7 @@ $routes->get('/pelanggan/hapus/(:num)', 'Pelanggan::hapus/$1', ['filter' => 'aut
 
 // Route Transaksi (Riwayat)
 $routes->get('/transaksi', 'Transaksi::index', ['filter' => 'auth']);
+$routes->get('/transaksi/data', 'Transaksi::data', ['filter' => 'auth']);
 $routes->get('/transaksi/detail/(:num)', 'Transaksi::detail/$1', ['filter' => 'auth']);
 $routes->get('/transaksi/batal/(:num)', 'Transaksi::batal/$1', ['filter' => 'auth']);
 $routes->get('/transaksi/hari-ini', 'Transaksi::hariIni', ['filter' => 'auth']);

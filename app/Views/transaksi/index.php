@@ -1,12 +1,9 @@
 <?php
-// Dipakai untuk visibility tombol khusus admin (mis. Selesai).
+// Effective Shift Leader saat ini. Nilai ini berlaku untuk SELURUH baris
+// tabel (sama untuk semua baris dalam satu render) -- tidak per baris.
 // Backend (TransaksiModel::ubahStatus) tetap sumber kebenaran validasi;
-// pengecekan di sini murni untuk tampilan.
-$isAdminUser = session()->get('role') === 'admin';
-
-// Tombol "Selesai" (workflow umum) juga tampil untuk Effective Shift
-// Leader saat ini -- dihitung SEKALI di sini (bukan per baris transaksi;
-// Leader saat ini sama untuk seluruh baris dalam satu render).
+// pengecekan di sini murni untuk tampilan, dikirim ke JS lewat
+// window.paymentModalConfig.isShiftLeader (lihat blok konfigurasi di bawah).
 $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session()->get('id_user'));
 ?>
 <div class="card">
@@ -27,6 +24,8 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                 <input type="text" class="form-control" id="filterTanggal"
                     placeholder="Pilih rentang tanggal"
                     value="<?= $tanggal_awal ?> - <?= $tanggal_akhir ?>">
+                <input type="hidden" id="tanggalAwalHidden" value="<?= esc($tanggal_awal, 'attr') ?>">
+                <input type="hidden" id="tanggalAkhirHidden" value="<?= esc($tanggal_akhir, 'attr') ?>">
             </div>
 
             <!-- Filter Status Transaksi -->
@@ -125,6 +124,16 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                     <i class="fas fa-undo"></i> Reset
                 </button>
             </div>
+
+            <!--
+                Nilai filter status "efektif" hasil parsing server. Dipakai
+                supaya link lama dengan nilai individual (mis. ?status_transaksi=proses
+                atau ?status_pembayaran=belum_bayar) tetap terfilter walau
+                dropdown tidak punya opsi untuk nilai itu. Di-overwrite dari
+                dropdown saat user menekan Filter / memilih rentang tanggal.
+            -->
+            <input type="hidden" id="statusTransaksiEfektif" value="<?= esc($status_transaksi, 'attr') ?>">
+            <input type="hidden" id="statusPembayaranEfektif" value="<?= esc($status_pembayaran, 'attr') ?>">
         </div>
 
         <!-- ========================================== -->
@@ -161,110 +170,7 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (!empty($transaksi)): ?>
-                        <?php foreach ($transaksi as $i => $t):
-                            $totalDibayar = $t['total_dibayar'] ?? 0;
-                            $sisa = max(0, $t['grand_total'] - $totalDibayar);
-                            $kelebihan = max(0, $totalDibayar - $t['grand_total']);
-
-                            // Status pembayaran
-                            $paymentClass = status_pembayaran_badge_class($t['status_pembayaran']);
-
-                            // Status transaksi
-                            $statusClass = status_transaksi_badge_class($t['status']);
-                            $statusLabel = status_transaksi_label($t['status']);
-
-                            // 🔥 Format No Order
-                            $noOrderDisplay = $t['no_order'] ? format_no_order($t['no_order']) : '-';
-
-                            // 🔥 Format tanggal singkat "29 Sep 2026" (helper order_helper.php).
-                            // $ts tetap dipakai untuk data-order (sorting DataTables).
-                            $ts = strtotime($t['tanggal']);
-                            $tanggalDisplay = tanggal_singkat($t['tanggal']);
-
-                            // Baris dari Archive (lihat App\Services\TransaksiArchiveService)
-                            // -- read-only, cuma boleh dilihat, tidak boleh
-                            // dibayar/diselesaikan/dibatalkan lewat operasi
-                            // transaksi normal (poin 9 spesifikasi Archive).
-                            $dariArchive = ($t['_sumber'] ?? 'aktif') === 'archive';
-                        ?>
-                            <tr>
-                                <td><?= $i + 1 ?></td>
-                                <td>
-                                    <strong><?= $t['kode_invoice'] ?></strong>
-                                    <?php if ($dariArchive): ?>
-                                        <br><span class="badge bg-secondary" title="Data historis, sudah dipindahkan ke database archive">
-                                            <i class="fas fa-box-archive"></i> Archive
-                                        </span>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?= $noOrderDisplay ?></td> <!-- 🔥 NO ORDER -->
-                                <td data-order="<?= $ts ?>">
-                                    <?= $tanggalDisplay ?>
-                                </td>
-                                <td><?= $t['pelanggan_nama'] ?? '-' ?></td>
-                                <td><?= $t['kasir_inisial'] ?? $t['kasir_nama'] ?? '-' ?></td>
-                                <td class="text-end"><?= number_format($t['grand_total'], 0, ',', '.') ?></td>
-                                <td class="text-end"><?= number_format($totalDibayar, 0, ',', '.') ?></td>
-                                <td class="text-end <?= $sisa > 0 ? 'text-danger' : 'text-success' ?>">
-                                    <?= number_format($sisa, 0, ',', '.') ?>
-                                    <?php if ($kelebihan > 0): ?>
-                                        <br>
-                                        <span class="badge bg-warning text-dark" style="font-size: 0.65rem;" title="Kelebihan bayar">
-                                            <i class="fas fa-exclamation-triangle"></i>
-                                            +<?= number_format($kelebihan, 0, ',', '.') ?>
-                                        </span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <div class="d-flex flex-wrap gap-1">
-                                        <span class="badge bg-<?= $paymentClass ?>">
-                                            <?= status_pembayaran_label($t['status_pembayaran']) ?>
-                                        </span>
-                                        <span class="badge bg-<?= $statusClass ?>">
-                                            <?= $statusLabel ?>
-                                        </span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <a href="<?= base_url('/transaksi/detail/' . $t['id']) ?>"
-                                        class="btn btn-sm btn-info"
-                                        title="Lihat Detail">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-
-                                    <?php if (!$dariArchive): ?>
-                                        <!-- 🔥 TOMBOL BAYAR (HANYA UNTUK BELUM LUNAS, tidak untuk MANGKRAK -- lihat transaksi/detail.php) -->
-                                        <?php if ($t['status_pembayaran'] != 'lunas' && !in_array($t['status'], ['batal', 'mangkrak'], true)): ?>
-                                            <button class="btn btn-sm btn-success"
-                                                onclick="bayarTransaksi(<?= $t['id'] ?>, <?= $t['grand_total'] ?>, <?= $sisa ?>, '<?= $t['kode_invoice'] ?>')">
-                                                <i class="fas fa-hand-holding-usd"></i>
-                                            </button>
-                                        <?php endif; ?>
-
-                                        <?php if ($t['status'] === 'proses' && ($isAdminUser || $isShiftLeaderUser)): ?>
-                                            <button type="button" class="btn btn-sm btn-primary"
-                                                title="Tandai Selesai"
-                                                onclick="selesaikanTransaksi(<?= $t['id'] ?>, '<?= esc($t['status_pembayaran'], 'js') ?>')">
-                                                <i class="fas fa-check"></i>
-                                            </button>
-                                        <?php endif; ?>
-
-                                        <?php // Tahap 5.1: khusus admin/Shift Leader, baik 'proses' maupun 'selesai'. ?>
-                                        <?php if (in_array($t['status'], ['proses', 'selesai'], true) && ($isAdminUser || $isShiftLeaderUser)): ?>
-                                            <button type="button" class="btn btn-sm btn-danger"
-                                                title="Batalkan Transaksi"
-                                                onclick="ubahStatus(<?= $t['id'] ?>, 'batal')">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-
-                    <?php endif; ?>
+                    <!-- Baris dirender oleh DataTables (server-side /transaksi/data). -->
                 </tbody>
             </table>
         </div>
@@ -425,29 +331,151 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
 <!-- INIT DATATABLES & FILTER                   -->
 <!-- ========================================== -->
 <script>
-    function initDataTable() {
-        // Hancurkan instance lama jika ada
-        if ($.fn.DataTable.isDataTable('#tableTransaksi')) {
-            $('#tableTransaksi').DataTable().destroy();
-        }
+    // ============================================================
+    // DataTables server-side + filter
+    // ============================================================
+    $(document).ready(function() {
 
-        // Inisialisasi ulang
-        $('#tableTransaksi').DataTable({
+        // ---- Date range picker --------------------------------
+        var startDate = '<?= $tanggal_awal ?>' || moment().startOf('month').format('YYYY-MM-DD');
+        var endDate = '<?= $tanggal_akhir ?>' || moment().format('YYYY-MM-DD');
+
+        $('#filterTanggal').daterangepicker({
+            locale: AuliaDateRange.locale(),
+            ranges: AuliaDateRange.ranges(),
+            startDate: moment(startDate),
+            endDate: moment(endDate),
+            opens: 'left',
+            showDropdowns: true
+        });
+
+        // ---- DataTables ---------------------------------------
+        var tableTransaksi = $('#tableTransaksi').DataTable({
             responsive: true,
             processing: true,
-            serverSide: false,
+            serverSide: true,
+            // Pencarian memakai kotak search global di header (keyword) yang
+            // mencakup live + arsip; kotak "Cari:" bawaan DataTables dimatikan
+            // agar tidak memberi kesan filter yang tidak dijalankan server.
+            searching: false,
             pageLength: 25,
             order: [
                 [3, 'desc']
             ],
-
+            ajax: {
+                url: '<?= base_url('/transaksi/data') ?>',
+                data: function(d) {
+                    d.tanggal_awal = $('#tanggalAwalHidden').val() || '';
+                    d.tanggal_akhir = $('#tanggalAkhirHidden').val() || '';
+                    // Hidden "efektif" (bukan nilai dropdown) supaya nilai legacy
+                    // dari URL tetap honored; syncFilterEfektif() mengisinya dari
+                    // dropdown saat user berinteraksi.
+                    d.status_pembayaran = $('#statusPembayaranEfektif').val();
+                    d.status_transaksi = $('#statusTransaksiEfektif').val();
+                    d.kasir_id = $('#filterKaryawan').val();
+                    d.keyword = '<?= esc($keyword, 'js') ?>';
+                }
+            },
             columnDefs: [{
+                orderable: false,
+                targets: [0, 10]
+            }],
+            columns: [{
+                    data: null,
                     orderable: false,
-                    targets: [0, 10]
+                    render: function(d, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
                 },
                 {
-                    type: 'num',
-                    targets: [2]
+                    data: 'kode_invoice',
+                    render: function(d, type, row) {
+                        var html = '<strong>' + d + '</strong>';
+                        if (row.dari_archive) {
+                            html += '<br><span class="badge bg-secondary" title="Data historis, sudah dipindahkan ke database archive">' +
+                                '<i class="fas fa-box-archive"></i> Archive</span>';
+                        }
+                        return html;
+                    }
+                },
+                { data: 'no_order_display' },
+                {
+                    data: 'tanggal_ts',
+                    render: function(d, type, row) {
+                        return row.tanggal_display;
+                    }
+                },
+                { data: 'pelanggan_nama' },
+                { data: 'kasir' },
+                {
+                    data: 'grand_total',
+                    className: 'text-end',
+                    render: function(d) {
+                        return Number(d).toLocaleString('id-ID');
+                    }
+                },
+                {
+                    data: 'total_dibayar',
+                    className: 'text-end',
+                    render: function(d) {
+                        return Number(d).toLocaleString('id-ID');
+                    }
+                },
+                {
+                    data: 'sisa',
+                    className: 'text-end',
+                    render: function(d, type, row) {
+                        var html = '<span class="' + (Number(d) > 0 ? 'text-danger' : 'text-success') + '">' +
+                            Number(d).toLocaleString('id-ID') + '</span>';
+                        if (Number(row.kelebihan) > 0) {
+                            html += '<br><span class="badge bg-warning text-dark" style="font-size: 0.65rem;" title="Kelebihan bayar">' +
+                                '<i class="fas fa-exclamation-triangle"></i> +' +
+                                Number(row.kelebihan).toLocaleString('id-ID') + '</span>';
+                        }
+                        return html;
+                    }
+                },
+                {
+                    data: 'status_pembayaran',
+                    render: function(d, type, row) {
+                        return '<div class="d-flex flex-wrap gap-1">' +
+                            '<span class="badge bg-' + row.payment_class + '">' + row.payment_label + '</span>' +
+                            '<span class="badge bg-' + row.status_class + '">' + row.status_label + '</span>' +
+                            '</div>';
+                    }
+                },
+                {
+                    data: 'id',
+                    orderable: false,
+                    render: function(d, type, row) {
+                        var html = '<a href="<?= base_url('/transaksi/detail/') ?>' + d +
+                            '" class="btn btn-sm btn-info" title="Lihat Detail"><i class="fas fa-eye"></i></a>';
+
+                        if (!row.dari_archive) {
+                            var cfg = window.paymentModalConfig || {};
+                            var invoiceJs = String(row.kode_invoice).replace(/'/g, "\\'");
+
+                            if (row.status_pembayaran !== 'lunas' &&
+                                row.status !== 'batal' && row.status !== 'mangkrak') {
+                                html += ' <button class="btn btn-sm btn-success" title="Bayar" onclick="bayarTransaksi(' +
+                                    d + ', ' + row.grand_total + ', ' + row.sisa + ', \'' + invoiceJs + '\')">' +
+                                    '<i class="fas fa-hand-holding-usd"></i></button>';
+                            }
+
+                            if (row.status === 'proses' && (cfg.isAdmin || cfg.isShiftLeader)) {
+                                html += ' <button type="button" class="btn btn-sm btn-primary" title="Tandai Selesai" onclick="selesaikanTransaksi(' +
+                                    d + ', \'' + String(row.status_pembayaran).replace(/'/g, "\\'") + '\')">' +
+                                    '<i class="fas fa-check"></i></button>';
+                            }
+
+                            if ((row.status === 'proses' || row.status === 'selesai') && (cfg.isAdmin || cfg.isShiftLeader)) {
+                                html += ' <button type="button" class="btn btn-sm btn-danger" title="Batalkan Transaksi" onclick="ubahStatus(' +
+                                    d + ', \'batal\')"><i class="fas fa-times"></i></button>';
+                            }
+                        }
+
+                        return html;
+                    }
                 }
             ],
             language: {
@@ -465,164 +493,30 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                 }
             }
         });
-    }
 
-    $(document).ready(function() {
-        // Inisialisasi DataTables
-        initDataTable();
+        // ---- Fungsi filter ------------------------------------
+        // Salin pilihan dropdown ke hidden "efektif". Dipanggil saat user
+        // menekan Filter atau memilih rentang, sehingga filter yang benar-
+        // benar dipakai selalu berasal dari interaksi user terakhir.
+        function syncFilterEfektif() {
+            $('#statusTransaksiEfektif').val($('#filterStatusTransaksi').val());
+            $('#statusPembayaranEfektif').val($('#filterStatusPembayaran').val());
+        }
 
-        // ==========================================
-        // 2. INIT DATE RANGE PICKER
-        // ==========================================
-        var startDate = '<?= $tanggal_awal ?>' || moment().startOf('month').format('YYYY-MM-DD');
-        var endDate = '<?= $tanggal_akhir ?>' || moment().format('YYYY-MM-DD');
-
-        $('#filterTanggal').daterangepicker({
-            locale: AuliaDateRange.locale(),
-            ranges: AuliaDateRange.ranges(),
-            startDate: moment(startDate),
-            endDate: moment(endDate),
-            opens: 'left',
-            showDropdowns: true
-        });
-
-        // ==========================================
-        // 3. FUNGSI FILTER
-        // ==========================================
         window.applyFilter = function() {
-
-            var tanggalRange =
-                $('#filterTanggal').val();
-
-            var statusPembayaran =
-                $('#filterStatusPembayaran').val();
-
-            var statusTransaksi =
-                $('#filterStatusTransaksi').val();
-
-            var karyawan =
-                $('#filterKaryawan').val();
-
-
-            var url =
-                '<?= base_url('/transaksi') ?>?';
-
-            var params = [];
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | TANGGAL
-            |--------------------------------------------------------------------------
-            */
-
-            if (tanggalRange) {
-
-                var parts =
-                    tanggalRange.split(' - ');
-
-                if (parts.length === 2) {
-
-                    var start =
-                        moment(
-                            parts[0],
-                            'DD/MM/YYYY'
-                        ).format('YYYY-MM-DD');
-
-                    var end =
-                        moment(
-                            parts[1],
-                            'DD/MM/YYYY'
-                        ).format('YYYY-MM-DD');
-
-
-                    params.push(
-                        'tanggal_awal=' +
-                        encodeURIComponent(start)
-                    );
-
-                    params.push(
-                        'tanggal_akhir=' +
-                        encodeURIComponent(end)
-                    );
-                }
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | STATUS PEMBAYARAN
-            |--------------------------------------------------------------------------
-            */
-
-            if (statusPembayaran) {
-
-                params.push(
-                    'status_pembayaran=' +
-                    encodeURIComponent(
-                        statusPembayaran
-                    )
-                );
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | STATUS TRANSAKSI
-            |--------------------------------------------------------------------------
-            */
-
-            if (statusTransaksi) {
-
-                params.push(
-                    'status_transaksi=' +
-                    encodeURIComponent(
-                        statusTransaksi
-                    )
-                );
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | KARYAWAN
-            |--------------------------------------------------------------------------
-            */
-
-            if (karyawan) {
-
-                params.push(
-                    'kasir_id=' +
-                    encodeURIComponent(
-                        karyawan
-                    )
-                );
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | REDIRECT
-            |--------------------------------------------------------------------------
-            */
-
-            url += params.join('&');
-
-            window.location.href = url;
+            syncFilterEfektif();
+            tableTransaksi.ajax.reload();
         };
         window.resetFilter = function() {
             window.location.href = '<?= base_url('/transaksi') ?>';
         };
 
-        // Filter otomatis saat date range di-apply
+        // Rentang tanggal: simpan ke hidden lalu reload.
         $('#filterTanggal').on('apply.daterangepicker', function(ev, picker) {
-            applyFilter();
-        });
-        // Filter otomatis saat enter di input search (jika ada)
-        $('#filterTanggal').on('keydown', function(e) {
-            if (e.key === 'Enter') {
-                applyFilter();
-            }
+            $('#tanggalAwalHidden').val(picker.startDate.format('YYYY-MM-DD'));
+            $('#tanggalAkhirHidden').val(picker.endDate.format('YYYY-MM-DD'));
+            syncFilterEfektif();
+            tableTransaksi.ajax.reload();
         });
     });
 </script>
