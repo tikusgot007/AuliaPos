@@ -156,6 +156,103 @@
         background: #fff;
     }
 
+    /* Pembungkus thread: tempat tombol "gulung ke pesan terbaru" melayang. */
+    .inbox-thread-wrap {
+        flex: 1;
+        min-height: 0;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Pemisah tanggal berbentuk kapsul (P4). */
+    .inbox-tanggal {
+        text-align: center;
+        margin: 10px 0;
+    }
+
+    .inbox-tanggal span {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 8px;
+        background: #e1f2fb;
+        color: #54656f;
+        font-size: 0.72rem;
+        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+    }
+
+    .inbox-muat-lama {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    .inbox-kutipan-klik {
+        cursor: pointer;
+    }
+
+    .inbox-kutipan-klik:hover {
+        background: rgba(0, 0, 0, 0.09);
+    }
+
+    .inbox-bubble-sorot {
+        animation: inbox-sorot 1.6s ease-out;
+    }
+
+    @keyframes inbox-sorot {
+        0%, 60% { box-shadow: 0 0 0 3px #ffc107; }
+        100% { box-shadow: 0 0 0 0 transparent; }
+    }
+
+    .inbox-gulung-baru {
+        position: absolute;
+        right: 20px;
+        bottom: 16px;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 50%;
+        background: #fff;
+        color: #54656f;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        font-size: 0.8rem;
+    }
+
+    .inbox-gulung-jumlah {
+        position: absolute;
+        top: -6px;
+        right: -2px;
+        min-width: 20px;
+        padding: 0 5px;
+        border-radius: 10px;
+        background: #0d6efd;
+        color: #fff;
+        font-size: 0.68rem;
+        line-height: 20px;
+    }
+
+    .inbox-centang {
+        color: #8a8a8a;
+        margin-right: 3px;
+    }
+
+    .inbox-gagal {
+        color: #dc3545;
+        margin-right: 3px;
+    }
+
+    .inbox-kode-blok {
+        margin: 4px 0;
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.06);
+        font-family: monospace;
+        font-size: 0.82rem;
+        white-space: pre-wrap;
+    }
+
     .inbox-thread-messages {
         flex: 1;
         overflow-y: auto;
@@ -596,10 +693,17 @@
                     <div id="daftarRiwayatHandoff"></div>
                 </div>
 
-                <div class="inbox-thread-messages" id="threadMessages">
-                    <div class="inbox-thread-empty">
-                        <i class="fas fa-comments fa-2x me-2"></i> Belum ada percakapan dipilih.
+                <div class="inbox-thread-wrap">
+                    <div class="inbox-thread-messages" id="threadMessages">
+                        <div class="inbox-thread-empty">
+                            <i class="fas fa-comments fa-2x me-2"></i> Belum ada percakapan dipilih.
+                        </div>
                     </div>
+                    <!-- Muncul saat pesan baru masuk selagi kasir membaca riwayat (P7, AC-29). -->
+                    <button type="button" class="inbox-gulung-baru" id="btnGulungBaru" style="display:none;" onclick="gulungKeTerbaru()" title="Gulung ke pesan terbaru">
+                        <span class="inbox-gulung-jumlah">0</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
                 </div>
 
                 <div class="inbox-thread-form">
@@ -978,6 +1082,7 @@
 <script>
     window.INBOX_THREAD_CONFIG = {
         mediaBaseUrl: <?= json_encode(base_url('/inbox/media/')) ?>,
+        apiMessagesUrl: <?= json_encode(base_url('/inbox/api/conversations')) ?>,
         maxMediaDownloadMb: <?= json_encode($maxMediaDownloadMb) ?>
     };
 </script>
@@ -2387,13 +2492,17 @@
     function muatUlangPesan(scrollPaksa) {
         if (!conversationAktif) return;
 
-        fetch('<?= base_url('/inbox/api/conversations') ?>/' + conversationAktif + '/messages')
+        // Respons yang datang setelah kasir pindah percakapan dibuang, supaya
+        // tidak menimpa thread percakapan yang sekarang dibuka.
+        const idDimuat = conversationAktif;
+
+        fetch('<?= base_url('/inbox/api/conversations') ?>/' + idDimuat + '/messages')
             .then(function(res) {
                 return res.json();
             })
             .then(function(json) {
-                if (json.status === 'success') {
-                    renderPesan(json.messages, scrollPaksa);
+                if (json.status === 'success' && idDimuat === conversationAktif) {
+                    terimaPesanTerbaru(idDimuat, json, scrollPaksa);
                 }
             })
             .catch(function() {

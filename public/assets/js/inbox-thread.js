@@ -65,6 +65,50 @@ function formatWaktuInbox(iso) {
     });
 }
 
+// Untuk nilai di dalam atribut HTML ber-kutip: escapeHtmlInbox() tidak
+// meng-escape kutip, jadi nilai dari server tidak boleh langsung masuk atribut.
+function escapeAttrInbox(str) {
+    return escapeHtmlInbox(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/* Format teks WhatsApp (P6/AC-20..AC-22, AC-31).
+   URUTAN WAJIB: escape HTML dulu, baru penanda. Kode (``` dan `) dan tautan
+   disisihkan ke penampung lebih dulu supaya isinya tidak ikut diformat.
+   Penanda *tebal*, _miring_, ~coret~ hanya berlaku bila menempel pada teks
+   (tidak ada spasi di tepi dalamnya) dan tidak menempel pada huruf/angka di
+   luarnya, jadi `2*3*4`, `snake_case_name` dan `* bukan *` tidak berubah.
+   Penanda tanpa pasangan dibiarkan. Hanya http(s) yang menjadi tautan. */
+function penandaWa(teks, c, tag) {
+    const pola = new RegExp(
+        '(?<![\\p{L}\\p{N}_' + c + '])[' + c + '](?![\\s' + c + '])([^' + c + '\\n]*[^\\s' + c + '])[' + c + '](?![\\p{L}\\p{N}_' + c + '])',
+        'gu'
+    );
+    return teks.replace(pola, '<' + tag + '>$1</' + tag + '>');
+}
+
+function formatTeksWa(teks) {
+    const penampung = [];
+    const simpan = function(html) { return '\u0000' + (penampung.push(html) - 1) + '\u0000'; };
+    // \u0000 dipakai sebagai pembatas penampung: buang dari masukan supaya tidak bisa dipalsukan.
+    let s = escapeHtmlInbox(String(teks ?? '').replace(/\u0000/g, ''));
+
+    s = s.replace(/```([\s\S]+?)```/g, function(_, isi) {
+        return simpan('<pre class="inbox-kode-blok">' + isi.replace(/^\n|\n$/g, '') + '</pre>');
+    });
+    s = s.replace(/`([^`\n]+)`/g, function(_, isi) { return simpan('<code>' + isi + '</code>'); });
+    s = s.replace(/https?:\/\/(?:(?!&lt;|&gt;)[^\s"'])+/gi, function(url) {
+        const ekor = (url.match(/[.,;:!?)\]}]+$/) || [''])[0];
+        const bersih = ekor ? url.slice(0, -ekor.length) : url;
+        return simpan('<a href="' + bersih + '" target="_blank" rel="noopener noreferrer">' + bersih + '</a>') + ekor;
+    });
+
+    s = penandaWa(s, '*', 'strong');
+    s = penandaWa(s, '_', 'em');
+    s = penandaWa(s, '~', 'del');
+
+    return s.replace(/\u0000(\d+)\u0000/g, function(_, n) { return penampung[Number(n)]; });
+}
+
 function adaKutipan(m) {
     return m && m.quoted_wa_message_id !== null && m.quoted_wa_message_id !== undefined && m.quoted_wa_message_id !== '';
 }
@@ -133,7 +177,7 @@ function renderKotakKutipan(m) {
     } else if (adaSumberMedia && tipeMedia === 'document') {
         const urlMediaKutipan = threadConfig.mediaBaseUrl + sumberId;
         const labelDokumen = m.quoted_snippet || '[Dokumen]';
-        isiKutipan = '<a href="' + urlMediaKutipan + '" target="_blank" class="inbox-kutipan-dokumen">' +
+        isiKutipan = '<a href="' + urlMediaKutipan + '" target="_blank" class="inbox-kutipan-dokumen" onclick="event.stopPropagation()">' +
             '<i class="fas fa-file-alt"></i> ' + escapeHtmlInbox(labelDokumen) + '</a>';
     } else if (adaSumberMedia && (tipeMedia === 'audio' || tipeMedia === 'video')) {
         const labelTipe = tipeMedia === 'audio' ? '[Audio]' : '[Video]';
@@ -146,7 +190,14 @@ function renderKotakKutipan(m) {
         ? '<div class="inbox-kutipan-pengirim">Pesan tidak ditemukan</div>'
         : '<div class="inbox-kutipan-pengirim">' + escapeHtmlInbox(m.quoted_sender_label) + '</div>';
 
-    return '<div class="inbox-kutipan">' + '<i class="fas fa-reply align-self-center text-success"></i>' +
+    // P5: kotak kutipan bisa diklik untuk meloncat ke pesan asal, kecuali
+    // "Pesan tidak ditemukan" (tidak ada tujuan; AC-19).
+    const kelasKlik = tidakDitemukan ? '' :
+        ' inbox-kutipan-klik" role="button" tabindex="0" title="Lihat pesan asal"' +
+        ' data-kutipan-wa="' + escapeAttrInbox(m.quoted_wa_message_id) + '"' +
+        ' onclick="loncatKeKutipan(this)" onkeydown="if (event.key === \'Enter\') loncatKeKutipan(this)';
+
+    return '<div class="inbox-kutipan' + kelasKlik + '">' + '<i class="fas fa-reply align-self-center text-success"></i>' +
         '<div class="inbox-kutipan-isi">' + judul + isiKutipan + '</div>' +
         '</div>';
 }
@@ -400,7 +451,7 @@ function renderIsiPesan(m) {
 
     if (m.message_type === 'image') {
         const kunci = String(m.id);
-        const caption = m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '';
+        const caption = m.text ? '<div class="inbox-media-caption">' + formatTeksWa(m.text) + '</div>' : '';
 
         // Tahap E: permanen (410) -- JANGAN buat tag <img> lagi untuk
         // pesan ini sama sekali, mencegah polling 4 detik terus meminta
@@ -467,7 +518,7 @@ function renderIsiPesan(m) {
         return '<a href="' + urlMedia + '" target="_blank" class="inbox-media-document">' +
             '<i class="fas fa-file-alt"></i> ' + escapeHtmlInbox(namaFile) +
             '</a>' +
-            (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+            (m.text ? '<div class="inbox-media-caption">' + formatTeksWa(m.text) + '</div>' : '');
     }
 
     // Audio (termasuk voice note -- tidak dibedakan, lihat catatan
@@ -482,7 +533,7 @@ function renderIsiPesan(m) {
         return '<div class="inbox-media-unavailable" style="font-style:normal;">' +
             '<i class="fas ' + icon + '"></i> Customer mengirim ' + label + ' — cek WhatsApp Web.' +
             '</div>' +
-            (m.text ? '<div class="inbox-media-caption">' + escapeHtmlInbox(m.text) + '</div>' : '');
+            (m.text ? '<div class="inbox-media-caption">' + formatTeksWa(m.text) + '</div>' : '');
     }
 
     // Tahap 4 -- lokasi: kartu berisi nama/alamat + tautan peta.
@@ -542,7 +593,7 @@ function renderIsiPesan(m) {
             '</div>';
     }
 
-    return escapeHtmlInbox(m.text);
+    return formatTeksWa(m.text);
 }
 
 // ================================================================
@@ -577,8 +628,21 @@ function renderBubbleHtml(m) {
         renderIsiPesan(m) +
         penandaKutipan +
         renderAksiPesan(m) +
-        '<div class="bubble-meta">' + formatWaktuInbox(m.message_timestamp) + '</div>' +
+        '<div class="bubble-meta">' + renderCentangKirim(m) + formatWaktuInbox(m.message_timestamp) + '</div>' +
         '</div>';
+}
+
+/* Penanda kirim pada pesan keluar (AC-30): satu centang untuk `sent`, ikon
+   "!" untuk `failed`. Centang ganda/biru tidak ada: gateway tidak mengirim
+   status delivered/read. Catatan internal tidak pernah dikirim ke pelanggan. */
+function renderCentangKirim(m) {
+    const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
+
+    if (m.direction !== 'outgoing' || internal) return '';
+    if (m.send_status === 'sent') return '<i class="fas fa-check inbox-centang" title="Terkirim"></i> ';
+    if (m.send_status === 'failed') return '<i class="fas fa-exclamation-circle inbox-gagal" title="Gagal terkirim"></i> ';
+
+    return '';
 }
 
 /* Rencana pembaruan thread (fungsi murni, dites di tests/js/inbox-thread.test.js).
@@ -660,16 +724,142 @@ function terapkanRencanaThread(container, rencana) {
     });
 }
 
+// ================================================================
+// TANGGAL, PENGGABUNGAN, PAGINATION (P1b, P4, P5, P7)
+// ================================================================
+
+const BATAS_HALAMAN_KUTIPAN = 5; // maks. halaman lama yang dimuat untuk mencari pesan asal kutipan (AC-18)
+
+function waktuPesan(ts) {
+    return new Date(String(ts).replace(' ', 'T'));
+}
+
+function awalHari(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/* Kunci hari (zona waktu browser, sama dengan formatWaktuInbox). '' bila
+   timestamp tidak valid: pesan itu tidak memulai pemisah baru. */
+function kunciHari(ts) {
+    const d = waktuPesan(ts);
+    if (isNaN(d.getTime())) return '';
+    const dua = function(n) { return (n < 10 ? '0' : '') + n; };
+
+    return d.getFullYear() + '-' + dua(d.getMonth() + 1) + '-' + dua(d.getDate());
+}
+
+function labelTanggal(ts, sekarang) {
+    const d = waktuPesan(ts);
+    const selisih = Math.round((awalHari(sekarang) - awalHari(d)) / 86400000);
+
+    if (selisih === 0) return 'Hari ini';
+    if (selisih === 1) return 'Kemarin';
+
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// Urutan tampil yang sama dengan server: message_timestamp, lalu id.
+function urutPesan(a, b) {
+    if (a.message_timestamp !== b.message_timestamp) return a.message_timestamp < b.message_timestamp ? -1 : 1;
+    return Number(a.id) - Number(b.id);
+}
+
+function urutkanPesan(peta) {
+    return Array.from(peta.values()).sort(urutPesan);
+}
+
+/* Gabungkan pesan yang sudah dikenal dengan jendela TERBARU dari polling
+   (fungsi murni). Pesan di dalam rentang jendela tetapi tidak ada di respons
+   dianggap dihapus (AC-10). Pesan yang lebih tua dari jendela dipertahankan:
+   mereka dimuat lewat "Muat pesan lama", atau baru saja bergeser keluar
+   jendela karena pesan baru masuk (AC-27). */
+function gabungPesanThread(dikenal, terbaru, adaLagi) {
+    const hasil = new Map();
+
+    if (!terbaru.length) return hasil;
+
+    dikenal.forEach(function(m, key) {
+        const didalamJendela = !adaLagi || urutPesan(m, terbaru[0]) >= 0;
+        if (!didalamJendela) hasil.set(key, m);
+    });
+    terbaru.forEach(function(m) { hasil.set(String(m.id), m); });
+
+    return hasil;
+}
+
+function htmlTombolMuatLama(memuat) {
+    return '<div class="inbox-muat-lama"><button type="button" class="btn btn-outline-secondary btn-sm"' +
+        (memuat ? ' disabled' : ' onclick="muatPesanLama()"') + '>' +
+        (memuat ? '<i class="fas fa-spinner fa-spin"></i> Memuat...' : '<i class="fas fa-history"></i> Muat pesan lama') +
+        '</button></div>';
+}
+
+/* Daftar item thread urut tampil (fungsi murni): tombol "Muat pesan lama"
+   bila masih ada riwayat, pemisah tanggal (kapsul) sebelum pesan pertama
+   tiap hari, dan bubble pesan. Pemisah bukan pesan: tidak masuk pesanCached. */
+function susunItemThread(messages, opsi) {
+    const items = [];
+    let hariTerakhir = '';
+
+    if (opsi.olderHasMore) items.push({ key: 'muat-lama', html: htmlTombolMuatLama(opsi.memuatLama) });
+
+    messages.forEach(function(m) {
+        const hari = kunciHari(m.message_timestamp);
+
+        if (hari && hari !== hariTerakhir) {
+            items.push({ key: 'tgl:' + hari, html: '<div class="inbox-tanggal"><span>' + escapeHtmlInbox(labelTanggal(m.message_timestamp, opsi.now)) + '</span></div>' });
+            hariTerakhir = hari;
+        }
+
+        items.push({ key: String(m.id), html: renderBubbleHtml(m) });
+    });
+
+    return items;
+}
+
+// State per percakapan yang sedang dibuka.
+let threadKonvId = null;
+let threadDikenal = new Map();      // String(id) -> pesan (jendela terbaru + halaman lama)
+let threadOlderHasMore = false;     // masih ada riwayat yang lebih lama di server
+let threadOlderDimuat = false;      // sudah pernah memuat halaman lama di percakapan ini
+let threadMemuatLama = false;
+let threadKunciAkhir = null;        // id pesan terakhir pada render sebelumnya
+let threadJumlahBaru = 0;           // pesan baru yang masuk selagi kasir membaca ke atas
+
 /* Kosongkan state thread. `htmlKosong` (opsional) menjadi isi kontainer,
    mis. placeholder "Belum ada percakapan dipilih". */
 function resetThread(htmlKosong) {
     threadEntries.clear();
     pesanCached = {};
+    threadDikenal = new Map();
+    threadOlderHasMore = false;
+    threadOlderDimuat = false;
+    threadMemuatLama = false;
+    threadKunciAkhir = null;
+    threadJumlahBaru = 0;
+    perbaruiTombolGulung();
     document.getElementById('threadMessages').innerHTML = htmlKosong || '';
 }
 
-function renderPesan(messages, paksaScroll) {
+function perbaruiTombolGulung() {
+    const tombol = document.getElementById('btnGulungBaru');
+    if (!tombol) return;
+
+    tombol.style.display = threadJumlahBaru > 0 ? 'flex' : 'none';
+    const jumlah = tombol.querySelector('.inbox-gulung-jumlah');
+    if (jumlah) jumlah.textContent = String(threadJumlahBaru);
+}
+
+function gulungKeTerbaru() {
     const container = document.getElementById('threadMessages');
+    container.scrollTop = container.scrollHeight;
+    threadJumlahBaru = 0;
+    perbaruiTombolGulung();
+}
+
+function renderPesan(messages, paksaScroll, opsi) {
+    const container = document.getElementById('threadMessages');
+    opsi = opsi || {};
 
     // Tentukan SEBELUM DOM berubah -- scrollHeight/scrollTop
     // lama masih relevan di sini. Toleransi 80px: kasir yang sudah
@@ -679,6 +869,16 @@ function renderPesan(messages, paksaScroll) {
     // tetap auto-scroll seperti biasa supaya pesan baru terlihat.
     const dekatBawah = (container.scrollHeight - container.scrollTop - container.clientHeight) <= 80;
     const harusScroll = !!paksaScroll || dekatBawah;
+
+    if (!container.__gulungDipasang && container.addEventListener) {
+        container.__gulungDipasang = true;
+        container.addEventListener('scroll', function() {
+            if ((container.scrollHeight - container.scrollTop - container.clientHeight) <= 80 && threadJumlahBaru > 0) {
+                threadJumlahBaru = 0;
+                perbaruiTombolGulung();
+            }
+        });
+    }
 
     if (!messages.length) {
         resetThread('<div class="inbox-thread-empty"><i class="fas fa-comment-dots fa-2x me-2"></i> Belum ada pesan di percakapan ini.</div>');
@@ -691,9 +891,19 @@ function renderPesan(messages, paksaScroll) {
     pesanCached = {};
     messages.forEach(function(m) { pesanCached[m.id] = m; });
 
-    const items = messages.map(function(m) {
-        return { key: String(m.id), html: renderBubbleHtml(m) };
-    });
+    // Penghitung pesan baru (AC-29): hanya pesan yang datang SETELAH pesan
+    // terakhir render sebelumnya, dan hanya bila kasir tidak sedang di dasar.
+    const kunciAkhirBaru = String(messages[messages.length - 1].id);
+    if (harusScroll) {
+        threadJumlahBaru = 0;
+    } else if (!opsi.dariMuatLama && threadKunciAkhir !== null) {
+        const idx = messages.findIndex(function(m) { return String(m.id) === threadKunciAkhir; });
+        if (idx >= 0) threadJumlahBaru += messages.length - 1 - idx;
+    }
+    threadKunciAkhir = kunciAkhirBaru;
+    perbaruiTombolGulung();
+
+    const items = susunItemThread(messages, { now: new Date(), olderHasMore: threadOlderHasMore, memuatLama: threadMemuatLama });
     const rencana = rencanaPembaruanThread(htmlThreadSaatIni(), items, function(key) {
         const entri = threadEntries.get(key);
         return !!entri && entri.el.parentNode === container;
@@ -703,6 +913,116 @@ function renderPesan(messages, paksaScroll) {
     if (harusScroll) {
         container.scrollTop = container.scrollHeight;
     }
+}
+
+/* Hasil polling "pesan terbaru" untuk satu percakapan. Berganti percakapan
+   mengosongkan semuanya (AC-10); selain itu jendela terbaru digabung dengan
+   halaman lama yang sudah dimuat. */
+function terimaPesanTerbaru(konvId, json, paksaScroll) {
+    if (konvId !== threadKonvId) {
+        resetThread('');
+        threadKonvId = konvId;
+    }
+
+    const terbaru = json.messages || [];
+    threadDikenal = gabungPesanThread(threadDikenal, terbaru, !!json.has_more);
+
+    // Sebelum ada halaman lama yang dimuat, "ada riwayat lama" persis
+    // has_more jendela terbaru; sesudahnya hanya bisa menjadi false.
+    if (!threadOlderDimuat) threadOlderHasMore = !!json.has_more;
+    else if (!json.has_more) threadOlderHasMore = false;
+
+    renderPesan(urutkanPesan(threadDikenal), paksaScroll);
+}
+
+function gambarUlangThread() {
+    renderPesan(urutkanPesan(threadDikenal), false, { dariMuatLama: true });
+}
+
+function tampilkanToastThread(teks, jenis) {
+    if (typeof showToast === 'function') showToast(teks, jenis);
+}
+
+/* "Muat pesan lama": ambil halaman sebelum pesan tertua yang tampil
+   (GET .../messages?before_id=). Posisi baca dijaga: tinggi yang bertambah
+   di atas ditambahkan ke scrollTop (AC-27). Mengembalikan Promise<boolean>. */
+function muatPesanLama() {
+    const urut = urutkanPesan(threadDikenal);
+
+    if (threadMemuatLama || !threadOlderHasMore || threadKonvId === null || !urut.length) {
+        return Promise.resolve(false);
+    }
+
+    const konv = threadKonvId;
+    threadMemuatLama = true;
+    gambarUlangThread();
+
+    return fetch(threadConfig.apiMessagesUrl + '/' + konv + '/messages?before_id=' + encodeURIComponent(urut[0].id))
+        .then(function(res) { return res.json(); })
+        .then(function(json) {
+            if (konv !== threadKonvId) return false;
+            if (json.status !== 'success') throw new Error(json.message || 'gagal');
+
+            const container = document.getElementById('threadMessages');
+            const tinggiSebelum = container.scrollHeight;
+            const posisiSebelum = container.scrollTop;
+
+            (json.messages || []).forEach(function(m) { threadDikenal.set(String(m.id), m); });
+            threadOlderHasMore = !!json.has_more;
+            threadOlderDimuat = true;
+            threadMemuatLama = false;
+
+            gambarUlangThread();
+            container.scrollTop = posisiSebelum + (container.scrollHeight - tinggiSebelum);
+
+            return true;
+        })
+        .catch(function() {
+            if (konv === threadKonvId) {
+                threadMemuatLama = false;
+                gambarUlangThread();
+            }
+            tampilkanToastThread('Gagal memuat pesan lama.', 'warning');
+            return false;
+        });
+}
+
+function sorotBubble(el) {
+    el.classList.add('inbox-bubble-sorot');
+    setTimeout(function() { el.classList.remove('inbox-bubble-sorot'); }, 1600);
+}
+
+function cariDanLoncat(waId, halaman) {
+    let sumber = null;
+    threadDikenal.forEach(function(m) { if (m.wa_message_id === waId) sumber = m; });
+
+    if (sumber) {
+        const entri = threadEntries.get(String(sumber.id));
+        if (entri) {
+            entri.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            sorotBubble(entri.el);
+            return Promise.resolve(true);
+        }
+    }
+
+    if (threadOlderHasMore && halaman < BATAS_HALAMAN_KUTIPAN) {
+        return muatPesanLama().then(function(berhasil) {
+            return berhasil ? cariDanLoncat(waId, halaman + 1) : false;
+        });
+    }
+
+    tampilkanToastThread('Pesan asal tidak ada di riwayat yang dimuat', 'warning');
+    return Promise.resolve(false);
+}
+
+/* Klik pada kotak kutipan (P5): gulung ke pesan asal dan sorot sebentar.
+   Pesan asal dicari lewat quoted_wa_message_id = wa_message_id; bila belum
+   dimuat, halaman lama dimuat berurutan (maks. BATAS_HALAMAN_KUTIPAN). */
+function loncatKeKutipan(el) {
+    const waId = el && el.getAttribute ? el.getAttribute('data-kutipan-wa') : null;
+    if (!waId) return Promise.resolve(false);
+
+    return cariDanLoncat(waId, 0);
 }
 
 /* Bubble pesan keluar yang baru dikirim, tampil tanpa menunggu polling.
@@ -717,18 +1037,11 @@ function tampilkanBubbleOutgoing(m) {
     pesanCached[m.id] = m;
 
     const key = String(m.id);
-    const html = renderBubbleHtml(Object.assign({ direction: 'outgoing' }, m));
-    const lama = threadEntries.get(key);
+    const baru = Object.assign({ direction: 'outgoing' }, m);
+    threadDikenal.set(key, baru);
+    threadKunciAkhir = key;
 
-    if (!lama || lama.el.parentNode !== container) {
-        const el = elemenDariHtml(html);
-        container.appendChild(el);
-        threadEntries.set(key, { html: html, el: el });
-    } else if (lama.html !== html) {
-        const el = elemenDariHtml(html);
-        lama.el.replaceWith(el);
-        threadEntries.set(key, { html: html, el: el });
-    }
-
-    container.scrollTop = container.scrollHeight;
+    // Bila hari berganti atau tombol "muat lama"/pemisah belum ada, gambar
+    // ulang lewat jalur yang sama dengan polling supaya pemisah ikut benar.
+    renderPesan(urutkanPesan(threadDikenal), true);
 }

@@ -1,7 +1,7 @@
 # Design: Inbox thread improvements (latest-window pagination, per-message rendering)
 
 - **Date**: 2026-10-02
-- **Status**: draft (stages 1 and 2 implemented; Node.js v22 confirmed available on the developer machine)
+- **Status**: draft (stages 1, 2 and 3 implemented; Node.js v22 confirmed available on the developer machine)
 - **Requirements**: `docs/requirements/2026-10-02-perbaikan-thread-inbox.md`
 - **SDLC tier**: A
 
@@ -82,10 +82,18 @@ PHP feature tests cannot run in the authoring sandbox (no MariaDB); they run on 
 - Scroll jump when older messages are prepended -> record the anchor element offset before the insert and restore it after.
 - Jump-to-source loops over many pages -> hard cap of 5 pages, then the toast.
 
-## 8. Not yet verified
+## 8. Implementation notes (stage 3)
+
+- `gabungPesanThread()` merges the latest window with everything already known: a known message inside the window's range that is missing from the response is deleted, one older than the window is kept (it was loaded with "Load older" or just slid out). Limitation: a message deleted on the server that sits in an already loaded older page is not noticed until the conversation is reopened.
+- `susunItemThread()` builds the item list (load-older button, date separators, bubbles); the same planner/applier handles all item kinds.
+- `muatPesanLama()` keeps the reading position by adding the height gained on top to `scrollTop`; `loncatKeKutipan()` loads up to 5 older pages to find the quoted message.
+- `formatTeksWa()`: escape first, then code and URLs are set aside in placeholders (`\u0000N\u0000`, forged ones are stripped from the input), then `*`, `_`, `~` with word-boundary rules.
+- `muatUlangPesan()` in `index.php` drops a response that arrives after the cashier switched conversation.
+
+## 9. Not yet verified
 
 - Real message volume per conversation in production beyond the 160 observed.
 
-## 9. Approval (Gate 2)
+## 10. Approval (Gate 2)
 
 - [ ] Approved by: <name>, date: <YYYY-MM-DD>

@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-02 | [Perbaikan thread pesan Inbox: 200 terbaru + pagination, render per pesan, tampilan ala vue-advanced-chat](2026-10-02-perbaikan-thread-inbox.md) | implementasi selesai (tes node/PHP/browser di sandbox; uji manual di server pengembang menunggu) |
 | 2026-10-02 | [Bug Inbox: nama conversation berubah jadi nama staff saat balas dari WA Web/HP](2026-10-02-bug-nama-conversation-wa-web.md) | selesai (fix + test; commit `04f037c`; produksi tersinkron) |
 | 2026-10-02 | [Server-side DataTables tab Periode Laporan (S4)](2026-10-02-server-side-periode-laporan.md) | selesai (kode + verifikasi; belum di-commit) |
 | 2026-10-02 | [Server-side DataTables laporan/daftar (S1–S3b)](2026-10-02-server-side-datatables.md) | sebagian (S1–S3b selesai & terverifikasi; S4 `laporan` = tab Periode saja, lihat checkpoint S4) |
