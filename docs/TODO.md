@@ -12,7 +12,6 @@
 ## Prioritas Tinggi
 
 - [ ] **TODO-O1** Backup terjadwal: `pg_dump` PostgreSQL Evolution + SQLite antrean + `media/` + `.env` — tinggi — ref `docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`
-- [ ] **TODO-O2** Sambungkan pemeliharaan yang sudah ada tapi belum pernah dipanggil: `mediaStore.prune()` & `quotedStore.prune()` (satu-satunya pemanggil lama hanya `pruneTerminal()` di `outgoingOperationService.runStartupRecovery()`, dipanggil `src/app/evolution.js:41` saat start). Akibatnya `MEDIA_RETENTION_DAYS=7` & TTL kutipan tidak berjalan. Sekaligus buat prune untuk `incoming_queue` (belum ada di `src/store/incomingBuffer.js`) untuk membuang baris `completed` tua — tinggi — ref `docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`
 - [ ] **TODO-O3** Rotasi/trim log (`adapter.log` ~49 MB/tahun, `evolution.log` ~620 MB/tahun) + task terjadwal prune/backup (kini belum ada) — tinggi — ref `docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`
 
 ## Prioritas Sedang
