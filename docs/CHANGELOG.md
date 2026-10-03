@@ -14,6 +14,21 @@ Format entri:
 
 ---
 
+## 2026-10-03 — Foto profil: batas ukuran 2 MB benar-benar ditegakkan
+
+- Aturan lama: unggahan foto profil dibatasi 2 MB, tetapi validasinya memakai
+  `UploadedFile::getSizeByUnit('kb')` yang mengembalikan string berformat ribuan
+  (mis. `"2,048.000"`). Perbandingan `>` terhadap batas int karena itu selalu
+  gagal, sehingga **file lebih dari 2 MB tetap tersimpan**.
+- Aturan baru: batas 2 MB ditegakkan dengan membandingkan byte mentah
+  (`getSize() > 2048 * 1024`); file lebih dari 2 MB ditolak dengan pesan
+  "Ukuran file maksimal 2 MB." Nilai batasnya sendiri tidak berubah.
+- Alasan: batas yang dijanjikan ke pengguna (maksimal 2 MB) harus benar-benar
+  berlaku; bug ini membuat file besar lolos dan tersimpan ke disk.
+- Referensi: `app/Libraries/FotoProfilService.php`,
+  `tests/feature/FotoProfilServiceTest.php`, `docs/TODO.md` (TODO-F7); pola
+  perbaikan sama dengan PR #48 (`BalasanTemplateImageService`).
+
 ## 2026-10-03 — Laporan: ekspor Excel saja (hapus Print/Copy/PDF) + format `.xls` berkolom
 
 - Aturan lama: tabel laporan (Item Harian, Laporan Pembayaran, tab Periode, dan

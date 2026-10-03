@@ -60,7 +60,13 @@ class FotoProfilService
             return ['success' => false, 'error' => 'File tidak valid atau gagal diupload.'];
         }
 
-        if ($file->getSizeByUnit('kb') > self::MAX_SIZE_KB) {
+        // Bandingkan byte mentah (getSize()), BUKAN getSizeByUnit('kb'):
+        // di versi framework ini getSizeByUnit('kb') memformat hasilnya
+        // lewat number_format() (mis. "2,048.000", string berkoma ribuan),
+        // sehingga perbandingan `>` dengan int selalu salah dan file besar
+        // lolos validasi. Pola yang benar sama dengan
+        // BalasanTemplateImageService (PR #48) & Inbox::kirimMediaBiasa().
+        if ($file->getSize() > self::MAX_SIZE_KB * 1024) {
             return ['success' => false, 'error' => 'Ukuran file maksimal 2 MB.'];
         }
 
