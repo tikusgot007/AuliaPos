@@ -63,8 +63,14 @@ const EKSTENSI_PER_MIME_TEMPLATE = {
 };
 
 function pilihTemplate(id) {
+    // Bandingkan sebagai string: endpoint /inbox/api/balasan-template
+    // mengembalikan id sebagai STRING (mis. "1", perilaku driver MySQL/
+    // JSON), sementara onclick yang dirender menulis `pilihTemplate(1)`
+    // (angka). Tanpa konversi, `t.id === id` selalu false ("1" === 1) dan
+    // klik template diam-diam tidak melakukan apa-apa. Pola String(x) ===
+    // String(y) sama seperti perbandingan id percakapan lain di index.php.
     const template = daftarTemplateBalasanCache.find(function(t) {
-        return t.id === id;
+        return String(t.id) === String(id);
     });
     if (!template) return;
 

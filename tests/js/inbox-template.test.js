@@ -75,6 +75,18 @@ test('T-1: muatDaftarTemplateBalasan renders a clickable item per template', asy
     assert.match(t.elements.daftarTemplateBalasan.innerHTML, /pilihTemplate\(1\)/);
 });
 
+test('T-1b (regresi): id template berupa STRING dari API tetap bisa dipilih', () => {
+    // API nyata mengembalikan id sebagai string ("1"), sedangkan onclick
+    // merender pilihTemplate(1) sebagai angka. Regresi: pilihTemplate harus
+    // tetap menemukan template walau tipe id beda.
+    const t = loadTemplate();
+    t.ctx.daftarTemplateBalasanCache = [{ id: '1', nama: 'Rek', teks: 'halo', gambar_url: null }];
+
+    t.ctx.pilihTemplate(1);
+
+    assert.equal(t.elements.teksBalasan.value, 'halo');
+});
+
 test('T-2 (AC-12): muatDaftarTemplateBalasan shows an explicit empty-state message, not a bare empty list', async () => {
     const t = loadTemplate({
         fetch: () => Promise.resolve({ json: () => Promise.resolve({ status: 'success', templates: [] }) }),
@@ -87,7 +99,9 @@ test('T-2 (AC-12): muatDaftarTemplateBalasan shows an explicit empty-state messa
 
 test('T-3 (AC-9, AC-11): selecting a text-only template fills the textarea and discards the idempotency key, without touching the media queue', async () => {
     const t = loadTemplate();
-    t.ctx.daftarTemplateBalasanCache = [{ id: 5, nama: 'Jam Buka', teks: 'Kami buka 08:00-20:00', gambar_url: null }];
+    // id string, seperti respons API nyata; dipilih lewat angka, seperti
+    // yang dirender onclick.
+    t.ctx.daftarTemplateBalasanCache = [{ id: '5', nama: 'Jam Buka', teks: 'Kami buka 08:00-20:00', gambar_url: null }];
 
     t.ctx.pilihTemplate(5);
 
@@ -106,7 +120,7 @@ test('T-4 (AC-9, AC-10): selecting a template with an image fetches it and pushe
         },
     });
     t.ctx.daftarTemplateBalasanCache = [{
-        id: 9, nama: 'QRIS', teks: null, gambar_url: 'http://example.com/foto-template/abc.png',
+        id: '9', nama: 'QRIS', teks: null, gambar_url: 'http://example.com/foto-template/abc.png',
     }];
 
     await t.ctx.pilihTemplate(9);
