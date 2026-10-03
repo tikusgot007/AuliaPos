@@ -861,12 +861,9 @@
                         </div>
                         <button type="button" class="btn-close btn-sm align-self-center" id="btnBatalKutipan" style="font-size:0.6rem;" aria-label="Batalkan kutipan" onclick="batalkanKutipan()"></button>
                     </div>
-                    <div id="previewMediaBalasan" class="mb-2" style="display:none;">
-                        <span class="badge bg-light text-dark border">
-                            <i class="fas fa-paperclip"></i> <span id="previewMediaNama"></span>
-                            <button type="button" class="btn-close btn-sm ms-1" style="font-size:0.6rem;" onclick="batalkanMediaBalasan()"></button>
-                        </span>
-                    </div>
+                    <!-- Badge per-file di-render dinamis oleh renderAntrianMediaBalasan()
+                         -- lihat definisi antrianMediaBalasan di bawah. -->
+                    <div id="previewMediaBalasan" class="mb-2 d-flex flex-wrap gap-1" style="display:none;"></div>
                     <!-- data-operation-id (M1 Wave 2, TASK-019): kunci
                          idempotensi milik frontend, hidup selama satu
                          percobaan kirim dan dipakai ulang saat kirim ulang
@@ -877,7 +874,7 @@
                             <button class="btn btn-outline-secondary" type="button" id="btnLampirkanMedia" disabled onclick="document.getElementById('inputMediaBalasan').click()">
                                 <i class="fas fa-paperclip"></i>
                             </button>
-                            <input type="file" id="inputMediaBalasan" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="pilihMediaBalasan(event)">
+                            <input type="file" id="inputMediaBalasan" multiple style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="pilihMediaBalasan(event)">
                             <textarea class="form-control" id="teksBalasan" rows="1" placeholder="Pilih percakapan dulu..." disabled></textarea>
                             <button class="btn btn-success" type="submit" id="btnKirimBalasan" disabled>
                                 <i class="fas fa-paper-plane"></i>
@@ -2739,36 +2736,101 @@
     }
 
     // ================================================================
-    // LAMPIRAN MEDIA (dipilih, siap dikirim bareng pesan berikutnya)
+    // LAMPIRAN MEDIA (antrian, siap dikirim berurutan bareng pesan berikutnya)
     // ================================================================
-    let fileMediaBalasan = null;
+    // Tiap entri: { file, operationId, status: 'pending'|'sending'|'failed', error }.
+    // operationId dibuat per-item (bukan per-form) saat item itu mulai
+    // dikirim, dan DIPERTAHANKAN di item kalau gagal -- prinsip idempotensi
+    // yang sama dengan operation_id form (REQ-039), tapi granularitasnya
+    // per-file karena satu antrian bisa menghasilkan banyak pesan terpisah.
+    let antrianMediaBalasan = [];
+    let urutanAntrianBerikutnya = 1;
 
-    // Dipakai bersama oleh input file (klik paperclip) dan drag-and-drop --
-    // satu tempat yang menetapkan file terlampir, supaya kedua jalur
-    // selalu berperilaku identik.
-    function terapkanFileMediaBalasan(file) {
-        if (!file) return;
+    function renderAntrianMediaBalasan() {
+        const wrap = document.getElementById('previewMediaBalasan');
+        wrap.innerHTML = '';
 
-        fileMediaBalasan = file;
-        document.getElementById('previewMediaNama').textContent = file.name;
-        document.getElementById('previewMediaBalasan').style.display = 'block';
-        document.getElementById('teksBalasan').placeholder = 'Caption (opsional)...';
-        // Lampiran berubah = isi composer berubah -> operasi baru
+        if (antrianMediaBalasan.length === 0) {
+            wrap.style.display = 'none';
+            document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
+            return;
+        }
+
+        wrap.style.display = 'flex';
+        document.getElementById('teksBalasan').placeholder = 'Caption (opsional, untuk file terakhir)...';
+
+        antrianMediaBalasan.forEach(function(item) {
+            const gagal = item.status === 'failed';
+            const span = document.createElement('span');
+            span.className = 'badge bg-light text-dark border' + (gagal ? ' border-danger' : '');
+            span.title = gagal ? item.error : item.file.name;
+
+            const icon = document.createElement('i');
+            icon.className = 'fas ' + (gagal ? 'fa-triangle-exclamation text-danger' : 'fa-paperclip');
+            span.appendChild(icon);
+            span.appendChild(document.createTextNode(' ' + item.file.name));
+
+            if (gagal) {
+                const labelGagal = document.createElement('span');
+                labelGagal.className = 'text-danger';
+                labelGagal.textContent = ' (gagal)';
+                span.appendChild(labelGagal);
+            }
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-close btn-sm ms-1';
+            btn.style.fontSize = '0.6rem';
+            btn.addEventListener('click', function() {
+                hapusSatuMediaBalasan(item.id);
+            });
+            span.appendChild(btn);
+
+            wrap.appendChild(span);
+        });
+    }
+
+    // Dipakai bersama oleh input file (klik paperclip), drag-and-drop, dan
+    // paste -- satu tempat yang menambah file ke antrian, supaya ketiga
+    // jalur selalu berperilaku identik.
+    function tambahMediaBalasan(files) {
+        if (!files || files.length === 0) return;
+
+        Array.prototype.forEach.call(files, function(file) {
+            antrianMediaBalasan.push({
+                id: urutanAntrianBerikutnya++,
+                file: file,
+                operationId: null,
+                status: 'pending',
+                error: null
+            });
+        });
+
+        renderAntrianMediaBalasan();
+        // Antrian berubah = isi composer berubah -> operasi baru
         // (M1 Wave 2, TASK-019).
         buangOperationIdBalasan();
         sembunyikanStatusKirimBalasan();
     }
 
     function pilihMediaBalasan(e) {
-        const file = e.target.files && e.target.files[0];
-        terapkanFileMediaBalasan(file);
+        tambahMediaBalasan(e.target.files);
+        e.target.value = '';
+    }
+
+    function hapusSatuMediaBalasan(id) {
+        antrianMediaBalasan = antrianMediaBalasan.filter(function(item) {
+            return item.id !== id;
+        });
+        renderAntrianMediaBalasan();
+        buangOperationIdBalasan();
+        sembunyikanStatusKirimBalasan();
     }
 
     function batalkanMediaBalasan() {
-        fileMediaBalasan = null;
+        antrianMediaBalasan = [];
         document.getElementById('inputMediaBalasan').value = '';
-        document.getElementById('previewMediaBalasan').style.display = 'none';
-        document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
+        renderAntrianMediaBalasan();
         // Lampiran dibatalkan = isi composer berubah -> operasi baru
         // (M1 Wave 2, TASK-019).
         buangOperationIdBalasan();
@@ -2811,10 +2873,30 @@
 
             if (!conversationAktif) return;
 
-            const file = e.dataTransfer.files && e.dataTransfer.files[0];
-            terapkanFileMediaBalasan(file);
+            tambahMediaBalasan(e.dataTransfer.files);
         });
     })();
+
+    // --- Paste file dari clipboard (Ctrl+V), mirip WhatsApp Web --------
+    // Hanya diaktifkan kalau clipboard memang berisi file -- paste teks
+    // biasa ke composer TIDAK di-preventDefault, supaya tetap jalan normal.
+    document.getElementById('teksBalasan').addEventListener('paste', function(e) {
+        if (!conversationAktif) return;
+        if (!e.clipboardData || !e.clipboardData.items) return;
+
+        const files = [];
+        Array.prototype.forEach.call(e.clipboardData.items, function(item) {
+            if (item.kind === 'file') {
+                const file = item.getAsFile();
+                if (file) files.push(file);
+            }
+        });
+
+        if (files.length === 0) return;
+
+        e.preventDefault();
+        tambahMediaBalasan(files);
+    });
 
     // ================================================================
     // EDIT/HAPUS DARI ROW DAFTAR PERCAKAPAN (panel kiri)
@@ -3154,8 +3236,8 @@
             return false;
         }
 
-        if (fileMediaBalasan) {
-            return kirimMediaBalasan();
+        if (antrianMediaBalasan.length > 0) {
+            return kirimAntrianMediaBalasan();
         }
 
         const textarea = document.getElementById('teksBalasan');
@@ -3230,41 +3312,26 @@
         return false;
     }
 
-    function kirimMediaBalasan() {
-        if (!gatewayTerhubung) {
-            alert('Gateway terputus -- pesan belum bisa dikirim sekarang. Draft Anda tetap tersimpan, coba lagi begitu status kembali "Terhubung".');
-            return false;
+    // Kirim satu item antrian ke /inbox/kirim-media. caption/quotedMessageId
+    // hanya diisi kalau item ini adalah item TERAKHIR dalam antrian (lihat
+    // kirimAntrianMediaBalasan) -- mirip WhatsApp Web: caption nempel di
+    // pesan terakhir, file lain terkirim tanpa caption.
+    function kirimSatuMediaBalasan(item, caption, quotedMessageId) {
+        if (!item.operationId) {
+            item.operationId = buatOperationId();
         }
-
-        const textarea = document.getElementById('teksBalasan');
-        const btn = document.getElementById('btnKirimBalasan');
-        const caption = textarea.value.trim();
-        const file = fileMediaBalasan;
-
-        btn.disabled = true;
-        textarea.disabled = true;
-        document.getElementById('btnLampirkanMedia').disabled = true;
-
-        // Kunci idempotensi percobaan ini -- lihat kirimBalasan().
-        const operationId = ambilOperationIdBalasan();
-
-        // Balas Pesan (Tahap 3, TASK-007/AC-003b): balas-dengan-lampiran
-        // sambil mengutip. Hanya ID LOKAL yang ikut -- isi kutipan tetap
-        // diambil ulang dari database server saat permintaan diproses
-        // (ALT-002), persis seperti jalur teks.
-        const quotedMessageId = kutipanAktif ? kutipanAktif.id : null;
 
         const formData = new FormData();
         formData.append('conversation_id', conversationAktif);
         formData.append('caption', caption);
-        formData.append('media', file);
-        formData.append('operation_id', operationId);
+        formData.append('media', item.file);
+        formData.append('operation_id', item.operationId);
 
         if (quotedMessageId !== null) {
             formData.append('quoted_message_id', quotedMessageId);
         }
 
-        fetch('<?= base_url('/inbox/kirim-media') ?>', {
+        return fetch('<?= base_url('/inbox/kirim-media') ?>', {
                 method: 'POST',
                 body: formData
             })
@@ -3273,35 +3340,103 @@
             })
             .then(function(json) {
                 if (json.status === 'success') {
-                    textarea.value = '';
-                    // Kirim berhasil: operasi selesai, kunci dibuang.
-                    buangOperationIdBalasan();
-                    sembunyikanStatusKirimBalasan();
-                    batalkanMediaBalasan();
-                    // Kutipan sudah terkirim sebagai bagian pesan ini.
-                    batalkanKutipan();
-                    // Reaksi (a) REQ-006: identik dengan jalur teks --
-                    // media tetap terkirim, kasir diberi tahu kutipannya
-                    // tidak sampai ke penerima.
                     if (json.quote_applied === false) {
                         pesanTerkirimTanpaKutipan.add(json.message.id);
                         showToast('Media terkirim, TAPI tanpa kutipan -- kutipan tidak sampai ke penerima.', 'warning');
                     }
                     tampilkanBubbleOutgoing(json.message);
-                    muatUlangDaftarConversation();
-                } else {
-                    tanganiKegagalanKirimBalasan(json, 'Gagal mengirim media.');
+                    return true;
                 }
+
+                item.status = 'failed';
+                item.error = json.message || 'Gagal mengirim media.';
+                tanganiKegagalanKirimBalasan(json, 'Gagal mengirim media.');
+                return false;
             })
             .catch(function(err) {
+                item.status = 'failed';
+                item.error = err.message;
                 showToast('Gagal menghubungi server: ' + err.message, 'danger');
-            })
-            .finally(function() {
-                btn.disabled = false;
-                textarea.disabled = false;
-                document.getElementById('btnLampirkanMedia').disabled = false;
-                textarea.focus();
+                return false;
             });
+    }
+
+    // Kirim seluruh antrian lampiran secara BERURUTAN (1 request per file,
+    // nunggu hasil sebelum lanjut ke file berikutnya -- supaya urutan
+    // terkirim sama seperti urutan drop/pilih, mirip WhatsApp Web). Item
+    // yang gagal ditandai di badge dan TETAP di antrian (tidak menghentikan
+    // sisanya); item yang sukses langsung dihapus dari antrian.
+    async function kirimAntrianMediaBalasan() {
+        if (!gatewayTerhubung) {
+            alert('Gateway terputus -- pesan belum bisa dikirim sekarang. Draft Anda tetap tersimpan, coba lagi begitu status kembali "Terhubung".');
+            return false;
+        }
+
+        const textarea = document.getElementById('teksBalasan');
+        const btn = document.getElementById('btnKirimBalasan');
+        const attachBtn = document.getElementById('btnLampirkanMedia');
+        const caption = textarea.value.trim();
+        // Hanya ID LOKAL yang ikut -- isi kutipan tetap diambil ulang dari
+        // database server saat permintaan diproses (ALT-002), persis seperti
+        // jalur teks (Tahap 3, TASK-007/AC-003b).
+        const quotedMessageId = kutipanAktif ? kutipanAktif.id : null;
+
+        btn.disabled = true;
+        textarea.disabled = true;
+        attachBtn.disabled = true;
+
+        const antrianKirim = antrianMediaBalasan.filter(function(item) {
+            return item.status !== 'failed';
+        });
+        let adaGagal = false;
+
+        for (let i = 0; i < antrianKirim.length; i++) {
+            const item = antrianKirim[i];
+            const isTerakhir = (i === antrianKirim.length - 1);
+
+            if (!gatewayTerhubung) {
+                // Gateway putus di tengah antrian -- sisa item yang belum
+                // dicoba ditandai gagal tanpa dikirim, bukan dipaksa ke
+                // gateway yang sudah mati.
+                item.status = 'failed';
+                item.error = 'Gateway terputus sebelum file ini terkirim.';
+                adaGagal = true;
+                continue;
+            }
+
+            item.status = 'sending';
+            const sukses = await kirimSatuMediaBalasan(
+                item,
+                isTerakhir ? caption : '',
+                isTerakhir ? quotedMessageId : null
+            );
+
+            if (sukses) {
+                antrianMediaBalasan = antrianMediaBalasan.filter(function(x) {
+                    return x.id !== item.id;
+                });
+            } else {
+                adaGagal = true;
+            }
+        }
+
+        renderAntrianMediaBalasan();
+
+        if (!adaGagal) {
+            textarea.value = '';
+            buangOperationIdBalasan();
+            sembunyikanStatusKirimBalasan();
+            batalkanKutipan();
+        } else {
+            showToast('Sebagian file gagal terkirim -- lihat tanda di lampiran.', 'danger');
+        }
+
+        muatUlangDaftarConversation();
+
+        btn.disabled = false;
+        textarea.disabled = false;
+        attachBtn.disabled = false;
+        textarea.focus();
 
         return false;
     }
