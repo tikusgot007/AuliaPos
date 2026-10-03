@@ -11,7 +11,7 @@
 
 ## Prioritas Tinggi
 
-- [ ] **TODO-R1** Fitur Template Balasan Cepat (Inbox): requirement **disetujui** (Gate 1 lolos), desain teknis **draft** menunggu persetujuan Gate 2 dan implementasi oleh tim lain (hold atas permintaan user, 2026-10-03). Sebelum kode ditulis, Gate 2 harus disetujui dulu di `docs/design/2026-10-03-template-balasan-cepat.md` §9 — tinggi — ref `docs/requirements/2026-10-03-template-balasan-cepat.md`, `docs/design/2026-10-03-template-balasan-cepat.md`, `docs/sesi/2026-10-03-handoff-template-balasan-cepat.md`
+- [ ] **TODO-R1** Fitur Template Balasan Cepat (Inbox): Gate 1 + Gate 2 **disetujui** (2026-10-03, dengan deviasi dari desain -- tabel `balasan_template` di `database.inbox`/`aulia_inboxdb`, bukan `database.default` seperti rekomendasi desain §3 Option A). Diimplementasikan di branch `claude/template-balasan-cepat`: migrasi, model, service upload, controller CRUD, views, routing+AuthFilter+menu, endpoint list `/inbox/api/balasan-template`, UI composer Inbox (`inbox-template.js`). `composer test` (unit) hijau, test JS (`node tests/js/inbox-template.test.js`) 6/6 hijau. `composer test:feature` (4 test baru: BalasanTemplateModelTest, BalasanTemplateImageServiceTest, BalasanTemplateCrudTest, InboxTemplateListTest) **belum pernah dijalankan** -- tidak ada MySQL `aulia_inboxdb_test` yang bisa diakses di sesi ini, sama seperti keterbatasan feature test lain yang sudah tercatat di file ini. Sisa: jalankan `composer test:feature` di lingkungan yang punya DB test sebelum merge, lalu verifikasi manual di browser (AC-8..AC-12) — tinggi — ref `docs/requirements/2026-10-03-template-balasan-cepat.md`, `docs/design/2026-10-03-template-balasan-cepat.md`, `docs/sesi/2026-10-03-handoff-template-balasan-cepat.md`
 
 ## Prioritas Sedang
 

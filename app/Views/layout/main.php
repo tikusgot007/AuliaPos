@@ -649,7 +649,7 @@
                 // 'laporan-pembayaran' TIDAK cocok dengan segmen 'laporan'
                 // (butuh 'laporan/'), jadi otomatis tidak ikut aktif.
                 $isLaporanMenu   = $__seg('laporan');
-                $isAdminMenu     = $__seg('user-management', 'ganti-password', 'migrasi-manual', 'archive-transaksi', 'kategori');
+                $isAdminMenu     = $__seg('user-management', 'ganti-password', 'migrasi-manual', 'archive-transaksi', 'kategori', 'balasan-template');
 
                 // Boolean submenu yang dipakai di dalam closure di bawah.
                 $isKasActive       = ($__path === 'cash');
@@ -947,6 +947,13 @@
                                             href="<?= base_url('/kategori') ?>">
                                             <i class="fas fa-tags"></i>
                                             Kategori
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?= $__seg('balasan-template') ? 'active' : '' ?>"
+                                            href="<?= base_url('/balasan-template') ?>">
+                                            <i class="fas fa-comment-dots"></i>
+                                            Template Balasan
                                         </a>
                                     </li>
                                     <li class="nav-item">

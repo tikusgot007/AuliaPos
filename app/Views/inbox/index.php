@@ -875,6 +875,9 @@
                                 <i class="fas fa-paperclip"></i>
                             </button>
                             <input type="file" id="inputMediaBalasan" multiple style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="pilihMediaBalasan(event)">
+                            <button class="btn btn-outline-secondary" type="button" id="btnTemplateBalasan" disabled onclick="bukaModalTemplate()" title="Template Balasan">
+                                <i class="fas fa-comment-dots"></i>
+                            </button>
                             <textarea class="form-control" id="teksBalasan" rows="1" placeholder="Pilih percakapan dulu..." disabled></textarea>
                             <button class="btn btn-success" type="submit" id="btnKirimBalasan" disabled>
                                 <i class="fas fa-paper-plane"></i>
@@ -1157,6 +1160,28 @@
 </div>
 
 <!-- ============================================ -->
+<!-- MODAL TEMPLATE BALASAN CEPAT (TODO-R1) -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalTemplateBalasan" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-comment-dots"></i> Template Balasan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="daftarTemplateBalasan" class="teruskan-daftar-tujuan">
+                    <div class="text-muted small p-2">Memuat template...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
 <!-- MODAL SNOOZE / FOLLOW-UP (M3 Fase 1b, TASK-012) -->
 <!-- ============================================ -->
 <div class="modal fade" id="modalSnooze" tabindex="-1">
@@ -1241,8 +1266,12 @@
         apiMessagesUrl: <?= json_encode(base_url('/inbox/api/conversations')) ?>,
         maxMediaDownloadMb: <?= json_encode($maxMediaDownloadMb) ?>
     };
+    window.INBOX_TEMPLATE_CONFIG = {
+        apiUrl: <?= json_encode(base_url('/inbox/api/balasan-template')) ?>
+    };
 </script>
 <script src="<?= base_url('assets/js/inbox-thread.js') ?>"></script>
+<script src="<?= base_url('assets/js/inbox-template.js') ?>"></script>
 <script>
     // ================================================================
     // STATE
@@ -1345,6 +1374,7 @@
         document.getElementById('teksBalasan').placeholder = 'Pilih percakapan dulu...';
         document.getElementById('btnKirimBalasan').disabled = true;
         document.getElementById('btnLampirkanMedia').disabled = true;
+        document.getElementById('btnTemplateBalasan').disabled = true;
         batalkanKutipan();
         batalkanMediaBalasan();
         // conversationAktif is now null, so the handoff panel is hidden too.
@@ -2329,6 +2359,7 @@
         document.getElementById('teksBalasan').placeholder = 'Ketik balasan...';
         document.getElementById('btnKirimBalasan').disabled = false;
         document.getElementById('btnLampirkanMedia').disabled = false;
+        document.getElementById('btnTemplateBalasan').disabled = false;
         document.getElementById('teksBalasan').focus();
 
         muatUlangPesan(true);
@@ -2455,6 +2486,7 @@
 
         document.getElementById('teksBalasan').disabled = true;
         document.getElementById('btnLampirkanMedia').disabled = true;
+        document.getElementById('btnTemplateBalasan').disabled = true;
         document.getElementById('btnKirimBalasan').disabled = true;
 
         // Area kutipan aktif (bila ada) ikut dibekukan selama pemilih terbuka:
@@ -2478,6 +2510,7 @@
         if (conversationAktif) {
             document.getElementById('teksBalasan').disabled = false;
             document.getElementById('btnLampirkanMedia').disabled = false;
+            document.getElementById('btnTemplateBalasan').disabled = false;
             document.getElementById('btnKirimBalasan').disabled = false;
 
             // Pulihkan tombol batal area kutipan aktif (kalau ada) -- lihat
@@ -2836,6 +2869,11 @@
         buangOperationIdBalasan();
         sembunyikanStatusKirimBalasan();
     }
+
+    // Template Balasan Cepat (TODO-R1): lihat public/assets/js/inbox-template.js
+    // (bukaModalTemplate, muatDaftarTemplateBalasan, pilihTemplate) -- dipindah
+    // ke file terpisah supaya bisa diuji lewat tests/js/inbox-template.test.js,
+    // mengikuti preseden ekstraksi inbox-thread.js (desain §7).
 
     // --- Drag-and-drop file ke panel chat (mirip WhatsApp Web) ---------
     // dragCounter menghitung dragenter/dragleave bersarang (browser
@@ -3375,6 +3413,7 @@
         const textarea = document.getElementById('teksBalasan');
         const btn = document.getElementById('btnKirimBalasan');
         const attachBtn = document.getElementById('btnLampirkanMedia');
+        const templateBtn = document.getElementById('btnTemplateBalasan');
         const caption = textarea.value.trim();
         // Hanya ID LOKAL yang ikut -- isi kutipan tetap diambil ulang dari
         // database server saat permintaan diproses (ALT-002), persis seperti
@@ -3384,6 +3423,7 @@
         btn.disabled = true;
         textarea.disabled = true;
         attachBtn.disabled = true;
+        templateBtn.disabled = true;
 
         const antrianKirim = antrianMediaBalasan.filter(function(item) {
             return item.status !== 'failed';
@@ -3436,6 +3476,7 @@
         btn.disabled = false;
         textarea.disabled = false;
         attachBtn.disabled = false;
+        templateBtn.disabled = false;
         textarea.focus();
 
         return false;

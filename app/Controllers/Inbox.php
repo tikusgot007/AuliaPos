@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\ConversationModel;
 use App\Models\ConversationHandoffModel;
+use App\Models\BalasanTemplateModel;
 use App\Models\MessageModel;
 use App\Models\GatewayStatusModel;
 use App\Models\UserModel;
@@ -2099,6 +2100,34 @@ class Inbox extends BaseController
      * (handoffPercakapan) yang mensyaratkan assignee/`belum_diambil`.
      * 404 hanya untuk id percakapan yang tidak dikenal.
      */
+    /**
+     * GET /inbox/api/balasan-template (TODO-R1)
+     *
+     * Daftar Template Balasan Cepat untuk composer Inbox -- read-only,
+     * admin+kasir (bukan route CRUD, lihat Routes.php). gambar_url
+     * dibangun di sini (bukan bare filename) karena ini JSON API
+     * dikonsumsi JavaScript, bukan view PHP yang punya base_url()
+     * inline -- lihat desain §8 poin 3.
+     */
+    public function apiBalasanTemplate()
+    {
+        $templates = (new BalasanTemplateModel())->orderBy('nama', 'ASC')->findAll();
+
+        return $this->response->setJSON([
+            'status'    => 'success',
+            'templates' => array_map(function ($t) {
+                return [
+                    'id'         => $t['id'],
+                    'nama'       => $t['nama'],
+                    'teks'       => $t['teks'],
+                    'gambar_url' => $t['gambar_filename']
+                        ? base_url('/balasan-template/foto/' . $t['gambar_filename'])
+                        : null,
+                ];
+            }, $templates),
+        ]);
+    }
+
     public function apiHandoffs($conversationId = null)
     {
         $conversationId = (int) $conversationId;
