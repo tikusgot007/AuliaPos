@@ -656,6 +656,36 @@ test('DL-5: select mode shows checkboxes only on downloadable media, hides Balas
     assert.equal(t.get('pilihanUnduh.size'), 0, 'leaving select mode clears the selection');
 });
 
+test('DL-5b: in select mode, clicking the image/sticker/document itself toggles selection (not just the checkbox)', () => {
+    const t = loadThread();
+    poll(t, [imgMsg(70), msg(71, { message_type: 'sticker' }), docMsg(72)], true);
+    t.ctx.alihkanModePilih(true);
+    const html = (id) => t.run(`renderBubbleHtml(threadDikenal.get('${id}'))`);
+
+    assert.match(html(70), /onclick="klikMediaPilih\(70\)"/, 'image click toggles selection in select mode');
+    assert.ok(!html(70).includes('bukaLightbox'), 'lightbox is not opened while selecting');
+    assert.match(html(71), /onclick="klikMediaPilih\(71\)"/, 'sticker click toggles selection in select mode');
+    assert.match(html(72), /inbox-media-document" onclick="klikMediaPilih\(72\)"/, 'document card click toggles selection');
+
+    t.ctx.klikMediaPilih(70);
+    assert.ok(t.get("pilihanUnduh.has('70')"), 'clicking the image selected it');
+    assert.ok(html(70).includes('checked'), 'the checkbox reflects the click');
+
+    t.ctx.klikMediaPilih(70);
+    assert.ok(!t.get("pilihanUnduh.has('70')"), 'clicking again deselects it');
+});
+
+test('DL-5c: outside select mode, clicking the image opens the lightbox and the document download button still works directly', () => {
+    const t = loadThread();
+    poll(t, [imgMsg(80), docMsg(81)], true);
+    const html = (id) => t.run(`renderBubbleHtml(threadDikenal.get('${id}'))`);
+
+    assert.match(html(80), /onclick="bukaLightbox\(80\)"/);
+    assert.ok(!html(80).includes('klikMediaPilih'));
+    assert.ok(!html(81).includes('onclick="klikMediaPilih'), 'document card has no click handler outside select mode');
+    assert.match(html(81), /onclick="event\.stopPropagation\(\); unduhSatu\(81, this\)"/);
+});
+
 test('DL-6: switching conversation leaves select mode', () => {
     const t = loadThread();
     poll(t, [imgMsg(50)], true);

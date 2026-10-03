@@ -716,6 +716,17 @@ function htmlTombolUnduhHover(m) {
         '<i class="fas fa-download"></i></button>';
 }
 
+/* Mode pilih (AC-5b): klik langsung pada gambar/sticker/dokumen juga
+   mencentang/membuka-centang, bukan cuma lewat kotak centang kecil.
+   Menggambar ulang thread supaya kotak centang ikut berubah (sama pola
+   dengan alihkanModePilih()). Tanpa efek di luar mode pilih. */
+function klikMediaPilih(id) {
+    if (!modePilih) return;
+
+    alihkanPilihan(id, !pilihanUnduh.has(String(id)));
+    gambarUlangThread();
+}
+
 function renderIsiPesan(m) {
     const urlMedia = threadConfig.mediaBaseUrl + m.id;
 
@@ -755,7 +766,7 @@ function renderIsiPesan(m) {
         // memeriksanya sekali dan memilih pesan yang jujur.
         return '<div class="inbox-media-wrap">' +
             '<img src="' + urlMedia + '" alt="Gambar" class="inbox-media-image" data-media-jenis="image" ' +
-            (modePilih ? '' : 'onclick="bukaLightbox(' + m.id + ')" ') +
+            (modePilih ? 'onclick="klikMediaPilih(' + m.id + ')" ' : 'onclick="bukaLightbox(' + m.id + ')" ') +
             'onload="mediaSementara.delete(\'' + kunci + '\')" ' +
             'onerror="tanganiMediaGagal(this, \'' + kunci + '\')">' +
             htmlTombolUnduhHover(m) + '</div>' + caption;
@@ -783,6 +794,7 @@ function renderIsiPesan(m) {
         }
         return '<div class="inbox-media-wrap">' +
             '<img src="' + urlMedia + '" alt="Sticker" class="inbox-media-sticker" data-media-jenis="sticker" ' +
+            (modePilih ? 'onclick="klikMediaPilih(' + m.id + ')" ' : '') +
             'onload="mediaSementara.delete(\'' + kunci + '\')" ' +
             'onerror="tanganiMediaGagal(this, \'' + kunci + '\')">' +
             htmlTombolUnduhHover(m) + '</div>';
@@ -793,12 +805,13 @@ function renderIsiPesan(m) {
         const ekstensi = ekstensiNama(namaFile).toUpperCase();
         const ukuran = formatUkuranFile(m.media_size);
         const meta = [ekstensi, ukuran].filter(Boolean).join(' · ');
-        return '<div class="inbox-media-document">' +
+        return '<div class="inbox-media-document" ' +
+            (modePilih ? 'onclick="klikMediaPilih(' + m.id + ')"' : '') + '>' +
             '<i class="fas ' + ikonDokumen(namaFile) + ' inbox-media-document-ikon"></i>' +
             '<div class="inbox-media-document-info"><div class="inbox-media-document-nama">' + escapeHtmlInbox(namaFile) + '</div>' +
             (meta ? '<div class="inbox-media-document-meta">' + escapeHtmlInbox(meta) + '</div>' : '') + '</div>' +
             '<button type="button" class="btn btn-outline-secondary btn-sm inbox-media-document-unduh" title="Unduh" ' +
-            'onclick="unduhSatu(' + m.id + ', this)"><i class="fas fa-download"></i></button>' +
+            'onclick="event.stopPropagation(); unduhSatu(' + m.id + ', this)"><i class="fas fa-download"></i></button>' +
             '</div>' +
             (m.text ? '<div class="inbox-media-caption">' + formatTeksWa(m.text) + '</div>' : '');
     }

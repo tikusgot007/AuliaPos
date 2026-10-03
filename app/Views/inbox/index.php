@@ -623,6 +623,13 @@
         accent-color: #198754;
     }
 
+    /* Mode pilih: gambar/sticker/dokumen juga bisa dicentang lewat klik langsung. */
+    .inbox-bubble-pilih .inbox-media-image,
+    .inbox-bubble-pilih .inbox-media-sticker,
+    .inbox-bubble-pilih .inbox-media-document {
+        cursor: pointer;
+    }
+
     .inbox-btn-mode-pilih {
         position: absolute;
         top: 8px;
