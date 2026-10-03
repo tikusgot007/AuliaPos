@@ -156,3 +156,126 @@ menemukan **1 bug yang memblokir AC-9** + beberapa catatan. **Belum ada PR.**
   `kategori` pakai `TIMESTAMP DEFAULT current_timestamp()`); model CI4
   mengisi timestamp sendiri jadi aman, hanya beda konvensi. `hapus($id)`
   pakai GET (konsisten pola `Kategori`, tapi GET untuk mutasi kurang ideal).
+
+## Review perbaikan bug (branch `claude/template-balasan-cepat`, commit `ff60983`, 2026-10-03)
+
+Commit `ff60983` memperbaiki bug route foto (lihat bagian di atas) DAN
+menjalankan `composer test` (40/40 lulus, diverifikasi ulang di sesi ini)
++ `node tests/js/inbox-template.test.js` (6/6 lulus, diverifikasi ulang).
+**Dokumen desain sudah diselaraskan**: §3 mencatat Option B sebagai
+implementasi final, §9 Gate 2 sudah dicentang approved retroaktif. Baik.
+
+Di sesi ini saya juga menjalankan `composer test:feature` (MySQL + client
+`C:\xampp\mysql\bin\mysql.exe` ternyata TERSEDIA di lingkungan ini,
+`aulia_inboxdb_test` sudah ada — klaim TODO-R1 "tidak ada MySQL terinstal"
+tidak akurat untuk lingkungan ini). Setelah migrasi
+`2026-10-03-000001_CreateBalasanTemplate.php` dijalankan manual ke
+`aulia_inboxdb_test` (tidak otomatis lewat `composer test:feature`, perlu
+`php spark migrate --group inbox -n` dengan `CI_ENVIRONMENT=testing`, atau
+script PHP yang memanggil `$migration->up()` langsung), ditemukan **3 isu
+tambahan**, 1 di antaranya bug fungsional nyata:
+
+### Bug nyata (pre-existing pattern, bukan regresi branch ini): validasi ukuran upload tidak pernah berfungsi untuk file besar
+
+- **Lokasi**: `app/Libraries/BalasanTemplateImageService.php:50` —
+  `if ($file->getSizeByUnit('kb') > $maxKb)`.
+- **Root cause**: `UploadedFile::getSizeByUnit('kb')` (CI4 versi di
+  `vendor/`) memanggil `getSizeByBinaryUnit()` yang memformat hasilnya
+  lewat `number_format($size, 3)` — mengembalikan **string berkoma ribuan**
+  (mis. `"15,361.000"`), bukan angka murni. Dibandingkan `>` dengan int
+  `$maxKb` (mis. `15360`), PHP type-juggling memotong string di karakter
+  non-numerik pertama (`,`) sehingga `"15,361.000" > 15360` dievaluasi
+  `15 > 15360` = **false**. Akibatnya file yang melebihi batas upload
+  **lolos validasi**, bukan ditolak.
+- **Dikonfirmasi lewat eksperimen langsung**:
+  `var_dump($file->getSizeByUnit('kb'))` → `string(10) "15,361.000"`;
+  `$file->getSizeByUnit('kb') > 15360` → `bool(false)`.
+- **PENTING — ini BUKAN bug baru dari branch TODO-R1**: pola yang identik
+  sudah ada sebelumnya di `app/Libraries/FotoProfilService.php:63`
+  (`$file->getSizeByUnit('kb') > self::MAX_SIZE_KB`, batas 2048 KB) —
+  kode template mengkloning API yang salah dari situ. Jadi upload foto
+  profil pun kemungkinan punya bug validasi ukuran yang sama (di luar
+  cakupan TODO-R1, tapi layak jadi temuan terpisah).
+- **Pola yang benar** (sudah ada di repo): `Inbox.php:1303` —
+  `$file->getSize() > $maxBytes` (bandingkan byte mentah, bukan
+  `getSizeByUnit()`).
+- **Proposed fix** (untuk `BalasanTemplateImageService`, TODO-R1): ganti
+  jadi `$file->getSize() > ($maxKb * 1024)`, pola sama dengan `Inbox.php`.
+  `FotoProfilService` sebaiknya dibuatkan temuan TODO terpisah (di luar
+  TODO-R1) karena itu bug pre-existing yang tidak disentuh branch ini.
+- **Test yang gagal**: `BalasanTemplateImageServiceTest::testSimpanRejectsOversizedFile`
+  (lulus harusnya karena assert gagal, tapi assert `assertFalse($hasil['success'])`
+  gagal karena `success` ternyata `true` — file besar lolos).
+
+### Isu test, bukan bug fungsional: path separator Windows
+
+- `BalasanTemplateImageServiceTest::testResolvePathUntukDitampilkanReturnsRealPathForKnownFile`
+  gagal karena assert memakai `/` literal
+  (`$this->service->getDir() . '/' . $hasil['filename']`), sedangkan kode
+  (`BalasanTemplateImageService.php` method `resolvePathUntukDitampilkan`)
+  pakai `DIRECTORY_SEPARATOR` yang di Windows jadi `\`. Pola yang sama
+  (`DIRECTORY_SEPARATOR`) sudah ada sebelumnya di `FotoProfilService.php`.
+  Bukan bug fungsional (`is_file()` Windows menerima kedua separator),
+  murni test ditulis/divalidasi di lingkungan non-Windows. Kemungkinan
+  muncul lagi di CI/lingkungan Linux kalau dijalankan di sana tanpa
+  masalah — HANYA gagal di Windows seperti sesi ini.
+
+### Catatan lingkungan (bukan bug kode)
+
+- `BalasanTemplateCrudTest::testAdminCanCreateEditAndDeleteATextOnlyTemplate`,
+  `testCreateIsRejectedWhenBothTeksAndGambarAreEmpty`, dan
+  `testIndexListsTemplatesSortedByNama` gagal di sesi ini dengan error
+  "no such table: db_balasan_template" / "no such table: db_users" —
+  ini karena test feature di repo ini (semua file, bukan cuma yang baru)
+  TIDAK memakai `DatabaseTestTrait`, sehingga `is_unique[balasan_template.nama]`
+  (validasi rule bawaan CI4, `Rules::prepareUniqueQuery()`) dan
+  `UserModel::find()` (dipanggil `main.php:1113` untuk foto profil header)
+  query ke `defaultGroup` (SQLite in-memory `tests`, kosong) alih-alih ke
+  `database.inbox` tempat tabel sungguhan berada. **Ini kemungkinan
+  masalah umum test feature di repo ini** (pola sama berlaku untuk
+  `is_unique[kategori.nama]` di `Kategori.php` kalau pernah diuji feature
+  test serupa — belum diverifikasi), bukan spesifik ke TODO-R1. Tidak
+  menandakan bug fungsional di endpoint CRUD produksi (endpoint tetap
+  jalan normal saat `defaultGroup` = `database.default`/`aulia_kasirdb`
+  sungguhan, yang punya tabel `users`; hanya tabel `balasan_template` yang
+  TIDAK ada di `aulia_kasirdb` — lihat poin berikutnya).
+- **Implikasi serius yang perlu diverifikasi**: karena
+  `is_unique[balasan_template.nama]` (tanpa prefix dbGroup) di
+  `BalasanTemplate.php` method `simpan()`/`update()` akan query ke
+  **`defaultGroup`** (`database.default` = `aulia_kasirdb` di lingkungan
+  NYATA, bukan SQLite test) saat dijalankan di luar test harness, sedangkan
+  tabel `balasan_template` ada di **`database.inbox`** (`aulia_inboxdb`) —
+  **rule `is_unique` ini kemungkinan menunjuk ke database yang SALAH juga
+  di produksi**, bukan cuma di test. Builder validasi (`Rules.php:210`,
+  `Database::connect($dbGroup)` dengan `$dbGroup = null`) connect ke
+  `defaultGroup`, mencari tabel `balasan_template` di `aulia_kasirdb`
+  (yang tidak punya tabel itu) → kemungkinan error 500 alih-alih validasi
+  normal saat admin submit form Tambah/Edit Template di browser sungguhan.
+  **BELUM diverifikasi langsung ke browser** (hanya dianalisis dari kode +
+  perilaku `Rules::prepareUniqueQuery()`) — perlu dicoba manual: isi nama
+  yang sudah ada di `aulia_inboxdb_test`, kalau errornya code 500
+  "table doesn't exist" (bukan redirect dengan pesan "sudah dipakai"),
+  bug ini terkonfirmasi nyata di produksi. **Proposed fix**: ubah rule jadi
+  `is_unique[inbox.balasan_template.nama]` (format `dbGroup.table.field`,
+  didukung native oleh `Rules::prepareUniqueQuery()`).
+
+### Ringkasan tindak lanjut untuk tim pengembang
+
+1. **Prioritas tinggi, perlu verifikasi manual segera**: cek apakah
+   `is_unique[balasan_template.nama]` benar-benar error di luar test
+   harness (kemungkinan besar error 500 saat submit form admin, karena
+   `defaultGroup` tidak attach tabel yang benar). Kalau terkonfirmasi,
+   perbaiki ke `is_unique[inbox.balasan_template.nama,...]` di kedua rule
+   (`simpan()` dan `update()`, `BalasanTemplate.php`).
+2. **Prioritas sedang**: perbaiki `BalasanTemplateImageService::simpan()`
+   agar validasi ukuran berfungsi (`getSize()` byte murni, bukan
+   `getSizeByUnit('kb')`).
+3. **Prioritas rendah/opsional**: `FotoProfilService.php` punya bug
+   `getSizeByUnit` yang identik — di luar cakupan TODO-R1, usul jadi TODO
+   terpisah kalau user setuju.
+4. Perbaiki ekspektasi test Windows (`DIRECTORY_SEPARATOR`) di
+   `BalasanTemplateImageServiceTest::testResolvePathUntukDitampilkanReturnsRealPathForKnownFile`
+   kalau tim menjalankan test di Windows.
+5. Setelah 1-2 diperbaiki dan test feature lulus (gunakan
+   `aulia_inboxdb_test` + migrasi dijalankan lebih dulu), verifikasi
+   manual di browser sebagai admin DAN kasir, baru buka PR.
