@@ -9,6 +9,93 @@
 > disetujui, hapus baris itu dan sebut **ID**-nya di pesan commit.
 > Jangan membuat daftar TODO kedua di tempat lain; checkpoint hanya menunjuk ke sini.
 
+## Remediasi inti — register BL (diserap dari plan, audit 2026-10-03)
+
+> Register cacat logika bisnis inti (transaksi/kas/tagihan/laporan/otorisasi/arsip).
+> Diserap dari `plan/plan-business-logic-remediation-1.0.md` (file lokal & untracked, dibuang
+> 2026-10-03 setelah diserap ke sini). Urutan batch disarankan: A (BL-01/02) → B → C → D → E → F;
+> tiap batch: implementasi → verifikasi → approval user.
+
+### Critical
+
+- [ ] **TODO-BL01** Critical — transaksi POS tidak atomik; header bisa `lunas` tanpa baris pembayaran + duplikat saat retry — `Api.php:314-330,351-391`; `TransaksiModel.php:326-618,699`
+- [ ] **TODO-BL02** Critical — closing selalu hitung ulang dari MySQL live; setelah arsip hapus baris, snapshot historis rusak — `Cash.php:329-330,374-385`; `CashBalanceService.php:96-98`; `TransaksiArchiveService.php:705-713`
+
+### High
+
+- [ ] **TODO-BL03** High — `harga/jumlah/subtotal` dari klien dipercaya apa adanya; tanpa `qty>0`, tanpa `subtotal=harga*qty`, negatif diterima — `Api.php:167-170,337-347`; `Transaksi.php:1325-1327`
+- [ ] **TODO-BL04** High — `tambahPembayaran` tanpa guard status → pembayaran bisa dicatat pada transaksi `batal` — `Api.php:460-479`; `TransaksiModel.php:699-730`
+- [ ] **TODO-BL05** High — user `is_active=0` masih bisa login — `Auth.php:78-99`; `UserModel.php:56-59`
+- [ ] **TODO-BL06** High — arsip menghapus tagihan belum lunas; `Tagihan` tanpa fallback arsip → piutang hilang — `TransaksiArchiveService.php:372-394,475-478,713`; `Tagihan.php:58-95,162-168,207-214`
+- [ ] **TODO-BL07** High — `koreksiPembayaran` membalik pembayaran tanpa gerbang role; menimpa `tanggal` & `kasir_id` — `Api.php:546-643`; `Routes.php:258-262`
+- [ ] **TODO-BL08** High — edit path hitung `$hasKategori16` tapi tak dipakai; `no_order` ditulis tanpa lock/cek unik — `Transaksi.php:1288-1317,1444-1453`
+- [ ] **TODO-BL09** High — `cash_opname.pemasukan_tunai` diisi `kas_awal + penjualan` → kas awal dobel — `Cash.php:216-219`; `CashBalanceService.php:27`
+- [ ] **TODO-BL10** High — mutasi kas tak admin-gated; pengeluaran terima tanggal sembarang (termasuk lampau/depan) — `AuthFilter.php:70`; `Routes.php:231-246`; `Cash.php:439,547`
+- [ ] **TODO-BL11** High — kas awal bisa di-insert dua kali (select-then-insert, tanpa unique key) → saldo membengkak — `CashBalanceService.php:49-73`
+- [ ] **TODO-BL12** High — `alasan_selisih` opname dipaksa string tetap read-only → validasi selisih tak bermakna — `Views/cash/index.php:795-810`; `Cash.php:196-201`
+
+### Medium
+
+- [ ] **TODO-BL13** Medium — `sisa_tagihan` tak di-clamp → bisa negatif & distorsi `total_piutang` — `Tagihan.php:180-181,252`; `Laporan.php:1076`
+- [ ] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
+- [ ] **TODO-BL15** Medium — Harian (basis kas) vs Periode/Kategori (akrual) tidak sinkron untuk tanggal sama — `Laporan.php:60-64` vs `:123-130`
+- [ ] **TODO-BL16** Medium — `exportExcel(jenis=harian)` memakai jalur akrual, beda dari tabel Harian — `Laporan.php:1433,1490-1541`
+- [ ] **TODO-BL17** Medium — `mangkrak` dikecualikan di Tagihan tapi dihitung di piutang laporan — `Tagihan.php:81-82`; `Laporan.php:117,128,1365`
+- [ ] **TODO-BL18** Medium — saat filter kategori, `grand_total` pro-rata tapi `sisa_tagihan` penuh → piutang overstated — `Laporan.php:1043-1061,1076`
+- [ ] **TODO-BL19** Medium — atribusi kategori campur master-produk & `detail_transaksi.kategori_id`; pembulatan tak direkonsiliasi — `Laporan.php:869,1247-1251,1288-1305`
+- [ ] **TODO-BL20** Medium — merge live+arsip via `array_merge` tanpa dedup `id` → double-count saat delete gagal — `Laporan.php:150-153,179-193`; `TransaksiArchiveService.php:705-730`
+- [ ] **TODO-BL21** Medium — `masterApply` menjadwalkan user non-aktif, tak transaksional, tanpa cap `jumlah_minggu` — `MasterJadwalModel.php:122-184`; `Jadwal.php:704-734`
+- [ ] **TODO-BL22** Medium — CSRF global mati; perubahan state lewat GET (`/transaksi/batal`) — `Filters.php:64-74`; `Routes.php:187`
+- [ ] **TODO-BL23** Medium — diskon manual divalidasi lalu diabaikan diam-diam saat diskon pelanggan aktif — `Api.php:172-183,246-250`; `KalkulasiDiskonTransaksi.php:45-54`
+- [ ] **TODO-BL24** Medium — `parse_no_order()` memetakan dua format tampilan berbeda ke nomor internal sama — `order_helper.php:203-219`
+- [ ] **TODO-BL25** Medium — `grand_total=0` pada `piutang`/`draft` → status `belum_bayar` selamanya (invoice Rp 0 tak bisa lunas) — `Api.php:285-290`; `KalkulasiStatusPembayaran.php:39-43`; `Tagihan.php:252-259`
+- [ ] **TODO-BL26** Medium — edit path abaikan hasil `insert()` baris detail → silent data loss — `Transaksi.php:1459-1470`
+- [ ] **TODO-BL27** Medium — race handler closing menangkap semua exception & retry buta; `$saved` null bisa fatal — `Cash.php:381-394`
+- [ ] **TODO-BL28** Medium — baris closing bisa diubah kapan saja tanpa riwayat revisi — `ClosingKasModel.php:86-109`
+- [ ] **TODO-BL29** Medium — arti "Pemasukan" beda: net di dashboard, gross di opname — `Views/cash/index.php:110-128` vs `Views/cash/opname.php:16-20`
+- [ ] **TODO-BL30** Medium — saldo sistem negatif tak dideteksi/diperingatkan sebelum opname/closing — `CashBalanceService.php:31`; `Cash.php:180-185`
+
+### Low
+
+- [ ] **TODO-BL31** Low — route mati `/kasir/proses`, `/kasir/tambah-pembayaran`; `/cash/opname` hilang padahal view posting ke sana — `Routes.php:123-124,217-227`; `Views/cash/opname.php:32`
+- [ ] **TODO-BL32** Low — status legacy `diambil` jatuh tanpa grup filter — `Transaksi.php:556-575`; migration `2026-09-09-000001:31`
+- [ ] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442`
+- [ ] **TODO-BL34** Low — `$adminRoutes` tak lengkap vs Routes (`auth/simpan-user`, `auth/update-user`) & `laporan-pembayaran` bukan admin — `AuthFilter.php:70`; `Routes.php:110-113,253-257`
+- [ ] **TODO-BL35** Low — validasi bulan arsip hanya regex; `2026-00`/`2026-13` diterima — `TransaksiArchiveService.php:347-350`
+- [ ] **TODO-BL36** Low — navigasi bulan roster pakai `toISOString()` (UTC) → bulan salah dekat tengah malam WIB — `public/assets/js/roster.js:342,367`
+- [ ] **TODO-BL37** Low — jendela shift inklusif dua ujung; P/S dan S/PM tumpang-tindih — `EvaluasiJendelaKerjaShift.php:16`; `JadwalModel.php:50-61`
+- [ ] **TODO-BL38** Low — `getReminderTagihanSaya()` kadang tak mengembalikan key `hari` — `Kasir.php:88,97` vs `:119`
+- [ ] **TODO-BL39** Low — "Tunai" diturunkan `total - non-tunai`; bisa salah saat detail/subtotal kosong — `Views/laporan/index.php:448,885`; `Laporan.php:371-384,494-516`
+- [ ] **TODO-BL40** Low — `Tagihan::detail` tanpa guard status; tombol Lunasi tampil tanpa cek; `saya=1` + filter kasir → list kosong — `Tagihan.php:84-90,166-168`; `Views/transaksi/detail.php:357-363`
+- [ ] **TODO-BL41** Low — `/laporan-pembayaran` hanya `auth` (bukan admin), controller tanpa cek admin — `Routes.php:253-257`; `AuthFilter.php:70-77`; `Laporan.php:1975`
+- [ ] **TODO-BL42** Low — `is_locked` milik `produk`, bukan `users`; proteksi user hanya dari controller — schema `2026-09-08-000001:44-59,111`; `Auth.php:333,415-421`
+
+### Keputusan produk tertunda (gerbang batch)
+
+- [ ] **TODO-DEC1** Otorisasi kas (BL-10): kas-awal + edit/hapus pengeluaran admin-only? opname tetap kasir + `alasan_selisih` editable. — sedang
+- [ ] **TODO-DEC2** Basis laporan (BL-15/16): label per tab + catatan rekonsiliasi; Harian = basis kas, Periode/Bulanan = akrual. — sedang
+- [ ] **TODO-DEC3** Arsip piutang (BL-06): transaksi belum lunas tidak pernah diarsipkan + fallback untuk yang sudah terlanjur diarsipkan. — sedang
+- [ ] **TODO-DEC4** Penomoran invoice (BL-33): sekuens per hari (via lock) atau ruang acak lebih besar + idempotency. — sedang
+
+## Keamanan & kualitas — audit 2026-10-03
+
+- [ ] **TODO-S1** `public/index.php:3-5` memaksa `display_errors=1`/`error_reporting(E_ALL)` sebelum override `production.php` → error fase bootstrap / env salah-set bisa membocorkan stack trace — `public/index.php:3-5` — tinggi
+- [ ] **TODO-S2** Login: tanpa rate-limit/lockout dan tanpa `session()->regenerate()` (session fixation) — `Auth.php:64-107` — sedang
+
+## Kualitas, dokumen & cakupan — audit 2026-10-03
+
+- [ ] **TODO-Q1** `docs/ARCHITECTURE.md` basi (2026-09-29): masih menyebut "release branch tanpa docs/tests"; jumlah controller/model/layanan tak sinkron dengan kode kini — sedang
+- [ ] **TODO-Q2** Test gap: belum ada test jalur kirim Gateway (`kirim`, `kirimMedia`, `callGatewaySend*`), `handoffPercakapan()` (290 baris), lifecycle percakapan, `GatewayTokenFilter` — sedang
+- [ ] **TODO-Q3** Kontrak cross-repo Gateway baru terverifikasi satu sisi (repo gateway tidak ada di workspace) — sedang
+- [ ] **TODO-Q4** Tidak ada CI; 3 skrip test JS tanpa runner — rendah
+- [ ] **TODO-Q5** God-object & duplikasi render: `Inbox.php` 3721 baris, `Views/inbox/index.php` 3650 baris, daftar percakapan dirender 2× (PHP `index.php:778` vs JS `index.php:1474`) — sedang
+
+## Inbox — audit 2026-10-03
+
+- [ ] **TODO-I1** Race idempotency webhook masuk: `existsByWaMessageId()` (`InboxGatewayApi.php:298`) dijalankan sebelum `transStart()` (`:307`) → duplikat konkuren bisa 500 — sedang
+- [ ] **TODO-I2** `Inbox::media()` tanpa cek kepemilikan & di-cache lama — `Inbox.php:599-615`; konfirmasi keputusan privasi — sedang
+- [ ] **TODO-I3** Kirim ke Gateway tanpa retry/backoff/queue saat Gateway mati — sedang
+
 ## Prioritas Sedang
 
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
