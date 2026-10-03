@@ -27,16 +27,36 @@
 - Backup disimpan lokal `D:\backup\aulia3` (belum offline/share) — alasan: kesederhanaan; salin ke share bisa ditambah kemudian.
 - Avast **tidak bisa** dikonfigurasi via remote/CLI (tidak ada `ashCmd`) — exclusion wajib lewat UI aulia3.
 
+## Tambahan (lanjutan sesi, setelah checkpoint di atas)
+
+- **TODO-F6** selesai & terverifikasi: tim remote sudah mengimplementasikan di
+  branch `claude/forward-marker-outgoing-f6` (gateway, commit `196a9fd`) —
+  buang batas `!fromMe` di `normalize.js` `extractForwardFlag()` sehingga
+  forward KELUAR tersinkron dari WA Web/HP kini ditandai `is_forwarded` juga.
+  Di-merge ke `evolution` (commit `35fc7cf`, konflik `docs/CHANGELOG.md`
+  dengan entri Avast diresolve manual), `npm test` lulus. Dideploy ke stack
+  **gateway-test** (`C:\AuliaGateway-test`) untuk uji manual, lalu ke
+  **aulia3** (produksi) setelah uji manual lulus — file: `src/evolution/normalize.js`,
+  `src/delivery/incomingDelivery.js`, `test/simulate-evolution-adapter.js`,
+  backup `*.bak-20261003c`; adapter restart (pid `12128`), Evolution `aulia-toko`
+  tetap `open`, tidak ada error baru di `adapter.log`.
+- **Verifikasi manual nyata** (bukan stub): user forward pesan "Hai" dari WA
+  Web/HP langsung (fitur Forward WhatsApp asli) ke nomor gateway-test
+  `6281913500707` → tampil berlabel **"↪ Diteruskan"** di Inbox POS.
+  Non-regresi: pesan "Tt" (kirim biasa, bukan forward) dari HP yang sama
+  **tidak** berlabel, tombol Balas/Teruskan normal. Ini menutup kedua risiko
+  "belum diverifikasi" di checkpoint branch F6 (bentuk `contextInfo` forward
+  keluar nyata + label UI).
+
 ## Tersisa
 
-Lihat `docs/TODO.md`. Masih terbuka: **T3** (verifikasi jalur arsip SQLite), **O4** (VACUUM/pantau disk PG), **F3** (prosedur reapply patch Evolution), **F6** (keputusan forward keluar — di tim remote), **H1** (bersihkan 13 percakapan uji di produksi), **L1** (audit 2026-10-05).
+Lihat `docs/TODO.md`. Masih terbuka: **T3** (verifikasi jalur arsip SQLite), **O4** (VACUUM/pantau disk PG), **F3** (prosedur reapply patch Evolution), **H1** (bersihkan 13 percakapan uji di produksi), **L1** (audit 2026-10-05). **F6 selesai** (lihat di atas) — diusulkan untuk dihapus dari `docs/TODO.md`.
 
 ## Belum diverifikasi / risiko
 
 - Rotasi **`evolution.log`** belum pernah jalan sekali pun (akan jalan saat Evolution start berikutnya / boot).
 - **Exclusion Avast** bisa hilang jika Avast di-update/reset → script terkarantina lagi (sudah masuk catatan L1 poin vi).
 - Backup ada di **disk yang sama** (D: aulia3) — belum melindungi dari disk rusak.
-- TODO-F6 tanpa keputusan; kontrak Gateway↔CI4 tidak berubah.
 - Password `ops` tampil polos di transkrip chat — **sebaiknya dirotasi**.
 - Gateway-test lokal (`C:\AuliaGateway-test`) masih hidup (diminta jangan dimatikan).
 
