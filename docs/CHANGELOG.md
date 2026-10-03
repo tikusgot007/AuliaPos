@@ -32,9 +32,11 @@ Format entri:
   polling yang sama, masing-masing tetap mendapat toast sendiri (bukan
   digabung satu toast banyak nama), hanya satu beep untuk siklus itu;
   diklik selalu membuka window Inbox langsung ke percakapan yang disebut
-  toast itu (`?conversation_id=`). Toast hilang otomatis begitu
-  percakapan yang disebutnya sudah tidak lagi relevan (sudah ditangani),
-  atau lewat tombol tutup manual. Percakapan yang sudah pernah dilaporkan
+  toast itu (`?conversation_id=`) DAN langsung menutup toast itu sendiri
+  (toast lain yang sedang tampil tidak ikut tertutup). Toast juga hilang
+  otomatis begitu percakapan yang disebutnya sudah tidak lagi relevan
+  (sudah ditangani dari jalur lain), atau lewat tombol tutup manual.
+  Percakapan yang sudah pernah dilaporkan
   (per `last_message_at`) tidak memicu toast/bunyi ulang; percakapan yang
   sudah `perlu_dibalas` SEBELUM tab dibuka juga tidak memicu toast/bunyi
   pada polling pertama sesi itu.

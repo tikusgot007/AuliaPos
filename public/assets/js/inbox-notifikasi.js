@@ -215,7 +215,12 @@ function buatToastNotif(item) {
     body.className = 'toast-body';
     body.style.cursor = 'pointer';
     body.textContent = formatPesanToastNotif(item);
-    body.onclick = function() { bukaInboxKePercakapan(item.id); };
+    // Klik = kasir sudah melihat & membuka percakapannya -- toast itu
+    // tidak perlu ditutup manual lagi setelah ini.
+    body.onclick = function() {
+        bukaInboxKePercakapan(item.id);
+        buangToastNotif(key);
+    };
 
     const tutup = document.createElement('button');
     tutup.type = 'button';

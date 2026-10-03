@@ -176,7 +176,7 @@ test('bacaNotifSeen/simpanNotifSeen round-trip through sessionStorage', () => {
 
 // ---- sticky, stacking toast (DOM) ----------------------------------------
 
-test('buatToastNotif: appends a sticky toast below the stack; clicking it opens that conversation', () => {
+test('buatToastNotif: appends a sticky toast below the stack', () => {
     const t = loadNotif();
     t.ctx.buatToastNotif(item(1, 't1', 'Budi'));
     assert.equal(t.stackContainer.children.length, 1);
@@ -185,19 +185,31 @@ test('buatToastNotif: appends a sticky toast below the stack; clicking it opens 
     const [body] = wrap.children;
     assert.equal(body.textContent, 'Pesan baru dari Budi');
 
-    body.onclick();
-    assert.equal(t.opened.length, 1);
-    assert.equal(t.opened[0].url, '/inbox?conversation_id=1');
-    assert.equal(t.opened[0].name, 'AuliaInbox');
-
     // A second toast is added BELOW the first one (newest at the bottom), not merged into it.
     t.ctx.buatToastNotif(item(2, 't2', 'Siti'));
     assert.equal(t.stackContainer.children.length, 2);
     const bottomBody = t.stackContainer.children[1].children[0].children[0];
     assert.equal(bottomBody.textContent, 'Pesan baru dari Siti');
+});
 
-    bottomBody.onclick();
-    assert.equal(t.opened[1].url, '/inbox?conversation_id=2');
+test('buatToastNotif: clicking the body opens that conversation AND dismisses that toast', () => {
+    const t = loadNotif();
+    t.ctx.buatToastNotif(item(1, 't1', 'Budi'));
+    t.ctx.buatToastNotif(item(2, 't2', 'Siti'));
+    assert.equal(t.stackContainer.children.length, 2);
+
+    const topBody = t.stackContainer.children[0].children[0].children[0];
+    topBody.onclick();
+
+    assert.equal(t.opened.length, 1);
+    assert.equal(t.opened[0].url, '/inbox?conversation_id=1');
+    assert.equal(t.opened[0].name, 'AuliaInbox');
+
+    // Only Budi's toast is gone -- Siti's is untouched, not closed by someone else's click.
+    assert.equal(t.stackContainer.children.length, 1);
+    assert.equal(t.get('toastAktif.length'), 1);
+    const remainingBody = t.stackContainer.children[0].children[0].children[0];
+    assert.equal(remainingBody.textContent, 'Pesan baru dari Siti');
 });
 
 test('buatToastNotif: the close button removes only that one toast', () => {

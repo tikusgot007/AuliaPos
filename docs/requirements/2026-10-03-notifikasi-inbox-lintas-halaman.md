@@ -31,7 +31,7 @@ Kasir langsung tahu ada pesan WhatsApp yang perlu dibalas walau sedang di halama
 - **AC-3d**: Given sebuah toast sudah tampil untuk satu atau beberapa percakapan, when semua percakapan yang disebut toast itu TIDAK LAGI relevan di polling berikutnya (sudah dibalas/diambil/tidak lagi jadi tanggung jawab user ini), then toast itu hilang otomatis tanpa perlu diklik tutup.
 - **AC-4**: Given ini adalah polling PERTAMA sejak tab dibuka (belum ada riwayat di `sessionStorage`), then percakapan yang sudah `perlu_dibalas` sebelumnya TIDAK memicu toast/bunyi (hanya dicatat diam-diam); judul tab/favicon tetap menyala sesuai jumlah saat itu.
 - **AC-5**: Given kasir pindah halaman (navigasi biasa, full page reload), then percakapan yang sudah pernah dilaporkan tidak memicu toast ulang (state tersimpan di `sessionStorage`, bertahan antar reload dalam tab yang sama).
-- **AC-6**: Given toast diklik, then window Inbox (`'AuliaInbox'`) terbuka/fokus langsung ke percakapan yang disebut toast itu lewat `?conversation_id=` — selalu ke satu percakapan, karena satu toast selalu mewakili satu percakapan (AC-3c).
+- **AC-6**: Given toast diklik, then window Inbox (`'AuliaInbox'`) terbuka/fokus langsung ke percakapan yang disebut toast itu lewat `?conversation_id=` — selalu ke satu percakapan, karena satu toast selalu mewakili satu percakapan (AC-3c). Toast itu sendiri juga langsung ditutup saat diklik (kasir sudah membuka percakapannya, tidak perlu ditutup manual lagi); toast lain yang sedang tampil tidak ikut tertutup.
 - **AC-7**: Given tombol lonceng di sidebar diklik, then status bisu/tidak tersimpan di `localStorage` dan bertahan lintas sesi; saat dibisukan, beep tidak dibunyikan (toast & judul tab/favicon tetap jalan).
 
 ## 5. Batasan dan di luar cakupan
