@@ -644,6 +644,8 @@ test('DL-5: select mode shows checkboxes only on downloadable media, hides Balas
     const html = (id) => t.run(`renderBubbleHtml(threadDikenal.get('${id}'))`);
     assert.ok(html(40).includes('type="checkbox"') && !html(40).includes('bubble-aksi') && !html(40).includes('bukaLightbox'));
     assert.ok(html(41).includes('type="checkbox"'));
+    assert.ok(html(40).includes('aria-label="Pilih untuk diunduh"') && !html(40).includes('> Pilih'), 'icon-only checkbox with an accessible label');
+    assert.ok(/^<div class="inbox-bubble incoming inbox-bubble-pilih"/.test(html(40)), 'direction class stays so CSS can place the checkbox on the empty side');
     assert.ok(!html(42).includes('type="checkbox"'), 'text message cannot be selected');
     t.ctx.alihkanPilihan(40, true);
     assert.ok(html(40).includes('checked'), 'selection is part of the bubble HTML');

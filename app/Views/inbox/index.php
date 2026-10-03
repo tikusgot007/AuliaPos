@@ -588,14 +588,39 @@
 
     /* Mode pilih (unduh massal). */
     .inbox-bubble-pilih {
+        position: relative;
         outline: 2px dashed rgba(25, 135, 84, 0.35);
     }
 
+    /* Centang besar di sisi kosong bubble: kanan untuk pesan masuk (rata kiri),
+       kiri untuk pesan keluar (rata kanan), di tengah vertikal. */
     .inbox-pilih {
-        display: block;
-        font-size: 0.75rem;
-        margin-bottom: 4px;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        margin: 0;
         cursor: pointer;
+    }
+
+    .inbox-bubble-pilih.incoming .inbox-pilih {
+        left: 100%;
+    }
+
+    .inbox-bubble-pilih.outgoing .inbox-pilih {
+        right: 100%;
+    }
+
+    .inbox-pilih input[type="checkbox"] {
+        width: 26px;
+        height: 26px;
+        margin: 0;
+        cursor: pointer;
+        accent-color: #198754;
     }
 
     .inbox-btn-mode-pilih {

@@ -904,8 +904,8 @@ function renderBubbleHtml(m) {
 
     const bisaDipilih = pesanBisaDipilih(m);
     const kotakPilih = bisaDipilih ?
-        '<label class="inbox-pilih"><input type="checkbox" onchange="alihkanPilihan(' + m.id + ', this.checked)"' +
-        (pilihanUnduh.has(String(m.id)) ? ' checked' : '') + '> Pilih</label>' :
+        '<label class="inbox-pilih" title="Pilih untuk diunduh"><input type="checkbox" aria-label="Pilih untuk diunduh" onchange="alihkanPilihan(' + m.id + ', this.checked)"' +
+        (pilihanUnduh.has(String(m.id)) ? ' checked' : '') + '></label>' :
         '';
 
     return '<div class="inbox-bubble ' + arah + (bisaDipilih ? ' inbox-bubble-pilih' : '') + '" data-id="' + escapeHtmlInbox(m.id) + '">' +
