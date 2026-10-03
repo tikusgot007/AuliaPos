@@ -24,7 +24,7 @@ Format entri:
   tombol Unduh). File tersimpan dengan nama berekstensi (`media-<id>.jpg`, atau nama
   asli pengirim). Kegagalan unduh tampil sebagai toast dengan penyebab. Tombol
   "Pilih media" mengaktifkan mode pilih untuk mengunduh banyak file sekaligus
-  (berurutan, maksimum 20 per aksi, tanpa ZIP, ke folder Download browser; Brave
+  (berurutan, maksimum 100 per aksi, tanpa ZIP, ke folder Download browser; Brave
   dapat meminta izin unduh banyak file sekali). `?unduh=1` pada `/inbox/media/:id`
   memaksa `attachment`; hanya gambar non-SVG yang `inline`.
 - Alasan: kasir perlu menyimpan foto/nota/dokumen pelanggan dengan cepat dan jelas.

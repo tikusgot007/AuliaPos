@@ -53,7 +53,7 @@ const pilihanUnduh = new Set(); // String(id pesan)
 
 // ponytail: unduhan massal berurutan dengan batas per aksi; upgrade path:
 // endpoint server yang mengemas banyak file bila batas ini terasa sempit.
-const UNDUH_MAKS_SEKALIGUS = 20;
+const UNDUH_MAKS_SEKALIGUS = 100;
 const UNDUH_JEDA_MS = 300;
 
 function pesanBisaDiunduh(m) {

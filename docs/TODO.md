@@ -17,7 +17,7 @@
 
 ## Prioritas Sedang
 
-- [ ] **TODO-U1** Verifikasi manual unduh media di Brave kasir (lightbox, kartu dokumen, mode pilih + unduh banyak file, izin "unduh banyak file", toast saat Gateway mati/410) dan ukur apakah batas 20 file per aksi cukup; pertimbangkan `showDirectoryPicker` bila Inbox diakses lewat HTTPS/localhost — sedang — ref `docs/requirements/2026-10-03-unduh-media-inbox.md`
+- [ ] **TODO-U1** Verifikasi manual unduh media di Brave kasir (lightbox, kartu dokumen, mode pilih + unduh banyak file, izin "unduh banyak file", toast saat Gateway mati/410) dan ukur apakah batas 100 file per aksi (sebelumnya 20; kasir sering butuh lebih dari 20) cukup dan apakah Brave membatasi unduhan otomatis beruntun; pertimbangkan `showDirectoryPicker` bila Inbox diakses lewat HTTPS/localhost — sedang — ref `docs/requirements/2026-10-03-unduh-media-inbox.md`
 - [ ] **TODO-T3** Verifikasi jalur merge arsip (SQLite) saat arsip **terisi** untuk S2 (`laporan_pembayaran`), S3b (`transaksi`), dan S4 (`periode`). Saat ini arsip kosong sehingga hanya jalur live yang teruji; bentuk SQL arsip S4 sudah divalidasi lewat PDO — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
 - [ ] **TODO-T4** Tombol Print pada tabel server-side (item-harian, laporan-pembayaran, tagihan, transaksi, periode) hanya mencetak halaman aktif; pertimbangkan cetak seluruh hasil terfilter — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
 - [ ] **TODO-T5** Feature test ber-DB (`tests/feature`, `phpunit.feature.xml`) belum terhubung ke `composer test`/CI; saat ini hanya dijalankan manual. Pertimbangkan script composer terpisah (mis. `composer test:feature`) yang butuh `aulia_inboxdb_test` — sedang — ref `docs/sesi/2026-10-02-bug-nama-conversation-wa-web.md`

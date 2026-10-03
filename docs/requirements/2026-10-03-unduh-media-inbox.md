@@ -28,7 +28,7 @@ Kasir dapat melihat, menyimpan, dan mengunduh banyak gambar/dokumen dari percaka
 - **AC-3**: Given dokumen, then tampil kartu berisi ikon sesuai ekstensi, nama (di-escape), ekstensi/ukuran bila ada, dan tombol Unduh; nama non-ASCII tersimpan benar.
 - **AC-4**: Given media kadaluarsa (410), terlalu besar (413), atau Gateway tidak terhubung (502/503/504/jaringan), when Unduh ditekan, then muncul toast dengan penyebab yang jelas, bukan tab JSON.
 - **AC-5**: Given mode pilih aktif, then hanya bubble gambar/dokumen/sticker yang bisa dicentang; tombol Balas/Teruskan tersembunyi; pilihan bertahan melewati polling; keluar mode atau ganti percakapan menghapus pilihan.
-- **AC-6**: Given N media terpilih, when Unduh ditekan, then diunduh berurutan (jeda ~300 ms), maksimum 20 per aksi, dengan ringkasan "X berhasil, Y gagal (rincian)"; yang gagal tetap tercentang.
+- **AC-6**: Given N media terpilih, when Unduh ditekan, then diunduh berurutan (jeda ~300 ms), maksimum 100 per aksi, dengan ringkasan "X berhasil, Y gagal (rincian)"; yang gagal tetap tercentang.
 - **AC-7**: Given `?unduh=1`, then respons `Content-Disposition: attachment`; tanpa parameter, hanya gambar non-SVG yang `inline`; semua respons membawa `X-Content-Type-Options: nosniff`.
 
 ## 5. Batasan dan di luar cakupan
