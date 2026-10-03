@@ -10,6 +10,7 @@ use App\Models\UserModel;
 use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
 use App\Libraries\InboxMediaBound;
+use App\Libraries\InboxMediaDownload;
 use App\Libraries\InboxOutgoingRequest;
 use App\Services\InboxSlaService;
 use App\Services\InboxMatchSnippetService;
@@ -576,7 +577,8 @@ class Inbox extends BaseController
                 return $this->response
                     ->setStatusCode(200)
                     ->setContentType($message['media_mime_type'] ?: 'application/octet-stream')
-                    ->setHeader('Content-Disposition', ($message['message_type'] === 'document' ? 'attachment' : 'inline') . '; filename="' . addslashes($message['media_filename'] ?: 'media-' . $messageId) . '"')
+                    ->setHeader('Content-Disposition', $this->headerUnduhMedia($message, $messageId))
+                    ->setHeader('X-Content-Type-Options', 'nosniff')
                     ->setCache($cacheOptions)
                     ->setBody($binary);
             }
@@ -655,14 +657,30 @@ class Inbox extends BaseController
             ]);
         }
 
-        $filename = $message['media_filename'] ?: ('media-' . $messageId);
-
         return $this->response
             ->setStatusCode(200)
             ->setContentType($message['media_mime_type'] ?: 'application/octet-stream')
-            ->setHeader('Content-Disposition', ($message['message_type'] === 'document' ? 'attachment' : 'inline') . '; filename="' . addslashes($filename) . '"')
+            ->setHeader('Content-Disposition', $this->headerUnduhMedia($message, $messageId))
+            ->setHeader('X-Content-Type-Options', 'nosniff')
             ->setCache($cacheOptions)
             ->setBody($result['binary']);
+    }
+
+    /**
+     * Header Content-Disposition untuk media(). `?unduh=1` memaksa
+     * attachment (tombol Unduh di UI); tanpa itu, hanya gambar non-SVG yang
+     * inline (dipakai <img>). Lihat InboxMediaDownload.
+     *
+     * @param array<string, mixed> $message
+     */
+    private function headerUnduhMedia(array $message, int $messageId): string
+    {
+        $mime = $message['media_mime_type'] ?: null;
+
+        return InboxMediaDownload::contentDisposition(
+            InboxMediaDownload::disposition($mime, (string) $message['message_type'], $this->request->getGet('unduh') === '1'),
+            InboxMediaDownload::filename($message['media_filename'] ?: null, $mime, $messageId)
+        );
     }
 
     /**

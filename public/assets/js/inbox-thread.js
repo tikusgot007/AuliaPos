@@ -44,6 +44,265 @@ const pesanTerkirimTanpaKutipan = new Set();
 let pesanCached = {};
 
 // ================================================================
+// UNDUH MEDIA (gambar, dokumen, sticker)
+// ================================================================
+// Mode pilih untuk unduh massal. Disimpan di memori klien dan ikut masuk ke
+// HTML bubble (checkbox), jadi diffing polling tidak menghapus pilihan.
+let modePilih = false;
+const pilihanUnduh = new Set(); // String(id pesan)
+
+// ponytail: unduhan massal berurutan dengan batas per aksi; upgrade path:
+// endpoint server yang mengemas banyak file bila batas ini terasa sempit.
+const UNDUH_MAKS_SEKALIGUS = 20;
+const UNDUH_JEDA_MS = 300;
+
+function pesanBisaDiunduh(m) {
+    return !!m && (m.message_type === 'image' || m.message_type === 'document' || m.message_type === 'sticker') &&
+        m.is_internal !== true && m.is_internal !== 1 && m.is_internal !== '1' &&
+        !mediaGagal.has(String(m.id));
+}
+
+// Nama file dari header Content-Disposition (filename* lebih diutamakan).
+function namaFileDariHeader(header, cadangan) {
+    const h = String(header || '');
+    const utf8 = h.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+
+    if (utf8) {
+        try { return decodeURIComponent(utf8[1].trim()); } catch (e) { /* jatuh ke filename */ }
+    }
+
+    const biasa = h.match(/filename\s*=\s*"([^"]*)"/i);
+
+    return biasa && biasa[1] ? biasa[1] : cadangan;
+}
+
+function formatUkuranFile(byte) {
+    const n = Number(byte);
+    if (!isFinite(n) || n <= 0) return '';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
+
+    return (n / (1024 * 1024)).toFixed(1).replace('.', ',') + ' MB';
+}
+
+function ekstensiNama(nama) {
+    const m = String(nama || '').match(/\.([A-Za-z0-9]{1,6})$/);
+
+    return m ? m[1].toLowerCase() : '';
+}
+
+function ikonDokumen(nama) {
+    const peta = {
+        pdf: 'fa-file-pdf', doc: 'fa-file-word', docx: 'fa-file-word', xls: 'fa-file-excel', xlsx: 'fa-file-excel', csv: 'fa-file-csv',
+        ppt: 'fa-file-powerpoint', pptx: 'fa-file-powerpoint', zip: 'fa-file-zipper', rar: 'fa-file-zipper',
+        jpg: 'fa-file-image', jpeg: 'fa-file-image', png: 'fa-file-image', webp: 'fa-file-image', txt: 'fa-file-lines'
+    };
+
+    return peta[ekstensiNama(nama)] || 'fa-file-alt';
+}
+
+function pesanKegagalanUnduh(kategori) {
+    if (kategori === 'kadaluarsa') return 'Media sudah kadaluarsa di WhatsApp, tidak bisa diunduh.';
+    if (kategori === 'terlalu_besar') return 'Lampiran terlalu besar untuk diunduh (batas ' + threadConfig.maxMediaDownloadMb + 'MB).';
+    if (kategori === 'sementara') return 'Gateway belum bisa dihubungi, coba lagi sebentar lagi.';
+
+    return 'Gagal mengunduh media.';
+}
+
+/* Unduh satu media: fetch ?unduh=1 -> blob -> <a download>. Kegagalan
+   (410/413/502/jaringan) menjadi toast, bukan tab berisi JSON. Mengembalikan
+   Promise<{ok, kategori}> dan tidak pernah reject. */
+function unduhMedia(id, opsi) {
+    opsi = opsi || {};
+    const kunci = String(id);
+
+    return fetch(threadConfig.mediaBaseUrl + kunci + '?unduh=1')
+        .then(function(res) {
+            if (!res.ok) {
+                return { ok: false, kategori: kategoriStatusMedia(res.status) };
+            }
+
+            return res.blob().then(function(blob) {
+                const nama = namaFileDariHeader(res.headers.get('Content-Disposition'), 'media-' + kunci);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = nama;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(function() { URL.revokeObjectURL(url); }, 10000);
+
+                return { ok: true, kategori: null };
+            });
+        })
+        .catch(function() {
+            return { ok: false, kategori: 'sementara' };
+        })
+        .then(function(hasil) {
+            if (!hasil.ok && !opsi.senyap) tampilkanToastThread(pesanKegagalanUnduh(hasil.kategori), 'warning');
+
+            return hasil;
+        });
+}
+
+// Tombol unduh di bubble/lightbox: spinner + nonaktif selama proses.
+function unduhSatu(id, tombol) {
+    if (tombol && tombol.disabled) return Promise.resolve(null);
+
+    const html = tombol ? tombol.innerHTML : '';
+    if (tombol) {
+        tombol.disabled = true;
+        tombol.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+
+    return unduhMedia(id).then(function(hasil) {
+        if (tombol) {
+            tombol.disabled = false;
+            tombol.innerHTML = html;
+        }
+
+        return hasil;
+    });
+}
+
+/* Antrean unduhan berurutan (fungsi murni; `unduhFn`/`jedaFn` disuntikkan
+   agar bisa dites). Mengembalikan Promise<{berhasil, gagal, perKategori}>. */
+function unduhBeruntun(ids, unduhFn, jedaFn) {
+    const hasil = { berhasil: 0, gagal: 0, perKategori: {} };
+
+    return ids.reduce(function(rantai, id, i) {
+        return rantai
+            .then(function() { return i > 0 ? jedaFn(UNDUH_JEDA_MS) : null; })
+            .then(function() { return unduhFn(id); })
+            .then(function(r) {
+                if (r && r.ok) {
+                    hasil.berhasil += 1;
+                } else {
+                    hasil.gagal += 1;
+                    const k = (r && r.kategori) || 'lain';
+                    hasil.perKategori[k] = (hasil.perKategori[k] || 0) + 1;
+                }
+            });
+    }, Promise.resolve()).then(function() { return hasil; });
+}
+
+function ringkasanUnduhan(hasil) {
+    let teks = hasil.berhasil + ' berhasil diunduh';
+
+    if (hasil.gagal > 0) {
+        const nama = { kadaluarsa: 'kadaluarsa', terlalu_besar: 'terlalu besar', sementara: 'Gateway belum terhubung', lain: 'gagal' };
+        const rinci = Object.keys(hasil.perKategori).map(function(k) { return hasil.perKategori[k] + ' ' + (nama[k] || k); });
+        teks += ', ' + hasil.gagal + ' gagal (' + rinci.join(', ') + ')';
+    }
+
+    return teks + '.';
+}
+
+// ---- mode pilih ------------------------------------------------------
+function pesanBisaDipilih(m) {
+    return modePilih && pesanBisaDiunduh(m);
+}
+
+function alihkanModePilih(aktif) {
+    modePilih = typeof aktif === 'boolean' ? aktif : !modePilih;
+    if (!modePilih) pilihanUnduh.clear();
+    perbaruiBarPilih();
+    if (threadKonvId !== null) gambarUlangThread();
+}
+
+function alihkanPilihan(id, dipilih) {
+    const kunci = String(id);
+
+    if (dipilih) {
+        pilihanUnduh.add(kunci);
+    } else {
+        pilihanUnduh.delete(kunci);
+    }
+    perbaruiBarPilih();
+}
+
+function perbaruiBarPilih() {
+    const bar = document.getElementById('barPilihUnduh');
+    const tombol = document.getElementById('btnModePilih');
+    if (tombol) {
+        const adaMedia = Array.from(threadDikenal.values()).some(pesanBisaDiunduh);
+        tombol.style.display = (threadKonvId !== null && adaMedia) ? 'inline-flex' : 'none';
+        tombol.classList.toggle('aktif', modePilih);
+    }
+    if (!bar) return;
+
+    bar.style.display = modePilih ? 'flex' : 'none';
+    const jumlah = bar.querySelector('.inbox-pilih-jumlah');
+    if (jumlah) jumlah.textContent = String(pilihanUnduh.size);
+    const aksi = bar.querySelector('.inbox-pilih-unduh');
+    if (aksi) aksi.disabled = pilihanUnduh.size === 0;
+}
+
+let sedangUnduhMassal = false;
+
+function unduhTerpilih() {
+    if (sedangUnduhMassal || pilihanUnduh.size === 0) return Promise.resolve(null);
+
+    // Urutan thread (lama -> baru), hanya yang masih ada dan layak diunduh.
+    let ids = urutkanPesan(threadDikenal).filter(function(m) { return pilihanUnduh.has(String(m.id)) && pesanBisaDiunduh(m); })
+        .map(function(m) { return m.id; });
+    let terpotong = 0;
+
+    if (ids.length > UNDUH_MAKS_SEKALIGUS) {
+        terpotong = ids.length - UNDUH_MAKS_SEKALIGUS;
+        ids = ids.slice(0, UNDUH_MAKS_SEKALIGUS);
+    }
+
+    sedangUnduhMassal = true;
+    const bar = document.getElementById('barPilihUnduh');
+    const aksi = bar && bar.querySelector('.inbox-pilih-unduh');
+    if (aksi) aksi.disabled = true;
+
+    return unduhBeruntun(ids, function(id) { return unduhMedia(id, { senyap: true }); }, function(ms) {
+        return new Promise(function(resolve) { setTimeout(resolve, ms); });
+    }).then(function(hasil) {
+        sedangUnduhMassal = false;
+        let teks = ringkasanUnduhan(hasil);
+        if (terpotong > 0) teks += ' ' + terpotong + ' file lain belum diunduh (batas ' + UNDUH_MAKS_SEKALIGUS + ' per aksi).';
+        tampilkanToastThread(teks, hasil.gagal > 0 ? 'warning' : 'success');
+
+        // Yang berhasil dilepas dari pilihan; yang gagal tetap tercentang untuk dicoba lagi.
+        if (hasil.gagal === 0) {
+            alihkanModePilih(false);
+        } else {
+            perbaruiBarPilih();
+        }
+
+        return hasil;
+    });
+}
+
+// ---- lightbox gambar -------------------------------------------------
+let lightboxIdAktif = null;
+
+function bukaLightbox(id) {
+    const m = pesanCached[id];
+    const modalEl = document.getElementById('lightboxMedia');
+    if (!m || !modalEl) return;
+
+    lightboxIdAktif = m.id;
+    const img = modalEl.querySelector('.inbox-lightbox-img');
+    const nama = modalEl.querySelector('.inbox-lightbox-nama');
+    img.src = threadConfig.mediaBaseUrl + m.id;
+    if (nama) nama.textContent = m.media_filename || ('media-' + m.id);
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+}
+
+function unduhDariLightbox(tombol) {
+    if (lightboxIdAktif === null) return Promise.resolve(null);
+
+    return unduhSatu(lightboxIdAktif, tombol);
+}
+
+// ================================================================
 // UTIL
 // ================================================================
 function escapeHtmlInbox(str) {
@@ -239,6 +498,8 @@ function renderAksiTeruskan(m) {
    ada tombol yang tersedia, supaya bubble yang tidak punya aksi tampil
    persis seperti sebelumnya. */
 function renderAksiPesan(m) {
+    if (modePilih) return '';
+
     const tombol = renderAksiBalas(m) + renderAksiTeruskan(m);
 
     if (tombol === '') return '';
@@ -446,6 +707,15 @@ function nomorDariVcard(vcard) {
     return digit.length >= 8 ? digit : null;
 }
 
+/* Tombol unduh yang muncul saat hover pada gambar/sticker. Dibuang di mode
+   pilih (klik gambar dipakai untuk mencentang, bukan membuka lightbox). */
+function htmlTombolUnduhHover(m) {
+    if (modePilih) return '';
+
+    return '<button type="button" class="inbox-media-unduh" title="Unduh" onclick="event.stopPropagation(); unduhSatu(' + m.id + ', this)">' +
+        '<i class="fas fa-download"></i></button>';
+}
+
 function renderIsiPesan(m) {
     const urlMedia = threadConfig.mediaBaseUrl + m.id;
 
@@ -483,9 +753,12 @@ function renderIsiPesan(m) {
         // onerror: penyebab sebenarnya BELUM diketahui -- <img> tidak
         // membawa status HTTP apa pun. tanganiMediaGagal() yang
         // memeriksanya sekali dan memilih pesan yang jujur.
-        return '<img src="' + urlMedia + '" alt="Gambar" class="inbox-media-image" data-media-jenis="image" ' +
+        return '<div class="inbox-media-wrap">' +
+            '<img src="' + urlMedia + '" alt="Gambar" class="inbox-media-image" data-media-jenis="image" ' +
+            (modePilih ? '' : 'onclick="bukaLightbox(' + m.id + ')" ') +
             'onload="mediaSementara.delete(\'' + kunci + '\')" ' +
-            'onerror="tanganiMediaGagal(this, \'' + kunci + '\')">' + caption;
+            'onerror="tanganiMediaGagal(this, \'' + kunci + '\')">' +
+            htmlTombolUnduhHover(m) + '</div>' + caption;
     }
 
     if (m.message_type === 'sticker') {
@@ -508,16 +781,25 @@ function renderIsiPesan(m) {
             entriSementara.cobaan += 1;
             entriSementara.terakhirMs = Date.now();
         }
-        return '<img src="' + urlMedia + '" alt="Sticker" class="inbox-media-sticker" data-media-jenis="sticker" ' +
+        return '<div class="inbox-media-wrap">' +
+            '<img src="' + urlMedia + '" alt="Sticker" class="inbox-media-sticker" data-media-jenis="sticker" ' +
             'onload="mediaSementara.delete(\'' + kunci + '\')" ' +
-            'onerror="tanganiMediaGagal(this, \'' + kunci + '\')">';
+            'onerror="tanganiMediaGagal(this, \'' + kunci + '\')">' +
+            htmlTombolUnduhHover(m) + '</div>';
     }
 
     if (m.message_type === 'document') {
         const namaFile = m.media_filename || 'Dokumen';
-        return '<a href="' + urlMedia + '" target="_blank" class="inbox-media-document">' +
-            '<i class="fas fa-file-alt"></i> ' + escapeHtmlInbox(namaFile) +
-            '</a>' +
+        const ekstensi = ekstensiNama(namaFile).toUpperCase();
+        const ukuran = formatUkuranFile(m.media_size);
+        const meta = [ekstensi, ukuran].filter(Boolean).join(' · ');
+        return '<div class="inbox-media-document">' +
+            '<i class="fas ' + ikonDokumen(namaFile) + ' inbox-media-document-ikon"></i>' +
+            '<div class="inbox-media-document-info"><div class="inbox-media-document-nama">' + escapeHtmlInbox(namaFile) + '</div>' +
+            (meta ? '<div class="inbox-media-document-meta">' + escapeHtmlInbox(meta) + '</div>' : '') + '</div>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm inbox-media-document-unduh" title="Unduh" ' +
+            'onclick="unduhSatu(' + m.id + ', this)"><i class="fas fa-download"></i></button>' +
+            '</div>' +
             (m.text ? '<div class="inbox-media-caption">' + formatTeksWa(m.text) + '</div>' : '');
     }
 
@@ -620,7 +902,14 @@ function renderBubbleHtml(m) {
         '<div class="penanda-tanpa-kutipan"><i class="fas fa-exclamation-triangle"></i> Terkirim tanpa kutipan</div>' :
         '';
 
-    return '<div class="inbox-bubble ' + arah + '" data-id="' + escapeHtmlInbox(m.id) + '">' +
+    const bisaDipilih = pesanBisaDipilih(m);
+    const kotakPilih = bisaDipilih ?
+        '<label class="inbox-pilih"><input type="checkbox" onchange="alihkanPilihan(' + m.id + ', this.checked)"' +
+        (pilihanUnduh.has(String(m.id)) ? ' checked' : '') + '> Pilih</label>' :
+        '';
+
+    return '<div class="inbox-bubble ' + arah + (bisaDipilih ? ' inbox-bubble-pilih' : '') + '" data-id="' + escapeHtmlInbox(m.id) + '">' +
+        kotakPilih +
         internalLabel +
         senderLabel +
         renderLabelDiteruskan(m) +
@@ -837,6 +1126,9 @@ function resetThread(htmlKosong) {
     threadMemuatLama = false;
     threadKunciAkhir = null;
     threadJumlahBaru = 0;
+    modePilih = false;
+    pilihanUnduh.clear();
+    perbaruiBarPilih();
     perbaruiTombolGulung();
     document.getElementById('threadMessages').innerHTML = htmlKosong || '';
 }
@@ -909,6 +1201,7 @@ function renderPesan(messages, paksaScroll, opsi) {
         return !!entri && entri.el.parentNode === container;
     });
     terapkanRencanaThread(container, rencana);
+    perbaruiBarPilih();
 
     if (harusScroll) {
         container.scrollTop = container.scrollHeight;

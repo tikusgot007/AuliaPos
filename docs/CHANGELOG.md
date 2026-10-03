@@ -14,6 +14,23 @@ Format entri:
 
 ---
 
+## 2026-10-03 — Inbox: unduh gambar & dokumen yang mudah (lightbox, kartu file, unduh massal)
+
+- Aturan lama: gambar hanya bisa disimpan lewat klik kanan (nama `media-<id>` tanpa
+  ekstensi); dokumen berupa tautan yang membuka tab baru, dan kegagalan media
+  (kadaluarsa/Gateway mati) tampil sebagai tab berisi JSON.
+- Aturan baru: klik gambar membuka lightbox dengan tombol Unduh; gambar/sticker
+  punya ikon unduh saat hover; dokumen tampil sebagai kartu (ikon, nama, jenis/ukuran,
+  tombol Unduh). File tersimpan dengan nama berekstensi (`media-<id>.jpg`, atau nama
+  asli pengirim). Kegagalan unduh tampil sebagai toast dengan penyebab. Tombol
+  "Pilih media" mengaktifkan mode pilih untuk mengunduh banyak file sekaligus
+  (berurutan, maksimum 20 per aksi, tanpa ZIP, ke folder Download browser; Brave
+  dapat meminta izin unduh banyak file sekali). `?unduh=1` pada `/inbox/media/:id`
+  memaksa `attachment`; hanya gambar non-SVG yang `inline`.
+- Alasan: kasir perlu menyimpan foto/nota/dokumen pelanggan dengan cepat dan jelas.
+- Referensi: `docs/requirements/2026-10-03-unduh-media-inbox.md`. Audio/video tetap
+  placeholder; kontrak Gateway tidak berubah.
+
 ## 2026-10-02 — Inbox: riwayat thread menampilkan 200 pesan TERBARU dengan pagination
 
 - Aturan lama: thread percakapan mengambil 500 pesan **tertua**

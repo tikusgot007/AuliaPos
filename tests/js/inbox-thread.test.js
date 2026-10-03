@@ -591,6 +591,123 @@ test('AC-29: loading older messages does not count as news', async () => {
     assert.equal(t.button.style.display, 'none');
 });
 
+// ---- download of images / documents / stickers --------------------------
+const imgMsg = (id, extra = {}) => msg(id, { message_type: 'image', text: '', media_mime_type: 'image/jpeg', ...extra });
+const docMsg = (id, extra = {}) => msg(id, { message_type: 'document', text: '', media_filename: 'Nota Pesanan.pdf', media_size: 153600, ...extra });
+
+test('DL-1: namaFileDariHeader prefers filename*, then filename, then the fallback', () => {
+    const t = loadThread();
+    assert.equal(t.ctx.namaFileDariHeader("attachment; filename=\"Nota _.pdf\"; filename*=UTF-8''Nota%20%C3%A9.pdf", 'x'), 'Nota é.pdf');
+    assert.equal(t.ctx.namaFileDariHeader('attachment; filename="a.jpg"', 'x'), 'a.jpg');
+    assert.equal(t.ctx.namaFileDariHeader(null, 'media-5'), 'media-5');
+    assert.equal(t.ctx.namaFileDariHeader("attachment; filename*=UTF-8''%E0%A4%A", 'media-5'), 'media-5', 'bad encoding falls back');
+});
+
+test('DL-2: formatUkuranFile and ikonDokumen', () => {
+    const t = loadThread();
+    assert.equal(t.ctx.formatUkuranFile(null), '');
+    assert.equal(t.ctx.formatUkuranFile(500), '500 B');
+    assert.equal(t.ctx.formatUkuranFile(153600), '150 KB');
+    assert.equal(t.ctx.formatUkuranFile(2621440), '2,5 MB');
+    assert.equal(t.ctx.ikonDokumen('a.PDF'), 'fa-file-pdf');
+    assert.equal(t.ctx.ikonDokumen('a.xlsx'), 'fa-file-excel');
+    assert.equal(t.ctx.ikonDokumen('tanpa-ekstensi'), 'fa-file-alt');
+});
+
+test('DL-3: document renders a file card with name, type/size and a download button (no bare link)', () => {
+    const t = loadThread();
+    const html = t.ctx.renderBubbleHtml(docMsg(21));
+    assert.ok(html.includes('inbox-media-document-nama">Nota Pesanan.pdf<'), html);
+    assert.ok(html.includes('PDF · 150 KB'), html);
+    assert.ok(html.includes('fa-file-pdf'), html);
+    assert.ok(html.includes('unduhSatu(21, this)'), html);
+    assert.ok(!html.includes('target="_blank"'), 'no bare link that opens a JSON tab on error');
+    const kosong = t.ctx.renderBubbleHtml(docMsg(22, { media_filename: '<b>x</b>', media_size: null }));
+    assert.ok(!kosong.includes('<b>x</b>'), 'file name is escaped');
+    assert.ok(!kosong.includes('inbox-media-document-meta">PDF'), 'no meta line without size');
+});
+
+test('DL-4: image opens the lightbox on click and has a hover download button; sticker has no lightbox', () => {
+    const t = loadThread();
+    const img = t.ctx.renderBubbleHtml(imgMsg(30));
+    assert.ok(img.includes('onclick="bukaLightbox(30)"'), img);
+    assert.ok(img.includes('unduhSatu(30, this)'), img);
+    const sticker = t.ctx.renderBubbleHtml(msg(31, { message_type: 'sticker' }));
+    assert.ok(!sticker.includes('bukaLightbox'), sticker);
+    assert.ok(sticker.includes('unduhSatu(31, this)'), sticker);
+});
+
+test('DL-5: select mode shows checkboxes only on downloadable media, hides Balas/Teruskan, and survives re-render', () => {
+    const t = loadThread();
+    poll(t, [imgMsg(40), docMsg(41), msg(42)], true);
+    t.ctx.alihkanModePilih(true);
+    const html = (id) => t.run(`renderBubbleHtml(threadDikenal.get('${id}'))`);
+    assert.ok(html(40).includes('type="checkbox"') && !html(40).includes('bubble-aksi') && !html(40).includes('bukaLightbox'));
+    assert.ok(html(41).includes('type="checkbox"'));
+    assert.ok(!html(42).includes('type="checkbox"'), 'text message cannot be selected');
+    t.ctx.alihkanPilihan(40, true);
+    assert.ok(html(40).includes('checked'), 'selection is part of the bubble HTML');
+    poll(t, [imgMsg(40), docMsg(41), msg(42)], false);
+    assert.ok(t.container.children.some((c) => c.dataset.id === '40' && c.html.includes('checked')), 'poll keeps the selection');
+    t.ctx.alihkanModePilih(false);
+    assert.ok(html(40).includes('bubble-aksi') && !html(40).includes('type="checkbox"'));
+    assert.equal(t.get('pilihanUnduh.size'), 0, 'leaving select mode clears the selection');
+});
+
+test('DL-6: switching conversation leaves select mode', () => {
+    const t = loadThread();
+    poll(t, [imgMsg(50)], true);
+    t.ctx.alihkanModePilih(true);
+    t.ctx.alihkanPilihan(50, true);
+    t.ctx.terimaPesanTerbaru(2, { status: 'success', messages: [msg(60)], has_more: false }, true);
+    assert.equal(t.get('modePilih'), false);
+    assert.equal(t.get('pilihanUnduh.size'), 0);
+});
+
+test('DL-7: unduhBeruntun runs one by one in order with a pause, and counts failures per category', async () => {
+    const t = loadThread();
+    const urutan = [];
+    const hasil = await t.ctx.unduhBeruntun([1, 2, 3, 4], (id) => {
+        urutan.push('unduh' + id);
+        return Promise.resolve(id === 2 ? { ok: false, kategori: 'kadaluarsa' } : id === 4 ? { ok: false, kategori: 'sementara' } : { ok: true });
+    }, () => { urutan.push('jeda'); return Promise.resolve(); });
+    assert.deepEqual(urutan, ['unduh1', 'jeda', 'unduh2', 'jeda', 'unduh3', 'jeda', 'unduh4']);
+    assert.equal(hasil.berhasil, 2);
+    assert.equal(hasil.gagal, 2);
+    assert.deepEqual(JSON.parse(JSON.stringify(hasil.perKategori)), { kadaluarsa: 1, sementara: 1 });
+    assert.equal(t.ctx.ringkasanUnduhan(hasil), '2 berhasil diunduh, 2 gagal (1 kadaluarsa, 1 Gateway belum terhubung).');
+});
+
+test('DL-8: unduhMedia requests ?unduh=1, saves with the server file name, and never rejects', async () => {
+    const t = loadThread();
+    const diklik = [];
+    t.ctx.URL = { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} };
+    t.ctx.document.body = { appendChild: () => {} };
+    t.ctx.document.createElement = () => ({ style: {}, click() { diklik.push(this.download); }, remove() {} });
+    const diminta = [];
+    t.ctx.fetch = (url) => {
+        diminta.push(url);
+        return Promise.resolve({ ok: true, status: 200, headers: { get: () => "attachment; filename=\"a\"; filename*=UTF-8''foto%201.jpg" }, blob: () => Promise.resolve({}) });
+    };
+    const ok = await t.ctx.unduhMedia(7);
+    assert.deepEqual(diminta, ['/inbox/media/7?unduh=1']);
+    assert.deepEqual(diklik, ['foto 1.jpg']);
+    assert.equal(ok.ok, true);
+
+    const toasts = [];
+    t.ctx.showToast = (teks, jenis) => toasts.push([teks, jenis]);
+    t.ctx.fetch = () => Promise.resolve({ ok: false, status: 410 });
+    const gagal = await t.ctx.unduhMedia(7);
+    assert.deepEqual([gagal.ok, gagal.kategori], [false, 'kadaluarsa']);
+    assert.equal(toasts.length, 1);
+    assert.match(toasts[0][0], /kadaluarsa/);
+
+    t.ctx.fetch = () => Promise.reject(new Error('jaringan'));
+    const mati = await t.ctx.unduhMedia(7, { senyap: true });
+    assert.equal(mati.kategori, 'sementara');
+    assert.equal(toasts.length, 1, 'senyap suppresses the toast');
+});
+
 (async () => {
     let passed = 0;
     for (const [name, fn] of queue) {

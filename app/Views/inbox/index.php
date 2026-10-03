@@ -523,21 +523,118 @@
         display: block;
     }
 
+    /* Kartu dokumen: ikon tipe + nama + ekstensi/ukuran + tombol Unduh. */
     .inbox-media-document {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         padding: 8px 10px;
         background: rgba(0, 0, 0, 0.04);
         border-radius: 6px;
-        text-decoration: none;
         color: inherit;
         font-size: 0.85rem;
-        word-break: break-all;
+        min-width: 220px;
     }
 
-    .inbox-media-document:hover {
-        background: rgba(0, 0, 0, 0.08);
+    .inbox-media-document-ikon {
+        font-size: 1.6rem;
+        color: #54656f;
+    }
+
+    .inbox-media-document-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .inbox-media-document-nama {
+        word-break: break-all;
+        white-space: normal;
+    }
+
+    .inbox-media-document-meta {
+        font-size: 0.75rem;
+        opacity: 0.7;
+    }
+
+    /* Gambar/sticker: tombol unduh kecil saat hover. */
+    .inbox-media-wrap {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+    }
+
+    .inbox-media-unduh {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .inbox-media-wrap:hover .inbox-media-unduh {
+        display: flex;
+    }
+
+    .inbox-media-wrap:has(.inbox-media-unavailable) .inbox-media-unduh {
+        display: none;
+    }
+
+    /* Mode pilih (unduh massal). */
+    .inbox-bubble-pilih {
+        outline: 2px dashed rgba(25, 135, 84, 0.35);
+    }
+
+    .inbox-pilih {
+        display: block;
+        font-size: 0.75rem;
+        margin-bottom: 4px;
+        cursor: pointer;
+    }
+
+    .inbox-btn-mode-pilih {
+        position: absolute;
+        top: 8px;
+        right: 20px;
+        z-index: 5;
+        display: none;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border: 0;
+        border-radius: 14px;
+        background: #fff;
+        color: #54656f;
+        font-size: 0.78rem;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    }
+
+    .inbox-btn-mode-pilih.aktif {
+        background: #198754;
+        color: #fff;
+    }
+
+    .inbox-bar-pilih {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 16px;
+        background: #e7f5ec;
+        border-top: 1px solid #b6e0c6;
+        font-size: 0.85rem;
+    }
+
+    .inbox-lightbox-img {
+        max-width: 100%;
+        max-height: 75vh;
+        display: block;
+        margin: 0 auto;
     }
 
     .inbox-media-unavailable {
@@ -700,10 +797,22 @@
                         </div>
                     </div>
                     <!-- Muncul saat pesan baru masuk selagi kasir membaca riwayat (P7, AC-29). -->
+                    <!-- Unduh massal: aktifkan mode pilih, centang bubble bermedia, lalu Unduh. -->
+                    <button type="button" class="inbox-btn-mode-pilih" id="btnModePilih" onclick="alihkanModePilih()" title="Pilih media untuk diunduh">
+                        <i class="fas fa-check-square"></i> Pilih media
+                    </button>
                     <button type="button" class="inbox-gulung-baru" id="btnGulungBaru" style="display:none;" onclick="gulungKeTerbaru()" title="Gulung ke pesan terbaru">
                         <span class="inbox-gulung-jumlah">0</span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
+                </div>
+
+                <div class="inbox-bar-pilih" id="barPilihUnduh">
+                    <span><strong class="inbox-pilih-jumlah">0</strong> dipilih</span>
+                    <button type="button" class="btn btn-success btn-sm inbox-pilih-unduh" onclick="unduhTerpilih()" disabled>
+                        <i class="fas fa-download"></i> Unduh
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="alihkanModePilih(false)">Batal</button>
                 </div>
 
                 <div class="inbox-thread-form">
@@ -1075,6 +1184,24 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Lightbox gambar (klik gambar di thread). Di luar #threadMessages supaya polling tidak menutupnya. -->
+<div class="modal fade" id="lightboxMedia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <span class="modal-title small text-muted inbox-lightbox-nama"></span>
+                <button type="button" class="btn btn-success btn-sm ms-auto me-2" onclick="unduhDariLightbox(this)">
+                    <i class="fas fa-download"></i> Unduh
+                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body">
+                <img class="inbox-lightbox-img" alt="Gambar">
+            </div>
         </div>
     </div>
 </div>
