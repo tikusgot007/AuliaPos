@@ -380,55 +380,15 @@
             ],
             dom: 'Bfrtip',
             buttons: [{
-                    extend: 'copyHtml5',
-                    text: '<i class="fas fa-copy"></i> Copy',
-                    className: 'btn btn-secondary btn-sm',
-                    exportOptions: {
-                        columns: ':visible'
-                    }
-                },
-                {
-                    // CSV diambil dari server (seluruh baris terfilter),
-                    // bukan lagi dari DOM (yang hanya berisi halaman aktif).
-                    text: '<i class="fas fa-file-csv"></i> CSV',
-                    className: 'btn btn-info btn-sm',
-                    action: function() {
-                        var qs = '?tanggal_awal=' + encodeURIComponent(periodeState.awal) +
-                            '&tanggal_akhir=' + encodeURIComponent(periodeState.akhir);
-                        window.location.href = '<?= base_url('/laporan/periode-export') ?>' + qs;
-                    }
-                },
-                {
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel"></i> Excel',
-                    className: 'btn btn-success btn-sm',
-                    title: 'Laporan_' + new Date().toISOString().slice(0, 10),
-                    exportOptions: {
-                        columns: ':visible',
-                        format: {
-                            body: function(data) {
-                                if (typeof data === 'string' && data.includes('.') && !isNaN(parseFloat(data.replace(/\./g, '')))) {
-                                    return data.replace(/\./g, '').replace(/,/g, '.');
-                                }
-                                return data;
-                            }
-                        }
-                    }
-                },
-                {
-                    extend: 'pdfHtml5',
-                    text: '<i class="fas fa-file-pdf"></i> PDF',
-                    className: 'btn btn-danger btn-sm',
-                    title: 'Laporan_' + new Date().toISOString().slice(0, 10),
-                    orientation: 'landscape',
-                    pageSize: 'A4'
-                },
-                {
-                    extend: 'print',
-                    text: '<i class="fas fa-print"></i> Print',
-                    className: 'btn btn-primary btn-sm'
+                // Excel server-side: seluruh baris terfilter, bukan halaman aktif.
+                text: '<i class="fas fa-file-excel"></i> Excel',
+                className: 'btn btn-success btn-sm',
+                action: function() {
+                    var qs = '?tanggal_awal=' + encodeURIComponent(periodeState.awal) +
+                        '&tanggal_akhir=' + encodeURIComponent(periodeState.akhir);
+                    window.location.href = '<?= base_url('/laporan/periode-export') ?>' + qs;
                 }
-            ],
+            }],
             ajax: {
                 url: '<?= base_url('/laporan/periode-data') ?>',
                 data: function(d) {
@@ -874,66 +834,23 @@
                 pageLength: 25,
                 dom: 'Bfrtip',
                 buttons: [{
-                        extend: 'copyHtml5',
-                        text: '<i class="fas fa-copy"></i> Copy',
-                        className: 'btn btn-secondary btn-sm',
-                        exportOptions: {
-                            columns: ':visible'
-                        }
-                    },
-                    {
-                        extend: 'csvHtml5',
-                        text: '<i class="fas fa-file-csv"></i> CSV',
-                        className: 'btn btn-info btn-sm',
-                        fieldSeparator: ';',
-                        title: 'Laporan_' + new Date().toISOString().slice(0, 10),
-                        exportOptions: {
-                            columns: ':visible',
-                            format: {
-                                body: function(data, row, column, node) {
-                                    // 🔥 Hapus titik pemisah ribuan, ubah koma jadi titik (format angka)
-                                    if (typeof data === 'string' && data.includes('.') && !isNaN(parseFloat(data.replace(/\./g, '')))) {
-                                        // Hapus titik, ubah koma jadi titik
-                                        return data.replace(/\./g, '').replace(/,/g, '.');
-                                    }
-                                    return data;
+                    extend: 'excelHtml5',
+                    text: '<i class="fas fa-file-excel"></i> Excel',
+                    className: 'btn btn-success btn-sm',
+                    title: 'Laporan_' + new Date().toISOString().slice(0, 10),
+                    exportOptions: {
+                        columns: ':visible',
+                        format: {
+                            body: function(data, row, column, node) {
+                                // Hapus titik pemisah ribuan, ubah koma jadi titik (format angka)
+                                if (typeof data === 'string' && data.includes('.') && !isNaN(parseFloat(data.replace(/\./g, '')))) {
+                                    return data.replace(/\./g, '').replace(/,/g, '.');
                                 }
+                                return data;
                             }
                         }
-                    },
-                    {
-                        extend: 'excelHtml5',
-                        text: '<i class="fas fa-file-excel"></i> Excel',
-                        className: 'btn btn-success btn-sm',
-                        title: 'Laporan_' + new Date().toISOString().slice(0, 10),
-                        exportOptions: {
-                            columns: ':visible',
-                            format: {
-                                body: function(data, row, column, node) {
-                                    // 🔥 Hapus titik pemisah ribuan
-                                    if (typeof data === 'string' && data.includes('.') && !isNaN(parseFloat(data.replace(/\./g, '')))) {
-                                        // Hapus titik, ubah koma jadi titik
-                                        return data.replace(/\./g, '').replace(/,/g, '.');
-                                    }
-                                    return data;
-                                }
-                            }
-                        }
-                    },
-                    {
-                        extend: 'pdfHtml5',
-                        text: '<i class="fas fa-file-pdf"></i> PDF',
-                        className: 'btn btn-danger btn-sm',
-                        title: 'Laporan_' + new Date().toISOString().slice(0, 10),
-                        orientation: 'landscape',
-                        pageSize: 'A4'
-                    },
-                    {
-                        extend: 'print',
-                        text: '<i class="fas fa-print"></i> Print',
-                        className: 'btn btn-primary btn-sm'
                     }
-                ],
+                }],
                 language: {
                     search: "Cari:",
                     lengthMenu: "Tampilkan _MENU_ data per halaman",

@@ -482,28 +482,10 @@
             },
             buttons: [
                 {
-                    text: '<i class="fas fa-copy"></i> Copy',
-                    className: 'btn btn-secondary btn-sm',
-                    action: function() {
-                        $.get(exportUrl, filterParams()).done(function(csv) {
-                            if (window.navigator.clipboard) {
-                                window.navigator.clipboard.writeText(csv);
-                            }
-                        });
-                    }
-                },
-                {
-                    text: '<i class="fas fa-file-excel"></i> Excel/CSV',
+                    text: '<i class="fas fa-file-excel"></i> Excel',
                     className: 'btn btn-success btn-sm',
                     action: function() {
                         window.location = exportUrl + '?' + $.param(filterParams());
-                    }
-                },
-                {
-                    text: '<i class="fas fa-print"></i> Print',
-                    className: 'btn btn-primary btn-sm',
-                    action: function() {
-                        window.print();
                     }
                 }
             ]
