@@ -3449,6 +3449,17 @@
     // menduplikasi template di PHP.
     renderDaftarConversation();
 
+    // Deep-link dari toast notifikasi lintas halaman (main.php): buka
+    // percakapan tertentu langsung saat window Inbox dibuka/difokuskan
+    // lewat `?conversation_id=`. `daftarConversation` di atas memuat
+    // SEMUA conversation (lihat Inbox::index()), jadi target selalu ada
+    // tanpa perlu menunggu polling.
+    (function bukaConversationDariUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const id = parseInt(params.get('conversation_id'), 10);
+        if (id > 0) pilihConversation(id);
+    })();
+
     // REQ-017b: tick 6 detik tidak menumpuk putaran kedua. Kalau putaran
     // sebelumnya masih jalan, tick ini dilewati -- putaran berikutnya
     // tetap datang 6 detik kemudian.

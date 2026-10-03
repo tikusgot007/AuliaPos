@@ -60,6 +60,7 @@ $routes->post('/inbox/percakapan/(:num)/handoff', 'Inbox::handoffPercakapan/$1',
 $routes->get('/inbox/percakapan/(:num)/handoff', 'Inbox::apiHandoffs/$1', ['filter' => 'auth']);
 $routes->post('/inbox/mulai-percakapan', 'Inbox::mulaiPercakapan', ['filter' => 'auth']);
 $routes->get('/inbox/api/perlu-dibalas-count', 'Inbox::apiPerluDibalasCount', ['filter' => 'auth']);
+$routes->get('/inbox/api/notifikasi-ringkas', 'Inbox::apiNotifikasiRingkas', ['filter' => 'auth']);
 
 // ==========================================
 // ROUTE GANTI PASSWORD - OTOMATIS KENA AUTH

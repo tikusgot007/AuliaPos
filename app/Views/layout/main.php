@@ -726,6 +726,10 @@
                             <span>Inbox WhatsApp</span>
                             <span class="badge bg-danger ms-1" id="sidebarInboxBadge" style="display:none;"></span>
                         </a>
+                        <button type="button" class="btn btn-sm btn-link text-white-50 p-0 ms-1" id="btnMuteNotifInbox"
+                            title="Bisukan/aktifkan suara notifikasi Inbox" onclick="alihkanMuteNotif()">
+                            <i class="fas fa-bell" id="inboxNotifMuteIcon"></i>
+                        </button>
                     </li>
 
 
@@ -1186,7 +1190,18 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+    <script>
+        // Judul tab + titik favicon + suara + toast untuk percakapan
+        // 'perlu_dibalas' yang relevan bagi user ini (inbox-notifikasi.js,
+        // fungsi murni dites di tests/js/inbox-notifikasi.test.js).
+        // Diset SEBELUM file dimuat -- sama seperti pola INBOX_THREAD_CONFIG
+        // di inbox/index.php.
+        window.INBOX_NOTIF_CONFIG = {
+            ringkasUrl: <?= json_encode(base_url('/inbox/api/notifikasi-ringkas')) ?>,
+            inboxUrl: <?= json_encode(base_url('/inbox')) ?>
+        };
+    </script>
+    <script src="<?= base_url('assets/js/inbox-notifikasi.js') ?>"></script>
 
     <script>
         $(document).ready(function() {
@@ -1213,6 +1228,10 @@
         }
         muatBadgeInboxSidebar();
         setInterval(muatBadgeInboxSidebar, 20000); // lebih longgar dari polling di dalam /inbox (6 detik) -- ini cuma peripheral awareness.
+
+        // Notifikasi lintas halaman (inbox-notifikasi.js): interval sama
+        // dengan muatBadgeInboxSidebar -- satu ritme peripheral awareness.
+        mulaiNotifikasiInbox(20000);
 
         // ==========================================
         // JAMIN TOAST SELALU RELATIF KE VIEWPORT
