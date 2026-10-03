@@ -134,6 +134,10 @@ final class BalasanTemplateImageServiceTest extends CIUnitTestCase
 
         $path = $this->service->resolvePathUntukDitampilkan($hasil['filename']);
 
-        $this->assertSame($this->service->getDir() . '/' . $hasil['filename'], $path);
+        // DIRECTORY_SEPARATOR, BUKAN '/' literal -- resolvePathUntukDitampilkan()
+        // membangun path dengan DIRECTORY_SEPARATOR (\ di Windows, / di
+        // Linux/Mac), jadi assertion harus mengikuti platform yang sama
+        // supaya test ini tidak gagal palsu di Windows.
+        $this->assertSame($this->service->getDir() . DIRECTORY_SEPARATOR . $hasil['filename'], $path);
     }
 }

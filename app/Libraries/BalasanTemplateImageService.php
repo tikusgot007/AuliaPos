@@ -47,7 +47,15 @@ class BalasanTemplateImageService
 
         $maxKb = (new InboxConfig())->maxMediaUploadMb * 1024;
 
-        if ($file->getSizeByUnit('kb') > $maxKb) {
+        // Bandingkan byte mentah (getSize()), BUKAN getSizeByUnit('kb'):
+        // di versi framework ini, getSizeByUnit('kb') memformat hasilnya
+        // lewat number_format() (mis. "15,361.000", string berkoma ribuan),
+        // sehingga perbandingan `>` dengan int $maxKb selalu salah (PHP
+        // memotong string di koma, "15,361.000" > 15360 jadi 15 > 15360 =
+        // false) -- file besar lolos validasi. Pola yang benar sama dengan
+        // Inbox::kirimMediaBiasa() (Inbox.php) yang membandingkan byte
+        // mentah secara langsung.
+        if ($file->getSize() > $maxKb * 1024) {
             return ['success' => false, 'error' => 'Ukuran file melebihi batas maksimal.'];
         }
 

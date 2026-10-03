@@ -35,6 +35,31 @@ final class BalasanTemplateCrudTest extends CIUnitTestCase
 
         $this->imageService = new BalasanTemplateImageService();
         $this->bersihkanDirGambar();
+
+        $this->siapkanTabelUsersDefaultGroup();
+    }
+
+    /**
+     * testIndexListsTemplatesSortedByNama me-render layout/main.php penuh
+     * (halaman admin biasa), dan layout itu query UserModel untuk foto
+     * profil header (main.php:1111-1113). UserModel pakai defaultGroup --
+     * di environment testing itu SQLite `:memory:` ('tests' group) yang
+     * KOSONG (tidak ada migrasi tabel users di sana; semua test feature
+     * lain di repo ini kebetulan hanya menguji endpoint JSON yang tidak
+     * melewati layout, jadi belum pernah kena). Buat tabel users minimal
+     * (id + profile_photo cukup untuk query itu) supaya test ini tidak
+     * bergantung pada tabel yang tidak dimigrasikan di DB test default.
+     */
+    private function siapkanTabelUsersDefaultGroup(): void
+    {
+        $db = db_connect();
+        // Prefix (`db_` di group 'tests') HARUS disertakan di DDL mentah:
+        // query builder (.table('users')) menambahkan prefix otomatis, tapi
+        // DDL string mentah tidak -- tanpa prefix, CREATE membuat tabel
+        // 'users' sementara builder tetap mencari 'db_users'.
+        $db->query('CREATE TABLE IF NOT EXISTS ' . $db->DBPrefix . 'users (id INTEGER PRIMARY KEY, username TEXT, profile_photo TEXT)');
+        $db->table('users')->where('id', 1)->delete();
+        $db->table('users')->insert(['id' => 1, 'username' => 'admin-test', 'profile_photo' => null]);
     }
 
     protected function tearDown(): void
@@ -154,7 +179,16 @@ final class BalasanTemplateCrudTest extends CIUnitTestCase
         $this->assertStringContainsString('image/png', $response->response()->getHeaderLine('Content-Type'));
         // Isinya harus benar-benar byte gambar, bukan HTML halaman /kasir
         // (itulah bug-nya: redirect diikuti fetch() lalu res.blob() membungkus HTML).
-        $this->assertStringStartsWith("\x89PNG", $response->getBody());
+        //
+        // PENTING: $response->getBody() BUKAN body mentah -- TestResponse
+        // mewarisi getBody() dari DOMParser (lihat @mixin DOMParser di
+        // TestResponse), yang memuat body lewat DOMDocument::loadHTML()
+        // lalu saveHTML() ulang. Untuk body biner (PNG) ini MERUSAK isinya
+        // jadi dibungkus "<!DOCTYPE...><html><body><p>...</p></body></html>"
+        // (DOMDocument menginterpretasikan byte biner sebagai HTML
+        // malformed) -- bukan bug di controller, murni salah API test.
+        // Body mentah yang benar: $response->response()->getBody().
+        $this->assertStringStartsWith("\x89PNG", $response->response()->getBody());
     }
 
     public function testAdminCanAlsoFetchTemplateImage(): void
@@ -166,10 +200,94 @@ final class BalasanTemplateCrudTest extends CIUnitTestCase
         $response->assertStatus(200);
     }
 
-    public function testUnknownTemplateImageFilenameIs404NotRedirect(): void
+    /**
+     * BalasanTemplate::foto() melempar PageNotFoundException untuk
+     * filename yang tidak ada/tidak valid (pola sama dengan
+     * Profil::foto()) -- CI4 normalnya menangkap exception ini jadi
+     * response 404 (CodeIgniter::display404errors()), TAPI karena route
+     * app ini TIDAK mendaftarkan 404 override
+     * ($routes->set404Override() tanpa argumen di Routes.php:16),
+     * display404errors() justru MELEMPAR ULANG PageNotFoundException yang
+     * baru (CodeIgniter.php sekitar baris 1024) -- di request HTTP nyata,
+     * exception ini tertangkap entrypoint top-level dan tetap tampil
+     * sebagai halaman 404 ke user. FeatureTestTrait::call(), beda dengan
+     * request nyata, TIDAK membungkus pelemparan ulang ini, sehingga
+     * exception itu bocor sampai ke PHPUnit sebagai error test, bukan
+     * TestResponse berstatus 404. Ini keterbatasan environment test di
+     * repo ini (pre-existing, bukan regresi TODO-R1 -- pola yang identik
+     * berlaku juga untuk Profil::foto(), yang kebetulan belum pernah
+     * diuji feature test sebelumnya), jadi di sini exception itu sendiri
+     * yang diperiksa, bukan assertStatus(404).
+     */
+    public function testUnknownTemplateImageFilenameThrowsPageNotFound(): void
     {
-        $response = $this->asKasir()->get('/foto-template/tidak-ada.png');
+        $this->expectException(\CodeIgniter\Exceptions\PageNotFoundException::class);
 
-        $response->assertStatus(404);
+        $this->asKasir()->get('/foto-template/tidak-ada.png');
+    }
+
+    /**
+     * Regresi bug: is_unique[balasan_template.nama] TANPA prefix dbGroup
+     * query ke defaultGroup (aulia_kasirdb), yang TIDAK punya tabel
+     * balasan_template (tabel itu ada di database.inbox) -- menyebabkan
+     * exception 500 "table doesn't exist" pada SETIAP submit form, bukan
+     * hanya saat nama benar-benar duplikat. Memakai nama BARU (bukan
+     * duplikat) di sini justru PALING membuktikan bug lama: sebelum fix,
+     * request ini sudah meledak 500 sebelum sempat mengecek keunikan sama
+     * sekali. Fix: is_unique[inbox.balasan_template.nama].
+     */
+    public function testSubmittingANewUniqueNameDoesNotCrash(): void
+    {
+        $response = $this->asAdmin()->post('/balasan-template/simpan', [
+            'nama' => 'Nama Benar-Benar Baru',
+            'teks' => 'isi',
+        ]);
+
+        $response->assertRedirectTo('/balasan-template');
+        $this->assertSame(1, $this->inbox->table('balasan_template')->where('nama', 'Nama Benar-Benar Baru')->countAllResults());
+    }
+
+    /**
+     * Keunikan nama HARUS tetap ditegakkan setelah fix dbGroup -- bukan
+     * cuma "tidak crash", tapi benar-benar menolak nama yang sudah dipakai
+     * dengan redirect + pesan validasi, bukan insert duplikat.
+     */
+    public function testCreateRejectsDuplicateNama(): void
+    {
+        $now = date('Y-m-d H:i:s');
+        $this->inbox->table('balasan_template')->insert([
+            'nama' => 'Sudah Ada', 'teks' => 'lama', 'created_at' => $now, 'updated_at' => $now,
+        ]);
+
+        $response = $this->asAdmin()->post('/balasan-template/simpan', [
+            'nama' => 'Sudah Ada',
+            'teks' => 'baru',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame(1, $this->inbox->table('balasan_template')->where('nama', 'Sudah Ada')->countAllResults());
+    }
+
+    /**
+     * Keunikan nama saat UPDATE harus mengabaikan baris itu sendiri (format
+     * is_unique[...,id,{id}]) -- memastikan prefix dbGroup baru
+     * (inbox.balasan_template.nama,id,{id}) tidak merusak pengecualian id.
+     */
+    public function testUpdateAllowsKeepingTheSameNama(): void
+    {
+        $now = date('Y-m-d H:i:s');
+        $this->inbox->table('balasan_template')->insert([
+            'nama' => 'Tetap Sama', 'teks' => 'lama', 'created_at' => $now, 'updated_at' => $now,
+        ]);
+        $id = (int) $this->inbox->insertID();
+
+        $response = $this->asAdmin()->post('/balasan-template/update/' . $id, [
+            'nama' => 'Tetap Sama',
+            'teks' => 'diperbarui',
+        ]);
+
+        $response->assertRedirectTo('/balasan-template');
+        $updated = $this->inbox->table('balasan_template')->where('id', $id)->get()->getRowArray();
+        $this->assertSame('diperbarui', $updated['teks']);
     }
 }
