@@ -126,28 +126,9 @@ test('formatJudulTab: prefixes a count, or restores the original title when zero
     assert.equal(t.ctx.formatJudulTab('AULIA', 3), '(3) AULIA');
 });
 
-test('formatPesanToastNotif: one person is named directly; several are all named, comma-separated', () => {
+test('formatPesanToastNotif: names the customer for that one conversation', () => {
     const t = loadNotif();
-    assert.equal(t.ctx.formatPesanToastNotif([item(1, 't1', 'Budi')]), 'Pesan baru dari Budi');
-    assert.equal(
-        t.ctx.formatPesanToastNotif([item(1, 't1', 'Budi'), item(2, 't2', 'Siti')]),
-        'Pesan baru dari Budi, Siti'
-    );
-});
-
-test('formatPesanToastNotif: beyond the cap, the list is truncated with a "+N lainnya" tail', () => {
-    const t = loadNotif();
-    const enam = [1, 2, 3, 4, 5, 6].map((n) => item(n, 't' + n, 'P' + n));
-    assert.equal(
-        t.ctx.formatPesanToastNotif(enam),
-        'Pesan baru dari P1, P2, P3, P4, P5, +1 lainnya'
-    );
-});
-
-test('tujuanKlikToastNotif: one person deep-links to that conversation; several have no single target', () => {
-    const t = loadNotif();
-    assert.equal(t.ctx.tujuanKlikToastNotif([item(5, 't5')]), 5);
-    assert.equal(t.ctx.tujuanKlikToastNotif([item(1, 't1'), item(2, 't2')]), null);
+    assert.equal(t.ctx.formatPesanToastNotif(item(1, 't1', 'Budi')), 'Pesan baru dari Budi');
 });
 
 test('entriUntukDibuang: a toast is only dropped once NONE of its conversations are still relevant', () => {
@@ -195,9 +176,9 @@ test('bacaNotifSeen/simpanNotifSeen round-trip through sessionStorage', () => {
 
 // ---- sticky, stacking toast (DOM) ----------------------------------------
 
-test('buatToastNotif: appends a sticky toast below the stack; clicking it opens the right target', () => {
+test('buatToastNotif: appends a sticky toast below the stack; clicking it opens that conversation', () => {
     const t = loadNotif();
-    t.ctx.buatToastNotif([item(1, 't1', 'Budi')]);
+    t.ctx.buatToastNotif(item(1, 't1', 'Budi'));
     assert.equal(t.stackContainer.children.length, 1);
 
     const [wrap] = t.stackContainer.children[0].children;
@@ -210,20 +191,19 @@ test('buatToastNotif: appends a sticky toast below the stack; clicking it opens 
     assert.equal(t.opened[0].name, 'AuliaInbox');
 
     // A second toast is added BELOW the first one (newest at the bottom), not merged into it.
-    t.ctx.buatToastNotif([item(2, 't2', 'Siti'), item(3, 't3', 'Andi')]);
+    t.ctx.buatToastNotif(item(2, 't2', 'Siti'));
     assert.equal(t.stackContainer.children.length, 2);
     const bottomBody = t.stackContainer.children[1].children[0].children[0];
-    assert.equal(bottomBody.textContent, 'Pesan baru dari Siti, Andi');
+    assert.equal(bottomBody.textContent, 'Pesan baru dari Siti');
 
-    // Several people named -> clicking opens the Inbox with no specific conversation.
     bottomBody.onclick();
-    assert.equal(t.opened[1].url, '/inbox');
+    assert.equal(t.opened[1].url, '/inbox?conversation_id=2');
 });
 
 test('buatToastNotif: the close button removes only that one toast', () => {
     const t = loadNotif();
-    t.ctx.buatToastNotif([item(1, 't1')]);
-    t.ctx.buatToastNotif([item(2, 't2')]);
+    t.ctx.buatToastNotif(item(1, 't1'));
+    t.ctx.buatToastNotif(item(2, 't2'));
     assert.equal(t.stackContainer.children.length, 2);
 
     const tutup = t.stackContainer.children[0].children[0].children[1];
@@ -233,10 +213,20 @@ test('buatToastNotif: the close button removes only that one toast', () => {
     assert.equal(t.get('toastAktif.length'), 1);
 });
 
-test('bersihkanToastSelesai: a toast disappears once every conversation it named is no longer relevant', () => {
+test('muatNotifikasiInbox (via the forEach it uses): several conversations new in the same poll each get their own toast', () => {
     const t = loadNotif();
-    t.ctx.buatToastNotif([item(10, 't10')]);
-    t.ctx.buatToastNotif([item(20, 't20'), item(21, 't21')]);
+    // Mirrors `hasil.itemBaru.forEach(buatToastNotif)` in muatNotifikasiInbox().
+    [item(1, 't1', 'Budi'), item(2, 't2', 'Siti'), item(3, 't3', 'Andi')].forEach(t.ctx.buatToastNotif);
+
+    assert.equal(t.stackContainer.children.length, 3);
+    const teks = t.stackContainer.children.map((c) => c.children[0].children[0].textContent);
+    assert.deepEqual(teks, ['Pesan baru dari Budi', 'Pesan baru dari Siti', 'Pesan baru dari Andi']);
+});
+
+test('bersihkanToastSelesai: a toast disappears once the conversation it named is no longer relevant', () => {
+    const t = loadNotif();
+    t.ctx.buatToastNotif(item(10, 't10'));
+    t.ctx.buatToastNotif(item(20, 't20'));
     assert.equal(t.stackContainer.children.length, 2);
 
     // 10 was handled (gone); 20 is still pending -> only the first toast goes.

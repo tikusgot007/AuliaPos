@@ -25,17 +25,19 @@ Format entri:
   seperti `cekOwnership()`). Poller di layout utama memakainya untuk: judul
   tab `(N) ...`, titik merah di favicon, beep (bisa dibisukan lewat lonceng
   di sidebar, `localStorage`), dan toast **sticky** (tidak hilang sendiri)
-  yang bisa **menumpuk** (toast baru di BAWAH toast lama, warna hijau WhatsApp bukan biru generik, komponen terpisah
-  dari `showToast()`/`#liveToast` yang dipakai fitur lain). Toast untuk SATU
-  percakapan diklik membuka window Inbox langsung ke percakapan itu
-  (`?conversation_id=`); toast untuk BEBERAPA percakapan sekaligus menyebut
-  semua nama (maks. 5, sisanya "+N lainnya") dan diklik membuka Inbox apa
-  adanya. Toast hilang otomatis begitu seluruh percakapan yang disebutnya
-  sudah tidak lagi relevan (sudah ditangani), atau lewat tombol tutup
-  manual. Percakapan yang sudah pernah dilaporkan (per `last_message_at`)
-  tidak memicu toast/bunyi ulang; percakapan yang sudah `perlu_dibalas`
-  SEBELUM tab dibuka juga tidak memicu toast/bunyi pada polling pertama
-  sesi itu.
+  yang bisa **menumpuk** (toast baru di BAWAH toast lama, warna hijau
+  WhatsApp bukan biru generik, komponen terpisah dari `showToast()`/
+  `#liveToast` yang dipakai fitur lain). **Satu toast selalu satu
+  percakapan** — kalau beberapa percakapan jadi "baru" dalam satu siklus
+  polling yang sama, masing-masing tetap mendapat toast sendiri (bukan
+  digabung satu toast banyak nama), hanya satu beep untuk siklus itu;
+  diklik selalu membuka window Inbox langsung ke percakapan yang disebut
+  toast itu (`?conversation_id=`). Toast hilang otomatis begitu
+  percakapan yang disebutnya sudah tidak lagi relevan (sudah ditangani),
+  atau lewat tombol tutup manual. Percakapan yang sudah pernah dilaporkan
+  (per `last_message_at`) tidak memicu toast/bunyi ulang; percakapan yang
+  sudah `perlu_dibalas` SEBELUM tab dibuka juga tidak memicu toast/bunyi
+  pada polling pertama sesi itu.
 - Alasan: kasir perlu tahu ada pesan yang perlu dibalas walau sedang di
   halaman lain (misalnya layar Kasir), bukan hanya saat membuka Inbox.
 - Referensi: `docs/requirements/2026-10-03-notifikasi-inbox-lintas-halaman.md`.
