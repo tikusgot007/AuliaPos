@@ -67,7 +67,7 @@ class AuthFilter implements FilterInterface
         // 'cash/closing' = Closing Kas (rekonsiliasi kas seluruh sistem,
         // admin-only). Prefix sengaja terpisah dari 'cash' -- opname kasir
         // biasa di /cash tetap bisa diakses kasir seperti sebelumnya.
-        $adminRoutes = ['laporan', 'user-management', 'auth/tambah-user', 'auth/edit-user', 'auth/hapus-user', 'jadwal', 'migrasi-manual', 'archive-transaksi', 'produk', 'kategori', 'cash/closing'];
+        $adminRoutes = ['laporan', 'user-management', 'auth/tambah-user', 'auth/edit-user', 'auth/hapus-user', 'jadwal', 'migrasi-manual', 'archive-transaksi', 'produk', 'kategori', 'cash/closing', 'balasan-template'];
 
         if (session()->get('role') != 'admin') {
             foreach ($adminRoutes as $route) {

@@ -104,6 +104,14 @@ and `kirimMedia()`/`kirim()` already run in default-DB request context for
 everything except the explicit `db_connect('inbox')` calls — adding one more
 plain `Model::find()` against `database.default` is the smaller deviation.
 
+**Implemented: Option B** (`database.inbox`, commit `c9e3dec`) --
+`app/Database/Migrations/2026-10-03-000001_CreateBalasanTemplate.php` and
+`app/Models/BalasanTemplateModel.php` both set `$DBGroup = 'inbox'`,
+deviating from the recommendation above. Confirmed by the user as
+approved (Gate 2, §9) retroactively on 2026-10-03; the recommendation
+text above is left as originally written so the trade-off record stays
+intact.
+
 **Option set B — how does the cashier pick a template?**
 
 - **A. Modal dialog** listing templates by name, opened by a new composer
@@ -216,6 +224,15 @@ and matches the existing Handoff modal pattern already in `index.php`
    inline — needs no further decision, flagged only for implementer
    awareness.
 
+   **Resolved (2026-10-03, post-implementation)**: the implementation did
+   build `base_url('/balasan-template/foto/...')` as proposed above, but
+   that exact prefix is what `AuthFilter::$adminRoutes` matches, so the
+   route was blocked for kasir (AC-9) -- neither this design review nor
+   the implementation caught the filter-prefix collision. Fixed by moving
+   the image route to `/foto-template/(:any)` (same separate-prefix
+   pattern as `/foto-profil/`), with a regression test added in
+   `tests/feature/BalasanTemplateCrudTest.php`.
+
 ## 9. Approval (Gate 2)
 
-- [ ] Approved by: <name>, date: <YYYY-MM-DD>
+- [x] Approved by: user, date: 2026-10-03 (approved after implementation, including the Option B deviation in §3 -- see note there)

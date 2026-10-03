@@ -61,6 +61,9 @@ $routes->get('/inbox/percakapan/(:num)/handoff', 'Inbox::apiHandoffs/$1', ['filt
 $routes->post('/inbox/mulai-percakapan', 'Inbox::mulaiPercakapan', ['filter' => 'auth']);
 $routes->get('/inbox/api/perlu-dibalas-count', 'Inbox::apiPerluDibalasCount', ['filter' => 'auth']);
 $routes->get('/inbox/api/notifikasi-ringkas', 'Inbox::apiNotifikasiRingkas', ['filter' => 'auth']);
+// Daftar Template Balasan Cepat untuk dipilih kasir di composer (TODO-R1,
+// read-only, admin+kasir -- bukan route CRUD, tidak masuk $adminRoutes).
+$routes->get('/inbox/api/balasan-template', 'Inbox::apiBalasanTemplate', ['filter' => 'auth']);
 
 // ==========================================
 // ROUTE GANTI PASSWORD - OTOMATIS KENA AUTH
@@ -142,6 +145,21 @@ $routes->post('/kategori/simpan', 'Kategori::simpan', ['filter' => 'auth']);
 $routes->get('/kategori/edit/(:num)', 'Kategori::edit/$1', ['filter' => 'auth']);
 $routes->post('/kategori/update/(:num)', 'Kategori::update/$1', ['filter' => 'auth']);
 $routes->get('/kategori/hapus/(:num)', 'Kategori::hapus/$1', ['filter' => 'auth']);
+
+// Route Template Balasan Cepat (CRUD, admin-only -- lihat AuthFilter.php
+// $adminRoutes; TODO-R1)
+$routes->get('/balasan-template', 'BalasanTemplate::index', ['filter' => 'auth']);
+$routes->get('/balasan-template/tambah', 'BalasanTemplate::tambah', ['filter' => 'auth']);
+$routes->post('/balasan-template/simpan', 'BalasanTemplate::simpan', ['filter' => 'auth']);
+$routes->get('/balasan-template/edit/(:num)', 'BalasanTemplate::edit/$1', ['filter' => 'auth']);
+$routes->post('/balasan-template/update/(:num)', 'BalasanTemplate::update/$1', ['filter' => 'auth']);
+$routes->get('/balasan-template/hapus/(:num)', 'BalasanTemplate::hapus/$1', ['filter' => 'auth']);
+
+// Gambar template: prefix TERPISAH ('foto-template', bukan 'balasan-template'),
+// pola sama dengan /foto-profil/ di atas -- sengaja TIDAK match prefix
+// apa pun di AuthFilter::$adminRoutes, supaya kasir (pemakai template di
+// composer Inbox) bisa memuatnya. CRUD tetap admin-only lewat rute di atas.
+$routes->get('/foto-template/(:any)', 'BalasanTemplate::foto/$1', ['filter' => 'auth']);
 
 // Route API Transaksi
 
