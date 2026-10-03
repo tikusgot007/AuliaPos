@@ -328,6 +328,17 @@
             color: white;
         }
 
+        /* Toast notifikasi Inbox: hijau WhatsApp, bukan warna generik
+           Bootstrap -- supaya langsung dikenali sebagai notifikasi WA. */
+        .inbox-notif-toast {
+            background-color: #25D366;
+            color: white;
+            min-width: 250px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            font-size: 14px;
+        }
+
         body {
             background-color: #f8f9fa;
         }
@@ -726,6 +737,10 @@
                             <span>Inbox WhatsApp</span>
                             <span class="badge bg-danger ms-1" id="sidebarInboxBadge" style="display:none;"></span>
                         </a>
+                        <button type="button" class="btn btn-sm btn-link text-white-50 p-0 ms-1" id="btnMuteNotifInbox"
+                            title="Bisukan/aktifkan suara notifikasi Inbox" onclick="alihkanMuteNotif()">
+                            <i class="fas fa-bell" id="inboxNotifMuteIcon"></i>
+                        </button>
                     </li>
 
 
@@ -1160,6 +1175,15 @@
             </div>
 
             <!-- ========================================== -->
+            <!-- NOTIFIKASI INBOX (KANAN ATAS, STICKY, MENUMPUK) -->
+            <!-- Komponen TERPISAH dari #toastContainer di atas (satu
+                 slot, auto-hide) -- lihat inbox-notifikasi.js. Toast di
+                 sini tidak hilang sendiri; dibuang manual (tombol tutup)
+                 atau otomatis saat percakapannya sudah ditangani. -->
+            <!-- ========================================== -->
+            <div id="inboxNotifToastStack" class="position-fixed p-3 d-flex flex-column" style="z-index: 9999; top: 70px; right: 0; max-width: 350px;"></div>
+
+            <!-- ========================================== -->
             <!-- MODAL KONFIRMASI (pengganti confirm() bawaan browser) -->
             <!-- ========================================== -->
             <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
@@ -1186,7 +1210,18 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+    <script>
+        // Judul tab + titik favicon + suara + toast untuk percakapan
+        // 'perlu_dibalas' yang relevan bagi user ini (inbox-notifikasi.js,
+        // fungsi murni dites di tests/js/inbox-notifikasi.test.js).
+        // Diset SEBELUM file dimuat -- sama seperti pola INBOX_THREAD_CONFIG
+        // di inbox/index.php.
+        window.INBOX_NOTIF_CONFIG = {
+            ringkasUrl: <?= json_encode(base_url('/inbox/api/notifikasi-ringkas')) ?>,
+            inboxUrl: <?= json_encode(base_url('/inbox')) ?>
+        };
+    </script>
+    <script src="<?= base_url('assets/js/inbox-notifikasi.js') ?>"></script>
 
     <script>
         $(document).ready(function() {
@@ -1213,6 +1248,10 @@
         }
         muatBadgeInboxSidebar();
         setInterval(muatBadgeInboxSidebar, 20000); // lebih longgar dari polling di dalam /inbox (6 detik) -- ini cuma peripheral awareness.
+
+        // Notifikasi lintas halaman (inbox-notifikasi.js): interval sama
+        // dengan muatBadgeInboxSidebar -- satu ritme peripheral awareness.
+        mulaiNotifikasiInbox(20000);
 
         // ==========================================
         // JAMIN TOAST SELALU RELATIF KE VIEWPORT

@@ -14,6 +14,38 @@ Format entri:
 
 ---
 
+## 2026-10-03 — Inbox: notifikasi lintas halaman (judul tab, favicon, suara, toast)
+
+- Aturan lama: satu-satunya mekanisme lintas halaman adalah badge angka diam
+  di sidebar (`GET /inbox/api/perlu-dibalas-count`, total tim); tidak ada yang
+  menarik perhatian kasir di luar window Inbox.
+- Aturan baru: endpoint baru `GET /inbox/api/notifikasi-ringkas` mengembalikan
+  percakapan `perlu_dibalas` yang RELEVAN untuk user yang login (belum ada
+  yang pegang, ATAU dipegang user itu sendiri; admin melihat semua, sama
+  seperti `cekOwnership()`). Poller di layout utama memakainya untuk: judul
+  tab `(N) ...`, titik merah di favicon, beep (bisa dibisukan lewat lonceng
+  di sidebar, `localStorage`), dan toast **sticky** (tidak hilang sendiri)
+  yang bisa **menumpuk** (toast baru di BAWAH toast lama, warna hijau
+  WhatsApp bukan biru generik, komponen terpisah dari `showToast()`/
+  `#liveToast` yang dipakai fitur lain). **Satu toast selalu satu
+  percakapan** — kalau beberapa percakapan jadi "baru" dalam satu siklus
+  polling yang sama, masing-masing tetap mendapat toast sendiri (bukan
+  digabung satu toast banyak nama), hanya satu beep untuk siklus itu;
+  diklik selalu membuka window Inbox langsung ke percakapan yang disebut
+  toast itu (`?conversation_id=`) DAN langsung menutup toast itu sendiri
+  (toast lain yang sedang tampil tidak ikut tertutup). Toast juga hilang
+  otomatis begitu percakapan yang disebutnya sudah tidak lagi relevan
+  (sudah ditangani dari jalur lain), atau lewat tombol tutup manual.
+  Percakapan yang sudah pernah dilaporkan
+  (per `last_message_at`) tidak memicu toast/bunyi ulang; percakapan yang
+  sudah `perlu_dibalas` SEBELUM tab dibuka juga tidak memicu toast/bunyi
+  pada polling pertama sesi itu.
+- Alasan: kasir perlu tahu ada pesan yang perlu dibalas walau sedang di
+  halaman lain (misalnya layar Kasir), bukan hanya saat membuka Inbox.
+- Referensi: `docs/requirements/2026-10-03-notifikasi-inbox-lintas-halaman.md`.
+  `apiPerluDibalasCount()`/badge sidebar lama tidak diubah. Kontrak Gateway
+  tidak berubah.
+
 ## 2026-10-03 — Inbox: unduh gambar & dokumen yang mudah (lightbox, kartu file, unduh massal)
 
 - Aturan lama: gambar hanya bisa disimpan lewat klik kanan (nama `media-<id>` tanpa

@@ -482,6 +482,59 @@ class Inbox extends BaseController
     }
 
     /**
+     * GET /inbox/api/notifikasi-ringkas
+     *
+     * Daftar ringan conversation 'perlu_dibalas' yang RELEVAN untuk user
+     * yang sedang login, dipakai poller lintas halaman di `main.php`
+     * (judul tab, favicon, suara, toast) -- beda dari
+     * apiPerluDibalasCount() di atas, yang mengembalikan total TIM
+     * (semua perlu_dibalas) dan tidak boleh diubah semantiknya karena
+     * sudah dipakai badge sidebar yang ada.
+     *
+     * Filter kepemilikan di SINI (server-side), bukan di klien --
+     * konsisten dengan cekOwnership(): admin melihat semuanya (boleh
+     * membalas percakapan siapa pun), user lain hanya melihat percakapan
+     * yang belum diambil siapa pun ATAU sudah diambil oleh dirinya
+     * sendiri. Grup dikecualikan (REQ-004, sama seperti badge sidebar).
+     */
+    public function apiNotifikasiRingkas()
+    {
+        $userId = (int) session()->get('id_user');
+        $role   = (string) session()->get('role');
+
+        $conversationModel = new ConversationModel();
+        $conversations = $conversationModel
+            ->select('id, assigned_to, contact_name, whatsapp_name, group_name, phone, manual_phone, chat_id, jid_type, last_message_at, last_message_direction, last_seen_by_assignee_at, snoozed_until, status')
+            ->where('status', 'open')
+            ->findAll();
+
+        $conversations = $this->attachResponseState($conversations);
+
+        $items = [];
+        foreach ($conversations as $c) {
+            if (($c['jid_type'] ?? null) === 'group' || $c['response_state'] !== 'perlu_dibalas') {
+                continue;
+            }
+
+            $assignedTo = $c['assigned_to'] ? (int) $c['assigned_to'] : null;
+            $relevan = $role === 'admin' || $assignedTo === null || $assignedTo === $userId;
+
+            if (!$relevan) {
+                continue;
+            }
+
+            $items[] = [
+                'id'              => (int) $c['id'],
+                'label'           => $c['contact_name'] ?: $c['whatsapp_name'] ?: $c['manual_phone'] ?: $c['phone'] ?: $c['chat_id'],
+                'last_message_at' => $c['last_message_at'],
+                'assigned_to'     => $assignedTo,
+            ];
+        }
+
+        return $this->response->setJSON(['status' => 'success', 'items' => $items]);
+    }
+
+    /**
      * GET /inbox/api/gateway-status
      *
      * Status Gateway dalam JSON, dipakai polling berkala untuk badge

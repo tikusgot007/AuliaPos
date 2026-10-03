@@ -17,6 +17,7 @@
 
 ## Prioritas Sedang
 
+- [ ] **TODO-U2** Jalankan `InboxNotifikasiRingkasTest` (feature test, butuh `aulia_inboxdb_test`) dan verifikasi manual notifikasi lintas halaman di Brave kasir (judul tab, favicon, beep + kebijakan autoplay, toast, tombol bisu) — sedang — ref `docs/requirements/2026-10-03-notifikasi-inbox-lintas-halaman.md`
 - [ ] **TODO-T3** Verifikasi jalur merge arsip (SQLite) saat arsip **terisi** untuk S2 (`laporan_pembayaran`), S3b (`transaksi`), dan S4 (`periode`). Saat ini arsip kosong sehingga hanya jalur live yang teruji; bentuk SQL arsip S4 sudah divalidasi lewat PDO — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
 - [ ] **TODO-T5** Feature test ber-DB (`tests/feature`, `phpunit.feature.xml`) belum terhubung ke `composer test`/CI; saat ini hanya dijalankan manual. Pertimbangkan script composer terpisah (mis. `composer test:feature`) yang butuh `aulia_inboxdb_test` — sedang — ref `docs/sesi/2026-10-02-bug-nama-conversation-wa-web.md`
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
