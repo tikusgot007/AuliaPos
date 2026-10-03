@@ -412,25 +412,60 @@ class InboxGatewayApi extends BaseController
         $isForwarded = filter_var($payload['is_forwarded'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         // --- Insert message --------------------------------------------------
-        $messageModel->insert(array_merge([
-            'conversation_id'   => $conversationId,
-            'wa_message_id'     => $waMessageId,
-            'direction'         => $direction,
-            'message_type'      => $messageType,
-            'sender_jid'        => $payload['sender_jid'] ?? null,
-            'text'              => $text,
-            'message_timestamp' => $messageTimestamp,
-            // Balasan sinkron dari WA Web/HP TIDAK bisa diketahui staff
-            // mana yang mengirim -- Baileys/Gateway tidak punya info itu.
-            'sent_by_user_id'   => null,
-            'send_status'       => $direction === 'outgoing' ? 'sent' : 'received',
-            // Teruskan (Tahap 4, REQ-008): penanda tunggal, `0` eksplisit
-            // pada jalur biasa. Sumber: Gateway untuk pesan MASUK (TODO-F5)
-            // DAN pesan KELUAR tersinkron dari WA Web/HP (TODO-F6); forward
-            // lewat tombol Teruskan POS punya jalur CI4-nya sendiri
-            // (kirimKeConversation() di Inbox.php), terpisah dari endpoint ini.
-            'is_forwarded'      => $isForwarded ? 1 : 0,
-        ], $mediaColumns, $extraColumns, $quoteColumns));
+        // TODO-I1: two concurrent deliveries of the SAME wa_message_id can both
+        // pass the pre-check above; the loser then fails on the unique index.
+        // Capture the insert result instead of letting that surface as a 500:
+        // if another request already stored this message, reply with the same
+        // duplicate-safe 200 the pre-check path uses.
+        try {
+            $inserted = $messageModel->insert(array_merge([
+                'conversation_id'   => $conversationId,
+                'wa_message_id'     => $waMessageId,
+                'direction'         => $direction,
+                'message_type'      => $messageType,
+                'sender_jid'        => $payload['sender_jid'] ?? null,
+                'text'              => $text,
+                'message_timestamp' => $messageTimestamp,
+                // Balasan sinkron dari WA Web/HP TIDAK bisa diketahui staff
+                // mana yang mengirim -- Baileys/Gateway tidak punya info itu.
+                'sent_by_user_id'   => null,
+                'send_status'       => $direction === 'outgoing' ? 'sent' : 'received',
+                // Teruskan (Tahap 4, REQ-008): penanda tunggal, `0` eksplisit
+                // pada jalur biasa. Sumber: Gateway untuk pesan MASUK (TODO-F5)
+                // DAN pesan KELUAR tersinkron dari WA Web/HP (TODO-F6); forward
+                // lewat tombol Teruskan POS punya jalur CI4-nya sendiri
+                // (kirimKeConversation() di Inbox.php), terpisah dari endpoint ini.
+                'is_forwarded'      => $isForwarded ? 1 : 0,
+            ], $mediaColumns, $extraColumns, $quoteColumns));
+        } catch (\Throwable $e) {
+            log_message('error', 'InboxGatewayApi::messages() insert gagal untuk wa_message_id=' . $waMessageId . ': ' . $e->getMessage());
+            $inserted = false;
+        }
+
+        if ($inserted === false) {
+            // A concurrent delivery may have won the race and stored this
+            // message (the unique index blocked us until it committed). Detect
+            // that from the DB error itself: a post-failure SELECT would run on
+            // this request's REPEATABLE READ snapshot and might not see the
+            // winner's just-committed row.
+            $dbError = $db->error();
+            $dbMessage = (string) ($dbError['message'] ?? '');
+            $isDuplicateWaMessageId = (int) ($dbError['code'] ?? 0) === 1062
+                || (str_contains($dbMessage, 'Duplicate entry') && str_contains($dbMessage, 'wa_message_id'));
+
+            if ($isDuplicateWaMessageId) {
+                return $this->response->setStatusCode(200)->setJSON([
+                    'status'    => 'success',
+                    'duplicate' => true,
+                    'message'   => 'Message sudah pernah diterima sebelumnya (idempotent).',
+                ]);
+            }
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan pesan (transaksi database gagal).',
+            ]);
+        }
 
         // --- Update conversation ---------------------------------------------
         // `last_message_at`/`last_message_direction` TIDAK ditulis buta di
