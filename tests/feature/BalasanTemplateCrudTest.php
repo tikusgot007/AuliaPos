@@ -1,11 +1,17 @@
 <?php
 
+use App\Libraries\BalasanTemplateImageService;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\FeatureTestTrait;
+use Tests\Support\FakeUploadedFile;
 
 /**
  * Admin CRUD untuk Template Balasan Cepat (AC-1, AC-2, AC-6, AC-7 of
- * docs/requirements/2026-10-03-template-balasan-cepat.md).
+ * docs/requirements/2026-10-03-template-balasan-cepat.md), plus regresi
+ * untuk bug route gambar (lihat testKasirCanFetchTemplateImage... di bawah):
+ * `GET /foto-template/(:any)` sebelumnya terdaftar di bawah prefix
+ * `balasan-template` yang masuk AuthFilter::$adminRoutes, jadi kasir
+ * di-redirect ke /kasir alih-alih menerima gambarnya (memblokir AC-9).
  *
  * Runs against `aulia_inboxdb_test` (see tests/_support/bootstrap-feature.php),
  * same as the other feature tests. Not yet run in this session -- no
@@ -18,6 +24,7 @@ final class BalasanTemplateCrudTest extends CIUnitTestCase
     use FeatureTestTrait;
 
     private $inbox;
+    private BalasanTemplateImageService $imageService;
 
     protected function setUp(): void
     {
@@ -25,6 +32,37 @@ final class BalasanTemplateCrudTest extends CIUnitTestCase
 
         $this->inbox = db_connect('inbox');
         $this->inbox->table('balasan_template')->emptyTable();
+
+        $this->imageService = new BalasanTemplateImageService();
+        $this->bersihkanDirGambar();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->bersihkanDirGambar();
+        parent::tearDown();
+    }
+
+    private function bersihkanDirGambar(): void
+    {
+        foreach (glob($this->imageService->getDir() . '/*') ?: [] as $f) {
+            @unlink($f);
+        }
+    }
+
+    /** 1x1 PNG valid asli, sama seperti BalasanTemplateImageServiceTest -- simpan file NYATA ke disk lewat service, bukan menulis file manual, supaya nama server-generated & validasi MIME-nya benar-benar diuji. */
+    private function simpanGambarNyata(): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'tpl') . '.png';
+        file_put_contents($path, base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+        ));
+        $upload = new FakeUploadedFile($path, 'upload.png', mime_content_type($path), filesize($path), UPLOAD_ERR_OK);
+
+        $hasil = $this->imageService->simpan($upload);
+        $this->assertTrue($hasil['success'], $hasil['error'] ?? 'gagal menyiapkan fixture gambar');
+
+        return $hasil['filename'];
     }
 
     private function asAdmin()
@@ -98,5 +136,40 @@ final class BalasanTemplateCrudTest extends CIUnitTestCase
         $simpan->assertRedirectTo('/kasir');
 
         $this->assertSame(0, $this->inbox->table('balasan_template')->where('nama', 'X')->countAllResults());
+    }
+
+    /**
+     * Regresi bug route: GET /foto-template/(:any) HARUS 200 untuk kasir,
+     * BUKAN redirect 302 ke /kasir (AC-9 -- kasir memakai template
+     * bergambar di composer Inbox). Prefix 'foto-template' sengaja beda
+     * dari 'balasan-template' supaya tidak match AuthFilter::$adminRoutes.
+     */
+    public function testKasirCanFetchTemplateImageWithoutBeingRedirected(): void
+    {
+        $filename = $this->simpanGambarNyata();
+
+        $response = $this->asKasir()->get('/foto-template/' . $filename);
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('image/png', $response->response()->getHeaderLine('Content-Type'));
+        // Isinya harus benar-benar byte gambar, bukan HTML halaman /kasir
+        // (itulah bug-nya: redirect diikuti fetch() lalu res.blob() membungkus HTML).
+        $this->assertStringStartsWith("\x89PNG", $response->getBody());
+    }
+
+    public function testAdminCanAlsoFetchTemplateImage(): void
+    {
+        $filename = $this->simpanGambarNyata();
+
+        $response = $this->asAdmin()->get('/foto-template/' . $filename);
+
+        $response->assertStatus(200);
+    }
+
+    public function testUnknownTemplateImageFilenameIs404NotRedirect(): void
+    {
+        $response = $this->asKasir()->get('/foto-template/tidak-ada.png');
+
+        $response->assertStatus(404);
     }
 }

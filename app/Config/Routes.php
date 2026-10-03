@@ -154,7 +154,12 @@ $routes->post('/balasan-template/simpan', 'BalasanTemplate::simpan', ['filter' =
 $routes->get('/balasan-template/edit/(:num)', 'BalasanTemplate::edit/$1', ['filter' => 'auth']);
 $routes->post('/balasan-template/update/(:num)', 'BalasanTemplate::update/$1', ['filter' => 'auth']);
 $routes->get('/balasan-template/hapus/(:num)', 'BalasanTemplate::hapus/$1', ['filter' => 'auth']);
-$routes->get('/balasan-template/foto/(:any)', 'BalasanTemplate::foto/$1', ['filter' => 'auth']);
+
+// Gambar template: prefix TERPISAH ('foto-template', bukan 'balasan-template'),
+// pola sama dengan /foto-profil/ di atas -- sengaja TIDAK match prefix
+// apa pun di AuthFilter::$adminRoutes, supaya kasir (pemakai template di
+// composer Inbox) bisa memuatnya. CRUD tetap admin-only lewat rute di atas.
+$routes->get('/foto-template/(:any)', 'BalasanTemplate::foto/$1', ['filter' => 'auth']);
 
 // Route API Transaksi
 

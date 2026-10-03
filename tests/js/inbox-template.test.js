@@ -101,12 +101,12 @@ test('T-4 (AC-9, AC-10): selecting a template with an image fetches it and pushe
     const blob = new Blob(['x'], { type: 'image/png' });
     const t = loadTemplate({
         fetch: (url) => {
-            assert.equal(url, 'http://example.com/balasan-template/foto/abc.png');
+            assert.equal(url, 'http://example.com/foto-template/abc.png');
             return Promise.resolve({ blob: () => Promise.resolve(blob) });
         },
     });
     t.ctx.daftarTemplateBalasanCache = [{
-        id: 9, nama: 'QRIS', teks: null, gambar_url: 'http://example.com/balasan-template/foto/abc.png',
+        id: 9, nama: 'QRIS', teks: null, gambar_url: 'http://example.com/foto-template/abc.png',
     }];
 
     await t.ctx.pilihTemplate(9);

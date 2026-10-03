@@ -33,7 +33,7 @@
             <?php if ($template['gambar_filename']): ?>
                 <div class="mb-3">
                     <label class="form-label d-block">Gambar saat ini</label>
-                    <img src="<?= base_url('/balasan-template/foto/' . $template['gambar_filename']) ?>"
+                    <img src="<?= base_url('/foto-template/' . $template['gambar_filename']) ?>"
                         alt="<?= $template['nama'] ?>" style="max-width:150px;max-height:150px;object-fit:cover;" class="mb-2 d-block">
                     <div class="form-check">
                         <input type="checkbox" class="form-check-input" id="hapus_gambar" name="hapus_gambar" value="1">

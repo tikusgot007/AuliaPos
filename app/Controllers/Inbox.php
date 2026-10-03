@@ -2121,7 +2121,7 @@ class Inbox extends BaseController
                     'nama'       => $t['nama'],
                     'teks'       => $t['teks'],
                     'gambar_url' => $t['gambar_filename']
-                        ? base_url('/balasan-template/foto/' . $t['gambar_filename'])
+                        ? base_url('/foto-template/' . $t['gambar_filename'])
                         : null,
                 ];
             }, $templates),

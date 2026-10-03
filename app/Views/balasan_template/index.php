@@ -24,7 +24,7 @@
                             <td><?= $t['nama'] ?></td>
                             <td>
                                 <?php if ($t['gambar_filename']): ?>
-                                    <img src="<?= base_url('/balasan-template/foto/' . $t['gambar_filename']) ?>"
+                                    <img src="<?= base_url('/foto-template/' . $t['gambar_filename']) ?>"
                                         alt="<?= $t['nama'] ?>" style="max-width:60px;max-height:60px;object-fit:cover;">
                                 <?php else: ?>
                                     <span class="text-muted">-</span>
