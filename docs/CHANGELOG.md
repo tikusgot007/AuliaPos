@@ -24,11 +24,18 @@ Format entri:
   yang pegang, ATAU dipegang user itu sendiri; admin melihat semua, sama
   seperti `cekOwnership()`). Poller di layout utama memakainya untuk: judul
   tab `(N) ...`, titik merah di favicon, beep (bisa dibisukan lewat lonceng
-  di sidebar, `localStorage`), dan toast yang kalau diklik membuka window
-  Inbox langsung ke percakapan itu (`?conversation_id=`). Percakapan yang
-  sudah pernah dilaporkan (per `last_message_at`) tidak memicu toast/bunyi
-  ulang; percakapan yang sudah `perlu_dibalas` SEBELUM tab dibuka juga tidak
-  memicu toast/bunyi pada polling pertama sesi itu.
+  di sidebar, `localStorage`), dan toast **sticky** (tidak hilang sendiri)
+  yang bisa **menumpuk** (toast baru di atas toast lama, komponen terpisah
+  dari `showToast()`/`#liveToast` yang dipakai fitur lain). Toast untuk SATU
+  percakapan diklik membuka window Inbox langsung ke percakapan itu
+  (`?conversation_id=`); toast untuk BEBERAPA percakapan sekaligus menyebut
+  semua nama (maks. 5, sisanya "+N lainnya") dan diklik membuka Inbox apa
+  adanya. Toast hilang otomatis begitu seluruh percakapan yang disebutnya
+  sudah tidak lagi relevan (sudah ditangani), atau lewat tombol tutup
+  manual. Percakapan yang sudah pernah dilaporkan (per `last_message_at`)
+  tidak memicu toast/bunyi ulang; percakapan yang sudah `perlu_dibalas`
+  SEBELUM tab dibuka juga tidak memicu toast/bunyi pada polling pertama
+  sesi itu.
 - Alasan: kasir perlu tahu ada pesan yang perlu dibalas walau sedang di
   halaman lain (misalnya layar Kasir), bukan hanya saat membuka Inbox.
 - Referensi: `docs/requirements/2026-10-03-notifikasi-inbox-lintas-halaman.md`.

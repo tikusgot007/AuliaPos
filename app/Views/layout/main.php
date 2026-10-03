@@ -1164,6 +1164,15 @@
             </div>
 
             <!-- ========================================== -->
+            <!-- NOTIFIKASI INBOX (KANAN ATAS, STICKY, MENUMPUK) -->
+            <!-- Komponen TERPISAH dari #toastContainer di atas (satu
+                 slot, auto-hide) -- lihat inbox-notifikasi.js. Toast di
+                 sini tidak hilang sendiri; dibuang manual (tombol tutup)
+                 atau otomatis saat percakapannya sudah ditangani. -->
+            <!-- ========================================== -->
+            <div id="inboxNotifToastStack" class="position-fixed p-3 d-flex flex-column" style="z-index: 9999; top: 70px; right: 0; max-width: 350px;"></div>
+
+            <!-- ========================================== -->
             <!-- MODAL KONFIRMASI (pengganti confirm() bawaan browser) -->
             <!-- ========================================== -->
             <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">

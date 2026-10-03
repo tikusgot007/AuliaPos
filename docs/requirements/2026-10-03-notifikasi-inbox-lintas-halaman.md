@@ -25,10 +25,13 @@ Kasir langsung tahu ada pesan WhatsApp yang perlu dibalas walau sedang di halama
 
 - **AC-1**: Given percakapan `perlu_dibalas` yang belum ada yang pegang ATAU dipegang user yang login, when poller lintas halaman berjalan, then percakapan itu masuk hasil `GET /inbox/api/notifikasi-ringkas`; percakapan milik kasir lain, grup, atau bukan `perlu_dibalas` tidak masuk (admin melihat semua, konsisten dengan `cekOwnership()`).
 - **AC-2**: Given jumlah item hasil endpoint di atas > 0, then judul tab diawali `(N) ` dan favicon menampilkan titik merah; N = 0 mengembalikan judul/favicon asli.
-- **AC-3**: Given sebuah percakapan relevan BARU muncul atau `last_message_at`-nya berubah sejak polling sebelumnya (dalam sesi tab yang sama), when poller berjalan, then muncul toast + bunyi beep (kecuali dibisukan); percakapan yang sudah pernah dilaporkan dengan `last_message_at` yang sama TIDAK memicu toast/bunyi lagi.
+- **AC-3**: Given sebuah percakapan relevan BARU muncul atau `last_message_at`-nya berubah sejak polling sebelumnya (dalam sesi tab yang sama), when poller berjalan, then muncul toast **sticky** (tidak hilang sendiri) + bunyi beep (kecuali dibisukan); percakapan yang sudah pernah dilaporkan dengan `last_message_at` yang sama TIDAK memicu toast/bunyi lagi.
+- **AC-3b**: Given toast sebelumnya masih tampil (belum ditutup/belum selesai), when batch baru lain datang, then toast baru ditambahkan **di atas** toast lama (menumpuk) — toast lama tidak diganti/ditimpa.
+- **AC-3c**: Given satu batch berisi lebih dari satu percakapan (orang berbeda), then toast menyebut **semua nama** (dibatasi 5 nama, sisanya "+N lainnya"); diklik membuka window Inbox apa adanya (tanpa `conversation_id` spesifik) karena tidak ada satu tujuan yang paling benar.
+- **AC-3d**: Given sebuah toast sudah tampil untuk satu atau beberapa percakapan, when semua percakapan yang disebut toast itu TIDAK LAGI relevan di polling berikutnya (sudah dibalas/diambil/tidak lagi jadi tanggung jawab user ini), then toast itu hilang otomatis tanpa perlu diklik tutup.
 - **AC-4**: Given ini adalah polling PERTAMA sejak tab dibuka (belum ada riwayat di `sessionStorage`), then percakapan yang sudah `perlu_dibalas` sebelumnya TIDAK memicu toast/bunyi (hanya dicatat diam-diam); judul tab/favicon tetap menyala sesuai jumlah saat itu.
 - **AC-5**: Given kasir pindah halaman (navigasi biasa, full page reload), then percakapan yang sudah pernah dilaporkan tidak memicu toast ulang (state tersimpan di `sessionStorage`, bertahan antar reload dalam tab yang sama).
-- **AC-6**: Given toast diklik, then window Inbox (`'AuliaInbox'`) terbuka/fokus langsung ke percakapan itu lewat `?conversation_id=`.
+- **AC-6**: Given toast untuk SATU percakapan diklik, then window Inbox (`'AuliaInbox'`) terbuka/fokus langsung ke percakapan itu lewat `?conversation_id=` (lihat AC-3c untuk kasus beberapa percakapan).
 - **AC-7**: Given tombol lonceng di sidebar diklik, then status bisu/tidak tersimpan di `localStorage` dan bertahan lintas sesi; saat dibisukan, beep tidak dibunyikan (toast & judul tab/favicon tetap jalan).
 
 ## 5. Batasan dan di luar cakupan
@@ -48,7 +51,7 @@ Catatan: perubahan perilaku UI/notifikasi dicatat di CHANGELOG sebagai perubahan
 ## 7. Asumsi dan pertanyaan terbuka
 
 - Asumsi: kepemilikan "punya saya"/"belum ada yang pegang" mengikuti aturan yang sama dengan `cekOwnership()` (admin selalu boleh/melihat semua).
-- Belum diverifikasi: tampilan & bunyi di Brave kasir sungguhan; perilaku kebijakan autoplay audio Brave untuk beep; `InboxNotifikasiRingkasTest` (feature test) belum pernah dijalankan — tidak ada database uji (`aulia_inboxdb_test`) yang bisa dijangkau di sandbox sesi ini.
+- Belum diverifikasi: tampilan & bunyi di Brave kasir sungguhan; perilaku kebijakan autoplay audio Brave untuk beep; `InboxNotifikasiRingkasTest` (feature test) belum pernah dijalankan — tidak ada database uji (`aulia_inboxdb_test`) yang bisa dijangkau di sandbox sesi ini; tampilan toast yang menumpuk di pojok kanan atas (posisi `top: 70px; right: 0`) di Brave sungguhan — apakah mengganggu elemen lain di halaman Kasir.
 
 ## 8. Persetujuan (Gate 1)
 

@@ -17,34 +17,57 @@ function fakeStorage() {
     };
 }
 
+// ---- minimal fake DOM element: just what inbox-notifikasi.js touches -----
+class FakeEl {
+    constructor() {
+        this.children = [];
+        this.parentNode = null;
+        this.className = '';
+        this.style = {};
+        this._text = '';
+    }
+    set textContent(v) { this._text = v; }
+    get textContent() { return this._text; }
+    setAttribute() {}
+    getContext() { return {}; } // only exercised by the (untested here) favicon canvas path
+    appendChild(el) { el.parentNode = this; this.children.push(el); return el; }
+    prepend(el) { el.parentNode = this; this.children.unshift(el); return el; }
+    removeChild(el) {
+        const i = this.children.indexOf(el);
+        if (i !== -1) this.children.splice(i, 1);
+        el.parentNode = null;
+    }
+}
+
 function loadNotif(config = {}) {
     const sessionStorage = fakeStorage();
     const localStorage = fakeStorage();
-    const toasts = [];
+    const stackContainer = new FakeEl();
     const opened = [];
+    const elements = { inboxNotifToastStack: stackContainer };
     const document = {
         title: 'AULIA',
-        getElementById: () => null,
+        getElementById: (id) => elements[id] || null,
         querySelector: () => null,
-        createElement: () => ({ getContext: () => ({}) }),
+        createElement: () => new FakeEl(),
     };
     const ctx = vm.createContext({
         document,
         window: {},
+        open: (url, name, opts) => { opened.push({ url, name, opts }); },
         sessionStorage,
         localStorage,
         fetch: () => new Promise(() => {}),
         setInterval: () => 0,
         setTimeout: () => 0,
         console,
-        JSON, String, Array, Object, Number, Math, isNaN,
+        JSON, String, Array, Object, Number, Math, isNaN, Set,
         INBOX_NOTIF_CONFIG: { ringkasUrl: '/inbox/api/notifikasi-ringkas', inboxUrl: '/inbox', ...config },
-        showToast: (msg, type, opsi) => { toasts.push({ msg, type, opsi }); },
         Image: function() { this.onload = null; this.onerror = null; },
     });
     ctx.window = ctx;
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../../public/assets/js/inbox-notifikasi.js'), 'utf8'), ctx);
-    return { ctx, sessionStorage, localStorage, toasts, opened, get: (expr) => vm.runInContext(expr, ctx) };
+    return { ctx, sessionStorage, localStorage, stackContainer, opened, get: (expr) => vm.runInContext(expr, ctx) };
 }
 
 const queue = [];
@@ -103,10 +126,42 @@ test('formatJudulTab: prefixes a count, or restores the original title when zero
     assert.equal(t.ctx.formatJudulTab('AULIA', 3), '(3) AULIA');
 });
 
-test('formatPesanToastNotif: singular names the customer, plural gives a count', () => {
+test('formatPesanToastNotif: one person is named directly; several are all named, comma-separated', () => {
     const t = loadNotif();
     assert.equal(t.ctx.formatPesanToastNotif([item(1, 't1', 'Budi')]), 'Pesan baru dari Budi');
-    assert.equal(t.ctx.formatPesanToastNotif([item(1, 't1'), item(2, 't2')]), '2 percakapan menunggu balasan Anda');
+    assert.equal(
+        t.ctx.formatPesanToastNotif([item(1, 't1', 'Budi'), item(2, 't2', 'Siti')]),
+        'Pesan baru dari Budi, Siti'
+    );
+});
+
+test('formatPesanToastNotif: beyond the cap, the list is truncated with a "+N lainnya" tail', () => {
+    const t = loadNotif();
+    const enam = [1, 2, 3, 4, 5, 6].map((n) => item(n, 't' + n, 'P' + n));
+    assert.equal(
+        t.ctx.formatPesanToastNotif(enam),
+        'Pesan baru dari P1, P2, P3, P4, P5, +1 lainnya'
+    );
+});
+
+test('tujuanKlikToastNotif: one person deep-links to that conversation; several have no single target', () => {
+    const t = loadNotif();
+    assert.equal(t.ctx.tujuanKlikToastNotif([item(5, 't5')]), 5);
+    assert.equal(t.ctx.tujuanKlikToastNotif([item(1, 't1'), item(2, 't2')]), null);
+});
+
+test('entriUntukDibuang: a toast is only dropped once NONE of its conversations are still relevant', () => {
+    const t = loadNotif();
+    const entries = [
+        { key: 1, ids: [10] },
+        { key: 2, ids: [20, 21] },
+    ];
+    // 10 is gone (handled), 20 is still pending, 21 is gone -- entry 2 survives because 20 is still relevant.
+    assert.deepEqual(t.ctx.entriUntukDibuang(entries, [20]), [1]);
+    // Neither 20 nor 21 is relevant any more -- entry 2 is now dropped too.
+    assert.deepEqual(t.ctx.entriUntukDibuang(entries, []), [1, 2]);
+    // Everything still relevant -- nothing dropped.
+    assert.deepEqual(t.ctx.entriUntukDibuang(entries, [10, 20, 21]), []);
 });
 
 // ---- mute toggle (persisted via localStorage) ---------------------------
@@ -136,6 +191,63 @@ test('bacaNotifSeen/simpanNotifSeen round-trip through sessionStorage', () => {
     assert.deepEqual(JSON.parse(JSON.stringify(t.ctx.bacaNotifSeen())), {});
     t.ctx.simpanNotifSeen({ '5': 'x' });
     assert.deepEqual(JSON.parse(JSON.stringify(t.ctx.bacaNotifSeen())), { '5': 'x' });
+});
+
+// ---- sticky, stacking toast (DOM) ----------------------------------------
+
+test('buatToastNotif: appends a sticky toast on top of the stack; clicking it opens the right target', () => {
+    const t = loadNotif();
+    t.ctx.buatToastNotif([item(1, 't1', 'Budi')]);
+    assert.equal(t.stackContainer.children.length, 1);
+
+    const [wrap] = t.stackContainer.children[0].children;
+    const [body] = wrap.children;
+    assert.equal(body.textContent, 'Pesan baru dari Budi');
+
+    body.onclick();
+    assert.equal(t.opened.length, 1);
+    assert.equal(t.opened[0].url, '/inbox?conversation_id=1');
+    assert.equal(t.opened[0].name, 'AuliaInbox');
+
+    // A second toast is added ABOVE the first one (prepend), not merged into it.
+    t.ctx.buatToastNotif([item(2, 't2', 'Siti'), item(3, 't3', 'Andi')]);
+    assert.equal(t.stackContainer.children.length, 2);
+    const topBody = t.stackContainer.children[0].children[0].children[0];
+    assert.equal(topBody.textContent, 'Pesan baru dari Siti, Andi');
+
+    // Several people named -> clicking opens the Inbox with no specific conversation.
+    topBody.onclick();
+    assert.equal(t.opened[1].url, '/inbox');
+});
+
+test('buatToastNotif: the close button removes only that one toast', () => {
+    const t = loadNotif();
+    t.ctx.buatToastNotif([item(1, 't1')]);
+    t.ctx.buatToastNotif([item(2, 't2')]);
+    assert.equal(t.stackContainer.children.length, 2);
+
+    const tutup = t.stackContainer.children[0].children[0].children[1];
+    tutup.onclick();
+
+    assert.equal(t.stackContainer.children.length, 1);
+    assert.equal(t.get('toastAktif.length'), 1);
+});
+
+test('bersihkanToastSelesai: a toast disappears once every conversation it named is no longer relevant', () => {
+    const t = loadNotif();
+    t.ctx.buatToastNotif([item(10, 't10')]);
+    t.ctx.buatToastNotif([item(20, 't20'), item(21, 't21')]);
+    assert.equal(t.stackContainer.children.length, 2);
+
+    // 10 was handled (gone); 20 is still pending -> only the first toast goes.
+    t.ctx.bersihkanToastSelesai([20]);
+    assert.equal(t.stackContainer.children.length, 1);
+    assert.equal(t.get('toastAktif.length'), 1);
+
+    // Now 20 is handled too -> the second toast goes as well.
+    t.ctx.bersihkanToastSelesai([]);
+    assert.equal(t.stackContainer.children.length, 0);
+    assert.equal(t.get('toastAktif.length'), 0);
 });
 
 (async () => {

@@ -61,10 +61,39 @@ function formatJudulTab(judulAsli, jumlah) {
     return jumlah > 0 ? '(' + jumlah + ') ' + judulAsli : judulAsli;
 }
 
+// Satu orang -> langsung sebut namanya; banyak orang -> sebut semua
+// nama (dibatasi MAKS_NAMA_TOAST supaya toast tidak jadi sangat panjang
+// kalau banyak percakapan masuk sekaligus).
+const MAKS_NAMA_TOAST = 5;
+
 function formatPesanToastNotif(itemBaru) {
     if (itemBaru.length === 1) return 'Pesan baru dari ' + itemBaru[0].label;
 
-    return itemBaru.length + ' percakapan menunggu balasan Anda';
+    const nama = itemBaru.map(function(i) { return i.label; });
+
+    if (nama.length <= MAKS_NAMA_TOAST) return 'Pesan baru dari ' + nama.join(', ');
+
+    return 'Pesan baru dari ' + nama.slice(0, MAKS_NAMA_TOAST).join(', ') +
+        ', +' + (nama.length - MAKS_NAMA_TOAST) + ' lainnya';
+}
+
+// Satu orang -> deep-link ke percakapan itu; banyak orang -> buka Inbox
+// apa adanya (tidak ada satu percakapan "paling benar" untuk dituju).
+function tujuanKlikToastNotif(itemBaru) {
+    return itemBaru.length === 1 ? itemBaru[0].id : null;
+}
+
+/* Toast mana yang sudah tidak relevan lagi (SEMUA percakapan yang
+   disebutnya sudah ditangani/tidak lagi 'perlu_dibalas' bagi user ini),
+   dipanggil tiap polling supaya toast sticky tidak menumpuk selamanya.
+   `entries`: [{key, ids}] toast yang sedang tampil. `idMasihRelevan`:
+   id percakapan dari polling TERBARU (apa adanya, boleh number/string). */
+function entriUntukDibuang(entries, idMasihRelevan) {
+    const relevanSet = new Set(idMasihRelevan.map(String));
+
+    return entries
+        .filter(function(e) { return !e.ids.some(function(id) { return relevanSet.has(String(id)); }); })
+        .map(function(e) { return e.key; });
 }
 
 // ================================================================
@@ -169,6 +198,73 @@ function bukaInboxKePercakapan(id) {
     window.open(notifConfig.inboxUrl + '?conversation_id=' + id, 'AuliaInbox', 'width=1200,height=800');
 }
 
+function bukaInboxDariToast(idTujuan) {
+    if (idTujuan === null) {
+        window.open(notifConfig.inboxUrl, 'AuliaInbox', 'width=1200,height=800');
+    } else {
+        bukaInboxKePercakapan(idTujuan);
+    }
+}
+
+// Toast notifikasi Inbox TIDAK memakai showToast()/#liveToast (satu slot,
+// auto-hide 3 detik, dipakai bersama fitur lain seperti reminder jadwal)
+// -- di sini sengaja sticky DAN bisa menumpuk, jadi komponennya sendiri.
+// { key, ids, el } per toast yang sedang tampil.
+let toastAktif = [];
+let toastKeyBerikutnya = 1;
+
+// Dibangun lewat createElement/textContent, BUKAN innerHTML dengan teks
+// dinamis -- `label` berasal dari whatsapp_name/contact_name, yang bisa
+// diisi bebas oleh pelanggan/kasir, jadi tidak boleh ditafsirkan sebagai
+// HTML (lihat Inbox::apiNotifikasiRingkas()).
+function buatToastNotif(itemBaru) {
+    const container = document.getElementById('inboxNotifToastStack');
+    if (!container) return;
+
+    const key = toastKeyBerikutnya++;
+    const ids = itemBaru.map(function(i) { return i.id; });
+    const idTujuan = tujuanKlikToastNotif(itemBaru);
+
+    const el = document.createElement('div');
+    el.className = 'toast align-items-center border-0 text-bg-primary show';
+    el.setAttribute('role', 'alert');
+
+    const wrap = document.createElement('div');
+    wrap.className = 'd-flex';
+
+    const body = document.createElement('div');
+    body.className = 'toast-body';
+    body.style.cursor = 'pointer';
+    body.textContent = formatPesanToastNotif(itemBaru);
+    body.onclick = function() { bukaInboxDariToast(idTujuan); };
+
+    const tutup = document.createElement('button');
+    tutup.type = 'button';
+    tutup.className = 'btn-close btn-close-white me-2 m-auto';
+    tutup.setAttribute('aria-label', 'Tutup');
+    tutup.onclick = function() { buangToastNotif(key); };
+
+    wrap.appendChild(body);
+    wrap.appendChild(tutup);
+    el.appendChild(wrap);
+    container.prepend(el); // toast baru tampil di atas toast lama
+
+    toastAktif.push({ key: key, ids: ids, el: el });
+}
+
+function buangToastNotif(key) {
+    const idx = toastAktif.findIndex(function(e) { return e.key === key; });
+    if (idx === -1) return;
+
+    const entri = toastAktif[idx];
+    if (entri.el.parentNode) entri.el.parentNode.removeChild(entri.el);
+    toastAktif.splice(idx, 1);
+}
+
+function bersihkanToastSelesai(idMasihRelevan) {
+    entriUntukDibuang(toastAktif, idMasihRelevan).forEach(buangToastNotif);
+}
+
 function muatNotifikasiInbox() {
     fetch(notifConfig.ringkasUrl)
         .then(function(r) { return r.json(); })
@@ -178,6 +274,7 @@ function muatNotifikasiInbox() {
 
             perbaruiJudulTab(items.length);
             perbaruiFaviconDot(items.length > 0);
+            bersihkanToastSelesai(items.map(function(i) { return i.id; }));
 
             const belumPernahDicek = sessionStorage.getItem(NOTIF_SEEN_KEY) === null;
             const hasil = hitungItemBaru(items, bacaNotifSeen(), belumPernahDicek);
@@ -186,10 +283,7 @@ function muatNotifikasiInbox() {
             if (!hasil.itemBaru.length) return;
 
             mainkanBeepNotif();
-            const idTujuan = hasil.itemBaru[0].id;
-            showToast(formatPesanToastNotif(hasil.itemBaru), 'info', {
-                onClick: function() { bukaInboxKePercakapan(idTujuan); }
-            });
+            buatToastNotif(hasil.itemBaru);
         })
         .catch(function() { /* siklus polling berikutnya coba lagi */ });
 }
