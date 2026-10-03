@@ -12,7 +12,6 @@
 ## Prioritas Sedang
 
 - [ ] **TODO-F7** `app/Libraries/FotoProfilService.php:63` memakai `$file->getSizeByUnit('kb')` untuk validasi ukuran upload foto profil — di versi CodeIgniter ini `getSizeByUnit('kb')` mengembalikan string berformat koma ribuan (mis. `"2,048.000"`) sehingga perbandingan `>` dengan int gagal dan **file di atas batas tidak pernah ditolak** (bug yang sama sudah diperbaiki di `BalasanTemplateImageService`, lihat riwayat PR #48). Fix: bandingkan byte mentah `$file->getSize() > MAX_SIZE_KB * 1024` (pola `Inbox.php`). Tambahkan/ubah test yang membuktikan penolakan file besar — sedang
-- [ ] **TODO-T3** Verifikasi jalur merge arsip (SQLite) saat arsip **terisi** untuk S2 (`laporan_pembayaran`), S3b (`transaksi`), dan S4 (`periode`). Saat ini arsip kosong sehingga hanya jalur live yang teruji; bentuk SQL arsip S4 sudah divalidasi lewat PDO — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
 - [ ] **TODO-F3** Terapkan ulang patch Evolution (`PATCH-ADAPTER (2026-10-01)` di `whatsapp.baileys.service.ts`) setiap kali Evolution di-upgrade; prosedur `C:\Projects\evolution-gateway\docs\evolution-viewonce-patch.md` — sedang
 
