@@ -345,7 +345,7 @@ SQL);
         }
 
         foreach ($bulanList as $ym) {
-            if (!preg_match('/^\d{4}-\d{2}$/', $ym)) {
+            if (!\Config\DatePicker::bulanValid($ym)) {
                 throw new \Exception("Format bulan tidak valid: {$ym}");
             }
 

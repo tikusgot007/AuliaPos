@@ -64,4 +64,21 @@ final class DatePickerConfigTest extends TestCase
         $this->assertSame('2026-10', DatePicker::bulanYm(10, 2026));
         $this->assertSame('2026-12', DatePicker::bulanYm(12, 2026));
     }
+
+    public function testBulanValidAcceptsRealMonthsAndRejectsImpossibleOnes(): void
+    {
+        $this->assertTrue(DatePicker::bulanValid('2026-01'));
+        $this->assertTrue(DatePicker::bulanValid('2026-07'));
+        $this->assertTrue(DatePicker::bulanValid('2026-12'));
+
+        // A bare regex would accept these; checkdate() must not (BL-35).
+        $this->assertFalse(DatePicker::bulanValid('2026-00'));
+        $this->assertFalse(DatePicker::bulanValid('2026-13'));
+        $this->assertFalse(DatePicker::bulanValid('2026-99'));
+
+        // Wrong shape / padding.
+        $this->assertFalse(DatePicker::bulanValid('2026-7'));
+        $this->assertFalse(DatePicker::bulanValid('2026/07'));
+        $this->assertFalse(DatePicker::bulanValid(''));
+    }
 }

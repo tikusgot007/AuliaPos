@@ -96,6 +96,9 @@ class Auth extends BaseController
             'last_activity' => time()
         ];
 
+        // Prevent session fixation: issue a new session id once the user
+        // is authenticated, before storing the login data.
+        $session->regenerate(true);
         $session->set($sessionData);
 
         // 🔥 Redirect berdasarkan role

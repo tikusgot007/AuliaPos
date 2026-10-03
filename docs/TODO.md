@@ -60,11 +60,9 @@
 - [ ] **TODO-BL31** Low — route mati `/kasir/proses`, `/kasir/tambah-pembayaran`; `/cash/opname` hilang padahal view posting ke sana — `Routes.php:123-124,217-227`; `Views/cash/opname.php:32`
 - [ ] **TODO-BL32** Low — status legacy `diambil` jatuh tanpa grup filter — `Transaksi.php:556-575`; migration `2026-09-09-000001:31`
 - [ ] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442`
-- [ ] **TODO-BL34** Low — `$adminRoutes` tak lengkap vs Routes (`auth/simpan-user`, `auth/update-user`) & `laporan-pembayaran` bukan admin — `AuthFilter.php:70`; `Routes.php:110-113,253-257`
-- [ ] **TODO-BL35** Low — validasi bulan arsip hanya regex; `2026-00`/`2026-13` diterima — `TransaksiArchiveService.php:347-350`
+- [ ] **TODO-BL34** Low — `laporan-pembayaran` masih `auth` (bukan admin) — `Routes.php:253-257`; `Laporan.php:1975` (sisa BL-34/BL-41; `auth/simpan-user` & `auth/update-user` selesai 2026-10-03)
 - [ ] **TODO-BL36** Low — navigasi bulan roster pakai `toISOString()` (UTC) → bulan salah dekat tengah malam WIB — `public/assets/js/roster.js:342,367`
 - [ ] **TODO-BL37** Low — jendela shift inklusif dua ujung; P/S dan S/PM tumpang-tindih — `EvaluasiJendelaKerjaShift.php:16`; `JadwalModel.php:50-61`
-- [ ] **TODO-BL38** Low — `getReminderTagihanSaya()` kadang tak mengembalikan key `hari` — `Kasir.php:88,97` vs `:119`
 - [ ] **TODO-BL39** Low — "Tunai" diturunkan `total - non-tunai`; bisa salah saat detail/subtotal kosong — `Views/laporan/index.php:448,885`; `Laporan.php:371-384,494-516`
 - [ ] **TODO-BL40** Low — `Tagihan::detail` tanpa guard status; tombol Lunasi tampil tanpa cek; `saya=1` + filter kasir → list kosong — `Tagihan.php:84-90,166-168`; `Views/transaksi/detail.php:357-363`
 - [ ] **TODO-BL41** Low — `/laporan-pembayaran` hanya `auth` (bukan admin), controller tanpa cek admin — `Routes.php:253-257`; `AuthFilter.php:70-77`; `Laporan.php:1975`
@@ -79,8 +77,7 @@
 
 ## Keamanan & kualitas — audit 2026-10-03
 
-- [ ] **TODO-S1** `public/index.php:3-5` memaksa `display_errors=1`/`error_reporting(E_ALL)` sebelum override `production.php` → error fase bootstrap / env salah-set bisa membocorkan stack trace — `public/index.php:3-5` — tinggi
-- [ ] **TODO-S2** Login: tanpa rate-limit/lockout dan tanpa `session()->regenerate()` (session fixation) — `Auth.php:64-107` — sedang
+- [ ] **TODO-S2** Login: belum ada rate-limit/lockout (bagian `session()->regenerate()` selesai 2026-10-03) — `Auth.php:64-107` — sedang
 
 ## Kualitas, dokumen & cakupan — audit 2026-10-03
 

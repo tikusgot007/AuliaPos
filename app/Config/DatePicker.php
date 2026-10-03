@@ -59,4 +59,18 @@ class DatePicker
     {
         return sprintf('%04d-%02d', $tahun, $bulan);
     }
+
+    /**
+     * Whether a `YYYY-MM` string is a real calendar month. A bare regex
+     * accepts impossible months like `2026-00` or `2026-13`; `checkdate()`
+     * rejects them.
+     */
+    public static function bulanValid(string $ym): bool
+    {
+        if (!preg_match('/^(\d{4})-(\d{2})$/', $ym, $m)) {
+            return false;
+        }
+
+        return checkdate((int) $m[2], 1, (int) $m[1]);
+    }
 }

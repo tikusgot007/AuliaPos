@@ -83,9 +83,10 @@ class Kasir extends BaseController
     private function getReminderTagihanSaya(): array
     {
         $userId = (int) (session()->get('id_user') ?? 0);
+        $tempoHari = (new \Config\Tagihan())->defaultTempoHari;
 
         if (!$userId) {
-            return ['show' => false, 'count' => 0];
+            return ['show' => false, 'count' => 0, 'hari' => $tempoHari];
         }
 
         $lastShown = session()->get('reminder_tagihan_last_shown');
@@ -94,10 +95,8 @@ class Kasir extends BaseController
         // Belum waktunya cek lagi (masih dalam jeda 15 menit sejak
         // terakhir kali toast ini ditampilkan).
         if ($lastShown && ($now - (int) $lastShown) < 900) {
-            return ['show' => false, 'count' => 0];
+            return ['show' => false, 'count' => 0, 'hari' => $tempoHari];
         }
-
-        $tempoHari = (new \Config\Tagihan())->defaultTempoHari;
 
         $transaksiModel = new TransaksiModel();
         $count = $transaksiModel

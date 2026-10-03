@@ -253,7 +253,7 @@ class Cash extends BaseController
     public function closing()
     {
         $bulan = $this->request->getGet('bulan') ?? date('Y-m');
-        if (!preg_match('/^\d{4}-\d{2}$/', $bulan)) {
+        if (!\Config\DatePicker::bulanValid($bulan)) {
             $bulan = date('Y-m');
         }
 
@@ -273,7 +273,7 @@ class Cash extends BaseController
     public function closingData()
     {
         $bulan = $this->request->getGet('bulan') ?? date('Y-m');
-        if (!preg_match('/^\d{4}-\d{2}$/', $bulan)) {
+        if (!\Config\DatePicker::bulanValid($bulan)) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Bulan tidak valid.']);
         }
 
