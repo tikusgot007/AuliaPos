@@ -328,6 +328,17 @@
             color: white;
         }
 
+        /* Toast notifikasi Inbox: hijau WhatsApp, bukan warna generik
+           Bootstrap -- supaya langsung dikenali sebagai notifikasi WA. */
+        .inbox-notif-toast {
+            background-color: #25D366;
+            color: white;
+            min-width: 250px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            font-size: 14px;
+        }
+
         body {
             background-color: #f8f9fa;
         }

@@ -25,7 +25,7 @@ Format entri:
   seperti `cekOwnership()`). Poller di layout utama memakainya untuk: judul
   tab `(N) ...`, titik merah di favicon, beep (bisa dibisukan lewat lonceng
   di sidebar, `localStorage`), dan toast **sticky** (tidak hilang sendiri)
-  yang bisa **menumpuk** (toast baru di atas toast lama, komponen terpisah
+  yang bisa **menumpuk** (toast baru di BAWAH toast lama, warna hijau WhatsApp bukan biru generik, komponen terpisah
   dari `showToast()`/`#liveToast` yang dipakai fitur lain). Toast untuk SATU
   percakapan diklik membuka window Inbox langsung ke percakapan itu
   (`?conversation_id=`); toast untuk BEBERAPA percakapan sekaligus menyebut

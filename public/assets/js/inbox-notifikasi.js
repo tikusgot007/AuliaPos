@@ -226,7 +226,7 @@ function buatToastNotif(itemBaru) {
     const idTujuan = tujuanKlikToastNotif(itemBaru);
 
     const el = document.createElement('div');
-    el.className = 'toast align-items-center border-0 text-bg-primary show';
+    el.className = 'toast align-items-center border-0 inbox-notif-toast show';
     el.setAttribute('role', 'alert');
 
     const wrap = document.createElement('div');
@@ -247,7 +247,7 @@ function buatToastNotif(itemBaru) {
     wrap.appendChild(body);
     wrap.appendChild(tutup);
     el.appendChild(wrap);
-    container.prepend(el); // toast baru tampil di atas toast lama
+    container.appendChild(el); // toast baru tampil di BAWAH toast lama
 
     toastAktif.push({ key: key, ids: ids, el: el });
 }
