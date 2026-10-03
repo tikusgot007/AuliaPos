@@ -6,6 +6,7 @@ use App\Models\TransaksiModel;
 use App\Models\DetailTransaksiModel;
 use App\Models\KategoriModel;
 use App\Models\PelangganModel;
+use App\Libraries\ExcelTable;
 
 class Laporan extends BaseController
 {
@@ -1999,6 +2000,20 @@ class Laporan extends BaseController
     /**
      * Ekspor CSV seluruh baris terfilter (server-side).
      */
+    /**
+     * Respons Excel `.xls` berbasis tabel HTML (lihat ExcelTable).
+     *
+     * @param array<int, string>            $headers
+     * @param array<int, array<int, mixed>> $rows
+     */
+    private function excelXlsResponse(string $filename, array $headers, array $rows)
+    {
+        return $this->response
+            ->setHeader('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setBody(ExcelTable::render($headers, $rows));
+    }
+
     public function itemHarianExport()
     {
         $f = $this->itemHarianFilterBag();
@@ -2011,11 +2026,9 @@ class Laporan extends BaseController
         );
         $kategoriMap = $this->itemHarianKategoriMap($db);
 
-        $fh = fopen('php://temp', 'r+');
-        fwrite($fh, "\xEF\xBB\xBF");
-        fputcsv($fh, ['Tanggal', 'Kategori', 'Invoice', 'Item', 'Qty', 'Subtotal Item', 'Pembayaran', 'Nilai Terjual'], ';');
+        $out = [];
         foreach ($rows as $row) {
-            fputcsv($fh, [
+            $out[] = [
                 $row['tanggal_pembayaran'] ?? '',
                 $kategoriMap[(int) ($row['kategori_id'] ?? 0)] ?? 'Tanpa Kategori',
                 $row['kode_invoice'] ?? '-',
@@ -2024,18 +2037,16 @@ class Laporan extends BaseController
                 (float) ($row['subtotal_item'] ?? 0),
                 (float) ($row['total_pembayaran'] ?? 0),
                 (float) ($row['total_teralokasi'] ?? 0),
-            ], ';');
+            ];
         }
-        rewind($fh);
-        $csv = stream_get_contents($fh);
-        fclose($fh);
 
-        $filename = 'Item_Harian_' . $f['tanggal_awal'] . '_' . $f['tanggal_akhir'] . '.csv';
+        $filename = 'Item_Harian_' . $f['tanggal_awal'] . '_' . $f['tanggal_akhir'] . '.xls';
 
-        return $this->response
-            ->setHeader('Content-Type', 'text/csv; charset=UTF-8')
-            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
-            ->setBody($csv);
+        return $this->excelXlsResponse(
+            $filename,
+            ['Tanggal', 'Kategori', 'Invoice', 'Item', 'Qty', 'Subtotal Item', 'Pembayaran', 'Nilai Terjual'],
+            $out
+        );
     }
 
 
@@ -2302,11 +2313,9 @@ class Laporan extends BaseController
             $order
         );
 
-        $fh = fopen('php://temp', 'r+');
-        fwrite($fh, "\xEF\xBB\xBF");
-        fputcsv($fh, ['Tanggal Pembayaran', 'Invoice', 'Pelanggan', 'Kasir', 'Metode', 'Jumlah', 'Uang Diterima', 'Kembalian', 'Keterangan'], ';');
+        $out = [];
         foreach ($rows as $row) {
-            fputcsv($fh, [
+            $out[] = [
                 $row['tanggal_pembayaran'] ?? '',
                 $row['kode_invoice'] ?? '-',
                 $row['nama_pelanggan'] ?? '-',
@@ -2316,18 +2325,16 @@ class Laporan extends BaseController
                 (float) ($row['uang_diterima'] ?? 0),
                 (float) ($row['kembalian'] ?? 0),
                 $row['keterangan'] ?? '',
-            ], ';');
+            ];
         }
-        rewind($fh);
-        $csv = stream_get_contents($fh);
-        fclose($fh);
 
-        $filename = 'Laporan_Pembayaran_' . $f['tanggal_awal'] . '_' . $f['tanggal_akhir'] . '.csv';
+        $filename = 'Laporan_Pembayaran_' . $f['tanggal_awal'] . '_' . $f['tanggal_akhir'] . '.xls';
 
-        return $this->response
-            ->setHeader('Content-Type', 'text/csv; charset=UTF-8')
-            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
-            ->setBody($csv);
+        return $this->excelXlsResponse(
+            $filename,
+            ['Tanggal Pembayaran', 'Invoice', 'Pelanggan', 'Kasir', 'Metode', 'Jumlah', 'Uang Diterima', 'Kembalian', 'Keterangan'],
+            $out
+        );
     }
 
     // ================================================================
@@ -2683,22 +2690,12 @@ class Laporan extends BaseController
             $order
         );
 
-        $filename = 'Laporan_Periode_' . $f['tanggal_awal'] . '_' . $f['tanggal_akhir'] . '.csv';
-
-        $this->response
-            ->setHeader('Content-Type', 'text/csv; charset=UTF-8')
-            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"');
-
-        // Ditulis langsung ke php://output (bukan ditampung penuh di memori)
-        // lalu response dikembalikan dengan body kosong.
-        $out = fopen('php://output', 'w');
-        fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['Tanggal', 'Invoice', 'No Order', 'Pelanggan', 'Subtotal', 'Diskon', 'Grand Total', 'Sisa Tagihan', 'Status'], ';');
+        $out = [];
         foreach ($rows as $row) {
             $j = $this->periodeRowForJson($row);
-            // Angka dibulatkan ke integer agar CSV sama dengan ekspor lama
+            // Angka dibulatkan ke integer agar sama dengan ekspor lama
             // (yang menampilkan format id-ID tanpa desimal).
-            fputcsv($out, [
+            $out[] = [
                 $j['tanggal'],
                 $j['invoice'],
                 $j['no_order'],
@@ -2708,11 +2705,16 @@ class Laporan extends BaseController
                 (int) round($j['grand_total']),
                 (int) round($j['sisa_tagihan']),
                 $j['status_pembayaran'],
-            ], ';');
+            ];
         }
-        fclose($out);
 
-        return $this->response;
+        $filename = 'Laporan_Periode_' . $f['tanggal_awal'] . '_' . $f['tanggal_akhir'] . '.xls';
+
+        return $this->excelXlsResponse(
+            $filename,
+            ['Tanggal', 'Invoice', 'No Order', 'Pelanggan', 'Subtotal', 'Diskon', 'Grand Total', 'Sisa Tagihan', 'Status'],
+            $out
+        );
     }
 
 
