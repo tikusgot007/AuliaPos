@@ -40,6 +40,7 @@
         "sort-packages": true
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "test:feature": "phpunit --configuration phpunit.feature.xml"
     }
 }

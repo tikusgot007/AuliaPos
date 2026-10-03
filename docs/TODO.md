@@ -18,7 +18,6 @@
 ## Prioritas Sedang
 
 - [ ] **TODO-T3** Verifikasi jalur merge arsip (SQLite) saat arsip **terisi** untuk S2 (`laporan_pembayaran`), S3b (`transaksi`), dan S4 (`periode`). Saat ini arsip kosong sehingga hanya jalur live yang teruji; bentuk SQL arsip S4 sudah divalidasi lewat PDO — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
-- [ ] **TODO-T5** Feature test ber-DB (`tests/feature`, `phpunit.feature.xml`) belum terhubung ke `composer test`/CI; saat ini hanya dijalankan manual. Pertimbangkan script composer terpisah (mis. `composer test:feature`) yang butuh `aulia_inboxdb_test` — sedang — ref `docs/sesi/2026-10-02-bug-nama-conversation-wa-web.md`
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
 - [ ] **TODO-F2** `phone` di `gateway_status` NULL setelah restart adapter (hanya terisi dari `CONNECTION_UPDATE`) — sedang — ref `docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`
 - [ ] **TODO-F3** Terapkan ulang patch Evolution (`PATCH-ADAPTER (2026-10-01)` di `whatsapp.baileys.service.ts`) setiap kali Evolution di-upgrade; prosedur `C:\Projects\evolution-gateway\docs\evolution-viewonce-patch.md` — sedang
