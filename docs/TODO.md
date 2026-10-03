@@ -9,6 +9,10 @@
 > disetujui, hapus baris itu dan sebut **ID**-nya di pesan commit.
 > Jangan membuat daftar TODO kedua di tempat lain; checkpoint hanya menunjuk ke sini.
 
+## Prioritas Tinggi
+
+- [ ] **TODO-R1** Fitur Template Balasan Cepat (Inbox): requirement **disetujui** (Gate 1 lolos), desain teknis **draft** menunggu persetujuan Gate 2 dan implementasi oleh tim lain (hold atas permintaan user, 2026-10-03). Sebelum kode ditulis, Gate 2 harus disetujui dulu di `docs/design/2026-10-03-template-balasan-cepat.md` §9 — tinggi — ref `docs/requirements/2026-10-03-template-balasan-cepat.md`, `docs/design/2026-10-03-template-balasan-cepat.md`, `docs/sesi/2026-10-03-handoff-template-balasan-cepat.md`
+
 ## Prioritas Sedang
 
 - [ ] **TODO-T3** Verifikasi jalur merge arsip (SQLite) saat arsip **terisi** untuk S2 (`laporan_pembayaran`), S3b (`transaksi`), dan S4 (`periode`). Saat ini arsip kosong sehingga hanya jalur live yang teruji; bentuk SQL arsip S4 sudah divalidasi lewat PDO — sedang — ref `docs/sesi/2026-10-02-server-side-periode-laporan.md`
