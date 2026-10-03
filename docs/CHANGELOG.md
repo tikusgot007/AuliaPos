@@ -14,6 +14,25 @@ Format entri:
 
 ---
 
+## 2026-10-03 — Laporan: ekspor Excel saja (hapus Print/Copy/PDF) + format `.xls` berkolom
+
+- Aturan lama: tabel laporan (Item Harian, Laporan Pembayaran, tab Periode, dan
+  tab agregat Harian/Bulanan/Kategori) punya tombol Print/Copy/PDF/Excel; pada
+  tabel server-side tombol hanya mencakup halaman aktif, dan CSV berpemisah `;`
+  terbaca **satu kolom** di Excel (setting locale tertentu).
+- Aturan baru: hanya **satu tombol Excel** per tabel; Print, Copy, dan PDF
+  dihapus. Ekspor server-side menghasilkan berkas **`.xls` (tabel HTML)** via
+  `App\Libraries\ExcelTable`, sehingga Excel membuka dengan kolom yang benar
+  tanpa bergantung pada pemisah daftar/locale. Item Harian & Laporan Pembayaran
+  memakai endpoint ekspor server-side yang sudah ada; tab Periode memakai
+  `/laporan/periode-export` (seluruh baris terfilter); tab agregat tetap
+  client-side (`excelHtml5`, seluruh baris).
+- Alasan: kebutuhan operasional hanya ekspor Excel; tombol cetak/salin/PDF hanya
+  mencakup halaman aktif dan format CSV berdelimiter menyesatkan kasir.
+- Referensi: commit `853413d` (merge PR #45),
+  `docs/sesi/2026-10-03-inbox-media-notifikasi-ops-gateway.md`,
+  `app/Libraries/ExcelTable.php`, `tests/unit/ExcelTableTest.php`.
+
 ## 2026-10-03 — Inbox: notifikasi lintas halaman (judul tab, favicon, suara, toast)
 
 - Aturan lama: satu-satunya mekanisme lintas halaman adalah badge angka diam

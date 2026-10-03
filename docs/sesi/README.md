@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-03 | [Unduh media Inbox, notifikasi lintas halaman, ekspor Excel-saja, ops gateway (O1–O3/F2), insiden Avast](2026-10-03-inbox-media-notifikasi-ops-gateway.md) | selesai (semua ter-merge/terdeploy; commit `848fdff`) |
 | 2026-10-02 | [Perbaikan thread pesan Inbox: 200 terbaru + pagination, render per pesan, tampilan ala vue-advanced-chat](2026-10-02-perbaikan-thread-inbox.md) | implementasi selesai (tes node/PHP/browser di sandbox; uji manual di server pengembang menunggu) |
 | 2026-10-02 | [Paket instalasi gateway untuk PC baru (bootstrap online, TODO-I1)](2026-10-02-paket-instalasi-gateway-pc-baru.md) | sebagian (implementasi + 6 cek lokal lulus; E2E PC baru/VM belum; belum di-commit) |
 | 2026-10-02 | [Verifikasi uji backlog media + stress test gateway (TODO-F1), temuan bug quoted/forward (TODO-F4/F5)](2026-10-02-verifikasi-backlog-stress-test-gateway.md) | selesai (verifikasi + dokumentasi; commit `26a7847`) |
