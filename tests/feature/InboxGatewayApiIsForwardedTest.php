@@ -2,6 +2,7 @@
 
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\FeatureTestTrait;
+use Tests\Support\GatewayApiTestTrait;
 
 /**
  * Regression test for TODO-F5 (docs/TODO.md): incoming WhatsApp messages that
@@ -29,55 +30,18 @@ use CodeIgniter\Test\FeatureTestTrait;
 final class InboxGatewayApiIsForwardedTest extends CIUnitTestCase
 {
     use FeatureTestTrait;
-
-    private const GATEWAY_TOKEN = 'test-gateway-token-for-phpunit';
-
-    private $inbox;
+    use GatewayApiTestTrait;
 
     protected function setUp(): void
     {
         parent::setUp();
-
-        putenv('inbox.gatewayToken=' . self::GATEWAY_TOKEN);
-        $_ENV['inbox.gatewayToken']    = self::GATEWAY_TOKEN;
-        $_SERVER['inbox.gatewayToken'] = self::GATEWAY_TOKEN;
-
-        $this->inbox = db_connect('inbox');
-        $this->inbox->table('messages')->emptyTable();
-        $this->inbox->table('conversation_identities')->emptyTable();
-        $this->inbox->table('conversations')->emptyTable();
+        $this->gatewaySetUp();
     }
 
     protected function tearDown(): void
     {
+        $this->gatewayTearDown();
         parent::tearDown();
-
-        putenv('inbox.gatewayToken');
-        unset($_ENV['inbox.gatewayToken'], $_SERVER['inbox.gatewayToken']);
-    }
-
-    private function seedConversation(string $chatId): int
-    {
-        $now = date('Y-m-d H:i:s');
-
-        $this->inbox->table('conversations')->insert([
-            'chat_id'       => $chatId,
-            'jid_type'      => 'pn',
-            'whatsapp_name' => 'Pelanggan Uji',
-            'status'        => 'open',
-            'created_at'    => $now,
-            'updated_at'    => $now,
-        ]);
-        $conversationId = (int) $this->inbox->insertID();
-
-        $this->inbox->table('conversation_identities')->insert([
-            'conversation_id' => $conversationId,
-            'chat_id'         => $chatId,
-            'jid_type'        => 'pn',
-            'created_at'      => $now,
-        ]);
-
-        return $conversationId;
     }
 
     private function isForwarded(string $waMessageId): ?int
@@ -91,25 +55,12 @@ final class InboxGatewayApiIsForwardedTest extends CIUnitTestCase
         return $row === null ? null : (int) $row['is_forwarded'];
     }
 
-    private function postMessage(array $payload)
-    {
-        return $this
-            ->withHeaders(['Authorization' => 'Bearer ' . self::GATEWAY_TOKEN])
-            ->withBodyFormat('json')
-            ->post('/api/inbox/gateway/messages', $payload);
-    }
-
-    private function nowIso(): string
-    {
-        return gmdate('Y-m-d\TH:i:s.000\Z');
-    }
-
     public function testIncomingForwardedMessageIsFlagged(): void
     {
         $chatId = '6281300000001@s.whatsapp.net';
         $this->seedConversation($chatId);
 
-        $response = $this->postMessage([
+        $response = $this->postGatewayMessage([
             'wa_message_id'     => 'WAMSG-FWD-IN-0001',
             'chat_id'           => $chatId,
             'jid_type'          => 'pn',
@@ -130,7 +81,7 @@ final class InboxGatewayApiIsForwardedTest extends CIUnitTestCase
         $this->seedConversation($chatId);
 
         // Field `is_forwarded` ABSEN sepenuhnya -- kontrak lama tidak berubah.
-        $response = $this->postMessage([
+        $response = $this->postGatewayMessage([
             'wa_message_id'     => 'WAMSG-FWD-NORMAL-0001',
             'chat_id'           => $chatId,
             'jid_type'          => 'pn',
@@ -151,7 +102,7 @@ final class InboxGatewayApiIsForwardedTest extends CIUnitTestCase
 
         // Trust boundary (AGENTS.md SS6): nilai tak tepercaya dari Gateway.
         // Array tidak boleh lolos jadi truthy / menimbulkan TypeError.
-        $response = $this->postMessage([
+        $response = $this->postGatewayMessage([
             'wa_message_id'     => 'WAMSG-FWD-MALFORMED-0001',
             'chat_id'           => $chatId,
             'jid_type'          => 'pn',
@@ -173,7 +124,7 @@ final class InboxGatewayApiIsForwardedTest extends CIUnitTestCase
 
         // Outgoing yang disinkronkan dari WA Web/HP tidak memakai field ini di
         // jalur webhook (cakupan TODO-F5 = masuk saja) -> tetap 0.
-        $response = $this->postMessage([
+        $response = $this->postGatewayMessage([
             'wa_message_id'     => 'WAMSG-FWD-OUT-0001',
             'chat_id'           => $chatId,
             'jid_type'          => 'pn',

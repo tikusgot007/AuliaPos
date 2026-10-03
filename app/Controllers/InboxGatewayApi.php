@@ -296,11 +296,7 @@ class InboxGatewayApi extends BaseController
         // ulang, jangan membuat message kedua, kembalikan response yang
         // menandakan message sudah diterima / duplicate-safe."
         if ($messageModel->existsByWaMessageId($waMessageId)) {
-            return $this->response->setStatusCode(200)->setJSON([
-                'status'    => 'success',
-                'duplicate' => true,
-                'message'   => 'Message sudah pernah diterima sebelumnya (idempotent).',
-            ]);
+            return $this->duplicateResponse();
         }
 
         $db = Database::connect('inbox');
@@ -447,18 +443,15 @@ class InboxGatewayApi extends BaseController
             // message (the unique index blocked us until it committed). Detect
             // that from the DB error itself: a post-failure SELECT would run on
             // this request's REPEATABLE READ snapshot and might not see the
-            // winner's just-committed row.
+            // winner's just-committed row. Key on the specific index name so a
+            // duplicate on another unique key is NOT mistaken for this one.
             $dbError = $db->error();
             $dbMessage = (string) ($dbError['message'] ?? '');
-            $isDuplicateWaMessageId = (int) ($dbError['code'] ?? 0) === 1062
-                || (str_contains($dbMessage, 'Duplicate entry') && str_contains($dbMessage, 'wa_message_id'));
+            $isDuplicateWaMessageId = str_contains($dbMessage, 'Duplicate entry')
+                && str_contains($dbMessage, 'wa_message_id');
 
             if ($isDuplicateWaMessageId) {
-                return $this->response->setStatusCode(200)->setJSON([
-                    'status'    => 'success',
-                    'duplicate' => true,
-                    'message'   => 'Message sudah pernah diterima sebelumnya (idempotent).',
-                ]);
+                return $this->duplicateResponse();
             }
 
             return $this->response->setStatusCode(500)->setJSON([
@@ -544,6 +537,20 @@ class InboxGatewayApi extends BaseController
             'status'          => 'success',
             'duplicate'       => false,
             'conversation_id' => $conversationId,
+        ]);
+    }
+
+    /**
+     * Contract response for a message that is already stored: the Gateway
+     * treats it as a successful, duplicate-safe delivery. Single source of
+     * truth so the pre-check path and the insert-race path cannot drift.
+     */
+    private function duplicateResponse()
+    {
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'    => 'success',
+            'duplicate' => true,
+            'message'   => 'Message sudah pernah diterima sebelumnya (idempotent).',
         ]);
     }
 

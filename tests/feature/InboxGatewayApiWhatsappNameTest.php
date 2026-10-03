@@ -2,7 +2,7 @@
 
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\FeatureTestTrait;
-use Config\Inbox as InboxConfig;
+use Tests\Support\GatewayApiTestTrait;
 
 /**
  * Bug fix regression test (docs/sesi/2026-10-02-bug-nama-conversation-wa-web.md,
@@ -15,78 +15,31 @@ use Config\Inbox as InboxConfig;
  * so the conversation's displayed name flipped to the staff member's name
  * every time staff replied outside the POS.
  *
- * Fix: app/Controllers/InboxGatewayApi.php:341 now requires
+ * Fix: app/Controllers/InboxGatewayApi.php now requires
  * $direction === 'incoming' before updating whatsapp_name, mirroring the
- * existing direction check used for conversation status at line ~407.
+ * existing direction check used for conversation status.
  *
  * Runs against the `inbox` group, redirected to `aulia_inboxdb_test` under
  * testing (see tests/_support/bootstrap-feature.php and
- * app/Config/Database.php). Requires `database.inbox.*` credentials in
- * .env (hostname/username/password only -- the database name itself is
- * forced to aulia_inboxdb_test by Config\Database under ENVIRONMENT=testing).
+ * app/Config/Database.php).
  *
  * @internal
  */
 final class InboxGatewayApiWhatsappNameTest extends CIUnitTestCase
 {
     use FeatureTestTrait;
-
-    private const GATEWAY_TOKEN = 'test-gateway-token-for-phpunit';
-
-    private $inbox;
+    use GatewayApiTestTrait;
 
     protected function setUp(): void
     {
         parent::setUp();
-
-        // Endpoint requires a non-empty configured token (see
-        // GatewayTokenFilter::before()); fixed here so the test does not
-        // depend on whatever .env happens to have.
-        putenv('inbox.gatewayToken=' . self::GATEWAY_TOKEN);
-        $_ENV['inbox.gatewayToken']    = self::GATEWAY_TOKEN;
-        $_SERVER['inbox.gatewayToken'] = self::GATEWAY_TOKEN;
-
-        $this->inbox = db_connect('inbox');
-        $this->inbox->table('messages')->emptyTable();
-        $this->inbox->table('conversation_identities')->emptyTable();
-        $this->inbox->table('conversations')->emptyTable();
+        $this->gatewaySetUp();
     }
 
     protected function tearDown(): void
     {
+        $this->gatewayTearDown();
         parent::tearDown();
-
-        putenv('inbox.gatewayToken');
-        unset($_ENV['inbox.gatewayToken'], $_SERVER['inbox.gatewayToken']);
-    }
-
-    private function seedConversation(string $chatId, string $whatsappName): int
-    {
-        $now = date('Y-m-d H:i:s');
-
-        $this->inbox->table('conversations')->insert([
-            'chat_id'       => $chatId,
-            'jid_type'      => 'pn',
-            'whatsapp_name' => $whatsappName,
-            'status'        => 'open',
-            'created_at'    => $now,
-            'updated_at'    => $now,
-        ]);
-        $conversationId = (int) $this->inbox->insertID();
-
-        // resolveConversationId() recognises an existing conversation via
-        // the conversation_identities alias table, not conversations.chat_id
-        // (see ConversationModel/Migration 2026-09-12). Seeding the alias is
-        // required, otherwise the endpoint would create a new conversation
-        // and hit the UNIQUE constraint on conversations.chat_id.
-        $this->inbox->table('conversation_identities')->insert([
-            'conversation_id' => $conversationId,
-            'chat_id'         => $chatId,
-            'jid_type'        => 'pn',
-            'created_at'      => $now,
-        ]);
-
-        return $conversationId;
     }
 
     private function currentWhatsappName(int $conversationId): ?string
@@ -100,31 +53,12 @@ final class InboxGatewayApiWhatsappNameTest extends CIUnitTestCase
         return $row['whatsapp_name'] ?? null;
     }
 
-    private function postMessage(array $payload)
-    {
-        return $this
-            ->withHeaders(['Authorization' => 'Bearer ' . self::GATEWAY_TOKEN])
-            ->withBodyFormat('json')
-            ->post('/api/inbox/gateway/messages', $payload);
-    }
-
-    /**
-     * Gateway sends message_timestamp as an ISO 8601 string
-     * (src/evolution/normalize.js toIsoTimestamp -> Date::toISOString()).
-     * InboxGatewayApi::parseTimestamp() feeds it to new \DateTime(), so a
-     * raw Unix integer would be rejected with HTTP 400.
-     */
-    private function nowIso(): string
-    {
-        return gmdate('Y-m-d\TH:i:s.000\Z');
-    }
-
     public function testOutgoingMessageFromWaWebDoesNotOverwriteWhatsappName(): void
     {
         $chatId = '6281200000001@s.whatsapp.net';
         $conversationId = $this->seedConversation($chatId, 'Ahmad');
 
-        $response = $this->postMessage([
+        $response = $this->postGatewayMessage([
             'wa_message_id'     => 'WAMSG-OUTGOING-0001',
             'chat_id'           => $chatId,
             'jid_type'          => 'pn',
@@ -152,7 +86,7 @@ final class InboxGatewayApiWhatsappNameTest extends CIUnitTestCase
         $chatId = '6281200000002@s.whatsapp.net';
         $conversationId = $this->seedConversation($chatId, 'Nama Lama');
 
-        $response = $this->postMessage([
+        $response = $this->postGatewayMessage([
             'wa_message_id'     => 'WAMSG-INCOMING-0001',
             'chat_id'           => $chatId,
             'jid_type'          => 'pn',
@@ -180,7 +114,7 @@ final class InboxGatewayApiWhatsappNameTest extends CIUnitTestCase
         $chatId = '6281200000003@s.whatsapp.net';
         $conversationId = $this->seedConversation($chatId, 'Nama Lama');
 
-        $response = $this->postMessage([
+        $response = $this->postGatewayMessage([
             'wa_message_id'     => 'WAMSG-NODIRECTION-0001',
             'chat_id'           => $chatId,
             'jid_type'          => 'pn',
@@ -208,7 +142,7 @@ final class InboxGatewayApiWhatsappNameTest extends CIUnitTestCase
         // their phone.
         $chatId = '6281200000004@s.whatsapp.net';
 
-        $response = $this->postMessage([
+        $response = $this->postGatewayMessage([
             'wa_message_id'     => 'WAMSG-OUTGOING-NEWCHAT-0001',
             'chat_id'           => $chatId,
             'jid_type'          => 'pn',
