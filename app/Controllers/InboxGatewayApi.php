@@ -425,8 +425,10 @@ class InboxGatewayApi extends BaseController
             'sent_by_user_id'   => null,
             'send_status'       => $direction === 'outgoing' ? 'sent' : 'received',
             // Teruskan (Tahap 4, REQ-008): penanda tunggal, `0` eksplisit
-            // pada jalur biasa. Sumber untuk pesan MASUK = Gateway (TODO-F5),
-            // untuk pesan KELUAR tetap dari jalur kirim POS (Inbox.php).
+            // pada jalur biasa. Sumber: Gateway untuk pesan MASUK (TODO-F5)
+            // DAN pesan KELUAR tersinkron dari WA Web/HP (TODO-F6); forward
+            // lewat tombol Teruskan POS punya jalur CI4-nya sendiri
+            // (kirimKeConversation() di Inbox.php), terpisah dari endpoint ini.
             'is_forwarded'      => $isForwarded ? 1 : 0,
         ], $mediaColumns, $extraColumns, $quoteColumns));
 
