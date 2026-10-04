@@ -40,6 +40,7 @@ $routes->get('/inbox/api/conversations', 'Inbox::apiConversations', ['filter' =>
 $routes->get('/inbox/api/conversations/(:num)/messages', 'Inbox::apiMessages/$1', ['filter' => 'auth']);
 $routes->get('/inbox/api/gateway-status', 'Inbox::apiGatewayStatus', ['filter' => 'auth']);
 $routes->get('/inbox/media/(:num)', 'Inbox::media/$1', ['filter' => 'auth']);
+$routes->head('/inbox/media/(:num)', 'Inbox::media/$1', ['filter' => 'auth']);
 $routes->get('/inbox/test', 'Inbox::testPage', ['filter' => 'auth']);
 $routes->post('/inbox/kirim', 'Inbox::kirim', ['filter' => 'auth']);
 $routes->post('/inbox/kirim-media', 'Inbox::kirimMedia', ['filter' => 'auth']);

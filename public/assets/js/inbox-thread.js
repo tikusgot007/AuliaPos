@@ -109,10 +109,71 @@ function pesanKegagalanUnduh(kategori) {
     return 'Gagal mengunduh media.';
 }
 
-/* Unduh satu media: fetch ?unduh=1 -> blob -> <a download>. Kegagalan
-   (410/413/502/jaringan) menjadi toast, bukan tab berisi JSON. Mengembalikan
-   Promise<{ok, kategori}> dan tidak pernah reject. */
+/* Unduh satu media: HEAD ?unduh=1 (cek valid, tanpa ambil body) -> kalau
+   OK, navigasi <a href download> LANGSUNG ke URL asli (bukan blob).
+   Kegagalan (410/413/502/jaringan) menjadi toast, bukan tab berisi JSON.
+   Mengembalikan Promise<{ok, kategori}> dan tidak pernah reject -- TAPI
+   promise ini selesai begitu unduhan DIMULAI (setelah HEAD + a.click()),
+   BUKAN setelah file selesai diunduh browser. Dipakai HANYA untuk aksi
+   satu-file (tombol unduh bubble/lightbox) lewat unduhSatu() -- JANGAN
+   dipakai untuk unduh berantai (lihat unduhMediaTunggu() di bawah).
+   PERBAIKAN UI (download manager pihak ketiga seperti IDM): versi lama
+   men-fetch seluruh body ke memori lalu memicu unduhan dari blob: URL --
+   itu BUKAN request jaringan asli, jadi IDM tidak bisa mencegatnya secara
+   normal. Kalau IDM sempat ambil alih lalu DIBATALKAN, browser jatuh ke
+   penyimpanan blob generik dengan nama fallback ('media-<id>') karena
+   elemen <a> sumbernya sudah dihapus dari DOM saat itu -- bukti nyata:
+   unduhan lewat IDM yang BERHASIL (tidak dibatalkan) selalu dapat nama
+   asli, karena IDM sempat baca atribut `download` sebelum elemen hilang.
+   Fix: HEAD dulu untuk tahu valid/tidaknya TANPA mengunduh apa pun, baru
+   navigasi <a href> langsung ke URL server -- unduhan sesungguhnya jadi
+   request jaringan normal yang bisa dikenali IDM seperti unduhan lain. */
 function unduhMedia(id, opsi) {
+    opsi = opsi || {};
+    const kunci = String(id);
+    const url = threadConfig.mediaBaseUrl + kunci + '?unduh=1';
+
+    return fetch(url, { method: 'HEAD' })
+        .then(function(res) {
+            if (!res.ok) {
+                return { ok: false, kategori: kategoriStatusMedia(res.status) };
+            }
+
+            const nama = namaFileDariHeader(res.headers.get('Content-Disposition'), 'media-' + kunci);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nama;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            return { ok: true, kategori: null };
+        })
+        .catch(function() {
+            return { ok: false, kategori: 'sementara' };
+        })
+        .then(function(hasil) {
+            if (!hasil.ok && !opsi.senyap) tampilkanToastThread(pesanKegagalanUnduh(hasil.kategori), 'warning');
+
+            return hasil;
+        });
+}
+
+/* Unduh satu media untuk ANTREAN BERANTAI (unduhTerpilih()/unduhBeruntun()):
+   fetch ?unduh=1 -> blob -> <a download>, promise BARU selesai setelah file
+   SELURUHNYA diterima (res.blob()). Sengaja dipisah dari unduhMedia() di atas
+   -- unduhBeruntun() mengandalkan promise yang baru selesai setelah transfer
+   tuntas untuk throttle satu-unduhan-dalam-penerbangan + hitungan "berhasil"
+   yang akurat (lihat UNDUH_JEDA_MS). Kalau dipakai HEAD+navigasi di sini,
+   promise selesai begitu unduhan DIMULAI, bukan SELESAI -- sampai 100 file
+   (UNDUH_MAKS_SEKALIGUS) bisa ditembakkan nyaris bersamaan, membebani
+   Gateway/disk tanpa throttle, dan "N berhasil" jadi "N dimulai" (gagal
+   setelah itu tidak lagi ikut terhitung). Trade-off: lewat blob, IDM bisa
+   kehilangan nama asli kalau dibatalkan di tengah salah satu unduhan massal
+   -- diterima karena pacing/akurasi laporan lebih penting untuk alur massal
+   dibanding kompatibilitas IDM per-file. */
+function unduhMediaTunggu(id, opsi) {
     opsi = opsi || {};
     const kunci = String(id);
 
@@ -260,7 +321,7 @@ function unduhTerpilih() {
     const aksi = bar && bar.querySelector('.inbox-pilih-unduh');
     if (aksi) aksi.disabled = true;
 
-    return unduhBeruntun(ids, function(id) { return unduhMedia(id, { senyap: true }); }, function(ms) {
+    return unduhBeruntun(ids, function(id) { return unduhMediaTunggu(id, { senyap: true }); }, function(ms) {
         return new Promise(function(resolve) { setTimeout(resolve, ms); });
     }).then(function(hasil) {
         sedangUnduhMassal = false;
