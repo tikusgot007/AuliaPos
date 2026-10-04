@@ -18,7 +18,6 @@
 
 ### High
 
-- [ ] **TODO-BL06** High — arsip menghapus tagihan belum lunas; `Tagihan` tanpa fallback arsip → piutang hilang — `TransaksiArchiveService.php:372-394,475-478,713`; `Tagihan.php:58-95,162-168,207-214` — **DEC-3: A+ dengan katup E** (siap dikerjakan)
 - [ ] **TODO-BL07** High — `koreksiPembayaran` membalik pembayaran tanpa gerbang role; menimpa `tanggal` & `kasir_id` — `Api.php:546-643`; `Routes.php:258-262`
 - [ ] **TODO-BL08** High — edit path hitung `$hasKategori16` tapi tak dipakai; `no_order` ditulis tanpa lock/cek unik — `Transaksi.php:1288-1317,1444-1453`
 - [ ] **TODO-BL09** High — `cash_opname.pemasukan_tunai` diisi `kas_awal + penjualan` → kas awal dobel — `Cash.php:216-219`; `CashBalanceService.php:27`

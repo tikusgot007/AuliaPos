@@ -62,12 +62,13 @@
             <table class="table table-sm table-bordered" style="max-width: 480px;">
                 <tbody>
                     <tr><th style="width: 220px;">Periode</th><td id="pvPeriode"></td></tr>
-                    <tr><th>Jumlah transaksi</th><td id="pvTransaksi"></td></tr>
+                    <tr><th>Transaksi akan diarsipkan</th><td id="pvTransaksi"></td></tr>
                     <tr><th>Jumlah detail transaksi</th><td id="pvDetail"></td></tr>
                     <tr><th>Jumlah pembayaran</th><td id="pvPembayaran"></td></tr>
-                    <tr><th>Total penjualan</th><td id="pvTotalTransaksi"></td></tr>
+                    <tr><th>Total penjualan (akan diarsipkan)</th><td id="pvTotalTransaksi"></td></tr>
                     <tr><th>Total pembayaran</th><td id="pvTotalPembayaran"></td></tr>
                     <tr><th>Belum bayar / DP / Lunas / Batal</th><td id="pvPerStatus"></td></tr>
+                    <tr><th>Piutang aktif (TIDAK diarsipkan)</th><td id="pvPiutangAktif"></td></tr>
                 </tbody>
             </table>
 
@@ -149,6 +150,9 @@
             el('pvPerStatus').textContent =
                 d.per_status.belum_bayar + ' / ' + d.per_status.dp + ' / ' +
                 d.per_status.lunas + ' / ' + d.per_status.batal;
+            el('pvPiutangAktif').textContent =
+                (d.jumlah_piutang_aktif || 0) + ' transaksi (' +
+                formatRupiah(d.total_piutang_aktif) + ')';
 
             boxPreview.dataset.bulan = JSON.stringify(bulan);
             inputKonfirmasi.value = '';

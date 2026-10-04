@@ -46,7 +46,11 @@ class TransaksiArchiveService
 
     public function __construct(?BaseConnection $archive = null)
     {
-        $this->db = Database::connect('default');
+        // Pakai default group (BUKAN literal 'default'): di produksi sama
+        // (defaultGroup='default'), tetapi di ENVIRONMENT=testing ikut
+        // dialihkan ke grup `tests` (SQLite) seperti model di file ini --
+        // tanpa ini, service membaca/menghapus MySQL live saat test.
+        $this->db = Database::connect();
 
         if ($archive !== null) {
             // Injected connection (tests, or a caller that already owns one):
@@ -399,6 +403,39 @@ SQL);
         return $builder;
     }
 
+    /**
+     * TODO-BL06 / DEC-3 "A+ dengan katup E": status eligible untuk
+     * diarsipkan adalah `lunas`, ATAU `batal`/`mangkrak` terlepas dari
+     * status_pembayaran-nya. "mangkrak" adalah katup keluarnya -- admin
+     * sudah sengaja menandainya lewat TransaksiModel::ubahStatus() (alur
+     * admin-gated yang sudah ada) sebelum baris itu pernah dilihat
+     * fungsi ini, jadi tidak perlu otorisasi tambahan di sini.
+     *
+     * Piutang aktif (belum_bayar/dp, status BUKAN batal/mangkrak) TIDAK
+     * PERNAH eligible -- harus tetap di DB utama supaya terus muncul di
+     * Tagihan. Dipakai bersama oleh preview() dan jalankan() lewat
+     * terapkanFilterBulan() (satu chokepoint, tidak terduplikasi).
+     */
+    private function terapkanFilterEligibleArchive($builder)
+    {
+        return $builder->groupStart()
+            ->where('status_pembayaran', 'lunas')
+            ->orWhereIn('status', ['batal', 'mangkrak'])
+            ->groupEnd();
+    }
+
+    /**
+     * Kebalikan dari terapkanFilterEligibleArchive(): piutang aktif yang
+     * SENGAJA dikecualikan dari archive. Dipakai preview() untuk
+     * pengaman UI DEC-3 -- menampilkan ke admin apa yang TIDAK ikut
+     * diarsipkan, supaya tidak lenyap diam-diam dari Tagihan.
+     */
+    private function terapkanFilterPiutangAktif($builder)
+    {
+        return $builder->whereIn('status_pembayaran', ['belum_bayar', 'dp'])
+            ->whereNotIn('status', ['batal', 'mangkrak']);
+    }
+
     // ================================================================
     // PREVIEW (read-only, tidak menyentuh apa pun)
     // ================================================================
@@ -416,9 +453,20 @@ SQL);
         $bulanList = $this->validasiBulanEligible($bulanList);
 
         $builder = $this->terapkanFilterBulan($this->db->table('transaksi'), $bulanList);
-        $transaksi = $builder->select('id, grand_total, status_pembayaran, total_dibayar')->get()->getResultArray();
+        $this->terapkanFilterEligibleArchive($builder);
+        $transaksi = $builder->select('id, grand_total, status_pembayaran, total_dibayar, status')->get()->getResultArray();
 
         $ids = array_column($transaksi, 'id');
+
+        // Pengaman UI DEC-3: piutang aktif yang SENGAJA tidak ikut diarsipkan.
+        $piutangBuilder = $this->terapkanFilterBulan($this->db->table('transaksi'), $bulanList);
+        $this->terapkanFilterPiutangAktif($piutangBuilder);
+        $piutangRows = $piutangBuilder->select('id, grand_total')->get()->getResultArray();
+        $jumlahPiutangAktif = count($piutangRows);
+        $totalPiutangAktif = 0.0;
+        foreach ($piutangRows as $p) {
+            $totalPiutangAktif += (float) $p['grand_total'];
+        }
 
         $jumlahDetail = 0;
         $jumlahPembayaran = 0;
@@ -443,13 +491,19 @@ SQL);
 
         foreach ($transaksi as $t) {
             $totalTransaksi += (float) $t['grand_total'];
+
+            // "batal" adalah status TRANSAKSI, bukan status_pembayaran
+            // (dua sumbu berbeda, aturan bisnis Section 1). Sebelumnya
+            // bucket ini diisi dari `status_pembayaran` yang nilainya
+            // tidak pernah 'batal', sehingga selalu 0 (bug tampilan).
+            if (($t['status'] ?? '') === 'batal') {
+                $perStatus['batal']++;
+
+                continue;
+            }
+
             $key = $t['status_pembayaran'] ?? 'belum_bayar';
 
-            // "batal" dihitung terpisah dari status_pembayaran karena
-            // status pembayaran & status transaksi adalah dua sumbu
-            // berbeda (lihat aturan bisnis Section 1) -- tapi untuk
-            // ringkasan preview, transaksi status=batal tetap dihitung
-            // di baris "batal" sendiri supaya kelihatan jelas.
             if (isset($perStatus[$key])) {
                 $perStatus[$key]++;
             }
@@ -460,15 +514,17 @@ SQL);
         $akhir = date('Y-m-t', strtotime($akhirYm . '-01'));
 
         return [
-            'bulan'             => $bulanList,
-            'tanggal_awal'      => $awal,
-            'tanggal_akhir'     => $akhir,
-            'jumlah_transaksi'  => count($ids),
-            'jumlah_detail'     => $jumlahDetail,
-            'jumlah_pembayaran' => $jumlahPembayaran,
-            'total_transaksi'   => $totalTransaksi,
-            'total_pembayaran'  => $totalPembayaran,
-            'per_status'        => $perStatus,
+            'bulan'                => $bulanList,
+            'tanggal_awal'         => $awal,
+            'tanggal_akhir'        => $akhir,
+            'jumlah_transaksi'     => count($ids),
+            'jumlah_detail'        => $jumlahDetail,
+            'jumlah_pembayaran'    => $jumlahPembayaran,
+            'total_transaksi'      => $totalTransaksi,
+            'total_pembayaran'     => $totalPembayaran,
+            'per_status'           => $perStatus,
+            'jumlah_piutang_aktif' => $jumlahPiutangAktif,
+            'total_piutang_aktif'  => $totalPiutangAktif,
         ];
     }
 
@@ -481,15 +537,26 @@ SQL);
         $bulanList = $this->validasiBulanEligible($bulanList);
 
         $builder = $this->terapkanFilterBulan($this->db->table('transaksi'), $bulanList);
+        $this->terapkanFilterEligibleArchive($builder);
         $transaksiRows = $builder->get()->getResultArray();
 
         if (empty($transaksiRows)) {
+            // Bulan bisa jadi ADA isinya, tapi semuanya piutang aktif yang
+            // sengaja tidak diarsipkan (DEC-3). Bedakan pesannya supaya
+            // admin tidak mengira bulannya kosong.
+            $piutangBuilder = $this->terapkanFilterBulan($this->db->table('transaksi'), $bulanList);
+            $this->terapkanFilterPiutangAktif($piutangBuilder);
+            $jumlahPiutang = $piutangBuilder->countAllResults();
+
             return [
                 'jumlah_transaksi'  => 0,
                 'jumlah_detail'     => 0,
                 'jumlah_pembayaran' => 0,
                 'file_backup'       => null,
-                'pesan'             => 'Tidak ada transaksi pada bulan yang dipilih.',
+                'pesan'             => $jumlahPiutang > 0
+                    ? 'Tidak ada transaksi yang eligible diarsipkan. ' . $jumlahPiutang
+                        . ' transaksi masih piutang aktif dan tetap di database utama.'
+                    : 'Tidak ada transaksi pada bulan yang dipilih.',
             ];
         }
 

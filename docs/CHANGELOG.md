@@ -14,6 +14,25 @@ Format entri:
 
 ---
 
+## 2026-10-04 — Archive transaksi: piutang aktif tidak ikut diarsipkan
+
+- Aturan lama: Archive Transaksi memindahkan **semua** transaksi pada bulan yang
+  dipilih, tanpa memandang status pembayaran; transaksi `belum_bayar`/`dp`
+  (piutang) ikut dipindah lalu dihapus dari DB utama, sehingga hilang dari daftar
+  Tagihan.
+- Aturan baru: hanya transaksi **`lunas`**, **`batal`**, atau **`mangkrak`** yang
+  eligible diarsipkan. Piutang aktif (`belum_bayar`/`dp`, status bukan
+  batal/mangkrak) **tetap** di DB utama. Piutang macet tetap bisa diarsipkan
+  setelah admin menandainya `mangkrak` (katup keluar). Preview menampilkan jumlah
+  & nilai piutang aktif yang **tidak** ikut diarsipkan.
+- Alasan: piutang adalah data hidup yang masih harus ditagih; arsip tidak boleh
+  menghilangkannya dari Tagihan (keputusan produk DEC-3: "A+ dengan katup E").
+- Referensi: `app/Services/TransaksiArchiveService.php`,
+  `app/Views/archive_transaksi/index.php`,
+  `docs/requirements/2026-10-04-arsip-piutang.md`,
+  `docs/design/2026-10-04-arsip-piutang.md`,
+  `docs/TODO.md` (TODO-BL06, TODO-DEC3).
+
 ## 2026-10-04 — Transaksi POS: validasi baris item (jumlah/harga/subtotal)
 
 - Aturan lama: jumlah, harga, dan subtotal tiap baris keranjang dipercaya apa
