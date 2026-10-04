@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Database-backed integration tests. The bootstrap forces the default database
+  group to in-memory SQLite (:memory:) via ENVIRONMENT=testing, so these tests
+  never connect to the development or production database in .env.
+  Run: php vendor/bin/phpunit with configuration phpunit.integration.xml
+-->
+<phpunit bootstrap="tests/_support/bootstrap-integration.php"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         beStrictAboutTestsThatDoNotTestAnything="true">
+    <testsuites>
+        <testsuite name="integration">
+            <directory suffix="Test.php">tests/integration</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <ini name="error_reporting" value="-1"/>
+        <env name="TZ" value="Asia/Jakarta"/>
+        <server name="app.baseURL" value="http://example.com/"/>
+    </php>
+</phpunit>

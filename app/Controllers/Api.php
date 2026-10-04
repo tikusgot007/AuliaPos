@@ -348,47 +348,45 @@ class Api extends BaseController
 
         $transaksiModel = new \App\Models\TransaksiModel();
 
-        try {
-            $transaksiId = $transaksiModel->simpanTransaksi($dataTransaksi, $detailItems);
+        // Pembayaran awal dibangun di sini, tetapi DITULIS oleh
+        // simpanTransaksi() di dalam transaksi database yang sama dengan
+        // header + detail (TODO-BL01). Tidak ada commit kedua.
+        $dataPembayaran = null;
 
-            if ($jumlahBayar > 0) {
-                $metodeBayar = $metode;
-                if ($metode === 'dp') {
-                    // Sudah divalidasi di atas terhadap PembayaranModel::METODE.
-                    $metodeBayar = $metodeDp;
-                }
-
-                $keterangan = 'Lunas';
-                if ($metode === 'dp') {
-                    $keterangan = 'DP (Rp ' . number_format($jumlahBayar, 0, ',', '.') . ')';
-                } elseif ($metode === 'tunai' && $kembalian > 0) {
-                    $keterangan = 'Lunas (Kembali: Rp ' . number_format($kembalian, 0, ',', '.') . ')';
-                }
-
-                // Untuk DP tunai, modal DP tidak meminta nominal uang diterima.
-                // Anggap pembayaran tunai diterima pas sebesar nominal DP.
-                if ($metode === 'dp' && $metodeBayar === 'tunai') {
-                    $uangDiterima = $jumlahBayar;
-                    $kembalian = 0;
-                }
-
-                $dataPembayaran = [
-                    'tanggal' => date('Y-m-d H:i:s'),
-                    'jumlah' => $jumlahBayar,
-                    'metode' => $metodeBayar,
-                    'uang_diterima' => $metodeBayar === 'tunai' ? $uangDiterima : null,
-                    'kembalian' => $metodeBayar === 'tunai' ? max(0, $kembalian) : 0,
-                    'keterangan' => $keterangan,
-                    'kasir_id' => $kasirId
-                ];
-
-                $ledgerJenis = ($metodeBayar === 'tunai') ? 'penjualan' : null;
-                // 🔥 UBAH dari ini:
-                // $transaksiModel->tambahPembayaran($transaksiId, $dataPembayaran, $ledgerJenis);
-
-                // 🔥 MENJADI ini:
-                $transaksiModel->tambahPembayaran($transaksiId, $dataPembayaran);
+        if ($jumlahBayar > 0) {
+            $metodeBayar = $metode;
+            if ($metode === 'dp') {
+                // Sudah divalidasi di atas terhadap PembayaranModel::METODE.
+                $metodeBayar = $metodeDp;
             }
+
+            $keterangan = 'Lunas';
+            if ($metode === 'dp') {
+                $keterangan = 'DP (Rp ' . number_format($jumlahBayar, 0, ',', '.') . ')';
+            } elseif ($metode === 'tunai' && $kembalian > 0) {
+                $keterangan = 'Lunas (Kembali: Rp ' . number_format($kembalian, 0, ',', '.') . ')';
+            }
+
+            // Untuk DP tunai, modal DP tidak meminta nominal uang diterima.
+            // Anggap pembayaran tunai diterima pas sebesar nominal DP.
+            if ($metode === 'dp' && $metodeBayar === 'tunai') {
+                $uangDiterima = $jumlahBayar;
+                $kembalian = 0;
+            }
+
+            $dataPembayaran = [
+                'tanggal' => date('Y-m-d H:i:s'),
+                'jumlah' => $jumlahBayar,
+                'metode' => $metodeBayar,
+                'uang_diterima' => $metodeBayar === 'tunai' ? $uangDiterima : null,
+                'kembalian' => $metodeBayar === 'tunai' ? max(0, $kembalian) : 0,
+                'keterangan' => $keterangan,
+                'kasir_id' => $kasirId
+            ];
+        }
+
+        try {
+            $transaksiId = $transaksiModel->simpanTransaksi($dataTransaksi, $detailItems, $dataPembayaran);
 
             return $this->response->setJSON([
                 'status' => 'success',

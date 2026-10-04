@@ -323,7 +323,17 @@ class TransaksiModel extends Model
         return $kodeInvoice;
     }
 
-    public function simpanTransaksi($dataTransaksi, $detailItems)
+    /**
+     * Simpan transaksi baru (header + detail) dan, bila diberikan, pembayaran
+     * awalnya -- semuanya dalam SATU transaksi database (TODO-BL01). Dengan
+     * begitu tidak mungkin tersisa header berstatus "lunas" tanpa baris
+     * pembayaran, dan percobaan ulang setelah kegagalan tidak menduplikasi.
+     *
+     * @param array<string, mixed>      $dataTransaksi  Header (grand_total, tanggal, dst).
+     * @param array<int, array<string, mixed>> $detailItems
+     * @param array<string, mixed>|null $dataPembayaran Pembayaran awal (opsional).
+     */
+    public function simpanTransaksi($dataTransaksi, $detailItems, ?array $dataPembayaran = null)
     {
 
         // Semua transaksi baru selalu dimulai dari PROSES.
@@ -513,6 +523,24 @@ class TransaksiModel extends Model
                     }
                 }
 
+                /*
+            |--------------------------------------------------------------------------
+            | 2b. Pembayaran awal (bila ada) -- bagian dari transaksi yang sama
+            |--------------------------------------------------------------------------
+            */
+
+                if ($dataPembayaran !== null) {
+                    $dataPembayaran = $this->normalisasiPembayaran(
+                        (int) $transaksiId,
+                        $dataTransaksi,
+                        $dataPembayaran,
+                        false,
+                        false
+                    );
+
+                    $this->tulisPembayaran($dataPembayaran);
+                }
+
 
                 /*
             |--------------------------------------------------------------------------
@@ -699,13 +727,57 @@ class TransaksiModel extends Model
     public function tambahPembayaran($transaksi_id, $data, bool $isAdmin = false, bool $isShiftLeader = false)
     {
         $db = \Config\Database::connect();
-        $pembayaranModel = model(PembayaranModel::class);
 
         $transaksi = $this->find($transaksi_id);
 
         if (!$transaksi) {
             throw new \Exception('Transaksi tidak ditemukan.');
         }
+
+        // Validation runs before the transaction opens, exactly as before
+        // (a validation error never touches the database).
+        $data = $this->normalisasiPembayaran(
+            (int) $transaksi_id,
+            $transaksi,
+            $data,
+            $isAdmin,
+            $isShiftLeader
+        );
+
+        $db->transStart();
+
+        try {
+            $this->tulisPembayaran($data);
+
+            $db->transComplete();
+
+            if (!$db->transStatus()) {
+                throw new \Exception('Gagal menyelesaikan transaksi pembayaran.');
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Validate and normalize one payment write. Read-only: it never writes
+     * and never opens a transaction, so the caller owns the surrounding
+     * transaction. Shared by tambahPembayaran() and simpanTransaksi() so the
+     * rules stay a single source of truth.
+     *
+     * @param array<string, mixed> $transaksi Header row (tambahPembayaran) or
+     *                                        the header array about to be
+     *                                        inserted (simpanTransaksi). Must
+     *                                        carry `grand_total` and `tanggal`.
+     *
+     * @return array<string, mixed> Data ready for tulisPembayaran().
+     */
+    private function normalisasiPembayaran(int $transaksi_id, array $transaksi, array $data, bool $isAdmin, bool $isShiftLeader): array
+    {
+        $pembayaranModel = model(PembayaranModel::class);
 
         $jumlah = (float) ($data['jumlah'] ?? 0);
         $metode = strtolower(trim((string) ($data['metode'] ?? '')));
@@ -752,24 +824,26 @@ class TransaksiModel extends Model
             $kembalian = 0;
         }
 
-        /*
-         * ------------------------------------------------------------
-         * BACKDATE / PELUNASAN TERLAMBAT (2026-09-05)
-         * ------------------------------------------------------------
-         * Kontrak: caller (controller) SELALU mengisi $data['tanggal'].
-         * - Pembayaran normal: controller mengisi date('Y-m-d H:i:s')
-         *   (waktu saat ini) — sama seperti sebelum fitur ini ada.
-         * - Backdate: controller mengisi tanggal yang dipilih admin.
-         *
-         * Model memvalidasi rentang tanggal untuk SEMUA pembayaran
-         * (defensif, satu sumber kebenaran), dan mewajibkan admin
-         * hanya jika tanggal yang diberikan BUKAN "sekarang" (selisih
-         * > 60 detik, mentolerir jeda proses request normal).
-         *
-         * Ini menghindari perlunya flag 'is_backdate' terpisah yang
-         * bisa lupa disinkronkan dengan tanggal yang sebenarnya dikirim.
-         */
+        $data['transaksi_id'] = $transaksi_id;
+        $data['tanggal'] = $this->validasiTanggalPembayaran($transaksi, $data, $isAdmin, $isShiftLeader);
+        $data['jumlah'] = $jumlah;
+        $data['metode'] = $metode;
+        $data['uang_diterima'] = $uangDiterima;
+        $data['kembalian'] = $kembalian;
+        $data['status'] = 'aktif';
 
+        return $data;
+    }
+
+    /**
+     * Validate and normalize the payment date (backdate rules), returning the
+     * normalized `Y-m-d H:i:s` string. Moved verbatim from tambahPembayaran:
+     * the caller always fills $data['tanggal']; only admin/Shift Leader may
+     * backdate (more than 60 seconds off "now"); future dates and dates
+     * before the transaction's day are rejected for every role.
+     */
+    private function validasiTanggalPembayaran(array $transaksi, array $data, bool $isAdmin, bool $isShiftLeader): string
+    {
         $tanggalInput = $data['tanggal'] ?? date('Y-m-d H:i:s');
         $tanggalTimestamp = strtotime((string) $tanggalInput);
 
@@ -794,17 +868,8 @@ class TransaksiModel extends Model
         if ($isBackdate) {
             $tanggalTransaksiTimestamp = strtotime((string) ($transaksi['tanggal'] ?? date('Y-m-d H:i:s')));
 
-            /*
-             * Perbandingan level TANGGAL (hari), bukan timestamp
-             * lengkap. Jam pembayaran boleh lebih awal dari jam
-             * transaksi selama masih di hari yang sama — ini justru
-             * skenario utama fitur ini: uang diterima lebih dulu,
-             * transaksinya baru dicatat belakangan di hari yang sama
-             * atau setelahnya. Hanya TANGGAL yang lebih awal dari
-             * tanggal transaksi yang ditolak (lihat contoh di dokumen
-             * fitur: "Transaksi 01/09, valid 01/09/02/09/03/09,
-             * tidak valid 31/08").
-             */
+            // Compare by DAY, not full timestamp: a payment earlier in the
+            // same day is valid, only an earlier day is rejected.
             if ($tanggalTransaksiTimestamp !== false) {
                 $tanggalPembayaranHari = date('Y-m-d', $tanggalTimestamp);
                 $tanggalTransaksiHari = date('Y-m-d', $tanggalTransaksiTimestamp);
@@ -815,48 +880,32 @@ class TransaksiModel extends Model
             }
         }
 
-        $data['tanggal'] = date('Y-m-d H:i:s', $tanggalTimestamp);
+        return date('Y-m-d H:i:s', $tanggalTimestamp);
+    }
 
-        /*
-         * ------------------------------------------------------------
-         * KASIR PENERIMA
-         * ------------------------------------------------------------
-         * $data['kasir_id'] SELALU diisi oleh caller (controller) —
-         * baik pembayaran normal (session kasir yang login) maupun
-         * backdate (kasir yang dipilih admin sebagai penerima aktual).
-         * Model tidak mengganti nilai ini dengan admin yang login;
-         * kasir_id tetap merepresentasikan siapa yang benar-benar
-         * menangani pembayaran, sesuai definisi field yang sudah ada.
-         */
+    /**
+     * Insert one payment row and synchronize the transaction's cached
+     * total/status. Opens no transaction of its own: the caller
+     * (tambahPembayaran or simpanTransaksi) provides it.
+     */
+    private function tulisPembayaran(array $data): void
+    {
+        $pembayaranModel = model(PembayaranModel::class);
 
-        $data['transaksi_id'] = $transaksi_id;
-        $data['jumlah'] = $jumlah;
-        $data['uang_diterima'] = $uangDiterima;
-        $data['kembalian'] = $kembalian;
-        $data['status'] = 'aktif';
+        $pembayaranId = $pembayaranModel->insert($data);
 
-        $db->transStart();
+        if (!$pembayaranId) {
+            $dbError = $pembayaranModel->db->error();
 
-        try {
-            $pembayaranModel->insert($data);
-
-            if ($db->transStatus() === false) {
-                throw new \Exception('Gagal menyimpan pembayaran.');
-            }
-
-            $this->sinkronkanPembayaran($transaksi_id);
-
-            $db->transComplete();
-
-            if (!$db->transStatus()) {
-                throw new \Exception('Gagal menyelesaikan transaksi pembayaran.');
-            }
-
-            return true;
-        } catch (\Throwable $e) {
-            $db->transRollback();
-            throw $e;
+            throw new \Exception(
+                'Gagal menyimpan pembayaran. DB Error: '
+                    . ($dbError['code'] ?? '-')
+                    . ' - '
+                    . ($dbError['message'] ?? 'Unknown database error')
+            );
         }
+
+        $this->sinkronkanPembayaran((int) $data['transaksi_id']);
     }
 
     /**

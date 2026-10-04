@@ -18,7 +18,6 @@
 
 ### Critical
 
-- [ ] **TODO-BL01** Critical — transaksi POS tidak atomik; header bisa `lunas` tanpa baris pembayaran + duplikat saat retry — `Api.php:314-330,351-391`; `TransaksiModel.php:326-618,699`
 - [ ] **TODO-BL02** Critical — closing selalu hitung ulang dari MySQL live; setelah arsip hapus baris, snapshot historis rusak — `Cash.php:329-330,374-385`; `CashBalanceService.php:96-98`; `TransaksiArchiveService.php:705-713`
 
 ### High
