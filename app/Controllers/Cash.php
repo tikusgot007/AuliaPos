@@ -313,9 +313,10 @@ class Cash extends BaseController
     }
 
     /**
-     * API: data untuk modal Tambah/Edit satu tanggal -- saldo sistem
-     * historis dihitung ULANG dari database (bukan snapshot lama),
-     * plus opname kasir terakhir sampai cutoff tanggal tsb.
+     * API: data untuk modal Tambah/Edit satu tanggal. Untuk tanggal yang
+     * sudah punya snapshot, `saldo_sistem` diambil dari snapshot (final);
+     * hanya tanggal baru yang dihitung (live + arsip). Plus opname kasir
+     * terakhir sampai cutoff tanggal tsb.
      */
     public function closingDetail()
     {
@@ -327,18 +328,24 @@ class Cash extends BaseController
         }
 
         $cutoff = $tanggal . ' 23:59:59';
-        $saldo = getSaldoKasHariIni($cutoff);
-
-        $opnameModel = new CashOpnameModel();
-        $opnameTerakhir = $opnameModel->getLastOpnameUpTo($cutoff);
 
         $closingModel = new ClosingKasModel();
         $existing = $closingModel->getByTanggal($tanggal);
 
+        // Snapshot tersimpan selalu menang (imutabel, TODO-BL02); hitung
+        // ulang (live + arsip) hanya kalau tanggal ini belum pernah di-closing.
+        $saldoSistem = \App\Services\KalkulasiClosingKas::saldoSistemFinal(
+            $existing ? (float) $existing['saldo_sistem'] : null,
+            static fn(): float => getSaldoKasHistoris($cutoff)['saldo']
+        );
+
+        $opnameModel = new CashOpnameModel();
+        $opnameTerakhir = $opnameModel->getLastOpnameUpTo($cutoff);
+
         return $this->response->setJSON([
             'status' => 'success',
             'tanggal' => $tanggal,
-            'saldo_sistem' => $saldo['saldo'],
+            'saldo_sistem' => $saldoSistem,
             'opname_terakhir' => $opnameTerakhir ? [
                 'saldo_fisik' => (float) $opnameTerakhir['saldo_fisik'],
                 'tanggal' => $opnameTerakhir['tanggal'],
@@ -353,8 +360,9 @@ class Cash extends BaseController
 
     /**
      * API: simpan (insert atau update) closing kas untuk satu tanggal.
-     * Saldo sistem & selisih SELALU dihitung ulang di backend --
-     * nilai yang dikirim browser tidak pernah dipakai untuk itu.
+     * `saldo_sistem` diambil dari snapshot bila sudah ada (final); untuk
+     * tanggal baru dihitung backend (live + arsip) -- nilai dari browser
+     * tidak pernah dipakai untuk itu.
      */
     public function simpanClosing()
     {
@@ -372,11 +380,17 @@ class Cash extends BaseController
         }
 
         $cutoff = $tanggal . ' 23:59:59';
-        $saldo = getSaldoKasHariIni($cutoff);
-        $saldoSistem = $saldo['saldo'];
         $userId = session()->get('id_user') ?? 1;
 
         $closingModel = new ClosingKasModel();
+        $existing = $closingModel->getByTanggal($tanggal);
+
+        // Snapshot tersimpan selalu menang (imutabel, TODO-BL02); hitung
+        // ulang (live + arsip) hanya untuk closing baru.
+        $saldoSistem = \App\Services\KalkulasiClosingKas::saldoSistemFinal(
+            $existing ? (float) $existing['saldo_sistem'] : null,
+            static fn(): float => getSaldoKasHistoris($cutoff)['saldo']
+        );
 
         try {
             $closingModel->simpanClosing($tanggal, $saldoSistem, $saldoFisik, $userId);

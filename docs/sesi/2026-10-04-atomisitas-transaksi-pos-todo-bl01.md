@@ -1,7 +1,7 @@
 # Checkpoint Sesi
 
 - **Tanggal**: 2026-10-04
-- **Status**: selesai (kode + test; belum di-commit)
+- **Status**: selesai (kode + test; commit `a4b3646`)
 - **Repo / branch**: `aulia-app` / `v2.4`
 
 ## Selesai
@@ -33,8 +33,8 @@
 
 ## Tersisa
 
-Lihat/pindahkan ke `docs/TODO.md`. Baris TODO-BL01 **belum dihapus** (menunggu
-persetujuan user; sudah diusulkan).
+Tidak ada. Baris TODO-BL01 sudah dihapus dari `docs/TODO.md` dengan
+persetujuan user (ID direferensikan di pesan commit `a4b3646`).
 
 ## Belum diverifikasi / risiko
 

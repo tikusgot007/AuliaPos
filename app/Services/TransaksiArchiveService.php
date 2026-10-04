@@ -44,13 +44,19 @@ class TransaksiArchiveService
         9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
     ];
 
-    public function __construct()
+    public function __construct(?BaseConnection $archive = null)
     {
         $this->db = Database::connect('default');
 
-        $this->pastikanFolderArchive();
-        $this->archive = Database::connect('archive');
-        $this->pastikanSkemaArchive();
+        if ($archive !== null) {
+            // Injected connection (tests, or a caller that already owns one):
+            // skip the self-initializing setup so the caller controls the DB.
+            $this->archive = $archive;
+        } else {
+            $this->pastikanFolderArchive();
+            $this->archive = Database::connect('archive');
+            $this->pastikanSkemaArchive();
+        }
     }
 
     // ================================================================
@@ -1067,6 +1073,28 @@ SQL);
             ORDER BY tanggal_pembayaran ASC, total_teralokasi DESC";
 
         return $this->archive->query($sql, $params)->getResultArray();
+    }
+
+    /**
+     * Total penjualan TUNAI di ARCHIVE pada rentang satu hari
+     * [00:00:00, $at] -- setara komponen `penjualan` dari
+     * CashBalanceService::getBalance() tapi dibaca dari arsip. Dipakai
+     * Closing Kas historis supaya bulan yang sudah diarsip tidak lagi
+     * menghitung penjualan = 0 (TODO-BL02). Read-only, tanpa efek samping.
+     */
+    public function getPenjualanTunaiMentah(string $date, string $at): float
+    {
+        $row = $this->archive->table('pembayaran_archive p')
+            ->select('COALESCE(SUM(p.jumlah), 0) AS total', false)
+            ->join('transaksi_archive t', 't.id = p.transaksi_id')
+            ->where('p.metode', 'tunai')
+            ->where('p.status', 'aktif')
+            ->where('t.status !=', 'batal')
+            ->where('p.tanggal >=', $date . ' 00:00:00')
+            ->where('p.tanggal <=', $at)
+            ->get()->getRowArray();
+
+        return (float) ($row['total'] ?? 0);
     }
 
     /**

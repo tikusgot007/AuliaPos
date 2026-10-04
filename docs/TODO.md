@@ -16,10 +16,6 @@
 > 2026-10-03 setelah diserap ke sini). Urutan batch disarankan: A (BL-01/02) → B → C → D → E → F;
 > tiap batch: implementasi → verifikasi → approval user.
 
-### Critical
-
-- [ ] **TODO-BL02** Critical — closing selalu hitung ulang dari MySQL live; setelah arsip hapus baris, snapshot historis rusak — `Cash.php:329-330,374-385`; `CashBalanceService.php:96-98`; `TransaksiArchiveService.php:705-713`
-
 ### High
 
 - [ ] **TODO-BL03** High — `harga/jumlah/subtotal` dari klien dipercaya apa adanya; tanpa `qty>0`, tanpa `subtotal=harga*qty`, negatif diterima — `Api.php:167-170,337-347`; `Transaksi.php:1325-1327`

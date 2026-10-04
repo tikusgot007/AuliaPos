@@ -14,6 +14,25 @@ Format entri:
 
 ---
 
+## 2026-10-04 — Closing kas: snapshot `saldo_sistem` bersifat final
+
+- Aturan lama: `saldo_sistem` closing dihitung ulang dari data live setiap kali
+  modal closing dibuka atau disimpan ulang. Setelah transaksi satu bulan
+  dipindahkan ke arsip (baris live dihapus), hitung ulang menghasilkan penjualan
+  tunai = 0 sehingga snapshot closing yang benar bisa tertimpa angka salah.
+- Aturan baru: `saldo_sistem` closing yang sudah tersimpan bersifat **final**
+  (imutabel); edit closing hanya mengubah `saldo_fisik` dan `selisih`
+  (`selisih = saldo_fisik − saldo_sistem tersimpan`). Hitung ulang hanya untuk
+  tanggal yang belum pernah di-closing, dan hitungan itu sudah mencakup
+  penjualan tunai yang ada di database arsip.
+- Alasan: closing adalah fakta historis; laporan kas & audit tidak boleh berubah
+  hanya karena data operasional lama dipindahkan ke arsip.
+- Referensi: `app/Controllers/Cash.php`, `app/Models/ClosingKasModel.php`,
+  `app/Services/KalkulasiClosingKas.php`,
+  `app/Services/TransaksiArchiveService.php`,
+  `docs/requirements/2026-10-04-closing-kas-arsip.md`,
+  `docs/design/2026-10-04-closing-kas-arsip.md`, `docs/TODO.md` (TODO-BL02).
+
 ## 2026-10-03 — Foto profil: batas ukuran 2 MB benar-benar ditegakkan
 
 - Aturan lama: unggahan foto profil dibatasi 2 MB, tetapi validasinya memakai

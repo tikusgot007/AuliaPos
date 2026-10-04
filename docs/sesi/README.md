@@ -5,7 +5,8 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
-| 2026-10-04 | [Atomisitas penyimpanan transaksi POS (TODO-BL01)](2026-10-04-atomisitas-transaksi-pos-todo-bl01.md) | selesai (kode + test; belum di-commit) |
+| 2026-10-04 | [Closing kas historis vs arsip (TODO-BL02)](2026-10-04-closing-kas-arsip-todo-bl02.md) | selesai (kode + test; belum di-commit) |
+| 2026-10-04 | [Atomisitas penyimpanan transaksi POS (TODO-BL01)](2026-10-04-atomisitas-transaksi-pos-todo-bl01.md) | selesai (kode + test; commit `a4b3646`) |
 | 2026-10-04 | [Fix race pembuatan percakapan baru (TODO-I4)](2026-10-04-fix-race-pembuatan-percakapan-todo-i4.md) | selesai (kode + test; commit `521468e`) |
 | 2026-10-03 | [Verifikasi merge arsip (TODO-T3) + fix batas ukuran foto profil (TODO-F7)](2026-10-03-verifikasi-merge-arsip-dan-fix-ukuran-foto-profil.md) | selesai (merge + push; commit `2dfb985`) |
 | 2026-10-03 | [Handoff: Template Balasan Cepat (Inbox) — requirement disetujui, desain draft](2026-10-03-handoff-template-balasan-cepat.md) | blocked (hold — Gate 2 & implementasi menunggu tim lain) |
