@@ -1306,6 +1306,19 @@ class Transaksi extends BaseController
             ]);
         }
 
+        // Validasi & normalisasi tiap baris (jumlah/harga/subtotal) --
+        // satu sumber kebenaran yang sama dengan jalur buat (TODO-BL03).
+        $validasiItem = \App\Services\ValidasiItemTransaksi::normalisasi($keranjang);
+
+        if ($validasiItem['error'] !== null) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => $validasiItem['error']
+            ]);
+        }
+
+        $keranjang = $validasiItem['items'];
+
         $transaksi = $transaksiModel->find($id);
 
         if (!$transaksi) {
@@ -1392,11 +1405,7 @@ class Transaksi extends BaseController
         // 5. HITUNG SUBTOTAL
         // ==========================================
 
-        $subtotal = 0;
-
-        foreach ($keranjang as $item) {
-            $subtotal += (float) ($item['subtotal'] ?? 0);
-        }
+        $subtotal = $validasiItem['subtotal'];
 
         // ==========================================
         // 6. VALIDASI DISKON

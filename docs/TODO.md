@@ -18,7 +18,6 @@
 
 ### High
 
-- [ ] **TODO-BL03** High — `harga/jumlah/subtotal` dari klien dipercaya apa adanya; tanpa `qty>0`, tanpa `subtotal=harga*qty`, negatif diterima — `Api.php:167-170,337-347`; `Transaksi.php:1325-1327`
 - [ ] **TODO-BL04** High — `tambahPembayaran` tanpa guard status → pembayaran bisa dicatat pada transaksi `batal` — `Api.php:460-479`; `TransaksiModel.php:699-730`
 - [ ] **TODO-BL05** High — user `is_active=0` masih bisa login — `Auth.php:78-99`; `UserModel.php:56-59`
 - [ ] **TODO-BL06** High — arsip menghapus tagihan belum lunas; `Tagihan` tanpa fallback arsip → piutang hilang — `TransaksiArchiveService.php:372-394,475-478,713`; `Tagihan.php:58-95,162-168,207-214` — **DEC-3: A+ dengan katup E** (siap dikerjakan)

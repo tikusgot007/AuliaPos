@@ -14,6 +14,23 @@ Format entri:
 
 ---
 
+## 2026-10-04 — Transaksi POS: validasi baris item (jumlah/harga/subtotal)
+
+- Aturan lama: jumlah, harga, dan subtotal tiap baris keranjang dipercaya apa
+  adanya dari klien; `jumlah <= 0`, nilai negatif, dan `subtotal` yang tidak
+  konsisten dengan `harga × jumlah` tetap tersimpan.
+- Aturan baru: server menolak baris dengan `jumlah <= 0`, `jumlah > 9999`, harga
+  atau subtotal negatif, dan (untuk item non-banner) `subtotal != harga × jumlah`.
+  Item banner memakai `subtotal` (total masukan kasir) sebagai acuan dan
+  `harga_satuan` dihitung server `round(subtotal / jumlah)`. Aturan ini dipakai
+  bersama jalur buat & edit lewat `ValidasiItemTransaksi`.
+- Alasan: laporan dan grand_total menjumlahkan `detail_transaksi.subtotal`;
+  input klien yang tidak masuk akal bisa merusaknya.
+- Referensi: `app/Services/ValidasiItemTransaksi.php`, `app/Controllers/Api.php`,
+  `app/Controllers/Transaksi.php`,
+  `docs/requirements/2026-10-04-validasi-item-transaksi.md`,
+  `docs/design/2026-10-04-validasi-item-transaksi.md`, `docs/TODO.md` (TODO-BL03).
+
 ## 2026-10-04 — Closing kas: snapshot `saldo_sistem` bersifat final
 
 - Aturan lama: `saldo_sistem` closing dihitung ulang dari data live setiap kali

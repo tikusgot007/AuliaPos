@@ -92,6 +92,19 @@ class Api extends BaseController
             ]);
         }
 
+        // Validasi & normalisasi tiap baris (jumlah/harga/subtotal) --
+        // satu sumber kebenaran yang sama dengan jalur edit (TODO-BL03).
+        $validasiItem = \App\Services\ValidasiItemTransaksi::normalisasi($keranjang);
+
+        if ($validasiItem['error'] !== null) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => $validasiItem['error']
+            ]);
+        }
+
+        $keranjang = $validasiItem['items'];
+
         $metode = $request['metode'] ?? 'tunai';
         $pelangganId = $request['pelanggan'] ?? null;
         $pelangganNama = trim((string) ($request['pelanggan_nama'] ?? ''));
@@ -164,10 +177,7 @@ class Api extends BaseController
         // ==========================================
         // ==========================================
 
-        $subtotal = 0;
-        foreach ($keranjang as $item) {
-            $subtotal += $item['subtotal'];
-        }
+        $subtotal = $validasiItem['subtotal'];
 
         if ($diskon < 0) {
             return $this->response->setJSON([
