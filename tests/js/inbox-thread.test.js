@@ -88,7 +88,7 @@ function test(name, fn) { queue.push([name, fn]); }
 
 const msg = (id, extra = {}) => ({
     id, wa_message_id: 'W' + id, direction: 'incoming', message_type: 'text', text: 'pesan ' + id, sender_name: null,
-    send_status: 'received', is_internal: false, is_forwarded: false, media_filename: null, media_local_filename: null, extra_json: null,
+    send_status: 'received', is_internal: false, is_forwarded: false, is_edited: false, is_edited_text_resolved: false, is_revoked: false, media_filename: null, media_local_filename: null, extra_json: null,
     quoted_wa_message_id: null, quoted_sender_label: null, quoted_snippet: null, quoted_media_available: null,
     quoted_source_message_id: null, quoted_media_type: null, message_timestamp: '2026-10-02 10:00:00', ...extra,
 });
@@ -150,30 +150,46 @@ test('forwarded label and the five quote branches', () => {
     assert.ok(q({ quoted_sender_label: null }).includes('Pesan tidak ditemukan'));
 });
 
-test('TODO-F7: edit/delete lifecycle labels (AC-1, AC-2, AC-3)', () => {
+test('TODO-F7/F8: edit/delete lifecycle labels and validated text state', () => {
     const t = loadThread();
-    // AC-1/AC-3: label "diedit" WAJIB menegaskan versi ini belum tentu terbaru,
-    // supaya tidak disalahartikan seperti badge "diedit" di WhatsApp Web.
-    // Label TIDAK menyebut pelaku ("pelanggan") karena edit/hapus juga terjadi
-    // pada pesan KELUAR (outgoing) yang diedit/dihapus staf sendiri lewat WA
-    // Web/HP -- lihat perbaikan label pasca uji TODO-F8 2026-10-04.
+
     const edited = t.ctx.renderBubbleHtml(msg(20, { is_edited: true }));
     assert.ok(edited.includes('Pesan diedit'), edited);
     assert.ok(edited.includes('belum tentu terbaru'), edited);
-    // AC-2: label pesan yang dihapus.
-    const deleted = t.ctx.renderBubbleHtml(msg(21, { is_revoked: true }));
+    assert.ok(edited.includes('inbox-teks-basi'), 'unresolved edit stays dimmed: ' + edited);
+
+    const resolved = t.ctx.renderBubbleHtml(msg(21, { is_edited: true, is_edited_text_resolved: true, text: 'teks terbaru' }));
+    assert.ok(resolved.includes('Pesan diedit \u2014 teks terbaru'), resolved);
+    assert.ok(!resolved.includes('belum tentu terbaru'), resolved);
+    assert.ok(!resolved.includes('inbox-teks-basi'), 'resolved edit must render normally: ' + resolved);
+    assert.ok(resolved.includes('teks terbaru'), resolved);
+
+    const deleted = t.ctx.renderBubbleHtml(msg(22, { is_revoked: true }));
     assert.ok(deleted.includes('Pesan dihapus'), deleted);
-    // Absen saat tidak ada penanda (nilai falsy apa pun dari server).
-    const normal = t.ctx.renderBubbleHtml(msg(22, { is_edited: 0, is_revoked: false }));
+    assert.ok(deleted.includes('inbox-teks-basi'), deleted);
+
+    const normal = t.ctx.renderBubbleHtml(msg(23));
     assert.ok(!normal.includes('Pesan diedit'), normal);
     assert.ok(!normal.includes('Pesan dihapus'), normal);
+    assert.ok(!normal.includes('inbox-teks-basi'), normal);
+});
 
-    // Teks pesan ASLI yang sudah tidak update (pesan yang kemudian
-    // diedit/dihapus pelanggan) dibuat SAMAR -- supaya kasir tidak mengira itu
-    // isi terbaru. Penanda/badge di atasnya tetap jelas.
-    assert.ok(edited.includes('inbox-teks-basi'), 'teks pesan yang diedit harus samar: ' + edited);
-    assert.ok(deleted.includes('inbox-teks-basi'), 'teks pesan yang dihapus harus samar: ' + deleted);
-    assert.ok(!normal.includes('inbox-teks-basi'), 'pesan biasa tidak boleh samar');
+test('TODO-F8: stale edit bubble is redrawn when text becomes resolved', () => {
+    const t = loadThread();
+    const stale = msg(30, { is_edited: true, is_edited_text_resolved: false, text: 'versi lama' });
+    const fresh = msg(30, { is_edited: true, is_edited_text_resolved: true, text: 'versi terbaru' });
+
+    const firstHtml = t.ctx.renderBubbleHtml(stale);
+    const secondHtml = t.ctx.renderBubbleHtml(fresh);
+    assert.notEqual(firstHtml, secondHtml, 'resolved state must change bubble HTML');
+
+    const plan = t.ctx.rencanaPembaruanThread(
+        new Map([['30', firstHtml]]),
+        [{ key: '30', html: secondHtml }],
+        () => true
+    );
+    assert.equal(plan.ops.length, 1);
+    assert.equal(plan.ops[0].action, 'ganti', 'state transition must replace the existing bubble, not append a duplicate');
 });
 
 test('media state changes the markup (failed, gateway down, temporary failure)', () => {
