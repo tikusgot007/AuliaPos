@@ -734,6 +734,12 @@ class TransaksiModel extends Model
             throw new \Exception('Transaksi tidak ditemukan.');
         }
 
+        // BATAL is terminal: the transaction is treated as never having
+        // happened, so it must not receive any new payment (TODO-BL04).
+        if (strtolower(trim((string) ($transaksi['status'] ?? ''))) === 'batal') {
+            throw new \Exception('Pembayaran tidak dapat dicatat pada transaksi yang sudah dibatalkan.');
+        }
+
         // Validation runs before the transaction opens, exactly as before
         // (a validation error never touches the database).
         $data = $this->normalisasiPembayaran(

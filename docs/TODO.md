@@ -18,7 +18,6 @@
 
 ### High
 
-- [ ] **TODO-BL04** High — `tambahPembayaran` tanpa guard status → pembayaran bisa dicatat pada transaksi `batal` — `Api.php:460-479`; `TransaksiModel.php:699-730`
 - [ ] **TODO-BL05** High — user `is_active=0` masih bisa login — `Auth.php:78-99`; `UserModel.php:56-59`
 - [ ] **TODO-BL06** High — arsip menghapus tagihan belum lunas; `Tagihan` tanpa fallback arsip → piutang hilang — `TransaksiArchiveService.php:372-394,475-478,713`; `Tagihan.php:58-95,162-168,207-214` — **DEC-3: A+ dengan katup E** (siap dikerjakan)
 - [ ] **TODO-BL07** High — `koreksiPembayaran` membalik pembayaran tanpa gerbang role; menimpa `tanggal` & `kasir_id` — `Api.php:546-643`; `Routes.php:258-262`

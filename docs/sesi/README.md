@@ -5,7 +5,8 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
-| 2026-10-04 | [Validasi item transaksi POS (TODO-BL03)](2026-10-04-validasi-item-transaksi-todo-bl03.md) | selesai (kode + test; belum di-commit) |
+| 2026-10-04 | [Pembayaran ditolak pada transaksi batal (TODO-BL04)](2026-10-04-pembayaran-transaksi-batal-todo-bl04.md) | selesai (kode + test; belum di-commit) |
+| 2026-10-04 | [Validasi item transaksi POS (TODO-BL03)](2026-10-04-validasi-item-transaksi-todo-bl03.md) | selesai (kode + test; commit `8de96e1`) |
 | 2026-10-04 | [Closing kas historis vs arsip (TODO-BL02)](2026-10-04-closing-kas-arsip-todo-bl02.md) | selesai (kode + test; commit `efe83ed`) |
 | 2026-10-04 | [Atomisitas penyimpanan transaksi POS (TODO-BL01)](2026-10-04-atomisitas-transaksi-pos-todo-bl01.md) | selesai (kode + test; commit `a4b3646`) |
 | 2026-10-04 | [Fix race pembuatan percakapan baru (TODO-I4)](2026-10-04-fix-race-pembuatan-percakapan-todo-i4.md) | selesai (kode + test; commit `521468e`) |
