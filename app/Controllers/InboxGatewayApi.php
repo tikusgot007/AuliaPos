@@ -778,6 +778,8 @@ class InboxGatewayApi extends BaseController
      * baris `messages` dibuat dan tidak ada perubahan `conversations`.
      *
      * Body: { "wa_message_id": "<id pesan asli>", "event": "edited"|"deleted" }
+     * Optional untuk event edited: "edited_text" berisi teks hasil dekripsi
+     * yang sudah divalidasi Gateway. Event deleted tidak menerima field ini.
      *
      * Selalu balas 200 `{status:'success', matched:bool}`:
      * - `matched=true`  -> pesan asli ditemukan & ditandai (idempoten).
@@ -814,7 +816,42 @@ class InboxGatewayApi extends BaseController
             ]);
         }
 
-        $matched = (new MessageModel())->markLifecycle($waMessageId, $event);
+        $hasEditedText = array_key_exists('edited_text', $payload);
+        if ($hasEditedText && $event !== 'edited') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'edited_text' hanya boleh dikirim untuk event 'edited'.",
+            ]);
+        }
+
+        $messageModel = new MessageModel();
+        if ($event === 'edited' && $hasEditedText) {
+            if (! is_string($payload['edited_text'])) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field 'edited_text' harus berupa string.",
+                ]);
+            }
+
+            $editedText = $payload['edited_text'];
+            if ($editedText === '') {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field 'edited_text' tidak boleh kosong.",
+                ]);
+            }
+
+            if (strlen($editedText) > 65535) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field 'edited_text' terlalu panjang (maks 65535 byte).",
+                ]);
+            }
+
+            $matched = $messageModel->updateEditedText($waMessageId, $editedText);
+        } else {
+            $matched = $messageModel->markLifecycle($waMessageId, $event);
+        }
 
         return $this->response->setJSON([
             'status'  => 'success',
