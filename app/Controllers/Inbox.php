@@ -445,8 +445,9 @@ class Inbox extends BaseController
             $message['is_forwarded'] = (bool) ($message['is_forwarded'] ?? false);
             // TODO-F7: penanda lifecycle (pesan diedit/dihapus pelanggan) --
             // dinormalkan ke bool; sumbernya kolom DATETIME nullable.
-            $message['is_edited']  = ! empty($message['edited_at']);
-            $message['is_revoked'] = ! empty($message['revoked_at']);
+            $message['is_edited']               = ! empty($message['edited_at']);
+            $message['is_edited_text_resolved'] = ! empty($message['edited_text_resolved_at']);
+            $message['is_revoked']               = ! empty($message['revoked_at']);
         }
         unset($message);
 
