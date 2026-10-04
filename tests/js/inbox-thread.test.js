@@ -154,16 +154,19 @@ test('TODO-F7: edit/delete lifecycle labels (AC-1, AC-2, AC-3)', () => {
     const t = loadThread();
     // AC-1/AC-3: label "diedit" WAJIB menegaskan versi ini belum tentu terbaru,
     // supaya tidak disalahartikan seperti badge "diedit" di WhatsApp Web.
+    // Label TIDAK menyebut pelaku ("pelanggan") karena edit/hapus juga terjadi
+    // pada pesan KELUAR (outgoing) yang diedit/dihapus staf sendiri lewat WA
+    // Web/HP -- lihat perbaikan label pasca uji TODO-F8 2026-10-04.
     const edited = t.ctx.renderBubbleHtml(msg(20, { is_edited: true }));
-    assert.ok(edited.includes('Diedit pelanggan'), edited);
+    assert.ok(edited.includes('Pesan diedit'), edited);
     assert.ok(edited.includes('belum tentu terbaru'), edited);
-    // AC-2: label pesan yang dihapus pelanggan.
+    // AC-2: label pesan yang dihapus.
     const deleted = t.ctx.renderBubbleHtml(msg(21, { is_revoked: true }));
-    assert.ok(deleted.includes('Dihapus pelanggan'), deleted);
+    assert.ok(deleted.includes('Pesan dihapus'), deleted);
     // Absen saat tidak ada penanda (nilai falsy apa pun dari server).
     const normal = t.ctx.renderBubbleHtml(msg(22, { is_edited: 0, is_revoked: false }));
-    assert.ok(!normal.includes('Diedit pelanggan'), normal);
-    assert.ok(!normal.includes('Dihapus pelanggan'), normal);
+    assert.ok(!normal.includes('Pesan diedit'), normal);
+    assert.ok(!normal.includes('Pesan dihapus'), normal);
 
     // Teks pesan ASLI yang sudah tidak update (pesan yang kemudian
     // diedit/dihapus pelanggan) dibuat SAMAR -- supaya kasir tidak mengira itu

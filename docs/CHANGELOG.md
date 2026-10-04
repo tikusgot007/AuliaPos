@@ -31,6 +31,20 @@ Format entri:
 - Referensi: `docs/requirements/2026-10-04-tandai-pesan-diedit-inbox.md`,
   `docs/design/2026-10-04-tandai-pesan-diedit-inbox.md`, `docs/TODO.md` (TODO-F7).
 
+## 2026-10-04 — Inbox WhatsApp: label edit/hapus tidak lagi menyebut "pelanggan"
+
+- Aturan lama: badge selalu berbunyi "Diedit pelanggan — ..." / "Dihapus
+  pelanggan — ..." untuk SEMUA pesan yang ditandai, tanpa membedakan arah.
+- Aturan baru: badge jadi "Pesan diedit — versi ini belum tentu terbaru" /
+  "Pesan dihapus — cek WhatsApp Web", tanpa menyebut pelaku.
+- Alasan: event edit/hapus WhatsApp juga berlaku untuk pesan KELUAR
+  (`direction=outgoing`) yang staf kirim & edit/hapus sendiri lewat WA Web/HP
+  langsung (di luar POS) — ditemukan nyata saat uji end-to-end TODO-F8
+  (2026-10-04, pesan `Wkwkw` diedit staf sendiri tetap berlabel "pelanggan").
+  Label lama menyesatkan pada kasus ini.
+- Referensi: `public/assets/js/inbox-thread.js` (`renderLabelDiedit`,
+  `renderLabelDihapus`), `tests/js/inbox-thread.test.js`, `docs/TODO.md` (TODO-F7/F8).
+
 ## 2026-10-04 — Archive transaksi: piutang aktif tidak ikut diarsipkan
 
 - Aturan lama: Archive Transaksi memindahkan **semua** transaksi pada bulan yang
