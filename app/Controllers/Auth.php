@@ -86,6 +86,13 @@ class Auth extends BaseController
             return redirect()->back()->with('error', 'Password salah.');
         }
 
+        // Akun yang dinonaktifkan admin tidak boleh login (TODO-BL05).
+        // Dicek SETELAH verifikasi password supaya status non-aktif tidak
+        // bocor ke pemanggil yang tidak punya kredensial.
+        if (empty($user['is_active'])) {
+            return redirect()->back()->with('error', 'Akun Anda tidak aktif. Hubungi admin.');
+        }
+
         // 🔥 Set session
         $sessionData = [
             'id_user'    => $user['id'],
