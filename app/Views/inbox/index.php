@@ -689,6 +689,15 @@
         background: #fff;
     }
 
+    /* Auto-resize #teksBalasan (perbaikan UI composer): tinggi mengikuti
+       jumlah baris teks, dibatasi max-height supaya tidak menutupi area
+       chat -- lebih dari itu, scroll di dalam textarea sendiri. */
+    #teksBalasan {
+        resize: none;
+        overflow-y: auto;
+        max-height: 150px;
+    }
+
     #gatewayStatusBadge.bg-success {
         background-color: #198754 !important;
     }
@@ -3315,6 +3324,7 @@
             .then(function(json) {
                 if (json.status === 'success') {
                     textarea.value = '';
+                    autoResizeTeksBalasan();
                     // Kirim berhasil: operasi selesai, kunci dibuang supaya
                     // pesan berikutnya memakai operasi baru.
                     buangOperationIdBalasan();
@@ -3464,6 +3474,7 @@
 
         if (!adaGagal) {
             textarea.value = '';
+            autoResizeTeksBalasan();
             buangOperationIdBalasan();
             sembunyikanStatusKirimBalasan();
             batalkanKutipan();
@@ -3497,7 +3508,19 @@
     document.getElementById('teksBalasan').addEventListener('input', function() {
         buangOperationIdBalasan();
         sembunyikanStatusKirimBalasan();
+        autoResizeTeksBalasan();
     });
+
+    // Auto-resize composer (perbaikan UI): tinggi mengikuti isi teks,
+    // dibatasi max-height lewat CSS (#teksBalasan). Dipanggil saat user
+    // mengetik (event 'input' di atas) dan setiap kali .value direset
+    // lewat kode (lihat kirimBalasan()/kirimSemuaMediaBalasan()) --
+    // mengubah .value lewat kode tidak memicu event 'input' sendiri.
+    function autoResizeTeksBalasan() {
+        const textarea = document.getElementById('teksBalasan');
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
 
     // Teruskan (Tahap 4): bersihkan pilihan + pulihkan composer setiap dialog
     // ditutup lewat cara apa pun (Batal, X, Esc, backdrop, atau setelah kirim
