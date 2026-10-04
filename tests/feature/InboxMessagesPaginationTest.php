@@ -129,9 +129,33 @@ final class InboxMessagesPaginationTest extends CIUnitTestCase
         foreach (['status', 'conversation', 'messages', 'has_more'] as $key) {
             $this->assertArrayHasKey($key, $json);
         }
-        foreach (['id', 'wa_message_id', 'direction', 'message_type', 'text', 'message_timestamp', 'send_status', 'is_internal', 'is_forwarded', 'sender_name'] as $field) {
+        foreach (['id', 'wa_message_id', 'direction', 'message_type', 'text', 'message_timestamp', 'send_status', 'is_internal', 'is_forwarded', 'is_edited', 'is_edited_text_resolved', 'is_revoked', 'sender_name'] as $field) {
             $this->assertArrayHasKey($field, $json['messages'][0]);
         }
+    }
+
+    public function testEditedTextResolvedSignalIsProjectedAsBoolean(): void
+    {
+        $conv = $this->seedConversation('6281200000111@s.whatsapp.net');
+        $ids = $this->seedMessages($conv, 2);
+
+        $this->inbox->table('messages')
+            ->where('id', $ids[0])
+            ->update(['edited_at' => '2026-10-05 10:00:00']);
+
+        $this->inbox->table('messages')
+            ->where('id', $ids[1])
+            ->update([
+                'edited_at'               => '2026-10-05 10:00:00',
+                'edited_text_resolved_at' => '2026-10-05 10:01:00',
+            ]);
+
+        $json = $this->json($this->fetchPage($conv));
+
+        $this->assertFalse($json['messages'][0]['is_edited_text_resolved']);
+        $this->assertTrue($json['messages'][1]['is_edited_text_resolved']);
+        $this->assertTrue($json['messages'][0]['is_edited']);
+        $this->assertTrue($json['messages'][1]['is_edited']);
     }
 
     // AC-23
