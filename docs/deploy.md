@@ -1,7 +1,10 @@
 # Prosedur Rilis dan Rollback
 
 Dokumen operasional untuk tim (Bahasa Indonesia). Perintah di bawah dijalankan oleh manusia
-di server; agen AI tidak boleh menjalankannya terhadap lingkungan nyata (`.kilo/rules/sdlc.md` §4).
+di server; agen AI tidak boleh menjalankannya terhadap lingkungan nyata (`.kilo/rules/sdlc.md` §4),
+**kecuali** user secara eksplisit menyetujui agen AI menjalankannya untuk permintaan itu (lihat
+`AGENTS.md` §3). Persetujuan hanya berlaku untuk permintaan saat itu, tidak otomatis berlaku untuk
+sesi/rilis berikutnya.
 
 Dasar dokumen ini: isi repositori (`.env.example`, `.htaccess.example`, `migrate.bat`,
 `app/Database/Migrations`) dan `docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`.

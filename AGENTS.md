@@ -322,6 +322,11 @@ For changes affecting multiple records or state transitions, consider database t
 
 Do not perform destructive database operations without explicit user approval.
 
+Rules in this document and `docs/deploy.md` that restrict the agent from acting directly on a
+production environment (`docs/deploy.md` §intro, `.kilo/rules/sdlc.md` §4) can be overridden by
+explicit, per-request user approval. The override applies only to that specific request, not to
+future sessions or releases; each new production-affecting action needs its own explicit approval.
+
 Do not change schema without checking compatibility with code that consumes the schema.
 
 # 8. API, Routes & Backward Compatibility
