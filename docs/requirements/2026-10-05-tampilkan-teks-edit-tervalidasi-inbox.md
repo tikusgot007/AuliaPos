@@ -1,7 +1,7 @@
 # Requirements: Tampilkan teks hasil edit WhatsApp yang sudah tervalidasi (TODO-F8 Phase 2)
 
 - **Tanggal**: 2026-10-05
-- **Status**: draf
+- **Status**: disetujui
 - **Tier SDLC**: A (mengubah skema database + kontrak internal API list pesan + UI)
 - **Penanggung jawab**: user (pemilik toko)
 
@@ -130,23 +130,10 @@ akibatnya teks yang sudah final/benar tetap ditampilkan samar dengan label
     minimal sekali; tidak ada state "sedang menunggu validasi" yang terlihat
     user (event edited masuk dan diproses atomically di satu request).
 - Pertanyaan (maks. 3, hanya yang mengubah hasil):
-  - **Q1**: Desain penyimpanan sinyal AC-1 — kolom boolean baru
-    (`edited_text_resolved` atau nama lain) vs diturunkan dari kolom lain
-    yang sudah ada (mis. bandingkan `text` dengan nilai asli — TIDAK bisa,
-    karena nilai asli tertimpa)? **Rekomendasi**: kolom boolean/timestamp baru
-    (pola additive sama seperti `edited_at`/`revoked_at`), diputuskan detail
-    di Design.
-  - **Q2**: Draft kalimat label pengganti untuk AC-3 — opsi:
-    (a) "Pesan diedit" (netral, tanpa kualifikasi, karena teksnya sudah pasti
-    benar) atau (b) "Pesan diedit — teks terbaru" (eksplisit menyatakan
-    kepastian)? **Rekomendasi**: (b), supaya kasir yang sudah terbiasa dengan
-    label lama tidak bingung kenapa badge tiba-tiba hilang kualifikasinya.
-  - **Q3**: Apakah perlu backfill untuk baris pesan yang SUDAH punya
-    `edited_text` tervalidasi dari sesi uji 2026-10-04 (`id=377`, `id=379` di
-    `aulia_inboxdb` lokal), atau cukup berlaku untuk event baru ke depan?
-    **Rekomendasi**: cukup event baru (data uji lokal, bukan produksi; tidak
-    sepadan menambah kompleksitas backfill untuk 2 baris data uji).
+  - **Q1**: Disetujui. Gunakan kolom timestamp baru `edited_text_resolved_at DATETIME NULL` sebagai sinyal persistensi bahwa POS pernah menerima dan menyimpan hasil edit yang tervalidasi. Detail mapping field ditetapkan di Design.
+  - **Q2**: Disetujui. Gunakan label **"Pesan diedit — teks terbaru"** untuk kondisi tervalidasi.
+  - **Q3**: Disetujui. **Tidak ada backfill** untuk baris uji 2026-10-04; sinyal berlaku mulai event baru setelah implementasi.
 
 ## 8. Persetujuan (Gate 1)
 
-- [ ] Disetujui oleh: <nama>, tanggal: <YYYY-MM-DD>
+- [x] Disetujui oleh: user (explicit approval in chat), tanggal: 2026-10-05
