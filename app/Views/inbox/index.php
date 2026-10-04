@@ -467,6 +467,24 @@
         margin-bottom: 4px;
     }
 
+    /* TODO-F7: label "Diedit"/"Dihapus pelanggan". `display: block` sama
+       seperti label Diteruskan -- label harus berdiri di barisnya sendiri. */
+    .inbox-edit-label,
+    .inbox-delete-label {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .inbox-edit-label {
+        color: #b26a00;
+    }
+
+    .inbox-delete-label {
+        color: #b02a37;
+    }
+
     /* Pemilih percakapan tujuan Teruskan (REQ-005). */
     .teruskan-sumber {
         border: 1px solid #dee2e6;
@@ -676,6 +694,14 @@
         color: #999;
         font-size: 0.8rem;
         font-style: italic;
+    }
+
+    /* TODO-F7: teks pesan yang SUDAH TIDAK UPDATE -- pesan ASLI yang kemudian
+       diedit/dihapus pelanggan di WhatsApp -- dibuat SAMAR, supaya kasir tidak
+       mengira teks itu masih isi terbaru. Badge "Diedit/Dihapus pelanggan" di
+       atasnya tetap jelas. Bukan placeholder (penanda) yang diburamkan. */
+    .inbox-teks-basi {
+        opacity: 0.5;
     }
 
     .inbox-media-caption {

@@ -769,4 +769,56 @@ class InboxGatewayApi extends BaseController
 
         return (new InboxQuoteSnapshotService())->rakitSnapshot($sumber, $label);
     }
+
+    /**
+     * POST /api/inbox/gateway/message-event
+     *
+     * TODO-F7: terima penanda lifecycle dari Gateway -- pesan ASLI yang
+     * DIEDIT atau DIHAPUS pelanggan di WhatsApp. Bukan pesan baru: tidak ada
+     * baris `messages` dibuat dan tidak ada perubahan `conversations`.
+     *
+     * Body: { "wa_message_id": "<id pesan asli>", "event": "edited"|"deleted" }
+     *
+     * Selalu balas 200 `{status:'success', matched:bool}`:
+     * - `matched=true`  -> pesan asli ditemukan & ditandai (idempoten).
+     * - `matched=false` -> pesan asli tidak ada (mis. balapan waktu) -> aman
+     *   dilewati, TIDAK memicu retry tak berujung di Gateway.
+     *
+     * Validasi batas kepercayaan (SEC): `wa_message_id` non-kosong <=255,
+     * `event` in_list[edited,deleted]; selain itu 400 (ditolak permanen oleh
+     * Gateway, tanpa retry).
+     */
+    public function messageEvent()
+    {
+        $payload = $this->request->getJSON(true) ?? [];
+
+        $waMessageId = isset($payload['wa_message_id']) ? trim((string) $payload['wa_message_id']) : '';
+        if ($waMessageId === '') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'wa_message_id' wajib diisi.",
+            ]);
+        }
+        if (strlen($waMessageId) > 255) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'wa_message_id' terlalu panjang (maks 255).",
+            ]);
+        }
+
+        $event = isset($payload['event']) ? (string) $payload['event'] : '';
+        if (! in_array($event, ['edited', 'deleted'], true)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'event' harus 'edited' atau 'deleted'.",
+            ]);
+        }
+
+        $matched = (new MessageModel())->markLifecycle($waMessageId, $event);
+
+        return $this->response->setJSON([
+            'status'  => 'success',
+            'matched' => $matched,
+        ]);
+    }
 }

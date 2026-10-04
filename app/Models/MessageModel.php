@@ -80,6 +80,11 @@ class MessageModel extends Model
         // Tahap 4: data terstruktur untuk pesan non-file (lokasi & kontak),
         // JSON. Nullable -- baris tipe lain tetap NULL.
         'extra_json',
+        // TODO-F7: penanda lifecycle pesan -- pesan ASLI yang diedit/dihapus
+        // pelanggan di WhatsApp. Nullable; diisi SEKALI via markLifecycle().
+        // Lihat migration 2026-10-04-000001_AddEditedRevokedToMessages.
+        'edited_at',
+        'revoked_at',
         'deleted_at',
     ];
 
@@ -138,6 +143,45 @@ class MessageModel extends Model
             ->getResultArray();
 
         return $rows[0] ?? null;
+    }
+
+    /**
+     * TODO-F7: tandai pesan ASLI (dicari via `wa_message_id`) sebagai "diedit"
+     * atau "dihapus pelanggan". Dipanggil endpoint gateway `message-event`.
+     *
+     * IDEMPOTEN: kolom hanya diisi bila masih NULL, jadi edit/hapus berulang dan
+     * retry Gateway tidak mengubah nilai pertama.
+     *
+     * SENGAJA pakai query builder (bukan `update()` model) supaya tidak
+     * tersentuh soft-delete/timestamp, dan tetap soft-delete-inclusive seperti
+     * `findByWaMessageId()` -- pesan yang sudah di-soft-delete tetap ditandai.
+     *
+     * @param string $waMessageId
+     * @param string $event 'edited' atau 'deleted' (sudah divalidasi controller)
+     * @return bool true bila pesan asli ADA (baris ditemukan); false bila tidak.
+     */
+    public function markLifecycle(string $waMessageId, string $event): bool
+    {
+        if ($waMessageId === '') {
+            return false;
+        }
+
+        $column = $event === 'deleted' ? 'revoked_at' : 'edited_at';
+
+        $exists = db_connect('inbox')->table('messages')
+            ->where('wa_message_id', $waMessageId)
+            ->countAllResults() > 0;
+
+        if (! $exists) {
+            return false;
+        }
+
+        db_connect('inbox')->table('messages')
+            ->where('wa_message_id', $waMessageId)
+            ->where($column, null)
+            ->update([$column => date('Y-m-d H:i:s')]);
+
+        return true;
     }
 
     /**

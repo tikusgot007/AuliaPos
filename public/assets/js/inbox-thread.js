@@ -548,6 +548,25 @@ function renderLabelDiteruskan(m) {
     return '<div class="inbox-forward-label"><i class="fas fa-share"></i> Diteruskan</div>';
 }
 
+/* TODO-F7: label "Diedit" / "Dihapus" dibangun dari kolom `is_edited` /
+   `is_revoked` (dinormalkan ke bool di server). PENTING (AC-1b): kata "diedit"
+   sendirian MENYESATKAN -- di WhatsApp Web badge "diedit" berarti teks yang
+   tampil = versi TERBARU, sedangkan di sini yang tampil justru versi LAMA
+   (isi edit tidak bisa dibaca gateway). Karena itu label WAJIB menegaskan
+   "versi ini belum tentu terbaru". `display: block` (lihat CSS) supaya label
+   berdiri di barisnya sendiri di atas isi pesan, bukan mengalir sebaris. */
+function renderLabelDiedit(m) {
+    const edited = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1';
+    if (!edited) return '';
+    return '<div class="inbox-edit-label"><i class="fas fa-pen"></i> Diedit pelanggan \u2014 versi ini belum tentu terbaru</div>';
+}
+
+function renderLabelDihapus(m) {
+    const revoked = m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1';
+    if (!revoked) return '';
+    return '<div class="inbox-delete-label"><i class="fas fa-ban"></i> Dihapus pelanggan \u2014 cek WhatsApp Web</div>';
+}
+
 // ================================================================
 // KEGAGALAN MEDIA (plan-bugfix-inbox-media-unavailable-v1.0)
 // ================================================================
@@ -899,7 +918,14 @@ function renderIsiPesan(m) {
             '</div>';
     }
 
-    return formatTeksWa(m.text);
+    // TODO-F7: teks pesan yang SUDAH TIDAK UPDATE -- pesan ASLI yang kemudian
+    // diedit/dihapus pelanggan -- dibuat SAMAR, supaya kasir tidak mengira ini
+    // isi terbaru. Badge "Diedit/Dihapus pelanggan" di atasnya tetap jelas.
+    const teksBasi = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1'
+        || m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1';
+    const isiTeks = formatTeksWa(m.text);
+
+    return teksBasi ? '<span class="inbox-teks-basi">' + isiTeks + '</span>' : isiTeks;
 }
 
 // ================================================================
@@ -937,6 +963,8 @@ function renderBubbleHtml(m) {
         internalLabel +
         senderLabel +
         renderLabelDiteruskan(m) +
+        renderLabelDiedit(m) +
+        renderLabelDihapus(m) +
         renderKotakKutipan(m) +
         renderIsiPesan(m) +
         penandaKutipan +

@@ -443,6 +443,10 @@ class Inbox extends BaseController
             // CLN-402: penanda Teruskan ikut dinormalkan ke bool, supaya view
             // tidak perlu menebak true/1/"1" (pola yang sama dengan is_internal).
             $message['is_forwarded'] = (bool) ($message['is_forwarded'] ?? false);
+            // TODO-F7: penanda lifecycle (pesan diedit/dihapus pelanggan) --
+            // dinormalkan ke bool; sumbernya kolom DATETIME nullable.
+            $message['is_edited']  = ! empty($message['edited_at']);
+            $message['is_revoked'] = ! empty($message['revoked_at']);
         }
         unset($message);
 

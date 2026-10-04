@@ -150,6 +150,29 @@ test('forwarded label and the five quote branches', () => {
     assert.ok(q({ quoted_sender_label: null }).includes('Pesan tidak ditemukan'));
 });
 
+test('TODO-F7: edit/delete lifecycle labels (AC-1, AC-2, AC-3)', () => {
+    const t = loadThread();
+    // AC-1/AC-3: label "diedit" WAJIB menegaskan versi ini belum tentu terbaru,
+    // supaya tidak disalahartikan seperti badge "diedit" di WhatsApp Web.
+    const edited = t.ctx.renderBubbleHtml(msg(20, { is_edited: true }));
+    assert.ok(edited.includes('Diedit pelanggan'), edited);
+    assert.ok(edited.includes('belum tentu terbaru'), edited);
+    // AC-2: label pesan yang dihapus pelanggan.
+    const deleted = t.ctx.renderBubbleHtml(msg(21, { is_revoked: true }));
+    assert.ok(deleted.includes('Dihapus pelanggan'), deleted);
+    // Absen saat tidak ada penanda (nilai falsy apa pun dari server).
+    const normal = t.ctx.renderBubbleHtml(msg(22, { is_edited: 0, is_revoked: false }));
+    assert.ok(!normal.includes('Diedit pelanggan'), normal);
+    assert.ok(!normal.includes('Dihapus pelanggan'), normal);
+
+    // Teks pesan ASLI yang sudah tidak update (pesan yang kemudian
+    // diedit/dihapus pelanggan) dibuat SAMAR -- supaya kasir tidak mengira itu
+    // isi terbaru. Penanda/badge di atasnya tetap jelas.
+    assert.ok(edited.includes('inbox-teks-basi'), 'teks pesan yang diedit harus samar: ' + edited);
+    assert.ok(deleted.includes('inbox-teks-basi'), 'teks pesan yang dihapus harus samar: ' + deleted);
+    assert.ok(!normal.includes('inbox-teks-basi'), 'pesan biasa tidak boleh samar');
+});
+
 test('media state changes the markup (failed, gateway down, temporary failure)', () => {
     const t = loadThread();
     const img = msg(11, { message_type: 'image', media_local_filename: null });

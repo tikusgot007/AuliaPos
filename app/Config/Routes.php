@@ -32,6 +32,8 @@ $routes->get('/logout', 'Auth::logout');
 // sendiri. Lihat app/Controllers/InboxGatewayApi.php.
 $routes->post('/api/inbox/gateway/messages', 'InboxGatewayApi::messages', ['filter' => 'gatewaytoken']);
 $routes->post('/api/inbox/gateway/status', 'InboxGatewayApi::status', ['filter' => 'gatewaytoken']);
+// TODO-F7: penanda lifecycle (pesan diedit/dihapus pelanggan).
+$routes->post('/api/inbox/gateway/message-event', 'InboxGatewayApi::messageEvent', ['filter' => 'gatewaytoken']);
 
 // Endpoint browser POS (kasir/admin, session-authenticated) untuk
 // kirim balasan text -- Phase 3. UI utama + polling -- Phase 4.

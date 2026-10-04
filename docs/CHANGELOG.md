@@ -14,6 +14,23 @@ Format entri:
 
 ---
 
+## 2026-10-04 — Inbox WhatsApp: tandai pesan yang diedit/dihapus pelanggan
+
+- Aturan lama: pelanggan **mengedit** pesannya -> muncul baris noise
+  `unsupported` ("...secretEncryptedMessage...") sementara pesan asli tetap
+  menampilkan teks LAMA; pelanggan **menghapus** (untuk semua) pesannya -> tidak
+  berjejak sama sekali dan pesan aslinya tetap tampil seolah masih ada.
+- Aturan baru: pesan ASLI ditandai di Inbox — badge "Diedit pelanggan — versi ini
+  belum tentu terbaru" (teks yang tampil adalah versi lama; isi edit tidak bisa
+  dibaca) dan "Dihapus pelanggan — cek WhatsApp Web". Edit/hapus **tidak** lagi
+  membuat baris pesan baru.
+- Alasan: kasir tidak boleh salah membaca teks lama sebagai isi final, atau
+  mengira pesan yang sudah dihapus masih berlaku. Isi hasil edit terenkripsi dan
+  tidak terbaca gateway (spike 2026-10-04), jadi yang ditampilkan hanya penanda.
+  Deteksi hapus butuh langganan webhook `MESSAGES_DELETE` di Evolution.
+- Referensi: `docs/requirements/2026-10-04-tandai-pesan-diedit-inbox.md`,
+  `docs/design/2026-10-04-tandai-pesan-diedit-inbox.md`, `docs/TODO.md` (TODO-F7).
+
 ## 2026-10-04 — Archive transaksi: piutang aktif tidak ikut diarsipkan
 
 - Aturan lama: Archive Transaksi memindahkan **semua** transaksi pada bulan yang
