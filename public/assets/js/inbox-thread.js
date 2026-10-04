@@ -561,7 +561,14 @@ function renderLabelDiteruskan(m) {
 function renderLabelDiedit(m) {
     const edited = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1';
     if (!edited) return '';
-    return '<div class="inbox-edit-label"><i class="fas fa-pen"></i> Pesan diedit \u2014 versi ini belum tentu terbaru</div>';
+
+    const resolved = m.is_edited_text_resolved === true
+        || m.is_edited_text_resolved === 1
+        || m.is_edited_text_resolved === '1';
+
+    return resolved
+        ? '<div class="inbox-edit-label"><i class="fas fa-pen"></i> Pesan diedit \u2014 teks terbaru</div>'
+        : '<div class="inbox-edit-label"><i class="fas fa-pen"></i> Pesan diedit \u2014 versi ini belum tentu terbaru</div>';
 }
 
 function renderLabelDihapus(m) {
@@ -924,7 +931,11 @@ function renderIsiPesan(m) {
     // TODO-F7: teks pesan yang SUDAH TIDAK UPDATE -- pesan ASLI yang kemudian
     // diedit/dihapus -- dibuat SAMAR, supaya kasir tidak mengira ini isi
     // terbaru. Badge "Pesan diedit/dihapus" di atasnya tetap jelas.
-    const teksBasi = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1'
+    const edited = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1';
+    const resolved = m.is_edited_text_resolved === true
+        || m.is_edited_text_resolved === 1
+        || m.is_edited_text_resolved === '1';
+    const teksBasi = (edited && !resolved)
         || m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1';
     const isiTeks = formatTeksWa(m.text);
 
