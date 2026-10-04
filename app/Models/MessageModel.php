@@ -84,6 +84,7 @@ class MessageModel extends Model
         // pelanggan di WhatsApp. Nullable; diisi SEKALI via markLifecycle().
         // Lihat migration 2026-10-04-000001_AddEditedRevokedToMessages.
         'edited_at',
+        'edited_text_resolved_at',
         'revoked_at',
         'deleted_at',
     ];
@@ -188,6 +189,7 @@ class MessageModel extends Model
             ->where('wa_message_id', $waMessageId)
             ->set('text', $text)
             ->set('edited_at', 'COALESCE(edited_at, ' . $db->escape($now) . ')', false)
+            ->set('edited_text_resolved_at', $now)
             ->update();
 
         return true;
