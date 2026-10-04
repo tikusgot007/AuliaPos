@@ -396,23 +396,111 @@ class ConversationModel extends Model
         }
 
         // --- Langkah 4: benar-benar baru ---------------------------------
-        $this->insert([
-            'chat_id'       => $chatId,
-            'jid_type'      => $jidType,
-            'contact_name'  => null,
-            'whatsapp_name' => $whatsappName,
-            'phone'         => $canonicalPhone,
-            'manual_phone'  => null,
-            'status'        => 'open',
-            'assigned_to'   => null,
-        ]);
+        // TODO-I4: dua request dengan chat_id BARU yang sama bisa sama-sama
+        // lolos Langkah 1 (belum dikenal) lalu sama-sama coba INSERT di
+        // sini -- klasik check-then-act race. Yang menang commit duluan;
+        // yang kalah menabrak unique key `chat_id`.
+        //
+        // PENTING soal cara CI4 melapor kegagalan ini -- BEDA tergantung
+        // pemanggil:
+        // - InboxGatewayApi::messages() membungkus SELURUH alur dalam
+        //   $db->transStart(): di dalam transaksi, BaseConnection::query()
+        //   TIDAK melempar exception (transDepth>0 && !transException),
+        //   insert() diam-diam balik `false` -- info error HANYA ada di
+        //   $this->db->error() (pola identik TODO-I1 di
+        //   InboxGatewayApi.php:416-461).
+        // - Inbox::mulaiPercakapan() TIDAK pakai transaksi: di luar
+        //   transaksi, query() BENAR-BENAR melempar DatabaseException.
+        // try/catch DI SINI hanya untuk menangkap jalur kedua; jalur
+        // pertama (diam-diam false) ditangkap lewat pengecekan hasil.
+        $insertResult = false;
+        try {
+            $insertResult = $this->insert([
+                'chat_id'       => $chatId,
+                'jid_type'      => $jidType,
+                'contact_name'  => null,
+                'whatsapp_name' => $whatsappName,
+                'phone'         => $canonicalPhone,
+                'manual_phone'  => null,
+                'status'        => 'open',
+                'assigned_to'   => null,
+            ]);
+        } catch (\Throwable $e) {
+            $insertResult = false;
+        }
+
+        if ($insertResult === false) {
+            // Unique key yang ditabrak di SINI adalah conversations.chat_id
+            // -- cari pemenang LANGSUNG di tabel conversations (withDeleted()
+            // sama seperti Langkah 3: pemenang race bisa saja baris yang
+            // sebelumnya soft-deleted). SENGAJA BUKAN lewat
+            // conversation_identities: pemenang mungkin sudah commit baris
+            // conversations-nya tapi BELUM sampai ke insert identity-nya
+            // sendiri (dua insert terpisah) -- kalau dicari lewat identity,
+            // celah waktu super sempit ini akan salah dianggap "bukan race
+            // chat_id" dan melempar error padahal baris pemenangnya sudah ada.
+            $winner = str_contains((string) ($this->db->error()['message'] ?? ''), 'Duplicate entry')
+                && str_contains((string) ($this->db->error()['message'] ?? ''), 'chat_id')
+                ? $this->withDeleted()->where('chat_id', $chatId)->first()
+                : null;
+            $winnerId = $winner ? (int) $winner['id'] : null;
+
+            if ($winnerId === null) {
+                // Bukan race chat_id yang kita duga -- error database lain
+                // yang tidak terkait. JANGAN ditelan, surface apa adanya
+                // supaya tidak menyamarkan bug lain (pola TransaksiModel.php).
+                throw new \RuntimeException(
+                    'Gagal membuat conversation baru untuk chat_id=' . $chatId . '. DB Error: '
+                        . ($this->db->error()['message'] ?? 'Unknown database error')
+                );
+            }
+
+            // Query yang gagal menandai transaksi milik request ini
+            // "gagal" secara permanen (handleTransStatus()) WALAU InnoDB
+            // sendiri tidak mem-rollback apa pun akibat duplicate key pada
+            // satu statement -- tanpa reset ini, transComplete() di akhir
+            // InboxGatewayApi::messages() akan rollback SEMUANYA (termasuk
+            // message yang berhasil disimpan setelah titik ini), pesan
+            // tetap hilang walau race sudah "dipulihkan" di sini.
+            $this->db->resetTransStatus();
+            $this->revive($winnerId);
+
+            return ['conversation_id' => $winnerId, 'created' => false, 'reconciled' => false];
+        }
+
         $newId = $this->getInsertID();
 
-        $identityModel->insert([
-            'conversation_id' => $newId,
-            'chat_id'         => $chatId,
-            'jid_type'        => $jidType,
-        ]);
+        $identityResult = false;
+        try {
+            $identityResult = $identityModel->insert([
+                'conversation_id' => $newId,
+                'chat_id'         => $chatId,
+                'jid_type'        => $jidType,
+            ]);
+        } catch (\Throwable $e) {
+            $identityResult = false;
+        }
+
+        if ($identityResult === false) {
+            // Baris conversations ini SUDAH ter-insert oleh request KITA
+            // (bukan pemenang race di tabel itu) -- hanya alias di tabel
+            // conversation_identities yang menabrak unique key karena
+            // request lain menang di sini secara terpisah (celah sempit
+            // antara dua insert di atas). Reuse pemenangnya, JANGAN
+            // tinggalkan baris conversations yatim tanpa alias.
+            $winnerId = $identityModel->findConversationIdByChatId($chatId);
+            if ($winnerId === null) {
+                throw new \RuntimeException(
+                    'Gagal mendaftarkan alias chat_id=' . $chatId . '. DB Error: '
+                        . ($identityModel->db->error()['message'] ?? 'Unknown database error')
+                );
+            }
+
+            $this->db->resetTransStatus();
+            $this->revive($winnerId);
+
+            return ['conversation_id' => $winnerId, 'created' => false, 'reconciled' => false];
+        }
 
         return ['conversation_id' => $newId, 'created' => true, 'reconciled' => false];
     }

@@ -87,10 +87,6 @@
 - [ ] **TODO-Q4** Tidak ada CI; 3 skrip test JS tanpa runner — rendah
 - [ ] **TODO-Q5** God-object & duplikasi render: `Inbox.php` 3721 baris, `Views/inbox/index.php` 3650 baris, daftar percakapan dirender 2× (PHP `index.php:778` vs JS `index.php:1474`) — sedang
 
-## Inbox — audit 2026-10-03
-
-- [ ] **TODO-I4** High — race pembuatan percakapan: dua pesan (`wa_message_id` berbeda) dari `chat_id` baru yang sama tiba bersamaan → insert percakapan kalah, `resolveConversationId()` mengembalikan id 0, satu request balas 500 (pesan hilang). Terbukti empiris 2026-10-03 (7/12 ronde 500) — `ConversationModel.php:399-417`; `InboxGatewayApi.php:339` — tinggi
-
 ## Prioritas Sedang
 
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
