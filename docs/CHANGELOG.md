@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-10-05 — Inbox WhatsApp: tampilkan teks edit yang sudah tervalidasi
+
+- Aturan lama: semua pesan yang ditandai "diedit" ditampilkan samar dengan label
+  "Pesan diedit — versi ini belum tentu terbaru", termasuk ketika Gateway sudah
+  berhasil memproses dan menyimpan teks hasil edit yang benar.
+- Aturan baru: pesan diedit yang teksnya SUDAH berhasil divalidasi dan disimpan
+  POS ditampilkan normal dengan label "Pesan diedit — teks terbaru".
+  Pesan diedit tanpa hasil edit tervalidasi tetap samar dengan label lama.
+- Alasan: kasir perlu membedakan teks versi lama yang masih perlu dikonfirmasi
+  dari teks hasil edit yang sudah tersedia dan tervalidasi di Inbox.
+- Referensi: commit `dc8c0dc` (branch `todo-f8-message-text`),
+  `docs/requirements/2026-10-05-tampilkan-teks-edit-tervalidasi-inbox.md`,
+  `docs/design/2026-10-05-tampilkan-teks-edit-tervalidasi-inbox.md`.
+
 Perubahan aturan bisnis Aulia Kasir. Bahasa Indonesia (AGENTS.md §15).
 
 Format entri:
