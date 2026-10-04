@@ -146,6 +146,8 @@ final class InboxGatewayMessageEventTest extends CIUnitTestCase
         $this->assertTrue($this->gatewayBodyJson($first)['matched']);
         $stamp = $this->marker('WAMSG-F8-TEXT-0001', 'edited_at');
         $this->assertNotNull($stamp);
+        $resolvedFirst = $this->marker('WAMSG-F8-TEXT-0001', 'edited_text_resolved_at');
+        $this->assertNotNull($resolvedFirst, 'Teks edit valid harus menandai resolved timestamp.');
         $this->assertSame('versi hasil edit pertama', $this->messageText('WAMSG-F8-TEXT-0001'));
 
         $second = $this->postMessageEvent([
@@ -157,6 +159,27 @@ final class InboxGatewayMessageEventTest extends CIUnitTestCase
         $this->assertTrue($this->gatewayBodyJson($second)['matched']);
         $this->assertSame('versi hasil edit terbaru', $this->messageText('WAMSG-F8-TEXT-0001'));
         $this->assertSame($stamp, $this->marker('WAMSG-F8-TEXT-0001', 'edited_at'));
+        $this->assertNotNull($this->marker('WAMSG-F8-TEXT-0001', 'edited_text_resolved_at'));
+    }
+
+    public function testEditedEventWithoutEditedTextLeavesResolvedMarkerNull(): void
+    {
+        $chatId = '6281300000016@s.whatsapp.net';
+        $conversationId = $this->seedConversation($chatId);
+        $this->seedMessage($conversationId, 'WAMSG-F8-FALLBACK-0001', 'text', 'versi lama');
+
+        $response = $this->postMessageEvent([
+            'wa_message_id' => 'WAMSG-F8-FALLBACK-0001',
+            'event'         => 'edited',
+        ]);
+        $response->assertStatus(200);
+        $this->assertTrue($this->gatewayBodyJson($response)['matched']);
+        $this->assertNotNull($this->marker('WAMSG-F8-FALLBACK-0001', 'edited_at'));
+        $this->assertNull(
+            $this->marker('WAMSG-F8-FALLBACK-0001', 'edited_text_resolved_at'),
+            'Fallback F7 edit must remain unresolved.'
+        );
+        $this->assertSame('versi lama', $this->messageText('WAMSG-F8-FALLBACK-0001'));
     }
 
     public function testEditedTextIsRejectedForDeletedEvent(): void
