@@ -872,7 +872,12 @@ class TransaksiModel extends Model
             }
 
             $this->sinkronkanPembayaran($originalId);
-            $this->sinkronkanPembayaran($replacementId);
+            $replacementPayment = $this->sinkronkanPembayaran($replacementId);
+            if ($replacementPayment['status_pembayaran'] === 'lunas') {
+                if (!$this->update($replacementId, ['status' => 'selesai'])) {
+                    throw new \Exception('Gagal menyelesaikan transaksi pengganti.');
+                }
+            }
 
             $auditId = $db->table('transaction_correction')->insertGetId([
                 'original_transaction_id' => $originalId,
