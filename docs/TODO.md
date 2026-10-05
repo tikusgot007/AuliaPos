@@ -98,26 +98,6 @@
 
 ## Higiene
 
-- [ ] **TODO-H1** Bersihkan data uji Inbox (2 percakapan uji: `628563324637@s.whatsapp.net`, `6281913500707@s.whatsapp.net`) — higiene — ref `docs/sesi/2026-10-01-produksi-aulia3-inbox-tipe-pesan.md`. Diverifikasi 2026-10-02 di produksi: hanya ada 2 percakapan itu (`id` 4 & 5), dan 2 baris `unsupported` berteks gaya lama (`[Pelanggan mengirim video singkat …]`, `[Pelanggan mengirim pesan lihat-sekali …]`) keduanya milik percakapan `id` 4. Menghapus 2 percakapan ini otomatis menghapus kedua baris tersebut (dulu dicatat sebagai TODO-H2, sudah dihapus karena tumpang-tindih). **Cakupan diperbarui 2026-10-02** setelah uji F1 + stress test — kini **13 percakapan** (`id` 4–16, total 270 pesan), bukan 2 seperti semula:
-
-| id | chat_id | pesan | sumber |
-|---|---|---|---|
-| 4 | `628563324637` | 26 | uji 1 Okt + F1 (id 76–77) + balasan staf (id 150) |
-| 5 | `6281913500707` | 35 | uji 1 Okt (tidak dapat pesan baru) |
-| 6 | `6282332153590` | 9 | stress test |
-| 7 | `6289510570459` | 11 | stress test |
-| 8 | `6285791470326` | 160 | stress test (pengirim paling aktif) |
-| 9 | `6289675973666` | 16 | stress test |
-| 10 | `6283852845634` | 6 | stress test |
-| 11 | `6285150636082` | 1 | stress test |
-| 12 | `6285852977874` | 2 | stress test |
-| 13 | `6281235830809` | 1 | stress test |
-| 14 | `6285608821725` | 1 | stress test |
-| 15 | `6282332619690` | 1 | stress test |
-| 16 | `6282245633933` | 1 | stress test |
-
-Tidak ada baris `deleted_at` terisi di seluruh 13 percakapan (belum pernah dibersihkan).
-
 ## Log & operasional (audit 5 Oktober)
 
 - [ ] **TODO-L1** Analisa log adapter/Evolution produksi untuk periode **setelah checkpoint 2026-10-02** dan putuskan apa yang perlu ditindak. — **Checkpoint**: 2026-10-02 ~13:00 WIB (06:00 UTC) — log hidup (`adapter.log`, `evolution.log`) di `\\aulia3\D\kilo\logs\` sudah **dikosongkan ke 0 byte** dengan prosedur resmi: nonaktifkan `AuliaStackWatchdog` → stop task `AULIAADAPTER` & `AuliaEvolution` → `Clear-Content` kedua log → start `AuliaEvolution` → start `AULIAADAPTER` → enable kembali watchdog. Verifikasi pasca: port 3000 & 8080 listen, adapter `connected` ke nomor `62881082323928`, Evolution `CONNECTED TO WHATSAPP`. Isi log lama (sebelum dikosongkan) terarsip di `\\aulia3\D\kilo\logs\arsip\adapter_2026-10-02_1254.log` & `evolution_2026-10-02_1254.log` sebagai baseline pembanding. **Tujuan**: pada 2026-10-05 tinjau log bersih ini untuk melihat apakah ada error **berulang/berlama** yang tidak self-recover (kebalikan lonjakan 2026-10-01 yang memang sesi uji). **Yang dicari**: (a) `[AUTH] Request dari CI4 ditolak` & `webhook ditolak: secret tidak cocok/absen`, (b) event `dead-letter`/`[CRITICAL]` baru, (c) `[HEARTBEAT-EVOLUTION] … fetch failed` yang tidak kembali `connected`, (d) pertumbuhan ukuran file, (e) `evolution.log` `"level":50 "error in sending keep alive"` — pada 2026-10-02 06:03 UTC muncul 1× (transien pasca-restart, pulih 17 detik kemudian); jika **berulang**, itu sinyal koneksi WhatsApp tidak stabil. **Yang boleh diabaikan** (terbukti berasal dari sesi uji 1 Okt, sebelum checkpoint): skenario uji (dead-letter `KILO-MX-17` "koordinat tidak valid", "Field 'text' wajib diisi"), `PERINGATAN SECURITY bind 0.0.0.0` (ulang tiap start), transisi `connecting→connected` yang recover, `body request terlalu besar` dari uji >64MB, dan spam `CACHE: { cached: undefined, … }` di `evolution.log` (dump internal Baileys, bukan error). Hubungkan ke TODO-O1/O3 (rotasi/backup log) dan TODO-F2 (`phone` NULL). **Jendela uji disengaja**: 2026-10-02 14:08:37–14:11:23 WIB gateway dimatikan lalu dinyalakan untuk uji backlog media (TODO-F1) — entri `adapter.log`/`evolution.log` di rentang itu bagian dari uji, bukan error produksi (termasuk transisi `connecting→connected` dan `[HEARTBEAT-EVOLUTION] … fetch failed` saat Evolution boot). Stress test 2026-10-02 14:17:05–14:28:00 WIB juga disengaja (gateway dimatikan; ~209 pesan backlog) — entri log di rentang itu bagian dari uji.
