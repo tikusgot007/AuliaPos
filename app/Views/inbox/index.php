@@ -3803,15 +3803,53 @@
         if (id > 0) pilihConversation(id);
     })();
 
+    // Milestone 4A: adaptive polling. Timer tetap pada cadence LAMA (daftar
+    // 6 detik, pesan 4 detik), tetapi tick DILEWATI selama WebSocket
+    // benar-benar OPEN sampai jendela reconciliation (daftar 30 detik, pesan
+    // 12 detik) tercapai. Begitu realtime tidak OPEN (closed/error/masih
+    // connecting), tick berikutnya langsung kembali ke cadence lama. TIDAK
+    // ada timer dinamis yang saling menjadwalkan -- hanya satu timer per
+    // resource, jadi tidak mungkin request ganda.
+    //
+    // `waktu...Terakhir` menyimpan waktu REQUEST terakhir (bukan tick).
+    // Inilah yang mencegah pergantian mode memicu dua request identik
+    // beruntun, sekaligus membatasi reconciliation ke jendela yang benar.
+    const JEDA_DAFTAR_CEPAT_MS = 6000;
+    const JEDA_PESAN_CEPAT_MS = 4000;
+    const JEDA_DAFTAR_REALTIME_MS = 30000;
+    const JEDA_PESAN_REALTIME_MS = 12000;
+
+    // Toleransi kecil: tick bisa mendarat 1-2 ms LEBIH AWAL dari jendela
+    // (coalescing timer), dan tanpa toleransi itu membuat satu tick terlewat
+    // sehingga interval jadi 2x (4s->8s saat cepat, 12s->16s saat realtime).
+    // 100 ms << interval dasar, jadi tidak pernah memicu request lebih awal
+    // secara berarti.
+    const TOLERANSI_TICK_MS = 100;
+
+    // Jangan anggap `realtimeSocket !== null` sebagai connected: objek bisa
+    // sudah ada sebelum handshake selesai. Hanya OPEN yang dihitung sehat.
+    function realtimeTerhubung() {
+        return realtimeSocket !== null && realtimeSocket.readyState === WebSocket.OPEN;
+    }
+
+    let waktuDaftarTerakhir = 0;
+    let waktuPesanTerakhir = 0;
+
     // REQ-017b: tick 6 detik tidak menumpuk putaran kedua. Kalau putaran
     // sebelumnya masih jalan, tick ini dilewati -- putaran berikutnya
     // tetap datang 6 detik kemudian.
     setInterval(function() {
         if (putaranDaftarBerjalan) return;
+        const jeda = realtimeTerhubung() ? JEDA_DAFTAR_REALTIME_MS : JEDA_DAFTAR_CEPAT_MS;
+        if (Date.now() - waktuDaftarTerakhir < jeda - TOLERANSI_TICK_MS) return;
+        waktuDaftarTerakhir = Date.now();
         muatUlangDaftarConversation();
-    }, 6000);
+    }, JEDA_DAFTAR_CEPAT_MS);
     setInterval(function() {
+        const jeda = realtimeTerhubung() ? JEDA_PESAN_REALTIME_MS : JEDA_PESAN_CEPAT_MS;
+        if (Date.now() - waktuPesanTerakhir < jeda - TOLERANSI_TICK_MS) return;
+        waktuPesanTerakhir = Date.now();
         muatUlangPesan(false);
-    }, 4000);
+    }, JEDA_PESAN_CEPAT_MS);
     setInterval(muatUlangStatusGateway, 15000);
 </script>
