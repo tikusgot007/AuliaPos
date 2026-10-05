@@ -1401,6 +1401,18 @@ class Transaksi extends BaseController
             }
         }
 
+        $noOrderValidationError = $this->validasiNoOrderEdit(
+            $noOrder,
+            $hasKategori16
+        );
+
+        if ($noOrderValidationError !== null) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => $noOrderValidationError
+            ]);
+        }
+
         // ==========================================
         // 5. HITUNG SUBTOTAL
         // ==========================================
@@ -1511,9 +1523,47 @@ class Transaksi extends BaseController
         // 10. SIMPAN DALAM SATU TRANSAKSI DATABASE
         // ==========================================
 
-        $db->transStart();
+        $noOrderLockAcquired = false;
+        $noOrderLockName = null;
 
         try {
+            /*
+             * GET_LOCK bersifat connection-level pada MySQL. Lock harus
+             * didapat SEBELUM cek conflict dan dipertahankan sampai commit,
+             * supaya edit transaksi dan create transaksi tidak bisa
+             * melewati cek secara bersamaan.
+             */
+            if (!empty($noOrder) && $db->getPlatform() === 'MySQLi') {
+                $noOrderLockName = 'auliapos:no_order:' . (int) $noOrder;
+
+                $lockResult = $db->query(
+                    'SELECT GET_LOCK(?, 10) AS acquired',
+                    [$noOrderLockName]
+                )->getRowArray();
+
+                if ((int) ($lockResult['acquired'] ?? 0) !== 1) {
+                    throw new \RuntimeException(
+                        'No Order ' . (int) $noOrder . ' sedang diproses oleh kasir lain. Silakan coba lagi.',
+                        409
+                    );
+                }
+
+                $noOrderLockAcquired = true;
+            }
+
+            if (!empty($noOrder) && $this->noOrderDipakaiTransaksiAktifLain(
+                $transaksiModel,
+                (int) $id,
+                (int) $noOrder
+            )) {
+                throw new \RuntimeException(
+                    'No Order ' . (int) $noOrder . ' sedang digunakan oleh transaksi aktif.',
+                    409
+                );
+            }
+
+            $db->transStart();
+
             // --------------------------------------
             // Update transaksi existing
             //
@@ -1573,6 +1623,15 @@ class Transaksi extends BaseController
                 );
             }
 
+            if ($noOrderLockAcquired) {
+                $db->query(
+                    'SELECT RELEASE_LOCK(?)',
+                    [$noOrderLockName]
+                );
+
+                $noOrderLockAcquired = false;
+            }
+
             // --------------------------------------
             // Response
             // --------------------------------------
@@ -1603,6 +1662,13 @@ class Transaksi extends BaseController
         } catch (\Throwable $e) {
             $db->transRollback();
 
+            if ($noOrderLockAcquired) {
+                $db->query(
+                    'SELECT RELEASE_LOCK(?)',
+                    [$noOrderLockName]
+                );
+            }
+
             log_message(
                 'error',
                 'Error updateTransaksi: ' . $e->getMessage()
@@ -1613,13 +1679,56 @@ class Transaksi extends BaseController
                 $e->getTraceAsString()
             );
 
+            $statusCode = (int) $e->getCode();
+            if ($statusCode < 400 || $statusCode > 599) {
+                $statusCode = 500;
+            }
+
             return $this->response
-                ->setStatusCode(500)
+                ->setStatusCode($statusCode)
                 ->setJSON([
                     'status'  => 'error',
                     'message' => 'Gagal memperbarui transaksi: ' .
                         $e->getMessage()
                 ]);
         }
+    }
+
+    /**
+     * Terapkan aturan no_order pada edit sama seperti jalur buat baru:
+     * - Studio/Foto (kategori 16 / is_cetak) -> no_order wajib.
+     * - Non-Studio/Foto -> no_order harus kosong.
+     *
+     * @return string|null Pesan validasi, atau null jika valid.
+     */
+    private function validasiNoOrderEdit(
+        ?int $noOrder,
+        bool $hasKategori16
+    ): ?string {
+        if ($hasKategori16 && empty($noOrder)) {
+            return 'Transaksi mengandung produk Studio/Foto. No Order WAJIB diisi!';
+        }
+
+        if (!$hasKategori16 && !empty($noOrder)) {
+            return 'Transaksi TIDAK mengandung produk Studio/Foto. No Order harus dikosongkan!';
+        }
+
+        return null;
+    }
+
+    /**
+     * Cek apakah no_order dipakai transaksi aktif LAIN.
+     * Transaksi yang sedang diedit sendiri dikecualikan.
+     */
+    private function noOrderDipakaiTransaksiAktifLain(
+        TransaksiModel $transaksiModel,
+        int $id,
+        int $noOrder
+    ): bool {
+        return $transaksiModel
+            ->where('no_order', $noOrder)
+            ->where('id !=', $id)
+            ->whereIn('status', ['proses', 'selesai', 'mangkrak'])
+            ->first() !== null;
     }
 }
