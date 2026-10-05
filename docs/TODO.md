@@ -48,7 +48,7 @@
 
 ### Low
 
-- [ ] **TODO-BL31** Low — route mati `/kasir/proses`, `/kasir/tambah-pembayaran`; `/cash/opname` hilang padahal view posting ke sana — `Routes.php:123-124,217-227`; `Views/cash/opname.php:32`
+- [x] **TODO-BL31** Low — hapus route Kasir legacy yang menunjuk method non-existent dan pulihkan route GET/POST `/cash/opname`; handler opname menerima JSON maupun form POST.
 - [ ] **TODO-BL32** Low — status legacy `diambil` jatuh tanpa grup filter — `Transaksi.php:556-575`; migration `2026-09-09-000001:31`
 - [ ] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442` — **DEC-4: Opsi A** → sekuens per hari via lock/transaksi
 - [ ] **TODO-BL34** Low — `laporan-pembayaran` masih `auth` (bukan admin) — `Routes.php:253-257`; `Laporan.php:1975` (sisa BL-34/BL-41; `auth/simpan-user` & `auth/update-user` selesai 2026-10-03)
