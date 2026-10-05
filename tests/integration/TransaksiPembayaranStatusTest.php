@@ -128,7 +128,7 @@ final class TransaksiPembayaranStatusTest extends CIUnitTestCase
             'uang_diterima' => ['type' => 'DECIMAL', 'constraint' => '15,2', 'null' => true],
             'kembalian'     => ['type' => 'DECIMAL', 'constraint' => '15,2', 'default' => 0],
             'metode'        => ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'tunai'],
-            'keterangan'    => ['type' => 'VARCHAR', 'constraint' => 200, 'null' => true],
+            'keterangan'    => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
             'kasir_id'      => ['type' => 'INTEGER', 'null' => true],
             'status'        => ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'aktif'],
         ]);
