@@ -23,9 +23,6 @@
 
 ### Medium
 
-
-### Medium
-
 - [ ] **TODO-BL13** Medium — `sisa_tagihan` tak di-clamp → bisa negatif & distorsi `total_piutang` — `Tagihan.php:180-181,252`; `Laporan.php:1076`
 
 - [ ] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
@@ -64,9 +61,6 @@
 
 ### Low
 
-
-### Low
-
 - [ ] **TODO-BL37** Low — jendela shift inklusif dua ujung; P/S dan S/PM tumpang-tindih — `EvaluasiJendelaKerjaShift.php:16`; `JadwalModel.php:50-61`
 
 - [ ] **TODO-BL39** Low — "Tunai" diturunkan `total - non-tunai`; bisa salah saat detail/subtotal kosong — `Views/laporan/index.php:448,885`; `Laporan.php:371-384,494-516`
@@ -74,9 +68,6 @@
 - [ ] **TODO-BL40** Low — `Tagihan::detail` tanpa guard status; tombol Lunasi tampil tanpa cek; `saya=1` + filter kasir → list kosong — `Tagihan.php:84-90,166-168`; `Views/transaksi/detail.php:357-363`
 
 - [ ] **TODO-BL42** Low — `is_locked` milik `produk`, bukan `users`; proteksi user hanya dari controller — schema `2026-09-08-000001:44-59,111`; `Auth.php:333,415-421`
-
-### Keputusan produk (diputuskan 2026-10-03)
-
 
 - [ ] **TODO-Q4** Tidak ada CI; 3 skrip test JS tanpa runner — rendah
 
@@ -94,7 +85,6 @@
 
 - [ ] **TODO-S3** Route `/migrasi-manual` masih aktif di produksi AULIA-SERVER2 (dipakai deploy F8 2026-10-05); nonaktifkan/hapus 2 baris route setelah tidak diperlukan — `app/Config/Routes.php:100-101`; `app/Controllers/MigrasiManual.php` — sedang
 
-
 - [ ] **TODO-Q1** `docs/ARCHITECTURE.md` basi (2026-09-29): masih menyebut "release branch tanpa docs/tests"; jumlah controller/model/layanan tak sinkron dengan kode kini — sedang
 
 - [ ] **TODO-Q2** Test gap: belum ada test jalur kirim Gateway (`kirim`, `kirimMedia`, `callGatewaySend*`), `handoffPercakapan()` (290 baris), lifecycle percakapan, `GatewayTokenFilter` — sedang
@@ -102,7 +92,6 @@
 - [ ] **TODO-Q3** Kontrak cross-repo Gateway baru terverifikasi satu sisi (repo gateway tidak ada di workspace) — sedang
 
 - [ ] **TODO-Q5** God-object & duplikasi render: `Inbox.php` 3721 baris, `Views/inbox/index.php` 3650 baris, daftar percakapan dirender 2× (PHP `index.php:778` vs JS `index.php:1474`) — sedang
-
 
 - [ ] **TODO-N1** Notifikasi Windows Inbox: **HTTPS self-signed AULIA-SERVER2 sudah aktif** (cert SAN `IP:192.168.1.10`+`DNS:AULIA-SERVER2`, `.env` baseURL→https, HTTP:80 tetap untuk gateway) dan kode `80df50f` sudah ter-deploy ke produksi. **Realtime WS sudah diperbaiki** via proxy same-origin `/realtime-ws` (Apache mod_proxy_wstunnel + `App\\Libraries\\InboxRealtimeWs`). **SISA**: jalankan `\\\\aulia-server2\\xampp\\import-sertifikat-aulia.bat` di tiap PC kasir yang belum, lalu uji E2E notifikasi Windows + realtime di browser kasir — sedang — ref `docs/sesi/2026-10-05-https-self-signed-aulia-server2.md`
 
@@ -121,11 +110,6 @@
     3. Putuskan perlu-tidaknya pemeriksaan gap berkala (rekap pesan masuk Evolution vs gateway per hari) dan dokumentasikan prosedur verifikasi.
   - **Status**: monitoring F10 **sudah dipasang di produksi aulia3** pada 2026-10-05. `monitor-aulia3.ps1` diperbarui untuk mendeteksi `SessionError: No matching sessions found for message`, `failed to decrypt`, `Message ignored with messageStubParameters`, dan `MessageCounterError`; monitoring dijalankan tiap **15 menit**. Perubahan monitoring bersifat **read-only/alert-only**, tidak melakukan auto-restart atau perubahan session. **Window observasi 3 hari**; analisis log dijadwalkan setelah periode tersebut (2026-10-08), lalu ditentukan apakah perlu remediation.
 
-
-### Low
-
-- [ ] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442` — **DEC-4: Opsi A** → sekuens per hari via lock/transaksi
-
 - [ ] **TODO-L1** Analisa log adapter/Evolution produksi untuk periode **setelah checkpoint 2026-10-02** dan putuskan apa yang perlu ditindak. — **Checkpoint**: 2026-10-02 ~13:00 WIB (06:00 UTC) — log hidup (`adapter.log`, `evolution.log`) di `\\\\aulia3\\D\\kilo\\logs\\` sudah **dikosongkan ke 0 byte** dengan prosedur resmi: nonaktifkan `AuliaStackWatchdog` → stop task `AULIAADAPTER` & `AuliaEvolution` → `Clear-Content` kedua log → start `AuliaEvolution` → start `AULIAADAPTER` → enable kembali watchdog. Verifikasi pasca: port 3000 & 8080 listen, adapter `connected` ke nomor `62881082323928`, Evolution `CONNECTED TO WHATSAPP`. Isi log lama (sebelum dikosongkan) terarsip di `\\\\aulia3\\D\\kilo\\logs\\arsip\\adapter_2026-10-02_1254.log` & `evolution_2026-10-02_1254.log` sebagai baseline pembanding. **Tujuan**: pada 2026-10-05 tinjau log bersih ini untuk melihat apakah ada error **berulang/berlama** yang tidak self-recover (kebalikan lonjakan 2026-10-01 yang memang sesi uji). **Yang dicari**: (a) `[AUTH] Request dari CI4 ditolak` & `webhook ditolak: secret tidak cocok/absen`, (b) event `dead-letter`/`[CRITICAL]` baru, (c) `[HEARTBEAT-EVOLUTION] … fetch failed` yang tidak kembali `connected`, (d) pertumbuhan ukuran file, (e) `evolution.log` `"level":50 "error in sending keep alive"` — pada 2026-10-02 06:03 UTC muncul 1× (transien pasca-restart, pulih 17 detik kemudian); jika **berulang**, itu sinyal koneksi WhatsApp tidak stabil. **Yang boleh diabaikan** (terbukti berasal dari sesi uji 1 Okt, sebelum checkpoint): skenario uji (dead-letter `KILO-MX-17` "koordinat tidak valid", "Field 'text' wajib diisi"), `PERINGATAN SECURITY bind 0.0.0.0` (ulang tiap start), transisi `connecting→connected` yang recover, `body request terlalu besar` dari uji >64MB, dan spam `CACHE: { cached: undefined, … }` di `evolution.log` (dump internal Baileys, bukan error). Hubungkan ke TODO-O1/O3 (rotasi/backup log) dan TODO-F2 (`phone` NULL). **Jendela uji disengaja**: 2026-10-02 14:08:37–14:11:23 WIB gateway dimatikan lalu dinyalakan untuk uji backlog media (TODO-F1) — entri `adapter.log`/`evolution.log` di rentang itu bagian dari uji, bukan error produksi (termasuk transisi `connecting→connected` dan `[HEARTBEAT-EVOLUTION] … fetch failed` saat Evolution boot). Stress test 2026-10-02 14:17:05–14:28:00 WIB juga disengaja (gateway dimatikan; ~209 pesan backlog) — entri log di rentang itu bagian dari uji.
   - **Tambahan cek (dari sesi 2026-10-03)**: saat L1, sekalian verifikasi hasil deploy hari ini — (i) rotasi log berjalan: `arsip\\adapter_*.zip` & `evolution_*.zip` terbentuk tiap boot + ada `D:\\kilo\\rotate-logs.log`, dan `adapter.log`/`evolution.log` hidup tidak menumpuk; (ii) prune retensi benar-benar membuang data tua: baris `[MAINTENANCE] … dipangkas` (media 180 hari, kutipan 7 hari, `incoming_queue` completed 30 hari); (iii) `phone` backfill (TODO-F2) tetap terisi setelah adapter restart; (iv) task `AuliaLogRotate` ada dan sukses dijalankan; (v) backup harian terbentuk di `D:\\backup\\aulia3\\{pg,sqlite,media,env}` dan `pg_restore -l` valid; (vi) exclusion Avast untuk `D:\\evolution-gateway` masih ada (Avast pernah mengarantina script gateway 2026-10-03 → adapter mati).
   - **Temuan pemantauan 2026-10-05 (aulia3)** — hasil tinjauan log pasca-checkpoint + verifikasi alat monitor:
@@ -137,13 +121,17 @@
     - **(a) bersih**: tidak ada `[AUTH] Request dari CI4 ditolak` maupun `webhook ditolak: secret tidak cocok/absen`; `EVOLUTION_WEBHOOK_SECRET` terisi (64 char) di `D:\\evolution-gateway\\.env` aulia3.
     - **Alat baru**: `\\\\aulia3\\D\\evolution-gateway\\scripts\\monitor-aulia3.ps1` — ringkasan 1 baris/run ke `D:\\kilo\\monitor-aulia3.log` (port, state, flaps 24j, keepAlive 24j, `[AUTH]` ditolak, level 50/60, deteksi `evolution.log` 0 byte); exit 1 saat WARN. **Task harian `AuliaMonitor` SUDAH terpasang** di aulia3 (Daily 07:00, run as SYSTEM; dibuat + dijalankan sekali via remote `schtasks` user `ops` pada 2026-10-05, `Last Result=0`, output `D:\\kilo\\monitor-aulia3.log`). Alternatif registrasi lokal: `powershell -NoProfile -ExecutionPolicy Bypass -File D:\\evolution-gateway\\scripts\\monitor-aulia3.ps1 -InstallTask`. **TODO**: commit skrip ke repo gateway (masih untracked).
 
+### Low
 
+- [ ] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442` — **DEC-4: Opsi A** → sekuens per hari via lock/transaksi
 
 ## Selesai / Ditutup
 
 ### Low
 
 - [x] **TODO-BL31** Low — hapus route Kasir legacy yang menunjuk method non-existent dan pulihkan route GET/POST `/cash/opname`; handler opname menerima JSON maupun form POST.
+
+### Tanpa prioritas
 
 - [x] **TODO-DEC1** Otorisasi kas (BL-10) — **DIPUTUSKAN: Opsi B** — kasir tetap boleh semua aksi kas, tetapi setiap perubahan direkam audit (siapa/kapan/nilai sebelum→sesudah); **tanpa** pembatasan peran ke admin.
 
@@ -153,11 +141,10 @@
 
 - [x] **TODO-DEC4** Penomoran invoice (BL-33) — **DIPUTUSKAN: Opsi A** — sekuens per hari `INV-YYYYMMDD-NNN` via lock/transaksi.
 
-
 - [x] **TODO-F7** SELESAI 2026-10-04. Tandai pesan WhatsApp yang diedit/dihapus pelanggan di Inbox (fitur terpadu, Tier A). Rencana: `docs/requirements/2026-10-04-tandai-pesan-diedit-inbox.md` + `docs/design/2026-10-04-tandai-pesan-diedit-inbox.md`. **Spike**: (1) **edit** via `messages.upsert` `secretEncryptedMessage` (`secretEncType=2`, `targetMessageKey.id`) — teks OPAQUE/tak terbaca (Baileys tak men-dekode; dekripsi manual gagal); (2) **hapus** via webhook **`messages.delete`** (`data.id` = wa_message_id pesan dihapus, `status:'DELETED'`) — sumber Evolution `whatsapp.baileys.service.ts:1663-1678`, perlu instance melanggan `MESSAGES_DELETE`. Keduanya ditangani satu mekanisme: endpoint `POST /api/inbox/gateway/message-event` + kolom `edited_at`/`revoked_at` + badge UI + teks pesan asli dibuat samar (`inbox-teks-basi`); baris noise `unsupported` dihapus. **Verifikasi**: feature 6/6, unit 53/53, JS 50/50, gateway suite OK (lokal) + **uji end-to-end produksi via HP nyata, dikonfirmasi user 2026-10-04 bekerja** (edit & hapus tampil benar di Inbox). **Deploy produksi**: POS `AULIA-SERVER2` commit `7fd5265` + migrasi `edited_at`/`revoked_at`; gateway `aulia3` commit `940242a` (`C:\\Projects\\evolution-gateway`) + langganan `MESSAGES_DELETE` + adapter di-restart. — selesai
 
 ## Catatan struktur
 
 - **Status utama:** Belum dikerjakan → Sedang dikerjakan → Selesai / Ditutup.
-- **Prioritas di dalam status:** High → Medium → Low.
+- **Prioritas di dalam status:** High → Medium → Low → Tanpa prioritas.
 - **Selesai / Ditutup** mempertahankan item `[x]` untuk histori; penghapusan tetap memerlukan approval eksplisit.
