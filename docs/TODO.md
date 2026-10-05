@@ -60,7 +60,7 @@
 
 ### Low
 
-- [ ] **TODO-BL37** Low — jendela shift inklusif dua ujung; P/S dan S/PM tumpang-tindih — `EvaluasiJendelaKerjaShift.php:16`; `JadwalModel.php:50-61`
+
 
 - [ ] **TODO-BL39** Low — "Tunai" diturunkan `total - non-tunai`; bisa salah saat detail/subtotal kosong — `Views/laporan/index.php:448,885`; `Laporan.php:371-384,494-516`
 
@@ -127,6 +127,8 @@
 ## Selesai / Ditutup
 
 ### Low
+
+- [x] **TODO-BL37** Low — **DITUTUP BY-DESIGN 2026-10-06** — jendela shift memang inklusif dua ujung; P/S dan S/PM tumpang-tindih sesuai definisi jam kerja dan priority menentukan Effective Shift Leader — `EvaluasiJendelaKerjaShift.php:16`; `JadwalModel.php:50-61`
 
 - [x] **TODO-BL31** Low — hapus route Kasir legacy yang menunjuk method non-existent dan pulihkan route GET/POST `/cash/opname`; handler opname menerima JSON maupun form POST.
 
