@@ -568,13 +568,15 @@ class Inbox extends BaseController
         $baseUrl = rtrim($config->gatewayBaseUrl, '/');
         $scheme = parse_url($baseUrl, PHP_URL_SCHEME);
         $wsScheme = $scheme === 'https' ? 'wss' : 'ws';
-        $wsHost = preg_replace('/^https?:\\/\\//i', '', $baseUrl);
+        $wsHost = (string) parse_url($baseUrl, PHP_URL_HOST);
+        $wsPort = parse_url($baseUrl, PHP_URL_PORT);
+        $wsAuthority = $wsHost . ($wsPort ? ':' . $wsPort : '');
 
         return $this->response->setJSON([
             'status'    => 'success',
             'ticket'    => $payload . '.' . $signature,
-            'expires_in'=> 60,
-            'ws_url'    => $wsScheme . '://' . $wsHost . '/realtime',
+            'expires_in' => 60,
+            'ws_url'    => $wsScheme . '://' . $wsAuthority . '/realtime',
         ]);
     }
 
