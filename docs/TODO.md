@@ -18,7 +18,7 @@
 
 ### High
 
-- [ ] **TODO-BL07** High — `koreksiPembayaran` perlu mempertahankan `tanggal` & `kasir_id` pembayaran asal dan merekam operator koreksi; **keputusan produk: semua kasir tetap boleh mengganti metode** — `Api.php:546-643`; `Routes.php:258-262`
+- [ ] **TODO-BL07** High — verifikasi kewenangan `koreksiPembayaran`; keputusan produk: semua kasir yang sudah login boleh mengganti metode, sehingga route tetap memakai `auth` tanpa role gate tambahan — `Api.php:546-643`; `Routes.php:258-262`
 - [ ] **TODO-BL43** High — koreksi qty/harga pada transaksi `SELESAI` belum punya alur koreksi final; edit biasa menolak transaksi final sehingga perlu transaksi pengganti + pembatalan asli + jejak koreksi atomik — `Transaksi.php:updateTransaksi`; `TransaksiModel.php:ubahStatus()`
 - [ ] **TODO-BL08** High — edit path hitung `$hasKategori16` tapi tak dipakai; `no_order` ditulis tanpa lock/cek unik — `Transaksi.php:1288-1317,1444-1453`
 - [ ] **TODO-BL09** High — `cash_opname.pemasukan_tunai` diisi `kas_awal + penjualan` → kas awal dobel — `Cash.php:216-219`; `CashBalanceService.php:27`
