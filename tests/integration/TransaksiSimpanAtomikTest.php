@@ -143,7 +143,7 @@ final class TransaksiSimpanAtomikTest extends CIUnitTestCase
         );
     }
 
-    public function testDailyInvoiceSequenceRejectsMoreThan999(): void
+    public function testDailyInvoiceSequenceContinuesAfter999(): void
     {
         $model = new \App\Models\TransaksiModel();
         $tanggal = '2026-10-07 09:00:00';
@@ -154,13 +154,15 @@ final class TransaksiSimpanAtomikTest extends CIUnitTestCase
             ['tanggal' => $tanggal]
         ));
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('sudah mencapai batas 999');
-
-        $model->simpanTransaksi(
+        $id = $model->simpanTransaksi(
             $this->headerData('ignored-overflow', 100000, ['tanggal' => $tanggal]),
             $this->detailItems(),
             null
+        );
+
+        $this->assertSame(
+            'INV-20261007-1000',
+            $this->conn()->table('transaksi')->where('id', $id)->get()->getRowArray()['kode_invoice']
         );
     }
 
