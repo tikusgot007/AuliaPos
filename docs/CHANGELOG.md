@@ -10,7 +10,7 @@
   Pesan diedit tanpa hasil edit tervalidasi tetap samar dengan label lama.
 - Alasan: kasir perlu membedakan teks versi lama yang masih perlu dikonfirmasi
   dari teks hasil edit yang sudah tersedia dan tervalidasi di Inbox.
-- Referensi: commit `dc8c0dc` (branch `todo-f8-message-text`),
+- Referensi: branch `todo-f8-message-text` (verification recorded 2026-10-05),
   `docs/requirements/2026-10-05-tampilkan-teks-edit-tervalidasi-inbox.md`,
   `docs/design/2026-10-05-tampilkan-teks-edit-tervalidasi-inbox.md`.
 
