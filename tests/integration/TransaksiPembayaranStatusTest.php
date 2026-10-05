@@ -44,6 +44,36 @@ final class TransaksiPembayaranStatusTest extends CIUnitTestCase
         $this->assertSame(0, db_connect()->table('pembayaran')->countAllResults());
     }
 
+    public function testPaymentMethodCorrectionKeepsOriginalDateAndCashier(): void
+    {
+        $db = db_connect();
+        $originalDate = '2026-10-05 10:15:00';
+        $db->table('transaksi')->insert([
+            'id' => 3, 'tanggal' => $originalDate, 'grand_total' => 100000,
+            'total_dibayar' => 100000, 'status_pembayaran' => 'lunas', 'status' => 'proses',
+            'created_at' => $originalDate, 'updated_at' => $originalDate,
+        ]);
+        $db->table('pembayaran')->insert([
+            'id' => 1, 'transaksi_id' => 3, 'tanggal' => $originalDate, 'jumlah' => 100000,
+            'uang_diterima' => 100000, 'kembalian' => 0, 'metode' => 'tunai',
+            'keterangan' => 'Lunas', 'kasir_id' => 7, 'status' => 'aktif',
+        ]);
+
+        $result = (new \\App\\Models\\TransaksiModel())->koreksiMetodePembayaran(
+            3, 1, 'qris', null, 'Salah metode', 12
+        );
+
+        $old = $db->table('pembayaran')->where('id', 1)->get()->getRowArray();
+        $new = $db->table('pembayaran')->where('id', $result['new_payment_id'])->get()->getRowArray();
+
+        $this->assertSame('reversed', $old['status']);
+        $this->assertSame($originalDate, $new['tanggal']);
+        $this->assertSame('7', (string) $new['kasir_id']);
+        $this->assertSame('qris', $new['metode']);
+        $this->assertStringContainsString('user #12', $new['keterangan']);
+        $this->assertEqualsWithDelta(100000.0, (float) $new['jumlah'], 0.001);
+    }
+
     public function testProsesTransactionAcceptsPayment(): void
     {
         $model = new \App\Models\TransaksiModel();
