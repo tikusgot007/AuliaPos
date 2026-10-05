@@ -554,127 +554,162 @@ class Api extends BaseController
     public function koreksiPembayaran()
     {
         $request = $this->request->getJSON(true) ?? [];
-
         $transaksiId = (int) ($request['transaksi_id'] ?? 0);
         $pembayaranId = (int) ($request['pembayaran_id'] ?? 0);
         $metodeBaru = strtolower(trim((string) ($request['metode_baru'] ?? '')));
         $keterangan = trim((string) ($request['keterangan'] ?? ''));
+        $operatorId = (int) (session()->get('id_user') ?? 0);
 
-        if ($transaksiId <= 0 || $pembayaranId <= 0 || !in_array($metodeBaru, \App\Models\PembayaranModel::METODE, true)) {
+        if ($transaksiId <= 0 || $pembayaranId <= 0 || $operatorId <= 0
+            || !in_array($metodeBaru, \App\Models\PembayaranModel::METODE, true)) {
             return $this->response->setJSON([
                 'status' => 'error',
                 'message' => 'Data koreksi pembayaran tidak valid.'
             ]);
         }
 
-        $db = \Config\Database::connect();
-        $transaksiModel = new \App\Models\TransaksiModel();
-        $pembayaranModel = new \App\Models\PembayaranModel();
-
-        $transaksi = $transaksiModel->find($transaksiId);
-
-        if (!$transaksi) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Transaksi tidak ditemukan.'
-            ]);
-        }
-
-        $pembayaran = $pembayaranModel
-            ->where('id', $pembayaranId)
-            ->where('transaksi_id', $transaksiId)
-            ->where('status', 'aktif')
-            ->first();
-
-        if (!$pembayaran) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Pembayaran aktif tidak ditemukan.'
-            ]);
-        }
-
-        if ($metodeBaru === $pembayaran['metode']) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Metode pembayaran baru sama dengan metode sebelumnya.'
-            ]);
-        }
-
-        $kasirId = session()->get('id_user') ?? 1;
-        $jumlah = (float) $pembayaran['jumlah'];
-
         $uangDiterima = null;
-        $kembalian = 0;
-
-        if ($metodeBaru === 'tunai') {
-            $uangDiterima = $request['uang_diterima'] ?? $jumlah;
-            $uangDiterima = (float) $uangDiterima;
-            $kembalian = max(0, $uangDiterima - $jumlah);
-
-            if ($uangDiterima < $jumlah) {
-                return $this->response->setJSON([
-                    'status' => 'error',
-                    'message' => 'Uang diterima tidak boleh kurang dari jumlah pembayaran.'
-                ]);
-            }
+        if ($metodeBaru === 'tunai' && array_key_exists('uang_diterima', $request)) {
+            $uangDiterima = is_numeric($request['uang_diterima'])
+                ? (float) $request['uang_diterima']
+                : null;
         }
-
-        $keteranganLama = trim((string) ($pembayaran['keterangan'] ?? ''));
-        $keteranganBaru = $keterangan !== ''
-            ? $keterangan
-            : 'Koreksi metode ' . strtoupper($pembayaran['metode']) . ' ke ' . strtoupper($metodeBaru);
-
-        $db->transBegin();
 
         try {
-            $updated = $pembayaranModel
-                ->where('id', $pembayaranId)
-                ->where('status', 'aktif')
-                ->set(['status' => 'reversed'])
-                ->update();
-
-            if (!$updated) {
-                throw new \Exception('Pembayaran lama gagal ditandai sebagai reversed.');
-            }
-
-            $dataPembayaranBaru = [
-                'tanggal' => date('Y-m-d H:i:s'),
-                'jumlah' => $jumlah,
-                'metode' => $metodeBaru,
-                'uang_diterima' => $uangDiterima,
-                'kembalian' => $kembalian,
-                'keterangan' => $keteranganBaru
-                    . ($keteranganLama !== '' ? ' | Sebelumnya: ' . $keteranganLama : ''),
-                'kasir_id' => $kasirId,
-            ];
-
-            $transaksiModel->tambahPembayaran($transaksiId, $dataPembayaranBaru);
-
-            if ($db->transStatus() === false) {
-                throw new \Exception('Transaksi database gagal.');
-            }
-
-            $db->transCommit();
+            $result = (new \App\Models\TransaksiModel())->koreksiMetodePembayaran(
+                $transaksiId,
+                $pembayaranId,
+                $metodeBaru,
+                $uangDiterima,
+                $keterangan,
+                $operatorId
+            );
 
             return $this->response->setJSON([
                 'status' => 'success',
                 'message' => 'Metode pembayaran berhasil dikoreksi.',
                 'transaksi_id' => $transaksiId,
-                'pembayaran_lama_id' => $pembayaranId,
-                'pembayaran_baru_id' => $pembayaranModel->getInsertID(),
-                'metode_lama' => $pembayaran['metode'],
+                'pembayaran_lama_id' => $result['old_payment_id'],
+                'pembayaran_baru_id' => $result['new_payment_id'],
                 'metode_baru' => $metodeBaru,
-                'jumlah' => $jumlah
             ]);
         } catch (\Throwable $e) {
-            $db->transRollback();
-
             log_message('error', 'Error koreksiPembayaran: ' . $e->getMessage());
-            log_message('error', 'Trace: ' . $e->getTraceAsString());
 
             return $this->response->setJSON([
                 'status' => 'error',
                 'message' => 'Gagal mengoreksi pembayaran: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Correct a finalized transaction by creating a replacement transaction.
+     * Only Admin or the current Shift Leader may perform this operation.
+     */
+    public function koreksiTransaksiSelesai()
+    {
+        $request = $this->request->getJSON(true) ?? [];
+        $id = (int) ($request['transaksi_id'] ?? 0);
+        $reason = trim((string) ($request['alasan'] ?? ''));
+        $operatorId = (int) (session()->get('id_user') ?? 0);
+        $isAdmin = session()->get('role') === 'admin';
+        $isShiftLeader = \App\Services\Authority::isCurrentShiftLeader($operatorId);
+
+        if ($id <= 0 || $operatorId <= 0 || (!$isAdmin && !$isShiftLeader)) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Hanya Admin atau Shift Leader yang dapat mengoreksi transaksi SELESAI.'
+            ]);
+        }
+        if ($reason === '' || mb_strlen($reason) > 255) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Alasan koreksi wajib diisi dan maksimal 255 karakter.'
+            ]);
+        }
+
+        $transaksiModel = new \App\Models\TransaksiModel();
+        $original = $transaksiModel->find($id);
+        if (!$original) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Transaksi tidak ditemukan.']);
+        }
+        if (($original['status'] ?? '') !== 'selesai') {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Hanya transaksi SELESAI yang dapat dikoreksi.']);
+        }
+
+        $keranjang = $request['keranjang'] ?? [];
+        if (!is_array($keranjang) || $keranjang === []) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Keranjang koreksi wajib diisi.']);
+        }
+
+        $validasi = \App\Services\ValidasiItemTransaksi::normalisasi($keranjang);
+        if ($validasi['error'] !== null) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $validasi['error']]);
+        }
+
+        $pelangganId = !empty($original['pelanggan_id']) ? (int) $original['pelanggan_id'] : null;
+        $diskon = array_key_exists('diskon', $request)
+            ? (float) $request['diskon']
+            : (float) ($original['diskon'] ?? 0);
+
+        if ($diskon < 0 || $diskon > $validasi['subtotal']) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Diskon koreksi tidak valid.']);
+        }
+
+        $diskonPelangganPersen = $original['diskon_pelanggan_persen'] ?? null;
+        $kalkulasi = \App\Services\KalkulasiDiskonTransaksi::hitung(
+            $validasi['subtotal'],
+            $diskonPelangganPersen !== null ? (float) $diskonPelangganPersen : null,
+            $diskon
+        );
+
+        $detailItems = [];
+        foreach ($validasi['items'] as $item) {
+            $detailItems[] = [
+                'produk_id' => (int) ($item['produk_id'] ?? 1),
+                'nama_produk' => (string) ($item['nama'] ?? ''),
+                'kategori_id' => (int) ($item['kategori_id'] ?? 1),
+                'jumlah' => (float) $item['jumlah'],
+                'harga_satuan' => (float) $item['harga'],
+                'subtotal' => (float) $item['subtotal'],
+                'catatan' => \App\Models\DetailTransaksiModel::catatanBanner($item),
+            ];
+        }
+
+        $header = [
+            'tanggal' => $original['tanggal'],
+            'pelanggan_id' => $pelangganId,
+            'kasir_id' => $operatorId,
+            'subtotal' => $validasi['subtotal'],
+            'diskon' => $kalkulasi['diskon'],
+            'diskon_pelanggan_persen' => $kalkulasi['diskon_pelanggan_persen'],
+            'pajak' => 0,
+            'grand_total' => $kalkulasi['grand_total'],
+            'selisih_pembulatan' => $kalkulasi['selisih_pembulatan'],
+            'sumber' => $original['sumber'] ?? 'kasir_pos',
+        ];
+
+        try {
+            $replacementId = $transaksiModel->koreksiTransaksiSelesai(
+                $id,
+                $header,
+                $detailItems,
+                $operatorId,
+                $reason
+            );
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'message' => 'Transaksi SELESAI berhasil dikoreksi.',
+                'transaksi_lama_id' => $id,
+                'transaksi_baru_id' => $replacementId,
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'Error koreksiTransaksiSelesai: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Gagal mengoreksi transaksi: ' . $e->getMessage()
             ]);
         }
     }
