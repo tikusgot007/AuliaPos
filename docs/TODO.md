@@ -127,3 +127,16 @@ Tidak ada baris `deleted_at` terisi di seluruh 13 percakapan (belum pernah diber
     - **`evolution.log` sempat 0 byte** pasca-rotate 06:57 WIB (rotasi memindahkan file saat Evolution sedang hidup; `rotate-logs.ps1` dirancang rotasi saat boot). Pukul 10:01 WIB sudah terisi lagi. Perlu dijaga agar rotasi `evolution.log` hanya saat boot / proses di-restart setelah rotasi.
     - **(a) bersih**: tidak ada `[AUTH] Request dari CI4 ditolak` maupun `webhook ditolak: secret tidak cocok/absen`; `EVOLUTION_WEBHOOK_SECRET` terisi (64 char) di `D:\evolution-gateway\.env` aulia3.
     - **Alat baru**: `\\aulia3\D\evolution-gateway\scripts\monitor-aulia3.ps1` — ringkasan 1 baris/run ke `D:\kilo\monitor-aulia3.log` (port, state, flaps 24j, keepAlive 24j, `[AUTH]` ditolak, level 50/60, deteksi `evolution.log` 0 byte); exit 1 saat WARN. **Task harian `AuliaMonitor` SUDAH terpasang** di aulia3 (Daily 07:00, run as SYSTEM; dibuat + dijalankan sekali via remote `schtasks` user `ops` pada 2026-10-05, `Last Result=0`, output `D:\kilo\monitor-aulia3.log`). Alternatif registrasi lokal: `powershell -NoProfile -ExecutionPolicy Bypass -File D:\evolution-gateway\scripts\monitor-aulia3.ps1 -InstallTask`. **TODO**: commit skrip ke repo gateway (masih untracked).
+
+- [ ] **TODO-REALTIME-SOAK** Jalankan soak test 30–60 menit untuk Inbox Realtime setelah merge produksi; verifikasi pertumbuhan memori, pembersihan client registry, drift timer/request, reconnect, pencegahan duplikat, dan pengiriman pesan. Follow-up setelah rollout realtime (AuliaPos `v2.4` / WA-Gateway `evolution`); bukan blocker merge/deploy.
+
+## TODO-F8 — sisa gate merge (JANGAN merge PR #5/#49 sebelum selesai)
+
+Rujukan: `docs/laporan-keputusan-todo-f8-dekripsi-pesan-edit.md`, `docs/sesi/2026-10-04-promosi-aulia-htaccess-todo-f8-e2e.md`. F8 = menampilkan teks hasil edit pelanggan di Inbox (bukan hanya penanda "diedit" F7). Gate ini belum clear.
+
+- [ ] **TODO-F8-G1 (verifikasi produksi `aulia3`)** — cek versi Evolution produksi; pasang patch LID (`installer/apply-lid-preservation-patch.ps1`) + deploy WA-Gateway F8 (`todo-f8-capture-fixture`) + AuliaPos PR #49 ke `aulia3`; uji 1 edit WhatsApp nyata end-to-end (WhatsApp → Evolution → WA-Gateway → AuliaPos). Ini syarat gate (a).
+- [ ] **TODO-F8-G2 (Phase 2 UI)** — kerjakan **atau** putuskan tunda secara eksplisit. Sinyal `is_edited_text_resolved` + styling final, supaya teks hasil edit F8 yang sudah valid tidak lagi tampil "samar" ala F7 lama. Ini syarat gate (b).
+- [ ] **TODO-F8-G3 (bug patch)** — perbaiki/laporkan self-check `installer/apply-lid-preservation-patch.ps1:93` (regex tanpa cast `(messageRaw.key as any)` → salah lapor "GAGAL" walau patch sukses) di repo WA-Gateway.
+- [ ] **TODO-F8-G4 (verifikasi visual)** — konfirmasi label "Pesan diedit"/"Pesan dihapus" di browser setelah hard refresh Inbox.
+- [ ] **TODO-F8-G5 (merge PR)** — naikkan PR #5 (WA-Gateway) & PR #49 (AuliaPos) dari Draft → merge setelah G1 + G2 selesai.
+- [ ] **TODO-F8-G6 (integrasi lokal)** — build gabungan F8+realtime hanya ada lokal (WA-Gateway branch `tmp/realtime-f8`, dipakai gateway test `:3000`). Putuskan: push sebagai branch terpisah di GitHub (mis. `integration/realtime-f8`) **atau** tunggu gate clear lalu merge ke `evolution`. **Jangan** merge ke `evolution` sebelum G1+G2 selesai.
