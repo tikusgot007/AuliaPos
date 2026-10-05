@@ -93,7 +93,7 @@
     1. Tambah alarm di `\\aulia3\D\evolution-gateway\scripts\monitor-aulia3.ps1` untuk `failed to decrypt message` dan `Message ignored with messageStubParameters` (saat ini **belum** terpantau), plus deteksi penyimpangan (mis. jumlah pesan masuk Evolution per-chat vs `incoming_queue`).
     2. Opsi perbaikan sesi: **restart instance `aulia-toko`** agar sesi LID di-rebuild (turun koneksi beberapa detik), atau upgrade Baileys bila ini bug dekripsi LID yang dikenal.
     3. Putuskan perlu-tidaknya pemeriksaan gap berkala (rekap pesan masuk Evolution vs gateway per hari) dan dokumentasikan prosedur verifikasi.
-  - **Status**: menunggu keputusan/approval user sebelum menyentuh produksi (gateway aulia3).
+  - **Status**: monitoring F10 **sudah dipasang di produksi aulia3** pada 2026-10-05. `monitor-aulia3.ps1` diperbarui untuk mendeteksi `SessionError: No matching sessions found for message`, `failed to decrypt`, `Message ignored with messageStubParameters`, dan `MessageCounterError`; monitoring dijalankan tiap **15 menit**. Perubahan monitoring bersifat **read-only/alert-only**, tidak melakukan auto-restart atau perubahan session. **Window observasi 3 hari**; analisis log dijadwalkan setelah periode tersebut (2026-10-08), lalu ditentukan apakah perlu remediation.
 
 ## Higiene
 
