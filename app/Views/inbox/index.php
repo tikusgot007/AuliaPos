@@ -3733,8 +3733,25 @@
                 socket.addEventListener('message', function(event) {
                     try {
                         const payload = JSON.parse(event.data);
+
                         if (payload.type === 'connection.ready') {
                             console.info('[Inbox realtime] connection.ready', payload);
+                            return;
+                        }
+
+                        if (payload.type === 'message.created') {
+                            console.info('[Inbox realtime] message.created', payload);
+
+                            // WebSocket hanya membawa notifikasi kecil.
+                            // Data pesan tetap diambil dari CI4/DB sebagai source of truth.
+                            muatUlangDaftarConversation();
+
+                            if (
+                                conversationAktif &&
+                                Number(payload.conversation_id) === Number(conversationAktif)
+                            ) {
+                                muatUlangPesan(false);
+                            }
                         }
                     } catch (_) {
                         console.warn('[Inbox realtime] payload bukan JSON');
