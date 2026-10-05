@@ -541,6 +541,44 @@ class Inbox extends BaseController
     }
 
     /**
+     * GET /inbox/api/realtime-ticket
+     *
+     * Short-lived browser ticket untuk membuka WebSocket ke WA-Gateway.
+     * Gateway token TIDAK pernah dikirim ke browser; ticket ditandatangani
+     * dengan shared gatewayToken dan hanya berlaku 60 detik.
+     */
+    public function apiRealtimeTicket()
+    {
+        $config = new InboxConfig();
+        $userId = (int) session()->get('id_user');
+
+        if ($userId < 1 || $config->gatewayToken === '' || $config->gatewayBaseUrl === '') {
+            return $this->response->setStatusCode(503)->setJSON([
+                'status'  => 'error',
+                'message' => 'Realtime Gateway belum dikonfigurasi.',
+            ]);
+        }
+
+        $payload = rtrim(strtr(base64_encode(json_encode([
+            'sub' => $userId,
+            'exp' => time() + 60,
+        ], JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
+
+        $signature = hash_hmac('sha256', $payload, $config->gatewayToken);
+        $baseUrl = rtrim($config->gatewayBaseUrl, '/');
+        $scheme = parse_url($baseUrl, PHP_URL_SCHEME);
+        $wsScheme = $scheme === 'https' ? 'wss' : 'ws';
+        $wsHost = preg_replace('/^https?:\\/\\//i', '', $baseUrl);
+
+        return $this->response->setJSON([
+            'status'    => 'success',
+            'ticket'    => $payload . '.' . $signature,
+            'expires_in'=> 60,
+            'ws_url'    => $wsScheme . '://' . $wsHost . '/realtime',
+        ]);
+    }
+
+    /**
      * GET /inbox/api/gateway-status
      *
      * Status Gateway dalam JSON, dipakai polling berkala untuk badge
