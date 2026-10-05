@@ -772,7 +772,8 @@ class TransaksiModel extends Model
                 throw new \Exception('Gagal menyimpan pembayaran pengganti.');
             }
 
-            $auditId = $db->table('payment_correction_audit')->insertGetId([
+            $auditTable = $db->table('payment_correction_audit');
+            if (!$auditTable->insert([
                 'transaksi_id' => $transaksiId,
                 'pembayaran_lama_id' => $pembayaranId,
                 'pembayaran_baru_id' => (int) $newId,
@@ -780,8 +781,7 @@ class TransaksiModel extends Model
                 'metode_baru' => $metodeBaru,
                 'operator_id' => $operatorId,
                 'alasan' => $keterangan !== '' ? $keterangan : null,
-            ]);
-            if (!$auditId) {
+            ])) {
                 throw new \Exception('Gagal menyimpan histori koreksi pembayaran.');
             }
 
@@ -879,14 +879,14 @@ class TransaksiModel extends Model
                 }
             }
 
-            $auditId = $db->table('transaction_correction')->insertGetId([
+            $auditTable = $db->table('transaction_correction');
+            if (!$auditTable->insert([
                 'original_transaction_id' => $originalId,
                 'replacement_transaction_id' => $replacementId,
                 'operator_id' => $operatorId,
                 'reason' => $reason,
                 'financial_delta' => $delta,
-            ]);
-            if (!$auditId) {
+            ])) {
                 throw new \Exception('Gagal menyimpan histori koreksi transaksi.');
             }
 
