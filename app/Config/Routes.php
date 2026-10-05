@@ -288,6 +288,8 @@ $routes->get(
     'Laporan::itemHarianExport'
 );
 
+// BY DESIGN: laporan pembayaran dapat diakses kasir dan admin untuk rekonsiliasi
+// pembayaran QRIS/transfer; cukup menggunakan filter auth.
 $routes->get(
     '/laporan-pembayaran',
     'Laporan::pembayaran',
