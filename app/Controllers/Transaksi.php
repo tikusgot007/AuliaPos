@@ -1498,3 +1498,128 @@ class Transaksi extends BaseController
         foreach ($keranjang as $item) {
             $detailItems[] = [
                 'produk_id'    => (int) ($item['produk_id'] ?? 1),
+                'nama_produk'  => (string) ($item['nama'] ?? ''),
+                'kategori_id'  => (int) ($item['kategori_id'] ?? 1),
+                'jumlah'       => (float) ($item['jumlah'] ?? 1),
+                'harga_satuan' => (float) ($item['harga'] ?? 0),
+                'subtotal'     => (float) ($item['subtotal'] ?? 0),
+                'catatan'      => \App\Models\DetailTransaksiModel::catatanBanner($item)
+            ];
+        }
+
+        // ==========================================
+        // 10. SIMPAN DALAM SATU TRANSAKSI DATABASE
+        // ==========================================
+
+        $db->transStart();
+
+        try {
+            // --------------------------------------
+            // Update transaksi existing
+            //
+            // total_dibayar & status_pembayaran SENGAJA tidak
+            // diisi di sini — akan diisi oleh sinkronkanPembayaran()
+            // setelah grand_total baru ini tersimpan.
+            // --------------------------------------
+
+            $transaksiModel->update($id, [
+                'no_order'                 => $noOrder,
+                'pelanggan_id'             => $finalPelangganId,
+                'subtotal'                 => $subtotal,
+                'diskon'                   => $diskon,
+                'diskon_pelanggan_persen'  => $diskonPelangganPersenTersimpan,
+                'pajak'                    => 0,
+                'grand_total'              => $grandTotal,
+                'selisih_pembulatan'       => $selisihPembulatan,
+            ]);
+
+            // --------------------------------------
+            // Hapus detail lama
+            // --------------------------------------
+
+            $detailModel
+                ->where('transaksi_id', $id)
+                ->delete();
+
+            // --------------------------------------
+            // Simpan detail baru
+            // --------------------------------------
+
+            foreach ($detailItems as $item) {
+                $item['transaksi_id'] = (int) $id;
+                $detailModel->insert($item);
+            }
+
+            // --------------------------------------
+            // 11. SINKRONKAN total_dibayar & status_pembayaran
+            //
+            // Sumber kebenaran tunggal: SUM(pembayaran aktif) vs
+            // grand_total yang baru saja disimpan di atas.
+            // --------------------------------------
+
+            $sinkron = $transaksiModel->sinkronkanPembayaran($id);
+            $totalDibayar = (float) $sinkron['total_dibayar'];
+            $statusPembayaran = $sinkron['status_pembayaran'];
+
+            // --------------------------------------
+            // Selesaikan transaksi database
+            // --------------------------------------
+
+            $db->transComplete();
+
+            if (!$db->transStatus()) {
+                throw new \Exception(
+                    'Gagal menyelesaikan update transaksi.'
+                );
+            }
+
+            // --------------------------------------
+            // Response
+            // --------------------------------------
+
+            $sisaTagihan = max(0, $grandTotal - $totalDibayar);
+            $kelebihanBayar = max(0, $totalDibayar - $grandTotal);
+
+            return $this->response->setJSON([
+                'status'                         => 'success',
+                'message'                        => $kelebihanBayar > 0
+                    ? 'Transaksi berhasil diperbarui. Ada kelebihan bayar Rp'
+                    . number_format($kelebihanBayar, 0, ',', '.')
+                    . ' — refund fisik (jika perlu) dicatat manual lewat Kas Keluar.'
+                    : 'Transaksi berhasil diperbarui.',
+                'transaksi_id'                   => (int) $id,
+                'invoice'                        => $transaksi['kode_invoice'],
+                'grand_total'                    => $grandTotal,
+                'grand_total_sebelum_pembulatan' => $grandTotal + $selisihPembulatan,
+                'selisih_pembulatan'             => $selisihPembulatan,
+                'total_dibayar'                  => $totalDibayar,
+                'sisa_tagihan'                   => $sisaTagihan,
+                'kelebihan_bayar'                => $kelebihanBayar,
+                'status_pembayaran'              => $statusPembayaran,
+                'redirect'                       => base_url(
+                    '/transaksi/detail/' . $id
+                )
+            ]);
+        } catch (\Throwable $e) {
+            $db->transRollback();
+
+            log_message(
+                'error',
+                'Error updateTransaksi: ' . $e->getMessage()
+            );
+
+            log_message(
+                'error',
+                $e->getTraceAsString()
+            );
+
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Gagal memperbarui transaksi: ' .
+                        $e->getMessage()
+                ]);
+        }
+    }
+}
