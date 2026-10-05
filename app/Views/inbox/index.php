@@ -777,6 +777,9 @@
             <span id="gatewayStatusBadge" class="badge bg-secondary">
                 <i class="fas fa-circle-notch fa-spin"></i> Memeriksa...
             </span>
+            <span id="realtimeStatusBadge" class="badge bg-secondary" title="Koneksi realtime Inbox">
+                <i class="fas fa-circle-notch fa-spin"></i> Realtime: Memulai...
+            </span>
         </span>
     </div>
     <div class="card-body p-2">
@@ -3662,6 +3665,104 @@
                 // Diamkan, siklus polling berikutnya coba lagi.
             });
     }
+
+    // ================================================================
+    // SPIKE REALTIME - Milestone 1
+    // ================================================================
+    // Tahap ini HANYA membuktikan koneksi WebSocket browser -> Gateway.
+    // Polling pesan/daftar tetap aktif sampai event message.created selesai
+    // dan diuji pada milestone berikutnya.
+    let realtimeSocket = null;
+    let realtimeReconnectTimer = null;
+    let realtimeConnecting = false;
+
+    function setRealtimeStatus(state) {
+        const badge = document.getElementById('realtimeStatusBadge');
+        if (!badge) return;
+
+        const states = {
+            connecting: ['bg-warning', '<i class="fas fa-circle-notch fa-spin"></i> Realtime: Menghubungkan...'],
+            connected: ['bg-success', '<i class="fas fa-bolt"></i> Realtime: Terhubung'],
+            disconnected: ['bg-secondary', '<i class="fas fa-plug"></i> Realtime: Terputus'],
+            error: ['bg-danger', '<i class="fas fa-exclamation-circle"></i> Realtime: Error']
+        };
+
+        const item = states[state] || states.disconnected;
+        badge.className = 'badge ' + item[0];
+        badge.innerHTML = item[1];
+    }
+
+    function jadwalkanRealtimeReconnect() {
+        if (realtimeReconnectTimer || realtimeSocket) return;
+
+        realtimeReconnectTimer = setTimeout(function() {
+            realtimeReconnectTimer = null;
+            bukaRealtime();
+        }, 5000);
+    }
+
+    function bukaRealtime() {
+        if (realtimeConnecting || realtimeSocket) return;
+
+        realtimeConnecting = true;
+        setRealtimeStatus('connecting');
+
+        fetch('<?= base_url('/inbox/api/realtime-ticket') ?>', {
+            credentials: 'same-origin',
+            cache: 'no-store'
+        })
+            .then(function(res) {
+                if (!res.ok) throw new Error('ticket HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function(json) {
+                if (json.status !== 'success' || !json.ticket || !json.ws_url) {
+                    throw new Error(json.message || 'Ticket realtime tidak valid');
+                }
+
+                const wsUrl = json.ws_url + '?ticket=' + encodeURIComponent(json.ticket);
+                const socket = new WebSocket(wsUrl);
+                realtimeSocket = socket;
+
+                socket.addEventListener('open', function() {
+                    realtimeConnecting = false;
+                    setRealtimeStatus('connected');
+                    console.info('[Inbox realtime] WebSocket connected');
+                });
+
+                socket.addEventListener('message', function(event) {
+                    try {
+                        const payload = JSON.parse(event.data);
+                        if (payload.type === 'connection.ready') {
+                            console.info('[Inbox realtime] connection.ready', payload);
+                        }
+                    } catch (_) {
+                        console.warn('[Inbox realtime] payload bukan JSON');
+                    }
+                });
+
+                socket.addEventListener('error', function() {
+                    setRealtimeStatus('error');
+                    console.warn('[Inbox realtime] WebSocket error');
+                });
+
+                socket.addEventListener('close', function() {
+                    if (realtimeSocket === socket) realtimeSocket = null;
+                    realtimeConnecting = false;
+                    setRealtimeStatus('disconnected');
+                    console.warn('[Inbox realtime] WebSocket disconnected; retry 5 detik');
+                    jadwalkanRealtimeReconnect();
+                });
+            })
+            .catch(function(error) {
+                realtimeConnecting = false;
+                setRealtimeStatus('error');
+                console.warn('[Inbox realtime] gagal membuka koneksi:', error.message);
+                jadwalkanRealtimeReconnect();
+            });
+    }
+
+    bukaRealtime();
 
     // ================================================================
     // POLLING SEDERHANA (bukan WebSocket, sesuai spec)
