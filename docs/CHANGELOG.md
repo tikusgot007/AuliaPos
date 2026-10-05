@@ -1,3 +1,10 @@
+## 2026-10-05 — Koreksi metode pembayaran (BL07)
+
+- Semua user yang sudah login tetap dapat melakukan koreksi metode pembayaran; tidak ada role gate tambahan.
+- Pembayaran pengganti mempertahankan `tanggal` dan `kasir_id` pembayaran asal, sementara operator koreksi dicatat pada `keterangan`.
+- Tidak ada perubahan schema database.
+- Alasan: memperbaiki histori pembayaran tanpa mengubah struktur data yang sudah ada.
+
 # CHANGELOG
 
 ## 2026-10-05 — Inbox: notifikasi Windows sebagai jalur utama (toast jadi fallback)
