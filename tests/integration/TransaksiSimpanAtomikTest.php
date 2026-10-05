@@ -94,6 +94,76 @@ final class TransaksiSimpanAtomikTest extends CIUnitTestCase
         ]];
     }
 
+    public function testDailyInvoiceSequenceUsesTransactionDate(): void
+    {
+        $model = new \\App\\Models\\TransaksiModel();
+        $tanggal = '2026-10-05 14:30:00';
+
+        $firstId = $model->simpanTransaksi(
+            $this->headerData('ignored-1', 100000, ['tanggal' => $tanggal]),
+            $this->detailItems(),
+            null
+        );
+        $secondId = $model->simpanTransaksi(
+            $this->headerData('ignored-2', 100000, ['tanggal' => $tanggal]),
+            $this->detailItems(),
+            null
+        );
+
+        $this->assertSame(
+            'INV-20261005-001',
+            $this->conn()->table('transaksi')->where('id', $firstId)->get()->getRowArray()['kode_invoice']
+        );
+        $this->assertSame(
+            'INV-20261005-002',
+            $this->conn()->table('transaksi')->where('id', $secondId)->get()->getRowArray()['kode_invoice']
+        );
+    }
+
+    public function testDailyInvoiceSequenceContinuesAfterExistingRows(): void
+    {
+        $model = new \\App\\Models\\TransaksiModel();
+        $tanggal = '2026-10-06 09:00:00';
+
+        $this->conn()->table('transaksi')->insert($this->headerData(
+            'INV-20261006-007',
+            100000,
+            ['tanggal' => $tanggal]
+        ));
+
+        $id = $model->simpanTransaksi(
+            $this->headerData('ignored-8', 100000, ['tanggal' => $tanggal]),
+            $this->detailItems(),
+            null
+        );
+
+        $this->assertSame(
+            'INV-20261006-008',
+            $this->conn()->table('transaksi')->where('id', $id)->get()->getRowArray()['kode_invoice']
+        );
+    }
+
+    public function testDailyInvoiceSequenceRejectsMoreThan999(): void
+    {
+        $model = new \\App\\Models\\TransaksiModel();
+        $tanggal = '2026-10-07 09:00:00';
+
+        $this->conn()->table('transaksi')->insert($this->headerData(
+            'INV-20261007-999',
+            100000,
+            ['tanggal' => $tanggal]
+        ));
+
+        $this->expectException(\\RuntimeException::class);
+        $this->expectExceptionMessage('sudah mencapai batas 999');
+
+        $model->simpanTransaksi(
+            $this->headerData('ignored-overflow', 100000, ['tanggal' => $tanggal]),
+            $this->detailItems(),
+            null
+        );
+    }
+
     public function testCashCreateIsAtomicAndLunas(): void
     {
         $model = new \App\Models\TransaksiModel();
