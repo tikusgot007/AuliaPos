@@ -85,8 +85,6 @@
 
 - [ ] **TODO-S3** Route `/migrasi-manual` masih aktif di produksi AULIA-SERVER2 (dipakai deploy F8 2026-10-05); nonaktifkan/hapus 2 baris route setelah tidak diperlukan — `app/Config/Routes.php:100-101`; `app/Controllers/MigrasiManual.php` — sedang
 
-- [x] **TODO-Q1** `docs/ARCHITECTURE.md` basi (2026-09-29): masih menyebut "release branch tanpa docs/tests"; jumlah controller/model/layanan tak sinkron dengan kode kini — sedang
-
 - [ ] **TODO-Q2** Test gap: belum ada test jalur kirim Gateway (`kirim`, `kirimMedia`, `callGatewaySend*`), `handoffPercakapan()` (290 baris), lifecycle percakapan, `GatewayTokenFilter` — sedang
 
 - [ ] **TODO-Q3** Kontrak cross-repo Gateway baru terverifikasi satu sisi (repo gateway tidak ada di workspace) — sedang
