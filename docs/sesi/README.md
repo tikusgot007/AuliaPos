@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-05 | [Deploy produksi TODO-F8 (teks pesan diedit)](2026-10-05-deploy-produksi-f8.md) | selesai (aulia3 gateway + AULIA-SERVER2 POS; F7 & F8 terverifikasi; soak realtime berjalan) |
 | 2026-10-05 | [Penutupan gate TODO-F8 (teks pesan diedit)](2026-10-05-penutupan-gate-f8.md) | selesai (gate clear; PR #5 & #49 merged; WA-Gateway `evolution` = `e653de5`) |
 | 2026-10-04 | [Arsip piutang (TODO-BL06)](2026-10-04-arsip-piutang-todo-bl06.md) | selesai (kode + test; belum di-commit) |
 | 2026-10-04 | [Login user non-aktif ditolak (TODO-BL05)](2026-10-04-login-user-nonaktif-todo-bl05.md) | selesai (kode + test; commit `3f0294e`) |

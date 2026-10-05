@@ -13,6 +13,10 @@
 - Referensi: branch `todo-f8-message-text` (verification recorded 2026-10-05),
   `docs/requirements/2026-10-05-tampilkan-teks-edit-tervalidasi-inbox.md`,
   `docs/design/2026-10-05-tampilkan-teks-edit-tervalidasi-inbox.md`.
+- Deploy produksi 2026-10-05: AuliaPos `v2.4` (`a127d63`) di AULIA-SERVER2 + migrasi
+  `2026-10-05-000001` (kolom `edited_text_resolved_at` di `aulia_inboxdb`); gateway
+  `evolution` di aulia3 dengan `EVOLUTION_DECRYPT_MESSAGE_EDIT=1`. Uji nyata F7 & F8
+  lulus; lihat `docs/sesi/2026-10-05-deploy-produksi-f8.md`.
 
 Perubahan aturan bisnis Aulia Kasir. Bahasa Indonesia (AGENTS.md §15).
 
