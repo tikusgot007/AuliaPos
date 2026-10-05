@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-05 | [HTTPS self-signed AULIA-SERVER2 (secure context notifikasi Windows)](2026-10-05-https-self-signed-aulia-server2.md) | sebagian (cert + https + `80df50f` ter-deploy; trust PC kasir lain & uji E2E notifikasi belum) |
 | 2026-10-05 | [Notifikasi Windows Inbox (ganti utama dari toast)](2026-10-05-notifikasi-windows-inbox.md) | sebagian (kode + test 25/25; uji browser & infra HTTPS produksi belum; belum di-commit) |
 | 2026-10-05 | [Deploy produksi TODO-F8 (teks pesan diedit)](2026-10-05-deploy-produksi-f8.md) | selesai (aulia3 gateway + AULIA-SERVER2 POS; F7 & F8 terverifikasi; soak realtime berjalan) |
 | 2026-10-05 | [Penutupan gate TODO-F8 (teks pesan diedit)](2026-10-05-penutupan-gate-f8.md) | selesai (gate clear; PR #5 & #49 merged; WA-Gateway `evolution` = `e653de5`) |

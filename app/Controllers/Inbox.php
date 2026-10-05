@@ -13,6 +13,7 @@ use App\Libraries\InboxMediaStorage;
 use App\Libraries\InboxMediaBound;
 use App\Libraries\InboxMediaDownload;
 use App\Libraries\InboxOutgoingRequest;
+use App\Libraries\InboxRealtimeWs;
 use App\Services\InboxSlaService;
 use App\Services\InboxMatchSnippetService;
 use App\Services\InboxQuoteSnapshotService;
@@ -565,18 +566,21 @@ class Inbox extends BaseController
         ], JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
 
         $signature = hash_hmac('sha256', $payload, $config->gatewayToken);
-        $baseUrl = rtrim($config->gatewayBaseUrl, '/');
-        $scheme = parse_url($baseUrl, PHP_URL_SCHEME);
-        $wsScheme = $scheme === 'https' ? 'wss' : 'ws';
-        $wsHost = (string) parse_url($baseUrl, PHP_URL_HOST);
-        $wsPort = parse_url($baseUrl, PHP_URL_PORT);
-        $wsAuthority = $wsHost . ($wsPort ? ':' . $wsPort : '');
+        // Halaman HTTPS memakai jalur same-origin `/realtime-ws` (di-proxy
+        // Apache ke gateway) karena ws:// langsung diblokir browser sebagai
+        // mixed content; halaman HTTP tetap langsung ke gateway.
+        $request = service('request');
+        $wsUrl = InboxRealtimeWs::url(
+            $request->isSecure(),
+            $request->getHeaderLine('Host'),
+            $config->gatewayBaseUrl
+        );
 
         return $this->response->setJSON([
             'status'    => 'success',
             'ticket'    => $payload . '.' . $signature,
             'expires_in' => 60,
-            'ws_url'    => $wsScheme . '://' . $wsAuthority . '/realtime',
+            'ws_url'    => $wsUrl,
         ]);
     }
 
