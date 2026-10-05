@@ -216,12 +216,9 @@ The current test tree contains `feature/`, `integration/`, `unit/`, `js/`, and `
 | `app/Commands/` | Spark CLI commands | `SeedFase1ePerf`, `RepairTotalDibayar` | Guarded commands must refuse to run against a disallowed database. |
 | `tests/` | Automated test suite | feature, integration, unit, js, `_support` | POS database tests use the `tests` SQLite group; Inbox test isolation is controlled by `app/Config/Database.php`. Never add suppressions or skips to force green. |
 | `docs/` | Business + technical documentation | `CHANGELOG.md`, `TODO.md`, technical design records, requirements, and session/checkpoint records | Keep this architecture map aligned with the actual repository tree. |
-| `plan/` | Implementation plans | Refactor / feature plans (`plan-*.md`) | English. One plan per workstream. |
-| `spec/` | Technical specifications | `spec-*.md` + `spec-index.md` | Canonical contracts for implemented modules. |
-| `prd-*.md` (root) | Product Requirements Documents | Inbox, Grup/Balas/Teruskan PRDs | Behavior-level, not implementation-level. |
 | `public/` | Web root and static assets | `index.php`, assets, logos | Web server must point here; never expose the project root. |
 | `writable/` | Runtime data | cache, debugbar, logs, uploads, archive SQLite + backups | Runtime-only; not source of truth. |
-| `.kilo/` | Repository workflow configuration | SDLC and agent rules | Current `v2.4` root contains `.kilo/`; there is no `.claude/` tree. |
+| `.kilo/` | Repository workflow configuration | SDLC and agent rules | Current `v2.4` root contains `.kilo/`. |
 
 ## 7. Key Configuration Files
 
@@ -490,8 +487,8 @@ Reply-with-Quote introduces these seams:
   `2026-09-28-000001_AddIsForwardedToMessages`, additive-only, no index/FK), following the Inbox
   `tinyint(1)` precedent; older rows become "not forwarded" without backfill.
 - Idempotency reuses the existing `operation_id` / `gateway_operation_id` mechanism (REQ-010).
-- **ADR-0002:** the source-conversation ownership gap is an accepted, recorded risk; adding a source
-  ownership guard would contradict REQ-007 / AC-004 and must supersede the ADR first.
+- The source-conversation ownership gap for forwarding remains an accepted, documented implementation
+  constraint; changing it requires an approved specification or design decision first.
 
 ### 13.9 Grup (Group conversations)
 
