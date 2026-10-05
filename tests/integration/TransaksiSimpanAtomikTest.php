@@ -96,7 +96,7 @@ final class TransaksiSimpanAtomikTest extends CIUnitTestCase
 
     public function testDailyInvoiceSequenceUsesTransactionDate(): void
     {
-        $model = new \\App\\Models\\TransaksiModel();
+        $model = new \App\Models\TransaksiModel();
         $tanggal = '2026-10-05 14:30:00';
 
         $firstId = $model->simpanTransaksi(
@@ -122,7 +122,7 @@ final class TransaksiSimpanAtomikTest extends CIUnitTestCase
 
     public function testDailyInvoiceSequenceContinuesAfterExistingRows(): void
     {
-        $model = new \\App\\Models\\TransaksiModel();
+        $model = new \App\Models\TransaksiModel();
         $tanggal = '2026-10-06 09:00:00';
 
         $this->conn()->table('transaksi')->insert($this->headerData(
@@ -145,7 +145,7 @@ final class TransaksiSimpanAtomikTest extends CIUnitTestCase
 
     public function testDailyInvoiceSequenceRejectsMoreThan999(): void
     {
-        $model = new \\App\\Models\\TransaksiModel();
+        $model = new \App\Models\TransaksiModel();
         $tanggal = '2026-10-07 09:00:00';
 
         $this->conn()->table('transaksi')->insert($this->headerData(
@@ -154,7 +154,7 @@ final class TransaksiSimpanAtomikTest extends CIUnitTestCase
             ['tanggal' => $tanggal]
         ));
 
-        $this->expectException(\\RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('sudah mencapai batas 999');
 
         $model->simpanTransaksi(
