@@ -330,13 +330,6 @@ class TransaksiModel extends Model
 
         $berikutnya = $terakhir + 1;
 
-        if ($berikutnya > 999) {
-            throw new \RuntimeException(
-                'Nomor invoice untuk tanggal ' . date('Y-m-d', strtotime($tanggal)) . ' sudah mencapai batas 999.',
-                409
-            );
-        }
-
         return $prefix . str_pad((string) $berikutnya, 3, '0', STR_PAD_LEFT);
     }
 
