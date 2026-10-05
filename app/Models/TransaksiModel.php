@@ -754,11 +754,7 @@ class TransaksiModel extends Model
         $operatorNote = 'Koreksi oleh user #' . $operatorId;
         $keteranganBaru = trim($keterangan) !== '' ? trim($keterangan) :
             'Koreksi metode ' . strtoupper($pembayaran['metode']) . ' ke ' . strtoupper($metodeBaru);
-        $keteranganBaru .= ' | ' . $operatorNote;
-        $keteranganLama = trim((string) ($pembayaran['keterangan'] ?? ''));
-        if ($keteranganLama !== '') {
-            $keteranganBaru .= ' | Sebelumnya: ' . $keteranganLama;
-        }
+        $keteranganBaru = mb_substr($keteranganBaru . ' | ' . $operatorNote, 0, 100);
 
         $db->transBegin();
         try {
