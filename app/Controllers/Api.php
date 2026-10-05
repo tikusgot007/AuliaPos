@@ -554,124 +554,43 @@ class Api extends BaseController
     public function koreksiPembayaran()
     {
         $request = $this->request->getJSON(true) ?? [];
-
         $transaksiId = (int) ($request['transaksi_id'] ?? 0);
         $pembayaranId = (int) ($request['pembayaran_id'] ?? 0);
         $metodeBaru = strtolower(trim((string) ($request['metode_baru'] ?? '')));
         $keterangan = trim((string) ($request['keterangan'] ?? ''));
+        $operatorId = (int) session()->get('id_user');
 
         if ($transaksiId <= 0 || $pembayaranId <= 0 || !in_array($metodeBaru, \App\Models\PembayaranModel::METODE, true)) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Data koreksi pembayaran tidak valid.'
-            ]);
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Data koreksi pembayaran tidak valid.']);
         }
-
-        $db = \Config\Database::connect();
-        $transaksiModel = new \App\Models\TransaksiModel();
-        $pembayaranModel = new \App\Models\PembayaranModel();
-
-        $transaksi = $transaksiModel->find($transaksiId);
-
-        if (!$transaksi) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Transaksi tidak ditemukan.'
-            ]);
-        }
-
-        $pembayaran = $pembayaranModel
-            ->where('id', $pembayaranId)
-            ->where('transaksi_id', $transaksiId)
-            ->where('status', 'aktif')
-            ->first();
-
-        if (!$pembayaran) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Pembayaran aktif tidak ditemukan.'
-            ]);
-        }
-
-        if ($metodeBaru === $pembayaran['metode']) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Metode pembayaran baru sama dengan metode sebelumnya.'
-            ]);
-        }
-
-        $kasirId = session()->get('id_user') ?? 1;
-        $jumlah = (float) $pembayaran['jumlah'];
 
         $uangDiterima = null;
-        $kembalian = 0;
-
-        if ($metodeBaru === 'tunai') {
-            $uangDiterima = $request['uang_diterima'] ?? $jumlah;
-            $uangDiterima = (float) $uangDiterima;
-            $kembalian = max(0, $uangDiterima - $jumlah);
-
-            if ($uangDiterima < $jumlah) {
-                return $this->response->setJSON([
-                    'status' => 'error',
-                    'message' => 'Uang diterima tidak boleh kurang dari jumlah pembayaran.'
-                ]);
-            }
+        if ($metodeBaru === 'tunai' && array_key_exists('uang_diterima', $request)) {
+            $uangDiterima = (float) $request['uang_diterima'];
         }
 
-        $keteranganLama = trim((string) ($pembayaran['keterangan'] ?? ''));
-        $keteranganBaru = $keterangan !== ''
-            ? $keterangan
-            : 'Koreksi metode ' . strtoupper($pembayaran['metode']) . ' ke ' . strtoupper($metodeBaru);
-
-        $db->transBegin();
-
         try {
-            $updated = $pembayaranModel
-                ->where('id', $pembayaranId)
-                ->where('status', 'aktif')
-                ->set(['status' => 'reversed'])
-                ->update();
-
-            if (!$updated) {
-                throw new \Exception('Pembayaran lama gagal ditandai sebagai reversed.');
-            }
-
-            $dataPembayaranBaru = [
-                'tanggal' => date('Y-m-d H:i:s'),
-                'jumlah' => $jumlah,
-                'metode' => $metodeBaru,
-                'uang_diterima' => $uangDiterima,
-                'kembalian' => $kembalian,
-                'keterangan' => $keteranganBaru
-                    . ($keteranganLama !== '' ? ' | Sebelumnya: ' . $keteranganLama : ''),
-                'kasir_id' => $kasirId,
-            ];
-
-            $transaksiModel->tambahPembayaran($transaksiId, $dataPembayaranBaru);
-
-            if ($db->transStatus() === false) {
-                throw new \Exception('Transaksi database gagal.');
-            }
-
-            $db->transCommit();
+            $result = (new \App\Models\TransaksiModel())->koreksiMetodePembayaran(
+                $transaksiId,
+                $pembayaranId,
+                $metodeBaru,
+                $uangDiterima,
+                $keterangan,
+                $operatorId
+            );
 
             return $this->response->setJSON([
                 'status' => 'success',
                 'message' => 'Metode pembayaran berhasil dikoreksi.',
                 'transaksi_id' => $transaksiId,
-                'pembayaran_lama_id' => $pembayaranId,
-                'pembayaran_baru_id' => $pembayaranModel->getInsertID(),
-                'metode_lama' => $pembayaran['metode'],
-                'metode_baru' => $metodeBaru,
-                'jumlah' => $jumlah
+                'pembayaran_lama_id' => $result['old_payment_id'],
+                'pembayaran_baru_id' => $result['new_payment_id'],
+                'metode_lama' => $result['metode_lama'],
+                'metode_baru' => $result['metode_baru'],
+                'jumlah' => $result['jumlah'],
             ]);
         } catch (\Throwable $e) {
-            $db->transRollback();
-
             log_message('error', 'Error koreksiPembayaran: ' . $e->getMessage());
-            log_message('error', 'Trace: ' . $e->getTraceAsString());
-
             return $this->response->setJSON([
                 'status' => 'error',
                 'message' => 'Gagal mengoreksi pembayaran: ' . $e->getMessage()
