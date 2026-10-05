@@ -64,8 +64,10 @@ On AULIA-SERVER2 (via `\\aulia-server2\xampp`, after explicit approval):
 
 On each cashier PC (human step; script provided):
 
-- Import `server.crt` into `Cert:\LocalMachine\Root`:
-  `Import-Certificate -FilePath .\server.crt -CertStoreLocation Cert:\LocalMachine\Root`.
+- Run `\\aulia-server2\xampp\import-sertifikat-aulia.bat` (self-elevating) to import
+  `server.crt` into `LocalMachine\Root`. It uses the .NET `X509Store` API, **not** the
+  `Import-Certificate` cmdlet (the PKI module is missing on older Windows/PowerShell), and
+  skips if the certificate is already installed.
 
 Repository documentation (this repo):
 
