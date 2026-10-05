@@ -3676,6 +3676,50 @@
     let realtimeReconnectTimer = null;
     let realtimeConnecting = false;
 
+    // Milestone 4C: coalesce bursty realtime refreshes. Beberapa message.created
+    // yang datang berdekatan cukup memicu SATU refresh daftar (dan SATU refresh
+    // thread aktif). Bukan debounce panjang: event PERTAMA langsung menjadwalkan
+    // refresh (150 ms), jadi refresh mulai <= 250 ms sejak event pertama.
+    const REALTIME_COALESCE_MS = 150;
+    let realtimeRefreshTimer = null;
+    let realtimeRefreshList = false;
+    let realtimeRefreshThread = false;
+
+    function jalankanRealtimeRefresh() {
+        realtimeRefreshTimer = null;
+
+        const perluList = realtimeRefreshList;
+        const perluThread = realtimeRefreshThread;
+        realtimeRefreshList = false;
+        realtimeRefreshThread = false;
+
+        let listDitunda = false;
+        if (perluList && putaranDaftarBerjalan) {
+            // Putaran polling conversation sedang berjalan -- hormati guard
+            // existing, jangan menumpuk request. Tandai masih perlu lalu
+            // jadwalkan ulang supaya refresh tetap terjadi setelah selesai.
+            realtimeRefreshList = true;
+            listDitunda = true;
+        }
+
+        const lakukanList = perluList && !listDitunda;
+        const lakukanThread = perluThread;
+        if (lakukanList) muatUlangDaftarConversation();
+        // Thread aktif tidak punya guard putaranDaftarBerjalan; refresh langsung.
+        if (lakukanThread) muatUlangPesan(false);
+
+        if (lakukanList || lakukanThread) {
+            console.info('[Inbox realtime] coalesced refresh list=' + lakukanList + ' thread=' + lakukanThread);
+        }
+
+        if (realtimeRefreshList) jadwalkanRealtimeRefresh();
+    }
+
+    function jadwalkanRealtimeRefresh() {
+        if (realtimeRefreshTimer !== null) return;
+        realtimeRefreshTimer = setTimeout(jalankanRealtimeRefresh, REALTIME_COALESCE_MS);
+    }
+
     function setRealtimeStatus(state) {
         const badge = document.getElementById('realtimeStatusBadge');
         if (!badge) return;
@@ -3742,16 +3786,20 @@
                         if (payload.type === 'message.created') {
                             console.info('[Inbox realtime] message.created', payload);
 
-                            // WebSocket hanya membawa notifikasi kecil.
-                            // Data pesan tetap diambil dari CI4/DB sebagai source of truth.
-                            muatUlangDaftarConversation();
+                            // WebSocket hanya membawa notifikasi kecil. Data pesan
+                            // tetap diambil dari CI4/DB sebagai source of truth.
+                            // Beberapa event berdekatan (M4C) di-coalesce menjadi
+                            // satu refresh daftar + satu refresh thread aktif.
+                            realtimeRefreshList = true;
 
                             if (
                                 conversationAktif &&
                                 Number(payload.conversation_id) === Number(conversationAktif)
                             ) {
-                                muatUlangPesan(false);
+                                realtimeRefreshThread = true;
                             }
+
+                            jadwalkanRealtimeRefresh();
                         }
                     } catch (_) {
                         console.warn('[Inbox realtime] payload bukan JSON');
