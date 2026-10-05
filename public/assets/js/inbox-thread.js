@@ -554,17 +554,27 @@ function renderLabelDiteruskan(m) {
    tampil = versi TERBARU, sedangkan di sini yang tampil justru versi LAMA
    (isi edit tidak bisa dibaca gateway). Karena itu label WAJIB menegaskan
    "versi ini belum tentu terbaru". `display: block` (lihat CSS) supaya label
-   berdiri di barisnya sendiri di atas isi pesan, bukan mengalir sebaris. */
+   berdiri di barisnya sendiri di atas isi pesan, bukan mengalir sebaris.
+   Label TIDAK menyebut pelaku ("pelanggan") karena event edit/hapus ini juga
+   terjadi pada pesan KELUAR yang staf kirim & edit sendiri lewat WA Web/HP
+   (direction=outgoing) -- menyebut "pelanggan" pada kasus itu menyesatkan. */
 function renderLabelDiedit(m) {
     const edited = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1';
     if (!edited) return '';
-    return '<div class="inbox-edit-label"><i class="fas fa-pen"></i> Diedit pelanggan \u2014 versi ini belum tentu terbaru</div>';
+
+    const resolved = m.is_edited_text_resolved === true
+        || m.is_edited_text_resolved === 1
+        || m.is_edited_text_resolved === '1';
+
+    return resolved
+        ? '<div class="inbox-edit-label"><i class="fas fa-pen"></i> Pesan diedit \u2014 teks terbaru</div>'
+        : '<div class="inbox-edit-label"><i class="fas fa-pen"></i> Pesan diedit \u2014 versi ini belum tentu terbaru</div>';
 }
 
 function renderLabelDihapus(m) {
     const revoked = m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1';
     if (!revoked) return '';
-    return '<div class="inbox-delete-label"><i class="fas fa-ban"></i> Dihapus pelanggan \u2014 cek WhatsApp Web</div>';
+    return '<div class="inbox-delete-label"><i class="fas fa-ban"></i> Pesan dihapus \u2014 cek WhatsApp Web</div>';
 }
 
 // ================================================================
@@ -919,9 +929,13 @@ function renderIsiPesan(m) {
     }
 
     // TODO-F7: teks pesan yang SUDAH TIDAK UPDATE -- pesan ASLI yang kemudian
-    // diedit/dihapus pelanggan -- dibuat SAMAR, supaya kasir tidak mengira ini
-    // isi terbaru. Badge "Diedit/Dihapus pelanggan" di atasnya tetap jelas.
-    const teksBasi = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1'
+    // diedit/dihapus -- dibuat SAMAR, supaya kasir tidak mengira ini isi
+    // terbaru. Badge "Pesan diedit/dihapus" di atasnya tetap jelas.
+    const edited = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1';
+    const resolved = m.is_edited_text_resolved === true
+        || m.is_edited_text_resolved === 1
+        || m.is_edited_text_resolved === '1';
+    const teksBasi = (edited && !resolved)
         || m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1';
     const isiTeks = formatTeksWa(m.text);
 

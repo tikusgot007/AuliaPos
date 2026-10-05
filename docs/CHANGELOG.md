@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-10-05 — Inbox WhatsApp: tampilkan teks edit yang sudah tervalidasi
+
+- Aturan lama: semua pesan yang ditandai "diedit" ditampilkan samar dengan label
+  "Pesan diedit — versi ini belum tentu terbaru", termasuk ketika Gateway sudah
+  berhasil memproses dan menyimpan teks hasil edit yang benar.
+- Aturan baru: pesan diedit yang teksnya SUDAH berhasil divalidasi dan disimpan
+  POS ditampilkan normal dengan label "Pesan diedit — teks terbaru".
+  Pesan diedit tanpa hasil edit tervalidasi tetap samar dengan label lama.
+- Alasan: kasir perlu membedakan teks versi lama yang masih perlu dikonfirmasi
+  dari teks hasil edit yang sudah tersedia dan tervalidasi di Inbox.
+- Referensi: branch `todo-f8-message-text` (verification recorded 2026-10-05),
+  `docs/requirements/2026-10-05-tampilkan-teks-edit-tervalidasi-inbox.md`,
+  `docs/design/2026-10-05-tampilkan-teks-edit-tervalidasi-inbox.md`.
+
 Perubahan aturan bisnis Aulia Kasir. Bahasa Indonesia (AGENTS.md §15).
 
 Format entri:
@@ -30,6 +44,20 @@ Format entri:
   Deteksi hapus butuh langganan webhook `MESSAGES_DELETE` di Evolution.
 - Referensi: `docs/requirements/2026-10-04-tandai-pesan-diedit-inbox.md`,
   `docs/design/2026-10-04-tandai-pesan-diedit-inbox.md`, `docs/TODO.md` (TODO-F7).
+
+## 2026-10-04 — Inbox WhatsApp: label edit/hapus tidak lagi menyebut "pelanggan"
+
+- Aturan lama: badge selalu berbunyi "Diedit pelanggan — ..." / "Dihapus
+  pelanggan — ..." untuk SEMUA pesan yang ditandai, tanpa membedakan arah.
+- Aturan baru: badge jadi "Pesan diedit — versi ini belum tentu terbaru" /
+  "Pesan dihapus — cek WhatsApp Web", tanpa menyebut pelaku.
+- Alasan: event edit/hapus WhatsApp juga berlaku untuk pesan KELUAR
+  (`direction=outgoing`) yang staf kirim & edit/hapus sendiri lewat WA Web/HP
+  langsung (di luar POS) — ditemukan nyata saat uji end-to-end TODO-F8
+  (2026-10-04, pesan `Wkwkw` diedit staf sendiri tetap berlabel "pelanggan").
+  Label lama menyesatkan pada kasus ini.
+- Referensi: `public/assets/js/inbox-thread.js` (`renderLabelDiedit`,
+  `renderLabelDihapus`), `tests/js/inbox-thread.test.js`, `docs/TODO.md` (TODO-F7/F8).
 
 ## 2026-10-04 — Archive transaksi: piutang aktif tidak ikut diarsipkan
 

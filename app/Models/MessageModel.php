@@ -84,6 +84,7 @@ class MessageModel extends Model
         // pelanggan di WhatsApp. Nullable; diisi SEKALI via markLifecycle().
         // Lihat migration 2026-10-04-000001_AddEditedRevokedToMessages.
         'edited_at',
+        'edited_text_resolved_at',
         'revoked_at',
         'deleted_at',
     ];
@@ -160,6 +161,39 @@ class MessageModel extends Model
      * @param string $event 'edited' atau 'deleted' (sudah divalidasi controller)
      * @return bool true bila pesan asli ADA (baris ditemukan); false bila tidak.
      */
+    /**
+     * TODO-F8: simpan teks hasil dekripsi MESSAGE_EDIT pada baris pesan ASLI.
+     *
+     * edited_at tetap first-seen/idempoten, sedangkan text sengaja mengikuti
+     * hasil edit TERAKHIR yang sudah tervalidasi. Update tidak membuat baris
+     * baru dan tidak menyentuh revoked_at.
+     */
+    public function updateEditedText(string $waMessageId, string $text): bool
+    {
+        if ($waMessageId === '') {
+            return false;
+        }
+
+        $db = db_connect('inbox');
+        $table = $db->table('messages');
+        $exists = $table
+            ->where('wa_message_id', $waMessageId)
+            ->countAllResults() > 0;
+
+        if (! $exists) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $table
+            ->where('wa_message_id', $waMessageId)
+            ->set('text', $text)
+            ->set('edited_at', 'COALESCE(edited_at, ' . $db->escape($now) . ')', false)
+            ->set('edited_text_resolved_at', $now)
+            ->update();
+
+        return true;
+    }
     public function markLifecycle(string $waMessageId, string $event): bool
     {
         if ($waMessageId === '') {

@@ -14,7 +14,10 @@ use Tests\Support\GatewayApiTestTrait;
  *   - IDEMPOTEN: pemanggilan ulang tidak mengubah nilai (retry Gateway);
  *   - target tak ditemukan -> 200 `matched:false` (aman, bukan error);
  *   - pesan media tanpa caption tetap bisa ditandai (tidak bergantung `text`);
- *   - validasi batas kepercayaan: `event`/`wa_message_id` invalid -> 400.
+ *   - validasi batas kepercayaan: `event`/`wa_message_id` invalid -> 400;
+ *   - TODO-F8: `edited_text` yang valid mengganti teks pesan asli dan tetap
+ *     mempertahankan `edited_at` pertama; tipe kosong/salah/terlalu panjang
+ *     ditolak; deleted tidak menerima edited_text; target tak ada aman 200.
  *
  * Berjalan di `aulia_inboxdb_test` (tests/_support/bootstrap-feature.php,
  * app/Config/Database.php redirect grup `inbox` saat ENVIRONMENT==='testing').
@@ -55,6 +58,17 @@ final class InboxGatewayMessageEventTest extends CIUnitTestCase
             ->getRowArray();
 
         return $row === null ? null : ($row[$column] ?? null);
+    }
+
+    private function messageText(string $waMessageId): ?string
+    {
+        $row = $this->inbox->table('messages')
+            ->select('text')
+            ->where('wa_message_id', $waMessageId)
+            ->get()
+            ->getRowArray();
+
+        return $row === null ? null : ($row['text'] ?? null);
     }
 
     private function seedMessage(int $conversationId, string $waMessageId, string $messageType = 'text', ?string $text = 'halo'): void
@@ -115,6 +129,110 @@ final class InboxGatewayMessageEventTest extends CIUnitTestCase
         $response = $this->postMessageEvent(['wa_message_id' => 'WAMSG-LC-TIDAK-ADA', 'event' => 'deleted']);
         $response->assertStatus(200); // AC-6: bukan error, hanya matched:false
         $this->assertFalse($this->gatewayBodyJson($response)['matched'], 'Target tak ada -> matched:false, tanpa error.');
+    }
+
+    public function testEditedTextReplacesTextAndPreservesFirstEditMarker(): void
+    {
+        $chatId = '6281300000013@s.whatsapp.net';
+        $conversationId = $this->seedConversation($chatId);
+        $this->seedMessage($conversationId, 'WAMSG-F8-TEXT-0001', 'text', 'versi lama');
+
+        $first = $this->postMessageEvent([
+            'wa_message_id' => 'WAMSG-F8-TEXT-0001',
+            'event'         => 'edited',
+            'edited_text'   => 'versi hasil edit pertama',
+        ]);
+        $first->assertStatus(200);
+        $this->assertTrue($this->gatewayBodyJson($first)['matched']);
+        $stamp = $this->marker('WAMSG-F8-TEXT-0001', 'edited_at');
+        $this->assertNotNull($stamp);
+        $resolvedFirst = $this->marker('WAMSG-F8-TEXT-0001', 'edited_text_resolved_at');
+        $this->assertNotNull($resolvedFirst, 'Teks edit valid harus menandai resolved timestamp.');
+        $this->assertSame('versi hasil edit pertama', $this->messageText('WAMSG-F8-TEXT-0001'));
+
+        $second = $this->postMessageEvent([
+            'wa_message_id' => 'WAMSG-F8-TEXT-0001',
+            'event'         => 'edited',
+            'edited_text'   => 'versi hasil edit terbaru',
+        ]);
+        $second->assertStatus(200);
+        $this->assertTrue($this->gatewayBodyJson($second)['matched']);
+        $this->assertSame('versi hasil edit terbaru', $this->messageText('WAMSG-F8-TEXT-0001'));
+        $this->assertSame($stamp, $this->marker('WAMSG-F8-TEXT-0001', 'edited_at'));
+        $this->assertNotNull($this->marker('WAMSG-F8-TEXT-0001', 'edited_text_resolved_at'));
+    }
+
+    public function testEditedEventWithoutEditedTextLeavesResolvedMarkerNull(): void
+    {
+        $chatId = '6281300000016@s.whatsapp.net';
+        $conversationId = $this->seedConversation($chatId);
+        $this->seedMessage($conversationId, 'WAMSG-F8-FALLBACK-0001', 'text', 'versi lama');
+
+        $response = $this->postMessageEvent([
+            'wa_message_id' => 'WAMSG-F8-FALLBACK-0001',
+            'event'         => 'edited',
+        ]);
+        $response->assertStatus(200);
+        $this->assertTrue($this->gatewayBodyJson($response)['matched']);
+        $this->assertNotNull($this->marker('WAMSG-F8-FALLBACK-0001', 'edited_at'));
+        $this->assertNull(
+            $this->marker('WAMSG-F8-FALLBACK-0001', 'edited_text_resolved_at'),
+            'Fallback F7 edit must remain unresolved.'
+        );
+        $this->assertSame('versi lama', $this->messageText('WAMSG-F8-FALLBACK-0001'));
+    }
+
+    public function testEditedTextIsRejectedForDeletedEvent(): void
+    {
+        $chatId = '6281300000014@s.whatsapp.net';
+        $conversationId = $this->seedConversation($chatId);
+        $this->seedMessage($conversationId, 'WAMSG-F8-DEL-0001');
+
+        $response = $this->postMessageEvent([
+            'wa_message_id' => 'WAMSG-F8-DEL-0001',
+            'event'         => 'deleted',
+            'edited_text'   => 'jangan diterima',
+        ]);
+        $response->assertStatus(400);
+        $this->assertSame('halo', $this->messageText('WAMSG-F8-DEL-0001'));
+        $this->assertNull($this->marker('WAMSG-F8-DEL-0001', 'revoked_at'));
+    }
+
+    public function testEditedTextRequiresNonEmptyStringWithinLimit(): void
+    {
+        $chatId = '6281300000015@s.whatsapp.net';
+        $conversationId = $this->seedConversation($chatId);
+        $this->seedMessage($conversationId, 'WAMSG-F8-VALIDATE-0001');
+
+        $cases = [
+            'empty'   => '',
+            'array'   => ['not', 'text'],
+            'boolean' => true,
+            'too_long'=> str_repeat('x', 65536),
+        ];
+
+        foreach ($cases as $label => $editedText) {
+            $response = $this->postMessageEvent([
+                'wa_message_id' => 'WAMSG-F8-VALIDATE-0001',
+                'event'         => 'edited',
+                'edited_text'   => $editedText,
+            ]);
+            $response->assertStatus(400, "Kasus {$label} harus ditolak.");
+        }
+
+        $this->assertSame('halo', $this->messageText('WAMSG-F8-VALIDATE-0001'));
+        $this->assertNull($this->marker('WAMSG-F8-VALIDATE-0001', 'edited_at'));
+    }
+
+    public function testEditedTextOnUnknownTargetIsSafe(): void
+    {
+        $response = $this->postMessageEvent([
+            'wa_message_id' => 'WAMSG-F8-UNKNOWN-0001',
+            'event'         => 'edited',
+            'edited_text'   => 'teks baru',
+        ]);
+        $response->assertStatus(200);
+        $this->assertFalse($this->gatewayBodyJson($response)['matched']);
     }
 
     public function testMediaMessageWithoutCaptionCanBeMarked(): void
