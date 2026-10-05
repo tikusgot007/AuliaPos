@@ -1,7 +1,7 @@
 # Requirements: Tampilkan teks hasil edit WhatsApp yang sudah tervalidasi (TODO-F8 Phase 2)
 
 - **Tanggal**: 2026-10-05
-- **Status**: disetujui
+- **Status**: selesai
 - **Tier SDLC**: A (mengubah skema database + kontrak internal API list pesan + UI)
 - **Penanggung jawab**: user (pemilik toko)
 
@@ -137,3 +137,13 @@ akibatnya teks yang sudah final/benar tetap ditampilkan samar dengan label
 ## 8. Persetujuan (Gate 1)
 
 - [x] Disetujui oleh: user (explicit approval in chat), tanggal: 2026-10-05
+
+## 9. Verifikasi dan Gate 2
+
+- [x] Gate 2: rencana dan penanganan dampak disetujui oleh user pada 2026-10-05.
+- [x] Automated PHP test: lulus.
+- [x] Automated JS test: lulus.
+- [x] Migration pada DB target: lulus.
+- [x] Manual UI test: lulus untuk resolved dan fallback.
+- [x] Deployment: dilakukan oleh tim.
+- [ ] Production smoke test oleh tim deployment: belum dicatat di dokumen ini.
