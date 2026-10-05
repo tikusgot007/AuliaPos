@@ -49,11 +49,9 @@
 
 - [x] **TODO-BL31** Low — hapus route Kasir legacy yang menunjuk method non-existent dan pulihkan route GET/POST `/cash/opname`; handler opname menerima JSON maupun form POST.
 - [ ] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442` — **DEC-4: Opsi A** → sekuens per hari via lock/transaksi
-- [ ] **TODO-BL34** Low — `laporan-pembayaran` masih `auth` (bukan admin) — `Routes.php:253-257`; `Laporan.php:1975` (sisa BL-34/BL-41; `auth/simpan-user` & `auth/update-user` selesai 2026-10-03)
 - [ ] **TODO-BL37** Low — jendela shift inklusif dua ujung; P/S dan S/PM tumpang-tindih — `EvaluasiJendelaKerjaShift.php:16`; `JadwalModel.php:50-61`
 - [ ] **TODO-BL39** Low — "Tunai" diturunkan `total - non-tunai`; bisa salah saat detail/subtotal kosong — `Views/laporan/index.php:448,885`; `Laporan.php:371-384,494-516`
 - [ ] **TODO-BL40** Low — `Tagihan::detail` tanpa guard status; tombol Lunasi tampil tanpa cek; `saya=1` + filter kasir → list kosong — `Tagihan.php:84-90,166-168`; `Views/transaksi/detail.php:357-363`
-- [ ] **TODO-BL41** Low — `/laporan-pembayaran` hanya `auth` (bukan admin), controller tanpa cek admin — `Routes.php:253-257`; `AuthFilter.php:70-77`; `Laporan.php:1975`
 - [ ] **TODO-BL42** Low — `is_locked` milik `produk`, bukan `users`; proteksi user hanya dari controller — schema `2026-09-08-000001:44-59,111`; `Auth.php:333,415-421`
 
 ### Keputusan produk (diputuskan 2026-10-03)
