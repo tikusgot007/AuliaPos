@@ -703,6 +703,201 @@ class TransaksiModel extends Model
     }
 
     /**
+     * Atomically correct the payment method while preserving the original
+     * payment facts and recording the correction operator separately.
+     *
+     * @return array{old_payment_id:int,new_payment_id:int}
+     */
+    public function koreksiMetodePembayaran(int $transaksiId, int $pembayaranId, string $metodeBaru, ?float $uangDiterima, string $keterangan, int $operatorId): array
+    {
+        $db = \Config\Database::connect();
+        $pembayaranModel = model(PembayaranModel::class);
+
+        $db->transStart();
+
+        try {
+            $transaksi = $this->find($transaksiId);
+            if (!$transaksi) {
+                throw new \Exception('Transaksi tidak ditemukan.');
+            }
+            if (strtolower((string) ($transaksi['status'] ?? '')) === 'batal') {
+                throw new \Exception('Pembayaran tidak dapat dikoreksi pada transaksi yang sudah dibatalkan.');
+            }
+
+            $pembayaran = $pembayaranModel
+                ->where('id', $pembayaranId)
+                ->where('transaksi_id', $transaksiId)
+                ->where('status', 'aktif')
+                ->first();
+
+            if (!$pembayaran) {
+                throw new \Exception('Pembayaran aktif tidak ditemukan.');
+            }
+
+            $metodeBaru = strtolower(trim($metodeBaru));
+            if (!in_array($metodeBaru, PembayaranModel::METODE, true)) {
+                throw new \Exception('Metode pembayaran tidak valid.');
+            }
+            if ($metodeBaru === strtolower((string) $pembayaran['metode'])) {
+                throw new \Exception('Metode pembayaran baru sama dengan metode sebelumnya.');
+            }
+
+            $jumlah = (float) $pembayaran['jumlah'];
+            $uang = $metodeBaru === 'tunai'
+                ? ($uangDiterima === null ? $jumlah : $uangDiterima)
+                : null;
+            if ($metodeBaru === 'tunai' && $uang + 0.0001 < $jumlah) {
+                throw new \Exception('Uang diterima tidak boleh kurang dari jumlah pembayaran.');
+            }
+
+            $pembayaranModel->where('id', $pembayaranId)
+                ->where('status', 'aktif')
+                ->set(['status' => 'reversed'])
+                ->update();
+
+            $newData = [
+                'transaksi_id' => $transaksiId,
+                'tanggal' => $pembayaran['tanggal'],
+                'jumlah' => $jumlah,
+                'uang_diterima' => $uang,
+                'kembalian' => $metodeBaru === 'tunai' ? max(0, $uang - $jumlah) : 0,
+                'metode' => $metodeBaru,
+                'keterangan' => ($keterangan !== '' ? $keterangan : 'Koreksi metode ' . strtoupper($pembayaran['metode']) . ' ke ' . strtoupper($metodeBaru))
+                    . (($pembayaran['keterangan'] ?? '') !== '' ? ' | Sebelumnya: ' . $pembayaran['keterangan'] : ''),
+                'kasir_id' => (int) $pembayaran['kasir_id'],
+                'status' => 'aktif',
+            ];
+            $newId = $pembayaranModel->insert($newData);
+            if (!$newId) {
+                throw new \Exception('Gagal menyimpan pembayaran pengganti.');
+            }
+
+            $auditId = $db->table('payment_correction_audit')->insertGetId([
+                'transaksi_id' => $transaksiId,
+                'pembayaran_lama_id' => $pembayaranId,
+                'pembayaran_baru_id' => (int) $newId,
+                'metode_lama' => (string) $pembayaran['metode'],
+                'metode_baru' => $metodeBaru,
+                'operator_id' => $operatorId,
+                'alasan' => $keterangan !== '' ? $keterangan : null,
+            ]);
+            if (!$auditId) {
+                throw new \Exception('Gagal menyimpan histori koreksi pembayaran.');
+            }
+
+            $this->sinkronkanPembayaran($transaksiId);
+            $db->transComplete();
+            if (!$db->transStatus()) {
+                throw new \Exception('Gagal menyelesaikan koreksi pembayaran.');
+            }
+
+            return ['old_payment_id' => $pembayaranId, 'new_payment_id' => (int) $newId];
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Atomically replace a final transaction. Original details and payments
+     * remain intact as history; original payments are reversed and copied to
+     * the replacement so the correction does not create or destroy money.
+     * Any lower replacement total is handled by the existing refund process.
+     *
+     * @param array<string,mixed> $replacementHeader
+     * @param array<int,array<string,mixed>> $detailItems
+     */
+    public function koreksiTransaksiSelesai(int $originalId, array $replacementHeader, array $detailItems, int $operatorId, string $reason): int
+    {
+        $db = \Config\Database::connect();
+        $detailModel = model(DetailTransaksiModel::class);
+        $pembayaranModel = model(PembayaranModel::class);
+
+        $db->transStart();
+        try {
+            $original = $this->find($originalId);
+            if (!$original) {
+                throw new \Exception('Transaksi asli tidak ditemukan.');
+            }
+            if (strtolower((string) ($original['status'] ?? '')) !== 'selesai') {
+                throw new \Exception('Hanya transaksi SELESAI yang dapat dikoreksi.');
+            }
+            if ($reason === '') {
+                throw new \Exception('Alasan koreksi wajib diisi.');
+            }
+
+            $originalPayments = $pembayaranModel
+                ->where('transaksi_id', $originalId)
+                ->where('status', 'aktif')
+                ->orderBy('id', 'ASC')
+                ->findAll();
+
+            $replacementHeader['status'] = 'proses';
+            $replacementHeader['total_dibayar'] = 0;
+            $replacementHeader['status_pembayaran'] = 'belum_bayar';
+            $replacementHeader['kode_invoice'] = $this->generateKodeInvoiceRetry();
+            $replacementId = $this->insert($replacementHeader, true);
+            if (!$replacementId) {
+                throw new \Exception('Gagal membuat transaksi pengganti.');
+            }
+
+            foreach ($detailItems as $item) {
+                $item['transaksi_id'] = $replacementId;
+                if (!$detailModel->insert($item)) {
+                    throw new \Exception('Gagal menyimpan detail transaksi pengganti.');
+                }
+            }
+
+            foreach ($originalPayments as $payment) {
+                $pembayaranModel->where('id', $payment['id'])
+                    ->where('status', 'aktif')
+                    ->set(['status' => 'reversed'])
+                    ->update();
+
+                $copy = $payment;
+                unset($copy['id'], $copy['created_at']);
+                $copy['transaksi_id'] = $replacementId;
+                $copy['status'] = 'aktif';
+                if (!$pembayaranModel->insert($copy)) {
+                    throw new \Exception('Gagal memindahkan histori pembayaran ke transaksi pengganti.');
+                }
+            }
+
+            $originalTotal = (float) ($original['grand_total'] ?? 0);
+            $replacementTotal = (float) ($replacementHeader['grand_total'] ?? 0);
+            $delta = $replacementTotal - $originalTotal;
+
+            if (!$this->update($originalId, ['status' => 'batal', 'no_order' => null])) {
+                throw new \Exception('Gagal membatalkan transaksi asli.');
+            }
+
+            $this->sinkronkanPembayaran($originalId);
+            $this->sinkronkanPembayaran($replacementId);
+
+            $auditId = $db->table('transaction_correction')->insertGetId([
+                'original_transaction_id' => $originalId,
+                'replacement_transaction_id' => $replacementId,
+                'operator_id' => $operatorId,
+                'reason' => $reason,
+                'financial_delta' => $delta,
+            ]);
+            if (!$auditId) {
+                throw new \Exception('Gagal menyimpan histori koreksi transaksi.');
+            }
+
+            $db->transComplete();
+            if (!$db->transStatus()) {
+                throw new \Exception('Gagal menyelesaikan koreksi transaksi.');
+            }
+
+            return (int) $replacementId;
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            throw $e;
+        }
+    }
+
+    /**
      * TAMBAH PEMBAYARAN — VERSI BARU (TANPA LEDGER & SESSION)
      * 
      * Cukup simpan pembayaran dan update status transaksi.
