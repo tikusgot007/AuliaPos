@@ -308,6 +308,11 @@ $routes->post(
     'Api::koreksiPembayaran',
     ['filter' => 'auth']
 );
+$routes->post(
+    '/api/koreksi-transaksi-selesai',
+    'Api::koreksiTransaksiSelesai',
+    ['filter' => 'auth']
+);
 $routes->get('/produk/maintenance', 'Produk::maintenance', ['filter' => 'auth']);
 $routes->get('/produk/export-audit', 'Produk::exportAudit', ['filter' => 'auth']);
 $routes->post('/produk/preview-import', 'Produk::previewImport', ['filter' => 'auth']);
