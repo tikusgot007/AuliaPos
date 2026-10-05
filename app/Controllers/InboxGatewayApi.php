@@ -296,7 +296,7 @@ class InboxGatewayApi extends BaseController
         // ulang, jangan membuat message kedua, kembalikan response yang
         // menandakan message sudah diterima / duplicate-safe."
         if ($messageModel->existsByWaMessageId($waMessageId)) {
-            return $this->duplicateResponse();
+            return $this->duplicateResponse($waMessageId);
         }
 
         $db = Database::connect('inbox');
@@ -545,12 +545,16 @@ class InboxGatewayApi extends BaseController
      * treats it as a successful, duplicate-safe delivery. Single source of
      * truth so the pre-check path and the insert-race path cannot drift.
      */
-    private function duplicateResponse()
+    private function duplicateResponse(string $waMessageId)
     {
+        $messageModel = new MessageModel();
+        $existing = $messageModel->findByWaMessageId($waMessageId);
+
         return $this->response->setStatusCode(200)->setJSON([
-            'status'    => 'success',
-            'duplicate' => true,
-            'message'   => 'Message sudah pernah diterima sebelumnya (idempotent).',
+            'status'          => 'success',
+            'duplicate'       => true,
+            'conversation_id' => $existing['conversation_id'] ?? null,
+            'message'         => 'Message sudah pernah diterima sebelumnya (idempotent).',
         ]);
     }
 
