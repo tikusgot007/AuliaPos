@@ -1,3 +1,442 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Models\ConversationModel;
+use App\Models\MessageModel;
+use App\Models\GatewayStatusModel;
+use App\Libraries\PhoneNumber;
+use App\Libraries\InboxMediaStorage;
+use App\Libraries\InboxMediaBound;
+use App\Services\SenderIdentityFormatter;
+use App\Services\InboxQuoteSnapshotService;
+use Config\Database;
+use Config\Inbox as InboxConfig;
+
+/**
+ * Endpoint machine-to-machine untuk Gateway WhatsApp (Node.js/Baileys)
+ * -- BUKAN untuk dipanggil dari browser kasir. Diproteksi Bearer
+ * token lewat filter 'gatewaytoken' (lihat Routes.php & 
+ * app/Filters/GatewayTokenFilter.php), dan sengaja dikecualikan dari
+ * filter session 'auth' (lihat app/Config/Filters.php) karena
+ * Gateway tidak pernah punya session/cookie.
+ *
+ * Phase 2 dari module Shared WhatsApp Inbox -- lihat
+ * docs/aturan-bisnis-AULIA.md Section 28/29 untuk konteks lengkap.
+ *
+ * SEMUA method di sini pakai koneksi database 'inbox'
+ * (aulia_inboxdb), TIDAK PERNAH koneksi default AuliaPos.
+ */
+class InboxGatewayApi extends BaseController
+{
+    /**
+     * POST /api/inbox/gateway/messages
+     *
+     * Menerima 1 pesan (text/image/document/audio/video) dari Gateway.
+     * Idempotent berdasarkan
+     * wa_message_id -- request yang sama dikirim ulang (mis. karena
+     * Gateway retry setelah timeout) TIDAK akan membuat baris message
+     * kedua.
+     *
+     * Field 'direction' (opsional, default 'incoming' untuk kompatibel
+     * dengan kontrak Phase 2 awal):
+     * - 'incoming' -- pesan asli dari customer (fromMe=false di
+     *   Baileys). Selalu membuka kembali conversation (status=open).
+     * - 'outgoing' -- balasan staff yang dikirim LANGSUNG dari WA
+     *   Web/HP (fromMe=true di Baileys), BUKAN lewat POS. Gateway
+     *   tidak tahu staff mana yang membalas, jadi disimpan dengan
+     *   sent_by_user_id=NULL. TIDAK memaksa conversation jadi 'open'
+     *   (beda dari 'incoming') -- cukup update last_message_at/
+     *   last_message_direction, supaya Inbox POS tetap merefleksikan
+     *   kenyataan tanpa mengubah keputusan status secara tidak sengaja.
+     *
+     * Field OPSIONAL `is_forwarded` (bool, TODO-F5): dikirim Gateway HANYA
+     * bila pesan MASUK dari pelanggan benar-benar hasil "Teruskan"
+     * (payload `contextInfo.isForwarded`/`forwardingScore`). Absen = bukan
+     * forward (kontrak lama tidak berubah). Disimpan apa adanya ke kolom
+     * `messages.is_forwarded` yang sudah ada -- label UI "Diteruskan"
+     * dibangun dari kolom itu. Nilai diperlakukan sebagai input tak
+     * tepercaya: dipaksa boolean di sini (lihat catatan SEC di method ini).
+     */
+    public function messages()
+    {
+        $payload = $this->request->getJSON(true) ?? [];
+
+        // --- Validasi minimal ---------------------------------------------
+        $required = ['wa_message_id', 'chat_id', 'jid_type', 'message_type', 'message_timestamp'];
+        foreach ($required as $field) {
+            if (empty($payload[$field]) && $payload[$field] !== '0') {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field '{$field}' wajib diisi.",
+                ]);
+            }
+        }
+
+        $waMessageId = (string) $payload['wa_message_id'];
+        $chatId      = (string) $payload['chat_id'];
+        $jidType     = (string) $payload['jid_type'];
+        $messageType = (string) $payload['message_type'];
+        $text        = isset($payload['text']) ? (string) $payload['text'] : null;
+
+        $direction = ($payload['direction'] ?? 'incoming') === 'outgoing' ? 'outgoing' : 'incoming';
+
+        // Grup Tahap 2 / TASK-006 (REQ-010, AC-009): pesan grup MASUK WAJIB
+        // membawa `sender_jid` (identitas pengirim dari key.participant yang
+        // diekstrak Gateway). Ditolak SEBELUM idempotency check dan SEBELUM
+        // transaksi -- tidak ada baris `messages`, tidak ada perubahan
+        // `conversations` (termasuk `group_name`), jadi tidak ada jejak
+        // tersimpan sama sekali.
+        //
+        // Lingkup INCOMING saja (keputusan pemilik 2026-09-26): pesan grup
+        // outgoing sinkron WA Web/HP dengan `sender_jid` NULL TETAP diproses
+        // (dibutuhkan AC-011), dan `jid_type` selain 'group' tidak berubah.
+        // Validasi sengaja longgar: cukup string non-kosong, TANPA validasi
+        // format JID.
+        if ($jidType === 'group' && $direction === 'incoming'
+            && (empty($payload['sender_jid']) || trim((string) $payload['sender_jid']) === '')) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'sender_jid' wajib diisi untuk pesan grup masuk (jid_type='group', direction='incoming').",
+            ]);
+        }
+
+        if ($messageType === 'text' && ($text === null || $text === '')) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'text' wajib diisi untuk message_type='text'.",
+            ]);
+        }
+
+        // --- Validasi & ekstrak referensi media (image/document/sticker) -----
+        // Untuk image/document, 'text' adalah CAPTION (opsional, boleh
+        // kosong) -- BEDA dari message_type='text' di atas yang wajib.
+        // Sticker TIDAK PERNAH punya caption di WhatsApp (sama seperti
+        // audio) -- 'text' diabaikan kalau dikirim untuk message_type
+        // ini, tidak divalidasi wajib maupun disimpan.
+        // File-nya sendiri TIDAK dikirim ke sini -- cuma referensi
+        // (directPath + mediaKey) untuk didekripsi ulang ON-DEMAND
+        // nanti saat kasir benar-benar membuka pesannya (lihat
+        // Inbox::media()). Sesuai keputusan desain: simpan referensi
+        // saja, bukan file permanen. Sticker memakai pola referensi
+        // yang SAMA PERSIS dengan image/document (bukan pola
+        // metadata-saja seperti audio/video) -- kalau referensinya
+        // tidak lengkap, pesan DIBUANG, tidak diteruskan.
+        $mediaColumns = [
+            'media_path'      => null, // SENGAJA selalu NULL -- tidak pernah menyimpan file lokal.
+            'media_mime_type' => null,
+            'media_filename'  => null,
+            'media_size'      => null,
+            'media_sha256'    => null,
+            'media_metadata'  => null,
+        ];
+
+        // Referensi mentah (direct_path/media_key) untuk prefetch Tahap C
+        // di bawah -- HANYA terisi untuk image/document/sticker, sama
+        // seperti media_metadata.
+        $mediaRefUntukPrefetch = null;
+
+        if (in_array($messageType, ['image', 'document', 'sticker'], true)) {
+            $media = $payload['media'] ?? null;
+
+            if (!is_array($media) || empty($media['direct_path'] ?? $media['directPath'] ?? null)
+                || empty($media['media_key_base64'] ?? $media['mediaKeyBase64'] ?? null)) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field 'media' (direct_path + media_key_base64) wajib diisi untuk message_type='{$messageType}'.",
+                ]);
+            }
+
+            // Terima snake_case ATAUPUN camelCase untuk toleransi kecil
+            // terhadap variasi penamaan dari sisi Gateway.
+            $directPath     = $media['direct_path'] ?? $media['directPath'];
+            $mediaKeyBase64 = $media['media_key_base64'] ?? $media['mediaKeyBase64'];
+            $mimetype       = $media['mimetype'] ?? null;
+            $fileLength     = $media['file_length'] ?? $media['fileLength'] ?? null;
+            $fileSha256B64  = $media['file_sha256_base64'] ?? $media['fileSha256Base64'] ?? null;
+            $fileName       = $media['file_name'] ?? $media['fileName'] ?? null;
+
+            $mediaColumns['media_mime_type'] = $mimetype;
+            $mediaColumns['media_filename']  = $fileName;
+            $mediaColumns['media_size']      = $fileLength !== null ? (int) $fileLength : null;
+            // Kolom media_sha256 CHAR(64) -- sha256 dalam hex, bukan
+            // base64 (base64 dari Gateway perlu di-decode dulu).
+            $mediaColumns['media_sha256'] = $fileSha256B64 ? bin2hex(base64_decode($fileSha256B64)) : null;
+            // media_metadata: SATU-SATUNYA tempat referensi yang benar-benar
+            // dibutuhkan untuk fetch ulang nanti (direct_path + media_key).
+            $mediaColumns['media_metadata'] = json_encode([
+                'media_type'       => $messageType,
+                'direct_path'      => $directPath,
+                'media_key_base64' => $mediaKeyBase64,
+            ]);
+
+            $mediaRefUntukPrefetch = [
+                'media_type'       => $messageType,
+                'direct_path'      => $directPath,
+                'media_key_base64' => $mediaKeyBase64,
+                'mimetype'         => $mimetype,
+            ];
+        } elseif (in_array($messageType, ['audio', 'video'], true)) {
+            // BEDA PRINSIP dari image/document: audio/video TIDAK PERNAH
+            // dibuka ulang lewat Inbox (lihat keputusan desain Task Group
+            // 1 -- UI cuma menampilkan placeholder "cek WhatsApp Web"),
+            // jadi TIDAK ADA referensi (direct_path/media_key) yang perlu
+            // disimpan sama sekali -- media_metadata TETAP NULL. 'media'
+            // di sini SEPENUHNYA opsional, cuma metadata ringan
+            // (mimetype/ukuran) kalau Gateway kebetulan mengirimkannya --
+            // request TETAP diterima walau 'media' kosong/tidak ada.
+            $media = $payload['media'] ?? null;
+
+            if (is_array($media)) {
+                $mimetype   = $media['mimetype'] ?? null;
+                $fileLength = $media['file_length'] ?? $media['fileLength'] ?? null;
+
+                $mediaColumns['media_mime_type'] = $mimetype !== null ? (string) $mimetype : null;
+                $mediaColumns['media_size']      = $fileLength !== null ? (int) $fileLength : null;
+            }
+        }
+
+        // --- Tahap 4: lokasi & kontak (data terstruktur, TANPA file) --------
+        // Disimpan di kolom JSON `extra_json`; UI merendernya (peta/kontak).
+        // Validasi ini adalah trust boundary: bentuk dari Gateway tidak dipercaya.
+        $extraColumns = [];
+
+        if (in_array($messageType, ['location', 'contact'], true)) {
+            $extra = $payload['extra'] ?? null;
+
+            if (!is_array($extra) || ($extra['kind'] ?? null) !== $messageType) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field 'extra' (kind='{$messageType}') wajib diisi untuk message_type='{$messageType}'.",
+                ]);
+            }
+
+            if ($messageType === 'location') {
+                $lat = $extra['latitude'] ?? null;
+                $lng = $extra['longitude'] ?? null;
+
+                if (!is_numeric($lat) || !is_numeric($lng)
+                    || (float) $lat < -90.0 || (float) $lat > 90.0
+                    || (float) $lng < -180.0 || (float) $lng > 180.0) {
+                    return $this->response->setStatusCode(400)->setJSON([
+                        'status'  => 'error',
+                        'message' => "Koordinat lokasi tidak valid.",
+                    ]);
+                }
+
+                $extraColumns['extra_json'] = json_encode([
+                    'kind'      => 'location',
+                    'latitude'  => (float) $lat,
+                    'longitude' => (float) $lng,
+                    // Gateway tak tepercaya: batasi panjang seperti `group_name`
+                    // (SEC-01) supaya satu request tidak menulis JSON tak terbatas.
+                    'name'      => isset($extra['name']) && is_scalar($extra['name'])
+                        ? mb_substr((string) $extra['name'], 0, 255) : null,
+                    'address'   => isset($extra['address']) && is_scalar($extra['address'])
+                        ? mb_substr((string) $extra['address'], 0, 255) : null,
+                    'live'      => (bool) ($extra['live'] ?? false),
+                ]);
+            } else {
+                $contacts = $extra['contacts'] ?? null;
+
+                if (!is_array($contacts) || $contacts === []) {
+                    return $this->response->setStatusCode(400)->setJSON([
+                        'status'  => 'error',
+                        'message' => "Field 'extra.contacts' wajib diisi untuk message_type='contact'.",
+                    ]);
+                }
+
+                $clean = [];
+                foreach ($contacts as $contact) {
+                    // Batas jumlah kontak + panjang field: `extra` datang dari
+                    // Gateway (tak tepercaya), sama seperti batas SEC-01.
+                    if (count($clean) >= 50) {
+                        break;
+                    }
+                    if (!is_array($contact)) {
+                        continue;
+                    }
+                    $name  = isset($contact['display_name']) && is_scalar($contact['display_name'])
+                        ? trim(mb_substr((string) $contact['display_name'], 0, 255)) : '';
+                    $vcard = isset($contact['vcard']) && is_scalar($contact['vcard'])
+                        ? mb_substr((string) $contact['vcard'], 0, 20000) : '';
+                    if ($name === '' && $vcard === '') {
+                        continue;
+                    }
+                    $clean[] = [
+                        'display_name' => $name !== '' ? $name : null,
+                        'vcard'        => $vcard !== '' ? $vcard : null,
+                    ];
+                }
+
+                if ($clean === []) {
+                    return $this->response->setStatusCode(400)->setJSON([
+                        'status'  => 'error',
+                        'message' => "Field 'extra.contacts' tidak berisi kontak valid.",
+                    ]);
+                }
+
+                $extraColumns['extra_json'] = json_encode(['kind' => 'contact', 'contacts' => $clean]);
+            }
+        }
+
+        $messageTimestamp = $this->parseTimestamp($payload['message_timestamp']);
+        if ($messageTimestamp === null) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'message_timestamp' tidak valid.",
+            ]);
+        }
+
+        $messageModel      = new MessageModel();
+        $conversationModel = new ConversationModel();
+
+        // --- Idempotency: cek duplikat SEBELUM transaksi -------------------
+        // Sesuai spec: "Jika pesan dengan wa_message_id yang sama dikirim
+        // ulang, jangan membuat message kedua, kembalikan response yang
+        // menandakan message sudah diterima / duplicate-safe."
+        if ($messageModel->existsByWaMessageId($waMessageId)) {
+            return $this->duplicateResponse($waMessageId);
+        }
+
+        $db = Database::connect('inbox');
+        $db->transStart();
+
+        // --- Cari/buat conversation (Task Group 1.5: reconciliation) --------
+        // canonicalPhone HANYA diisi kalau jid_type='pn' (nomor ter-verifikasi
+        // WhatsApp asli, di-derive Gateway dari @s.whatsapp.net) -- TIDAK
+        // PERNAH untuk @lid/@g.us, sesuai aturan "jangan menebak nomor dari
+        // @lid". Ini SATU-SATUNYA sinyal yang dipercaya untuk mencegah
+        // duplicate conversation saat JID berubah (lihat
+        // ConversationModel::resolveConversationId()).
+        $canonicalPhone = null;
+        if ($jidType === 'pn' && !empty($payload['phone'])) {
+            $canonicalPhone = PhoneNumber::normalize((string) $payload['phone']);
+        }
+        $whatsappNameFromPayload = !empty($payload['contact_name']) ? (string) $payload['contact_name'] : null;
+
+        // Revisi LID-FIRST -> PN-LATER (Task Group 1.5): $identity_hint.lid
+        // HANYA dipercaya kalau pesan ini sendiri jid_type='pn' -- defense in
+        // depth (Gateway seharusnya sudah tidak pernah mengisi ini untuk
+        // pesan @lid, tapi CI4 tidak boleh bergantung buta ke situ). Lihat
+        // ConversationModel::resolveConversationId() untuk cara pemakaiannya.
+        $knownLid = null;
+        if ($jidType === 'pn' && !empty($payload['identity_hint']['lid'])) {
+            $knownLid = (string) $payload['identity_hint']['lid'];
+        }
+
+        // whatsapp_name HANYA boleh diisi dari push name CUSTOMER saat pesan
+        // incoming. Untuk outgoing (disinkronkan dari WA Web/HP) contact_name
+        // adalah push name STAFF, jadi JANGAN dioper ke resolveConversationId()
+        // -- kalau dioper, conversation BARU yang dibuat Langkah 4 langsung
+        // ter-nama staff (bug 2026-10-02, lihat
+        // tests/feature/InboxGatewayApiWhatsappNameTest.php).
+        $whatsappNameForResolve = $direction === 'incoming' ? $whatsappNameFromPayload : null;
+        $resolved = $conversationModel->resolveConversationId($chatId, $jidType, $canonicalPhone, $whatsappNameForResolve, $knownLid);
+        $conversationId = $resolved['conversation_id'];
+        $conversation   = $conversationModel->find($conversationId);
+
+        if ($resolved['reconciled']) {
+            $viaApa = $knownLid !== null ? "LID hint ({$knownLid})" : "nomor ({$canonicalPhone})";
+            log_message('info', "InboxGatewayApi::messages() reconciliation: chat_id={$chatId} (jid_type={$jidType}) ditempelkan ke conversation_id={$conversationId} yang sudah ada lewat {$viaApa}.");
+        }
+
+        // whatsapp_name dimutakhirkan HANYA untuk pesan MASUK (direction=
+        // 'incoming'): push name customer boleh berubah kapan saja dan
+        // TIDAK dilindungi untuk pesan incoming. Untuk pesan outgoing yang
+        // disinkronkan dari WA Web/HP (fromMe=true), `contact_name` di
+        // payload adalah push name STAFF yang membalas, BUKAN customer --
+        // menulisnya ke whatsapp_name akan mengubah nama conversation
+        // menjadi nama staff (bug 2026-10-02, lihat
+        // tests/feature/InboxGatewayApiWhatsappNameTest.php). BEDA dari
+        // contact_name (nama manual customer profile) yang TIDAK PERNAH
+        // disentuh di sini sama sekali, hanya lewat
+        // Inbox::updateCustomerProfile(). phone (ter-verifikasi) juga
+        // selalu dimutakhirkan untuk jid_type='pn' -- idempotent/aman
+        // karena satu chat_id @pn seharusnya konsisten dengan nomor yang sama.
+        if (!$resolved['created']) {
+            $update = [];
+            if ($direction === 'incoming'
+                && $whatsappNameFromPayload !== null
+                && $whatsappNameFromPayload !== $conversation['whatsapp_name']) {
+                $update['whatsapp_name'] = $whatsappNameFromPayload;
+            }
+            if ($canonicalPhone !== null && $canonicalPhone !== $conversation['phone']) {
+                $update['phone'] = $canonicalPhone;
+            }
+            if ($update) {
+                $conversationModel->update($conversationId, $update);
+            }
+        }
+
+        // Grup Tahap 2 / TASK-002 (REQ-005/REQ-006, GUD-002): simpan nama grup
+        // (subject WhatsApp) sebagai judul percakapan yang STABIL -- WRITE-ONCE,
+        // hanya ditulis kalau kolomnya masih NULL (`=== null`, BUKAN `empty()`).
+        // Ditaruh DI LUAR `if (!$resolved['created'])` di atas supaya berlaku
+        // juga untuk conversation yang BARU dibuat dalam request yang sama --
+        // `$conversation` sudah di-fetch ulang di atas (baris ~219), jadi
+        // `group_name` baris yang baru dibuat terbaca NULL dan terisi pada
+        // request itu juga (tidak ditunda ke pesan berikutnya).
+        //
+        // CON-001: hanya untuk `jid_type='group'`. Payload non-grup tidak
+        // pernah menyentuh kolom ini, dan nilai berikutnya (termasuk nama yang
+        // berubah di WhatsApp) TIDAK menimpa setelah terisi (REQ-006).
+        // SEC-01: `group_name` adalah input tak tepercaya dari Gateway; batasi
+        // panjangnya di boundary (VARCHAR(255)) supaya subject > 255 karakter
+        // tidak menggagalkan transaksi (MySQL strict) / terpotong senyap.
+        $groupNameFromPayload = !empty($payload['group_name'])
+            ? mb_substr((string) $payload['group_name'], 0, 255)
+            : null;
+        if ($jidType === 'group' && $groupNameFromPayload !== null && $conversation['group_name'] === null) {
+            $conversationModel->update($conversationId, ['group_name' => $groupNameFromPayload]);
+        }
+
+        // --- Kutipan MASUK (Balas Pesan Tahap 3, TASK-010, REQ-010/011) -----
+        // Kondisional (REQ-012): lookup HANYA dijalankan saat `quoted` benar-
+        // benar ada di payload -- jalur normal tanpa kutipan tidak menambah
+        // query sama sekali, konsisten GUD-001.
+        $quoteColumns = $this->resolveKutipanMasuk($payload['quoted'] ?? null);
+
+        // --- Forward MASUK (TODO-F5) -----------------------------------------
+        // Field opsional di kontrak: Gateway hanya mengirim `is_forwarded`
+        // bila pesan MASUK dari pelanggan benar-benar hasil "Teruskan"
+        // (payload `contextInfo.isForwarded`/`forwardingScore`). Pesan biasa
+        // TIDAK mengirim field ini sama sekali, jadi absen = bukan forward.
+        // SEC (trust boundary): nilai dari Gateway tidak dipercaya -> paksa
+        // boolean; hanya true/1/'1' yang dianggap forward, nilai lain
+        // (termasuk array/objek) didegradasi ke false.
+        $isForwarded = filter_var($payload['is_forwarded'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        // --- Insert message --------------------------------------------------
+        // TODO-I1: two concurrent deliveries of the SAME wa_message_id can both
+        // pass the pre-check above; the loser then fails on the unique index.
+        // Capture the insert result instead of letting that surface as a 500:
+        // if another request already stored this message, reply with the same
+        // duplicate-safe 200 the pre-check path uses.
+        try {
+            $inserted = $messageModel->insert(array_merge([
+                'conversation_id'   => $conversationId,
+                'wa_message_id'     => $waMessageId,
+                'direction'         => $direction,
+                'message_type'      => $messageType,
+                'sender_jid'        => $payload['sender_jid'] ?? null,
+                'text'              => $text,
+                'message_timestamp' => $messageTimestamp,
+                // Balasan sinkron dari WA Web/HP TIDAK bisa diketahui staff
+                // mana yang mengirim -- Baileys/Gateway tidak punya info itu.
+                'sent_by_user_id'   => null,
+                'send_status'       => $direction === 'outgoing' ? 'sent' : 'received',
+                // Teruskan (Tahap 4, REQ-008): penanda tunggal, `0` eksplisit
+                // pada jalur biasa. Sumber: Gateway untuk pesan MASUK (TODO-F5)
+                // DAN pesan KELUAR tersinkron dari WA Web/HP (TODO-F6); forward
+                // lewat tombol Teruskan POS punya jalur CI4-nya sendiri
+                // (kirimKeConversation() di Inbox.php), terpisah dari endpoint ini.
+                'is_forwarded'      => $isForwarded ? 1 : 0,
+            ], $mediaColumns, $extraColumns, $quoteColumns));
+        } catch (\Throwable $e) {
+            log_message('error', 'InboxGatewayApi::messages() insert gagal untuk wa_message_id=' . $waMessageId . ': ' . $e->getMessage());
+            $inserted = false;
+        }
 
         if ($inserted === false) {
             // A concurrent delivery may have won the race and stored this
@@ -19,3 +458,408 @@
                 'status'  => 'error',
                 'message' => 'Gagal menyimpan pesan (transaksi database gagal).',
             ]);
+        }
+
+        // --- Update conversation ---------------------------------------------
+        // `last_message_at`/`last_message_direction` TIDAK ditulis buta di
+        // sini: Gateway bisa mengirim backlog TERLAMBAT (flush setelah
+        // reconnect), jadi timestamp lama bisa menimpa ringkasan yang lebih
+        // baru. updateLastMessageIfNewer() hanya memajukannya.
+        $conversationUpdate = [];
+
+        // Sesuai spec: "incoming message selalu membuat conversation
+        // open" -- HANYA berlaku untuk incoming. Balasan outgoing yang
+        // disinkronkan dari WA Web/HP TIDAK memaksa status berubah,
+        // supaya tidak membuka kembali conversation yang sengaja
+        // ditutup hanya karena staff membalas dari luar POS.
+        if ($direction === 'incoming') {
+            $conversationUpdate['status'] = 'open';
+            $conversationUpdate['snoozed_until'] = null; // BARU -- reset paksa
+        }
+
+        $conversationModel->updateLastMessageIfNewer($conversationId, $messageTimestamp, $direction, $conversationUpdate);
+
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            log_message('error', 'InboxGatewayApi::messages() gagal commit transaksi untuk wa_message_id=' . $waMessageId);
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan pesan (transaksi database gagal).',
+            ]);
+        }
+
+        log_message('info', "InboxGatewayApi::messages() sukses menyimpan pesan ({$direction}). chat_id={$chatId}, wa_message_id={$waMessageId}");
+
+        // --- Tahap C: prefetch + simpan permanen ke storage lokal -----------
+        // Best-effort, DILUAR transaksi DB di atas (sudah commit) -- gagal
+        // di sini TIDAK PERNAH menggagalkan penerimaan pesan itu sendiri,
+        // cuma media_local_filename tetap NULL dan fallback live-fetch
+        // (Inbox::media()) tetap jalan seperti sebelum Tahap C.
+        if ($mediaRefUntukPrefetch !== null) {
+            $config = new InboxConfig();
+
+            if ($config->mediaStoragePath !== '') {
+                $newMessageId = $messageModel->getInsertID();
+                $storage = new InboxMediaStorage($config->mediaStoragePath);
+                $ext = self::extensiFromMime($mediaRefUntukPrefetch['mimetype']);
+
+                // 8 detik, BUKAN 30 seperti live-fetch on-demand -- ini
+                // jalan DI DALAM respons webhook Gateway, harus cepat
+                // gagal kalau memang lambat, bukan menahan Gateway lama.
+                // REQ-801: prefetch memakai batas INGEST tersendiri
+                // (`maxMediaPrefetchMb`, jalur tak terpercaya), BUKAN default
+                // batas unduh/tampilan 100MB -- mencegah peak buffer+disk
+                // ~6,7x lipat per pesan masuk.
+                $result = (new Inbox())->callGatewayMediaDownload(
+                    $config,
+                    $mediaRefUntukPrefetch,
+                    $mediaRefUntukPrefetch['mimetype'],
+                    8,
+                    maxBytes: InboxMediaBound::mbKeByte($config->maxMediaPrefetchMb)
+                );
+
+                $filename = null;
+                if ($result['ok'] && $storage->save($newMessageId . '.' . $ext, $result['binary'])) {
+                    $filename = $newMessageId . '.' . $ext;
+                }
+
+                $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+                $messageModel->update($newMessageId, [
+                    'media_local_filename'        => $filename, // tetap NULL kalau gagal -- fallback tetap jalan
+                    'media_download_attempted_at' => $now,
+                ]);
+            }
+        }
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'          => 'success',
+            'duplicate'       => false,
+            'conversation_id' => $conversationId,
+        ]);
+    }
+
+    /**
+     * Contract response for a message that is already stored: the Gateway
+     * treats it as a successful, duplicate-safe delivery. Single source of
+     * truth so the pre-check path and the insert-race path cannot drift.
+     */
+    private function duplicateResponse(string $waMessageId)
+    {
+        $messageModel = new MessageModel();
+        $existing = $messageModel->findByWaMessageId($waMessageId);
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'          => 'success',
+            'duplicate'       => true,
+            'conversation_id' => $existing['conversation_id'] ?? null,
+            'message'         => 'Message sudah pernah diterima sebelumnya (idempotent).',
+        ]);
+    }
+
+    /**
+     * POST /api/inbox/gateway/status
+     *
+     * Heartbeat dari Gateway (dikirim tiap ~15 detik sesuai spec).
+     * Selalu upsert baris tunggal id=1 di gateway_status.
+     */
+    public function status()
+    {
+        $payload = $this->request->getJSON(true) ?? [];
+
+        $status = isset($payload['status']) ? (string) $payload['status'] : '';
+        $validStatuses = ['connected', 'connecting', 'disconnected', 'logged_out'];
+
+        if (!in_array($status, $validStatuses, true)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'status' wajib salah satu dari: " . implode(', ', $validStatuses),
+            ]);
+        }
+
+        // Eksplisit Asia/Jakarta -- lihat catatan bug jam di
+        // parseTimestamp() di atas.
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        // Pencegahan insiden 2026-09-29 (WA-Gateway
+        // src/whatsapp/connectionManager.js _recordDecryptFailure()):
+        // field TAMBAHAN opsional, TIDAK mengubah kontrak lama. Gateway
+        // versi lama yang belum mengirim field ini -> fallback 'ok'
+        // (kolom DB NOT NULL DEFAULT 'ok', lihat migration
+        // AddSessionHealthToGatewayStatus). Divalidasi longgar (bukan 400
+        // keras) supaya heartbeat tetap tersimpan walau field ini rusak --
+        // sinyal degraded yang hilang lebih baik daripada heartbeat yang
+        // gagal total karena field tambahan ini.
+        $sessionHealth = isset($payload['session_health']) && $payload['session_health'] === 'degraded'
+            ? 'degraded'
+            : 'ok';
+
+        $data = [
+            'status'            => $status,
+            'session_health'    => $sessionHealth,
+            'phone'             => $payload['phone'] ?? null,
+            'gateway_version'   => $payload['gateway_version'] ?? null,
+            'last_heartbeat_at' => $now,
+        ];
+
+        if ($status === 'connected') {
+            $data['last_connected_at'] = $now;
+        }
+
+        $model = new GatewayStatusModel();
+        $ok    = $model->upsertStatus($data);
+
+        if (!$ok) {
+            log_message('error', 'InboxGatewayApi::status() gagal upsert gateway_status. Payload: ' . json_encode($payload));
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan status gateway.',
+            ]);
+        }
+
+        return $this->response->setStatusCode(200)->setJSON(['status' => 'success']);
+    }
+
+    /**
+     * Parse timestamp dari Gateway (SELALU UTC, format ISO 8601
+     * dengan akhiran 'Z', mis. "2026-09-07T10:07:10.000Z" -- lihat
+     * connectionManager.js Gateway, pakai .toISOString() yang
+     * standarnya UTC) menjadi format DATETIME MySQL DALAM WAKTU
+     * LOKAL (Asia/Jakarta).
+     *
+     * BUG YANG PERNAH TERJADI: versi awal fungsi ini cuma
+     * memformat() DateTime apa adanya tanpa konversi timezone --
+     * hasilnya nilai UTC tersimpan seolah-olah itu waktu lokal,
+     * membuat semua jam pesan tampil mundur 7 jam dari jam Jakarta
+     * asli. Fungsi ini SELALU eksplisit convert ke Asia/Jakarta,
+     * TIDAK bergantung ke setting timezone default PHP di server
+     * (yang mungkin belum tentu WIB).
+     *
+     * Mengembalikan null kalau tidak bisa di-parse sama sekali.
+     */
+    private function parseTimestamp($value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            $dt = new \DateTime((string) $value);
+            $dt->setTimezone(new \DateTimeZone('Asia/Jakarta'));
+            return $dt->format('Y-m-d H:i:s');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Map mimetype -> ekstensi file, untuk penamaan file di
+     * InboxMediaStorage (Tahap C). Default 'bin' kalau tidak dikenali
+     * -- SENGAJA tetap disimpan (bukan ditolak) supaya tidak
+     * menggagalkan prefetch cuma karena mimetype asing.
+     */
+    private static function extensiFromMime(?string $mimetype): string
+    {
+        return match ($mimetype) {
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'application/pdf' => 'pdf',
+            default => 'bin',
+        };
+    }
+
+    /**
+     * Balas Pesan (Tahap 3, TASK-010) -- resolusi kutipan MASUK dari
+     * pelanggan (REQ-010/REQ-011/ASSUMPTION-007).
+     *
+     * AuliaPos TIDAK mempercayai `quoted.snippet` yang dikirim Gateway begitu
+     * saja (konsisten "Gateway bukan sumber kebenaran riwayat pesan",
+     * docs/CHAT.md §2/§18): pertama coba resolve `quoted.wa_message_id` ke
+     * tabel `messages` MILIK SENDIRI (query yang sama dengan pengecekan
+     * idempotensi `existsByWaMessageId()`), lalu:
+     *
+     * - **Ditemukan** -> kolom kutipan diisi dari DATA LOKAL (bukan payload
+     *   Gateway), memakai `InboxQuoteSnapshotService` yang sama dengan jalur
+     *   kirim kasir (TASK-002). `quoted_sender_label` WAJIB non-null (F-B):
+     *   `SenderIdentityFormatter::labelFor()` yang mengembalikan null (baris
+     *   legacy ber-JID grup) diganti `LABEL_FALLBACK`.
+     * - **Tidak ditemukan** -> `quoted_wa_message_id` tetap diisi (untuk
+     *   tampilan Section 4.4), `quoted_snippet` dari `quoted.snippet` payload
+     *   apa adanya (fallback best-effort, TIDAK diverifikasi) atau label
+     *   generik "Pesan tidak ditemukan" bila kosong, `quoted_media_available`
+     *   NULL dan `quoted_source_message_id` NULL (REQ-008b: tidak ada ID lokal
+     *   -> UI melewati live-fetch, AC-005 cabang c).
+     *   `quoted_sender_label` **TIDAK ditulis** (tetap NULL) -- inilah
+     *   penanda TUNGGAL status "tidak ditemukan" (F-B); tidak ada pemblokiran
+     *   penyimpanan pesan masuk itu sendiri.
+     *
+     * Lookup WAJIB soft-delete-inclusive (`MessageModel::findByWaMessageId()`
+     * memakai query builder tanpa filter `deleted_at`) -- pesan yang sudah
+     * di-soft-delete tetap harus ditemukan (spec REQ-011/Section 12).
+     *
+     * REQ-012: kondisional -- HANYA dipanggil pemanggil saat `quoted` ada di
+     * payload, supaya jalur normal tanpa kutipan tidak menambah query.
+     *
+     * @param array<string, mixed>|null $quoted objek `quoted` dari payload
+     *        Gateway (Section 4.4): `wa_message_id` (wajib jika objek ada),
+     *        `sender_jid` (opsional, tidak dipakai di sini), `snippet`
+     *        (opsional, fallback).
+     *
+     * @return array{quoted_wa_message_id: ?string, quoted_sender_label: ?string, quoted_snippet: ?string, quoted_media_available: ?int, quoted_source_message_id: ?int, quoted_media_type: ?string}
+     */
+    private function resolveKutipanMasuk(?array $quoted): array
+    {
+        $kosong = [
+            'quoted_wa_message_id'     => null,
+            'quoted_sender_label'      => null,
+            'quoted_snippet'           => null,
+            'quoted_media_available'   => null,
+            'quoted_source_message_id' => null,
+            'quoted_media_type'        => null,
+        ];
+
+        if ($quoted === null) {
+            return $kosong;
+        }
+
+        $waMessageId = trim((string) ($quoted['wa_message_id'] ?? ''));
+        if ($waMessageId === '') {
+            // Objek `quoted` ada tapi tanpa ID -- tidak ada yang bisa
+            // di-resolve maupun ditampilkan (spec REQ-010: wajib jika objek
+            // `quoted` ada; kalau kosong berarti payload malformed, degradasi
+            // sama seperti tidak ada kutipan sama sekali).
+            return $kosong;
+        }
+
+        $sumber = (new MessageModel())->findByWaMessageId($waMessageId);
+
+        if ($sumber === null) {
+            // SEC-002 (trust boundary): `quoted.snippet` datang dari Gateway --
+            // perlakukan sebagai DATA LUAR dan batasi panjangnya di sini,
+            // JANGAN mengandalkan truncation di sisi Gateway. Reuse
+            // `potongSnippet()` supaya bentuk cuplikan fallback identik dengan
+            // jalur sumber-ditemukan (batas `MAKS_KARAKTER`); nilai `null`
+            // berarti payload kosong -> label generik.
+            //
+            // SEC-003 (review ronde-2): jaga TIPE dulu -- `quoted.snippet`
+            // yang bukan string (array/objek) tidak boleh diteruskan ke
+            // `potongSnippet(?string)` karena TypeError -> `500`. Payload
+            // aneh didegradasi ke cuplikan generik, bukan menggagalkan
+            // penyimpanan pesan masuk.
+            $rawSnippet     = $quoted['snippet'] ?? null;
+            $snippetPayload = is_string($rawSnippet)
+                ? (new InboxQuoteSnapshotService())->potongSnippet($rawSnippet)
+                : null;
+
+            return [
+                'quoted_wa_message_id'     => $waMessageId,
+                'quoted_sender_label'      => null, // F-B: penanda tunggal "tidak ditemukan"
+                'quoted_snippet'           => $snippetPayload ?? 'Pesan tidak ditemukan',
+                'quoted_media_available'   => null,
+                // REQ-008b: kasus "tidak ditemukan" tetap NULL (tidak ada ID
+                // lokal) -- UI melewati live-fetch (AC-005 cabang c).
+                'quoted_source_message_id' => null,
+                // REQ-008c: tipe media juga NULL (tidak ada baris sumber) --
+                // UI melewati live-fetch (AC-005 cabang e).
+                'quoted_media_type'        => null,
+            ];
+        }
+
+        $label = (new SenderIdentityFormatter())->labelFor($sumber['sender_jid'] ?? null)
+            ?? SenderIdentityFormatter::LABEL_FALLBACK;
+
+        return (new InboxQuoteSnapshotService())->rakitSnapshot($sumber, $label);
+    }
+
+    /**
+     * POST /api/inbox/gateway/message-event
+     *
+     * TODO-F7: terima penanda lifecycle dari Gateway -- pesan ASLI yang
+     * DIEDIT atau DIHAPUS pelanggan di WhatsApp. Bukan pesan baru: tidak ada
+     * baris `messages` dibuat dan tidak ada perubahan `conversations`.
+     *
+     * Body: { "wa_message_id": "<id pesan asli>", "event": "edited"|"deleted" }
+     * Optional untuk event edited: "edited_text" berisi teks hasil dekripsi
+     * yang sudah divalidasi Gateway. Event deleted tidak menerima field ini.
+     *
+     * Selalu balas 200 `{status:'success', matched:bool}`:
+     * - `matched=true`  -> pesan asli ditemukan & ditandai (idempoten).
+     * - `matched=false` -> pesan asli tidak ada (mis. balapan waktu) -> aman
+     *   dilewati, TIDAK memicu retry tak berujung di Gateway.
+     *
+     * Validasi batas kepercayaan (SEC): `wa_message_id` non-kosong <=255,
+     * `event` in_list[edited,deleted]; selain itu 400 (ditolak permanen oleh
+     * Gateway, tanpa retry).
+     */
+    public function messageEvent()
+    {
+        $payload = $this->request->getJSON(true) ?? [];
+
+        $waMessageId = isset($payload['wa_message_id']) ? trim((string) $payload['wa_message_id']) : '';
+        if ($waMessageId === '') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'wa_message_id' wajib diisi.",
+            ]);
+        }
+        if (strlen($waMessageId) > 255) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'wa_message_id' terlalu panjang (maks 255).",
+            ]);
+        }
+
+        $event = isset($payload['event']) ? (string) $payload['event'] : '';
+        if (! in_array($event, ['edited', 'deleted'], true)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'event' harus 'edited' atau 'deleted'.",
+            ]);
+        }
+
+        $hasEditedText = array_key_exists('edited_text', $payload);
+        if ($hasEditedText && $event !== 'edited') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'edited_text' hanya boleh dikirim untuk event 'edited'.",
+            ]);
+        }
+
+        $messageModel = new MessageModel();
+        if ($event === 'edited' && $hasEditedText) {
+            if (! is_string($payload['edited_text'])) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field 'edited_text' harus berupa string.",
+                ]);
+            }
+
+            $editedText = $payload['edited_text'];
+            if ($editedText === '') {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field 'edited_text' tidak boleh kosong.",
+                ]);
+            }
+
+            if (strlen($editedText) > 65535) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'message' => "Field 'edited_text' terlalu panjang (maks 65535 byte).",
+                ]);
+            }
+
+            $matched = $messageModel->updateEditedText($waMessageId, $editedText);
+        } else {
+            $matched = $messageModel->markLifecycle($waMessageId, $event);
+        }
+
+        return $this->response->setJSON([
+            'status'  => 'success',
+            'matched' => $matched,
+        ]);
+    }
+}
