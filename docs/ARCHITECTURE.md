@@ -19,7 +19,7 @@ Map basis: branch `v2.4`, HEAD `a32272a`, verified 2026-10-06.
 
 > [!IMPORTANT]
 > This map is an architectural reference, not a product specification. Feature behavior remains
-> defined by the applicable PRD, specification, ADR, and implementation plan.
+> defined by the applicable requirements, design records, and approved implementation decisions.
 
 ## 1. Project Overview
 
@@ -200,7 +200,7 @@ The current `v2.4` tree was verified to contain 21 Controllers, 18 Model PHP fil
 `.gitkeep`), 14 Services, 8 Library PHP files (excluding `.gitkeep`), 2 Commands, 14 feature
 tests, 4 integration tests, 9 unit tests, and 3 JavaScript checks.
 
-There are no `tests/database/` or `tests/session/` directories in `v2.4`.
+The current test tree contains `feature/`, `integration/`, `unit/`, `js/`, and `_support/`.
 
 ## 6. Directory Purposes & Responsibilities
 
@@ -214,14 +214,14 @@ There are no `tests/database/` or `tests/session/` directories in `v2.4`.
 | `app/Database/Migrations/` | Production schema evolution | POS and Inbox migrations | Schema changes must remain compatible with consuming code and existing data. |
 | `app/Filters/` | HTTP auth / security | `AuthFilter` (session), `GatewayTokenFilter` (Bearer token) | Browser routes use `auth`; Gateway ingress uses `gatewaytoken`. |
 | `app/Commands/` | Spark CLI commands | `SeedFase1ePerf`, `RepairTotalDibayar` | Guarded commands must refuse to run against a disallowed database. |
-| `tests/` | Automated test suite | database, session, unit, js, `_support` | Inbox test DB is the real MariaDB `aulia_inboxdb_test`, never SQLite and never live. Never add suppressions or skips to force green. |
-| `docs/` | Business + technical documentation | Numbered business docs, `CHAT.md`, `GATEWAY-REQUIREMENTS.md`, ADRs, audits, decisions, runbooks, tutorials, this map | Follow `.claude/standards/` for glossary and ADR format. |
+| `tests/` | Automated test suite | feature, integration, unit, js, `_support` | POS database tests use the `tests` SQLite group; Inbox test isolation is controlled by `app/Config/Database.php`. Never add suppressions or skips to force green. |
+| `docs/` | Business + technical documentation | `CHANGELOG.md`, `TODO.md`, technical design records, requirements, and session/checkpoint records | Keep this architecture map aligned with the actual repository tree. |
 | `plan/` | Implementation plans | Refactor / feature plans (`plan-*.md`) | English. One plan per workstream. |
 | `spec/` | Technical specifications | `spec-*.md` + `spec-index.md` | Canonical contracts for implemented modules. |
 | `prd-*.md` (root) | Product Requirements Documents | Inbox, Grup/Balas/Teruskan PRDs | Behavior-level, not implementation-level. |
 | `public/` | Web root and static assets | `index.php`, assets, logos | Web server must point here; never expose the project root. |
 | `writable/` | Runtime data | cache, debugbar, logs, uploads, archive SQLite + backups | Runtime-only; not source of truth. |
-| `.claude/` | Single source of AI configuration | `rules/`, `skills/`, `standards/`, `instructions/` | No `.claude/` agent-config tree is part of the current `v2.4` root. All tools read this tree. |
+| `.kilo/` | Repository workflow configuration | SDLC and agent rules | Current `v2.4` root contains `.kilo/`; there is no `.claude/` tree. |
 
 ## 7. Key Configuration Files
 
@@ -245,7 +245,7 @@ There are no `tests/database/` or `tests/session/` directories in `v2.4`.
 - `spark` — CLI entry point (migrations, seeds, custom commands).
 - `public/.htaccess` — front-controller rewrite; document root is `public/`.
 - `preload.php` — optional opcache preload path list.
-- `migrate.bat`, `jalankan_claude.bat` — local convenience scripts.
+- `migrate.bat` — local migration convenience script.
 
 ## 8. Entry Points
 
@@ -364,7 +364,7 @@ seams and locked constraints.
 ### 13.1 Queue status
 
 Queue status is computed centrally by `ConversationModel::withComputedStatus()`, which is a thin layer
-over the existing `attachResponseState()` (ADR-0001). It deliberately reuses the response-state
+over the existing `attachResponseState()`. It deliberately reuses the response-state
 computation instead of introducing independent SQL `WHERE` logic for queue tabs, so the sidebar badge
 and the Queue View tabs cannot drift.
 
@@ -398,7 +398,7 @@ Handoff moves conversation ownership between staff and records every transfer in
 
 ### 13.5 Media read authorization
 
-Per `spec/spec-design-inbox-read-authorization.md` REQ-002, `Inbox::media()` performs no
+The current Inbox read contract keeps `Inbox::media()` without
 `cekOwnership()` check: any logged-in staff member may read the media attachment of any conversation.
 
 - The conversation `404` lookup is retained.
