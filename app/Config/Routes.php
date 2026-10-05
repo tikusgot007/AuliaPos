@@ -41,6 +41,7 @@ $routes->get('/inbox', 'Inbox::index', ['filter' => 'auth']);
 $routes->get('/inbox/api/conversations', 'Inbox::apiConversations', ['filter' => 'auth']);
 $routes->get('/inbox/api/conversations/(:num)/messages', 'Inbox::apiMessages/$1', ['filter' => 'auth']);
 $routes->get('/inbox/api/gateway-status', 'Inbox::apiGatewayStatus', ['filter' => 'auth']);
+$routes->get('/inbox/api/realtime-ticket', 'Inbox::apiRealtimeTicket', ['filter' => 'auth']);
 $routes->get('/inbox/media/(:num)', 'Inbox::media/$1', ['filter' => 'auth']);
 $routes->get('/inbox/test', 'Inbox::testPage', ['filter' => 'auth']);
 $routes->post('/inbox/kirim', 'Inbox::kirim', ['filter' => 'auth']);
