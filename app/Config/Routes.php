@@ -127,8 +127,6 @@ $routes->get('/auth/hapus-user/(:num)', 'Auth::hapusUser/$1', ['filter' => 'auth
 $routes->get('/', 'Kasir::index', ['filter' => 'auth']);
 $routes->get('/kasir', 'Kasir::index', ['filter' => 'auth']);
 
-$routes->post('/kasir/proses', 'Kasir::prosesTransaksi', ['filter' => 'auth']);
-$routes->post('/kasir/tambah-pembayaran', 'Kasir::tambahPembayaran', ['filter' => 'auth']);
 
 // Route Produk (CRUD)
 $routes->get('/produk', 'Produk::index', ['filter' => 'auth']);
@@ -243,6 +241,8 @@ $routes->get('ukuran/getList', 'Ukuran::getList', ['filter' => 'auth']);
 
 // Route Cash (redesign)
 $routes->get('/cash', 'Cash::index', ['filter' => 'auth']);
+$routes->get('/cash/opname', 'Cash::opname', ['filter' => 'auth']);
+$routes->post('/cash/opname', 'Cash::opname', ['filter' => 'auth']);
 $routes->get('/cash/get-saldo-sistem', 'Cash::getSaldoSistem', ['filter' => 'auth']);
 $routes->post('/cash/simpan-opname', 'Cash::simpanOpname', ['filter' => 'auth']);
 $routes->get('/cash/riwayat', 'Cash::riwayat', ['filter' => 'auth']);
