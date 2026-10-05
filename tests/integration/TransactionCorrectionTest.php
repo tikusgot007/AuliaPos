@@ -109,13 +109,12 @@ final class TransactionCorrectionTest extends CIUnitTestCase
                     'selisih_pembulatan' => 0,
                     'sumber' => 'kasir_pos',
                 ],
-                [['produk_id' => 999, 'nama_produk' => 'x', 'kategori_id' => 1, 'jumlah' => 1, 'harga_satuan' => 20000, 'subtotal' => 20000, 'catatan' => null]],
+                [['produk_id' => 999, 'nama_produk' => 'x', 'kategori_id' => 1, 'jumlah' => 1, 'harga_satuan' => 20000, 'subtotal' => null, 'catatan' => null]],
                 7,
                 'Uji rollback'
             );
         } catch (\Throwable $e) {
-            // SQLite schema in this regression test intentionally has no FK,
-            // so force rollback with a duplicate audit key on a second call.
+            $this->assertNotSame('', $e->getMessage());
         }
 
         $this->assertSame('selesai', db_connect()->table('transaksi')->where('id', 1)->get()->getRowArray()['status']);
