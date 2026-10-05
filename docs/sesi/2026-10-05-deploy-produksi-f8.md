@@ -1,7 +1,7 @@
 # Checkpoint Sesi — Deploy Produksi TODO-F8 (teks pesan diedit)
 
 - **Tanggal**: 2026-10-05
-- **Status**: selesai — F7 & F8 terverifikasi di produksi; realtime produksi tersambung.
+- **Status**: selesai — F7 & F8 terverifikasi di produksi; realtime produksi tersambung; soak realtime PASS.
 - **Repo / target**:
   - WA-Gateway `C:\Projects\evolution-gateway` branch `evolution` (`1c3c57f`, kode = `e653de5`) → produksi **aulia3** `D:\evolution-gateway` + Evolution `D:\evolution-api-server` (2.3.7).
   - AuliaPos `C:\xampp\htdocs\aulia` branch `v2.4` (`a127d63`) → produksi **AULIA-SERVER2** `W:\htdocs\aulia` (= `\\aulia-server2\...`).
@@ -45,7 +45,7 @@
 
 ## 5. Belum / risiko
 
-- **Soak realtime 30–60 menit** dimulai 2026-10-05 13:56 WIB (follow-up `TODO-REALTIME-SOAK`).
+- **Soak realtime PASS** (2026-10-05 14:00–14:40 WIB, 9 sampel tiap 5 menit di aulia3): RAM adapter stabil 20–26 MB (tanpa kebocoran), handles 269–271, client WS 2→5 dengan reconnect normal, **0 heartbeat-timeout**, **0 websocket error**, `evolution-gateway.sqlite` konstan 6.4 MB.
 - Patch LID Evolution harus **di-reapply setiap upgrade Evolution** (pola TODO-F3).
 - Update adapter aulia3 **manual** (bukan git; `npm` tidak ada) — prosedur perlu didokumentasikan.
 - `/migrasi-manual` masih aktif di produksi (permukaan serangan) — lihat TODO.
