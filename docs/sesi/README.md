@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-05 | [Penutupan gate TODO-F8 (teks pesan diedit)](2026-10-05-penutupan-gate-f8.md) | selesai (gate clear; PR #5 & #49 merged; WA-Gateway `evolution` = `e653de5`) |
 | 2026-10-04 | [Arsip piutang (TODO-BL06)](2026-10-04-arsip-piutang-todo-bl06.md) | selesai (kode + test; belum di-commit) |
 | 2026-10-04 | [Login user non-aktif ditolak (TODO-BL05)](2026-10-04-login-user-nonaktif-todo-bl05.md) | selesai (kode + test; commit `3f0294e`) |
 | 2026-10-04 | [Pembayaran ditolak pada transaksi batal (TODO-BL04)](2026-10-04-pembayaran-transaksi-batal-todo-bl04.md) | selesai (kode + test; commit `bb5e5da`) |
