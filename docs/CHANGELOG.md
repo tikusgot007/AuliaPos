@@ -1,15 +1,5 @@
 # CHANGELOG
 
-## 2026-10-05 — Koreksi pembayaran dan transaksi final
-
-- Aturan lama: koreksi metode pembayaran membuat baris pengganti dengan `tanggal` dan `kasir_id` operator koreksi, sehingga histori tampak seperti pembayaran baru oleh operator tersebut.
-- Aturan baru: semua kasir tetap boleh mengoreksi metode pembayaran; pembayaran asal mempertahankan waktu dan kasir pencatat, sedangkan operator koreksi dicatat pada histori koreksi terpisah.
-- Aturan baru: transaksi `SELESAI` yang salah qty/harga dikoreksi melalui transaksi pengganti secara atomik; transaksi asli menjadi `BATAL`, detail dan histori pembayaran lama tetap tersimpan, dan transaksi pengganti mempertahankan status `SELESAI` bila tetap lunas.
-- Refund akibat total koreksi yang lebih rendah tidak dibuat otomatis; selisih tetap menggunakan Kas Keluar kategori `refund_penjualan`.
-- Alasan: mencegah histori pembayaran berubah, double-counting penjualan/kas, dan edit diam-diam terhadap transaksi final.
-- Referensi: `docs/requirements/2026-10-05-koreksi-transaksi-final.md`, `docs/design/2026-10-05-koreksi-transaksi-final.md`, TODO-BL07/TODO-BL43.
-
-
 ## 2026-10-05 — Inbox: notifikasi Windows sebagai jalur utama (toast jadi fallback)
 
 - Aturan lama: pesan Inbox yang perlu dibalas diberi tahu lewat toast hijau sticky di
