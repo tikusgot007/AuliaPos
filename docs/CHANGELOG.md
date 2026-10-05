@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 2026-10-05 — Inbox: notifikasi Windows sebagai jalur utama (toast jadi fallback)
+
+- Aturan lama: pesan Inbox yang perlu dibalas diberi tahu lewat toast hijau sticky di
+  dalam halaman (plus judul tab, favicon, dan beep).
+- Aturan baru: jalur utama pemberitahuan pesan Inbox adalah **notifikasi Windows**
+  (browser `Notification` API) yang muncul walau tab POS tidak difokuskan; klik
+  notifikasi membuka window Inbox ke percakapan itu. Toast hijau tetap ada **hanya**
+  sebagai fallback bila API tidak tersedia atau izin user belum diberikan. Tombol
+  "Aktifkan notifikasi" tampil di sidebar saat izin masih `default`.
+- Alasan: kasir perlu tahu ada pesan WA perlu dibalas walau POS tidak sedang aktif /
+  pesan masuk ke Action Center, bukan hanya saat halaman dipandang.
+- Catatan operasional: `Notification` API hanya aktif di secure context; produksi
+  HTTP LAN (`http://192.168.1.10/aulia`) harus disajikan HTTPS self-signed dulu
+  (langkah infra terpisah, **belum dikerjakan**). Selama HTTP, yang aktif adalah
+  fallback toast.
+- Referensi: `docs/requirements/2026-10-05-notifikasi-windows-inbox.md`,
+  `docs/design/2026-10-05-notifikasi-windows-inbox.md`,
+  `public/assets/js/inbox-notifikasi.js`, `tests/js/inbox-notifikasi.test.js`.
+
 ## 2026-10-05 — Inbox WhatsApp: tampilkan teks edit yang sudah tervalidasi
 
 - Aturan lama: semua pesan yang ditandai "diedit" ditampilkan samar dengan label

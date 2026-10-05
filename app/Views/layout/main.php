@@ -741,6 +741,13 @@
                             title="Bisukan/aktifkan suara notifikasi Inbox" onclick="alihkanMuteNotif()">
                             <i class="fas fa-bell" id="inboxNotifMuteIcon"></i>
                         </button>
+                        <!-- Muncul hanya bila Notification API ada tapi izin
+                             masih 'default' (inbox-notifikasi.js). Klik =
+                             gestur user untuk Notification.requestPermission(). -->
+                        <button type="button" class="btn btn-sm btn-link text-warning p-0 ms-1" id="btnIzinNotifInbox"
+                            title="Aktifkan notifikasi Windows untuk Inbox" style="display:none;" onclick="mintaIzinNotifikasi()">
+                            <i class="fas fa-desktop"></i>
+                        </button>
                     </li>
 
 
@@ -1182,11 +1189,13 @@
             </div>
 
             <!-- ========================================== -->
-            <!-- NOTIFIKASI INBOX (KANAN ATAS, STICKY, MENUMPUK) -->
-            <!-- Komponen TERPISAH dari #toastContainer di atas (satu
-                 slot, auto-hide) -- lihat inbox-notifikasi.js. Toast di
-                 sini tidak hilang sendiri; dibuang manual (tombol tutup)
-                 atau otomatis saat percakapannya sudah ditangani. -->
+            <!-- NOTIFIKASI INBOX FALLBACK (KANAN ATAS, STICKY, MENUMPUK) -->
+            <!-- Jalur utama sekarang notifikasi Windows (Notification API);
+                 stack ini HANYA dipakai sebagai fallback saat API tidak
+                 tersedia / izin belum diberikan (non-secure context atau
+                 user menolak). Lihat inbox-notifikasi.js. Toast di sini
+                 tidak hilang sendiri; dibuang manual (tombol tutup) atau
+                 otomatis saat percakapannya sudah ditangani. -->
             <!-- ========================================== -->
             <div id="inboxNotifToastStack" class="position-fixed p-3 d-flex flex-column" style="z-index: 9999; top: 70px; right: 0; max-width: 350px;"></div>
 

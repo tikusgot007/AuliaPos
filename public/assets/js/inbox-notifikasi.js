@@ -1,8 +1,13 @@
 /*
  * Notifikasi lintas halaman untuk Inbox WhatsApp (judul tab, favicon,
- * suara, toast): dipicu oleh percakapan 'perlu_dibalas' yang RELEVAN bagi
- * user yang login (filter kepemilikan dilakukan di server --
+ * suara, NOTIFIKASI WINDOWS): dipicu oleh percakapan 'perlu_dibalas' yang
+ * RELEVAN bagi user yang login (filter kepemilikan dilakukan di server --
  * Inbox::apiNotifikasiRingkas() -- bukan di sini).
+ *
+ * Jalur utama = Notification API (notifikasi Windows / Action Center),
+ * hanya aktif di secure context (HTTPS atau localhost) dengan izin user.
+ * Bila API tidak tersedia atau izin belum diberikan, otomatis FALLBACK ke
+ * toast hijau sticky + beep seperti perilaku sebelumnya.
  *
  * Dimuat dari `app/Views/layout/main.php` (semua halaman, bukan cuma
  * /inbox) lewat:
@@ -67,6 +72,35 @@ function formatJudulTab(judulAsli, jumlah) {
 // percakapan yang dimaksud, bukan ke Inbox secara umum.
 function formatPesanToastNotif(item) {
     return 'Pesan baru dari ' + item.label;
+}
+
+// ================================================================
+// JALUR NOTIFIKASI WINDOWS (Notification API) vs FALLBACK TOAST
+// ================================================================
+
+/* Referensi Notification API browser. `typeof` dipakai supaya file ini
+   tetap bisa dimuat/dites tanpa API tsb (mis. non-secure context / vm). */
+function notifApiRef() {
+    return (typeof Notification !== 'undefined') ? Notification : null;
+}
+
+/* Jalur Windows dipakai HANYA bila API ada DAN izin sudah 'granted'
+   (secure context + user menyetujui). Selain itu -> fallback toast. */
+function gunakanJalurWindows() {
+    const api = notifApiRef();
+    return !!api && api.permission === 'granted';
+}
+
+/* Opsi notifikasi Windows. `tag` per percakapan supaya notifikasi baru
+   untuk percakapan yang sama menggantikan yang lama, bukan menumpuk.
+   `silent` mengikuti status bisu (tombol lonceng). */
+function buatOpsiNotifikasiWindows(item, dibungkam) {
+    return {
+        body: formatPesanToastNotif(item),
+        tag: 'aulia-inbox-' + item.id,
+        renotify: true,
+        silent: !!dibungkam,
+    };
 }
 
 /* Toast mana yang sudah tidak relevan lagi (percakapan yang
@@ -186,6 +220,74 @@ function bukaInboxKePercakapan(id) {
     window.open(notifConfig.inboxUrl + '?conversation_id=' + id, 'AuliaInbox', 'width=1200,height=800');
 }
 
+// Notifikasi Windows yang sedang tampil: { id, n }. Dipakai untuk menutup
+// notifikasi saat percakapannya sudah tidak perlu_dibalas lagi (analog
+// entriUntukDibuang() untuk toast).
+let notifikasiAktif = [];
+
+/* Tampilkan satu notifikasi Windows. Mengembalikan true bila berhasil,
+   false bila API/izin tidak memungkinkan atau pembuatan gagal -- pemanggil
+   memakai nilai ini untuk memutuskan fallback toast. Klik notifikasi =
+   fokuskan window Inbox ke percakapan itu (sama seperti klik toast). */
+function tampilkanNotifikasiWindows(item) {
+    const api = notifApiRef();
+    if (!api || api.permission !== 'granted') return false;
+
+    try {
+        const n = new api('Inbox WhatsApp', buatOpsiNotifikasiWindows(item, notifDibungkam()));
+        n.onclick = function() {
+            try { window.focus(); } catch (e) { /* window.focus bisa diblokir -- abaikan */ }
+            bukaInboxKePercakapan(item.id);
+            try { n.close(); } catch (e) { /* abaikan */ }
+        };
+        // Ganti entri lama untuk percakapan yang sama: `tag` sudah mengganti
+        // notifikasi secara visual, jadi referensi lama tidak perlu disimpan.
+        notifikasiAktif = notifikasiAktif.filter(function(e) { return String(e.id) !== String(item.id); });
+        notifikasiAktif.push({ id: item.id, n: n });
+        return true;
+    } catch (e) {
+        return false; // izin dicabut di tengah jalan / konstruktor gagal
+    }
+}
+
+/* Tutup notifikasi Windows yang percakapannya sudah tidak relevan. */
+function bersihkanNotifikasiWindows(idMasihRelevan) {
+    const relevanSet = new Set(idMasihRelevan.map(String));
+
+    notifikasiAktif = notifikasiAktif.filter(function(entry) {
+        if (relevanSet.has(String(entry.id))) return true;
+        try { entry.n.close(); } catch (e) { /* abaikan */ }
+        return false;
+    });
+}
+
+/* Minta izin notifikasi -- HANYA dipanggil dari gestur user (tombol
+   "Aktifkan notifikasi"). Aman dipanggil berulang: kalau bukan 'default'
+   tidak meminta lagi. */
+function mintaIzinNotifikasi() {
+    const api = notifApiRef();
+    if (!api) return;
+    if (api.permission !== 'default') { perbaruiTombolIzinNotifikasi(); return; }
+
+    try {
+        const hasil = api.requestPermission();
+        if (hasil && typeof hasil.then === 'function') {
+            hasil.then(function() { perbaruiTombolIzinNotifikasi(); });
+        } else {
+            perbaruiTombolIzinNotifikasi(); // API callback lama (Safari dulu)
+        }
+    } catch (e) { /* abaikan -- fallback toast tetap jalan */ }
+}
+
+/* Tombol "Aktifkan notifikasi" hanya tampil bila API ada tapi izin masih
+   'default' (belum diputuskan user). Sudah granted/ditolak -> disembunyikan. */
+function perbaruiTombolIzinNotifikasi() {
+    const btn = document.getElementById('btnIzinNotifInbox');
+    if (!btn) return;
+    const api = notifApiRef();
+    btn.style.display = (api && api.permission === 'default') ? 'inline-block' : 'none';
+}
+
 // Toast notifikasi Inbox TIDAK memakai showToast()/#liveToast (satu slot,
 // auto-hide 3 detik, dipakai bersama fitur lain seperti reminder jadwal)
 // -- di sini sengaja sticky DAN bisa menumpuk, jadi komponennya sendiri.
@@ -259,6 +361,7 @@ function muatNotifikasiInbox() {
             perbaruiJudulTab(items.length);
             perbaruiFaviconDot(items.length > 0);
             bersihkanToastSelesai(items.map(function(i) { return i.id; }));
+            bersihkanNotifikasiWindows(items.map(function(i) { return i.id; }));
 
             const belumPernahDicek = sessionStorage.getItem(NOTIF_SEEN_KEY) === null;
             const hasil = hitungItemBaru(items, bacaNotifSeen(), belumPernahDicek);
@@ -266,17 +369,31 @@ function muatNotifikasiInbox() {
 
             if (!hasil.itemBaru.length) return;
 
-            // Satu toast per percakapan, walau beberapa jadi "baru" dalam
-            // polling yang sama (lihat komentar formatPesanToastNotif) --
-            // satu beep saja per siklus polling, bukan per toast.
-            mainkanBeepNotif();
-            hasil.itemBaru.forEach(buatToastNotif);
+            if (gunakanJalurWindows()) {
+                // Utama: notifikasi Windows. Beep Web Audio tetap dibunyikan
+                // sebagai jaring pengaman -- OS bisa membisukan notifikasi
+                // (Focus Assist / notifikasi per-app dimatikan) sementara
+                // konstruktor tetap sukses, sehingga tanpa beep kasir bisa
+                // tidak mendapat sinyal apa pun.
+                mainkanBeepNotif();
+                const gagal = [];
+                hasil.itemBaru.forEach(function(item) {
+                    if (!tampilkanNotifikasiWindows(item)) gagal.push(item);
+                });
+                if (gagal.length) gagal.forEach(buatToastNotif);
+            } else {
+                // Fallback: perilaku lama (satu beep per siklus, satu toast
+                // per percakapan).
+                mainkanBeepNotif();
+                hasil.itemBaru.forEach(buatToastNotif);
+            }
         })
         .catch(function() { /* siklus polling berikutnya coba lagi */ });
 }
 
 function mulaiNotifikasiInbox(intervalMs) {
     perbaruiIkonMuteNotif();
+    perbaruiTombolIzinNotifikasi();
     muatNotifikasiInbox();
     setInterval(muatNotifikasiInbox, intervalMs);
 }

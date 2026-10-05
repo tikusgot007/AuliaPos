@@ -81,6 +81,7 @@
 
 ## Prioritas Sedang
 
+- [ ] **TODO-N1** Notifikasi Windows Inbox belum aktif di produksi: butuh **HTTPS self-signed** di AULIA-SERVER2 (SAN `IP:192.168.1.10` + `DNS:AULIA-SERVER2`), vhost 443 untuk `/aulia`, **jaga HTTP:80** agar gateway (`CI4_BASE_URL` http) tidak putus, firewall 443, `.env` produksi `baseURL`→`https://192.168.1.10/aulia/`, impor sertifikat ke Trusted Root tiap PC kasir — menyentuh produksi, butuh approval tersendiri — sedang — ref `docs/design/2026-10-05-notifikasi-windows-inbox.md`
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
 - [ ] **TODO-O5** Dokumentasikan prosedur update adapter produksi `aulia3` (bukan repo git; `npm` tidak ada → dependency baru seperti `ws` disalin manual dari `node_modules`; restart via task `AuliaEvolution` + `scripts/restart-adapter.ps1`; source Evolution `D:\evolution-api-server`) — rendah
 - [ ] **TODO-F3** Terapkan ulang patch Evolution (`PATCH-ADAPTER (2026-10-01)` di `whatsapp.baileys.service.ts`) setiap kali Evolution di-upgrade; prosedur `C:\Projects\evolution-gateway\docs\evolution-viewonce-patch.md` — sedang

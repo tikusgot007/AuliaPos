@@ -1,5 +1,6 @@
 // Tests for public/assets/js/inbox-notifikasi.js (notifikasi lintas
-// halaman: judul tab, favicon, suara, toast untuk Inbox).
+// halaman: judul tab, favicon, notifikasi Windows + fallback toast untuk
+// Inbox).
 // Run: node tests/js/inbox-notifikasi.test.js   (no framework, no dependencies)
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -39,12 +40,33 @@ class FakeEl {
     }
 }
 
-function loadNotif(config = {}) {
+// ---- minimal fake Notification API (mirrors the browser Notification) ---
+function fakeNotificationClass(permission) {
+    function FakeNotification(title, options) {
+        this.title = title;
+        this.options = options;
+        this.closed = false;
+        this.onclick = null;
+        FakeNotification.instances.push(this);
+    }
+    FakeNotification.prototype.close = function() { this.closed = true; };
+    FakeNotification.permission = permission;
+    FakeNotification.instances = [];
+    FakeNotification.requestCount = 0;
+    FakeNotification.requestPermission = function() {
+        FakeNotification.requestCount++;
+        return Promise.resolve(FakeNotification.permission);
+    };
+    return FakeNotification;
+}
+
+function loadNotif(config = {}, notificationRef) {
     const sessionStorage = fakeStorage();
     const localStorage = fakeStorage();
     const stackContainer = new FakeEl();
+    const izinBtn = new FakeEl();
     const opened = [];
-    const elements = { inboxNotifToastStack: stackContainer };
+    const elements = { inboxNotifToastStack: stackContainer, btnIzinNotifInbox: izinBtn };
     const document = {
         title: 'AULIA',
         getElementById: (id) => elements[id] || null,
@@ -61,13 +83,14 @@ function loadNotif(config = {}) {
         setInterval: () => 0,
         setTimeout: () => 0,
         console,
-        JSON, String, Array, Object, Number, Math, isNaN, Set,
+        JSON, String, Array, Object, Number, Math, isNaN, Set, Promise,
         INBOX_NOTIF_CONFIG: { ringkasUrl: '/inbox/api/notifikasi-ringkas', inboxUrl: '/inbox', ...config },
         Image: function() { this.onload = null; this.onerror = null; },
+        Notification: notificationRef,
     });
     ctx.window = ctx;
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../../public/assets/js/inbox-notifikasi.js'), 'utf8'), ctx);
-    return { ctx, sessionStorage, localStorage, stackContainer, opened, get: (expr) => vm.runInContext(expr, ctx) };
+    return { ctx, sessionStorage, localStorage, stackContainer, izinBtn, opened, get: (expr) => vm.runInContext(expr, ctx) };
 }
 
 const queue = [];
@@ -250,6 +273,95 @@ test('bersihkanToastSelesai: a toast disappears once the conversation it named i
     t.ctx.bersihkanToastSelesai([]);
     assert.equal(t.stackContainer.children.length, 0);
     assert.equal(t.get('toastAktif.length'), 0);
+});
+
+// ---- Windows notification channel (AC-1..AC-8) ---------------------------
+
+test('gunakanJalurWindows: only when API exists AND permission is granted (AC-1/AC-2)', () => {
+    assert.equal(loadNotif().ctx.gunakanJalurWindows(), false, 'no API -> fallback');
+    assert.equal(loadNotif({}, fakeNotificationClass('default')).ctx.gunakanJalurWindows(), false);
+    assert.equal(loadNotif({}, fakeNotificationClass('denied')).ctx.gunakanJalurWindows(), false);
+    assert.equal(loadNotif({}, fakeNotificationClass('granted')).ctx.gunakanJalurWindows(), true);
+});
+
+test('buatOpsiNotifikasiWindows: body names the sender, tag per conversation, silent follows mute (AC-1/AC-4)', () => {
+    const t = loadNotif({}, fakeNotificationClass('granted'));
+    const opts = t.ctx.buatOpsiNotifikasiWindows(item(7, 't7', 'Budi'), false);
+    assert.equal(opts.body, 'Pesan baru dari Budi');
+    assert.equal(opts.tag, 'aulia-inbox-7');
+    assert.equal(opts.silent, false);
+    assert.equal(t.ctx.buatOpsiNotifikasiWindows(item(7, 't7', 'Budi'), true).silent, true);
+});
+
+test('tampilkanNotifikasiWindows: creates one OS notification; click opens the conversation and closes it (AC-1/AC-3)', () => {
+    const N = fakeNotificationClass('granted');
+    const t = loadNotif({}, N);
+
+    assert.equal(t.ctx.tampilkanNotifikasiWindows(item(5, 't5', 'Siti')), true);
+    assert.equal(N.instances.length, 1);
+    assert.equal(N.instances[0].title, 'Inbox WhatsApp');
+    assert.equal(N.instances[0].options.body, 'Pesan baru dari Siti');
+
+    N.instances[0].onclick();
+    assert.equal(t.opened.length, 1);
+    assert.equal(t.opened[0].url, '/inbox?conversation_id=5');
+    assert.equal(N.instances[0].closed, true);
+});
+
+test('tampilkanNotifikasiWindows: returns false so the caller falls back to toast when there is no API or no permission (AC-2)', () => {
+    assert.equal(loadNotif().ctx.tampilkanNotifikasiWindows(item(1, 't1')), false);
+    assert.equal(loadNotif({}, fakeNotificationClass('default')).ctx.tampilkanNotifikasiWindows(item(1, 't1')), false);
+});
+
+test('tampilkanNotifikasiWindows: still shown when the page is focused -- no focus suppression (AC-5)', () => {
+    const N = fakeNotificationClass('granted');
+    const t = loadNotif({}, N);
+    t.ctx.document.hasFocus = () => true;
+
+    assert.equal(t.ctx.tampilkanNotifikasiWindows(item(1, 't1')), true);
+    assert.equal(N.instances.length, 1);
+});
+
+test('bersihkanNotifikasiWindows: closes notifications whose conversation is no longer relevant (AC-6)', () => {
+    const N = fakeNotificationClass('granted');
+    const t = loadNotif({}, N);
+    t.ctx.tampilkanNotifikasiWindows(item(10, 't10'));
+    t.ctx.tampilkanNotifikasiWindows(item(20, 't20'));
+    assert.equal(N.instances.length, 2);
+
+    t.ctx.bersihkanNotifikasiWindows([20]);
+    assert.equal(N.instances[0].closed, true);
+    assert.equal(N.instances[1].closed, false);
+
+    t.ctx.bersihkanNotifikasiWindows([]);
+    assert.equal(N.instances[1].closed, true);
+});
+
+test('mintaIzinNotifikasi: requests permission only while it is still default (AC-7)', async () => {
+    const N = fakeNotificationClass('default');
+    const t = loadNotif({}, N);
+    t.ctx.mintaIzinNotifikasi();
+    await Promise.resolve();
+    assert.equal(N.requestCount, 1);
+
+    const N2 = fakeNotificationClass('granted');
+    loadNotif({}, N2).ctx.mintaIzinNotifikasi();
+    await Promise.resolve();
+    assert.equal(N2.requestCount, 0, 'already granted -> must not ask again');
+});
+
+test('perbaruiTombolIzinNotifikasi: shows the enable button only when API exists and permission is default (AC-7)', () => {
+    const t = loadNotif({}, fakeNotificationClass('default'));
+    t.ctx.perbaruiTombolIzinNotifikasi();
+    assert.equal(t.izinBtn.style.display, 'inline-block');
+
+    const t2 = loadNotif({}, fakeNotificationClass('granted'));
+    t2.ctx.perbaruiTombolIzinNotifikasi();
+    assert.equal(t2.izinBtn.style.display, 'none');
+
+    const t3 = loadNotif();
+    t3.ctx.perbaruiTombolIzinNotifikasi();
+    assert.equal(t3.izinBtn.style.display, 'none');
 });
 
 (async () => {
