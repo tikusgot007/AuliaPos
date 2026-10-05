@@ -1,7 +1,7 @@
 # Design: Display validated WhatsApp edited text in Inbox
 
 - **Date**: 2026-10-05
-- **Status**: Proposed for implementation after Gate 2 approval
+- **Status**: Implemented and verified
 - **SDLC tier**: A
 - **Scope**: AuliaPos only
 
@@ -130,25 +130,13 @@ No other repository is modified.
 
 ## 7. Verification plan
 
-### Automated
-- Migration applies on a clean/current test database and is idempotent according
-  to the repository migration convention.
-- Unit/feature tests cover:
-  - valid edit stores text and sets `edited_text_resolved_at`;
-  - repeated valid edit replaces text and refreshes the timestamp;
-  - invalid/absent `edited_text` leaves the timestamp NULL;
-  - deleted event behavior is unchanged;
-  - Inbox response contains the new boolean with correct values.
-- JavaScript tests cover:
-  - unresolved edited text remains dimmed;
-  - resolved edited text is not dimmed;
-  - labels are correct;
-  - a stale→resolved state changes bubble HTML and redraws through existing
-    reconciliation.
-
-### Manual
-Use the existing Phase 1 E2E setup only if it is available and verified before
-testing. Do not assume gateway-test is still running.
+### Verification result
+- Automated PHP test: passed.
+- Automated JS test: passed.
+- Target DB migration: passed.
+- Manual UI test: passed for resolved and fallback states.
+- Deployment is handled by the team; production smoke verification is not
+  independently claimed here.
 
 ## 8. Edge cases
 
