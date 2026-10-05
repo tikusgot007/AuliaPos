@@ -146,4 +146,4 @@ akibatnya teks yang sudah final/benar tetap ditampilkan samar dengan label
 - [x] Migration pada DB target: lulus.
 - [x] Manual UI test: lulus untuk resolved dan fallback.
 - [x] Deployment: dilakukan oleh tim.
-- [ ] Production smoke test oleh tim deployment: belum dicatat di dokumen ini.
+- [x] Production smoke test oleh tim deployment: dikonfirmasi lulus oleh user pada 2026-10-05.
