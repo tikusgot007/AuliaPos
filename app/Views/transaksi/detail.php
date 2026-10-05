@@ -340,12 +340,6 @@
             <!-- MANGKRAK tidak bisa langsung ke Batal -- harus  -->
             <!-- diaktifkan kembali ke PROSES dulu.              -->
             <!-- ========================================== -->
-            <?php if (($transaksi['status'] ?? '') === 'selesai' && (session()->get('role') === 'admin' || $isShiftLeaderUser)): ?>
-                <button class="btn btn-outline-danger w-100 mb-2" onclick="bukaKoreksiTransaksiSelesai()">
-                    <i class="fas fa-file-pen"></i> Koreksi Qty / Harga
-                </button>
-            <?php endif; ?>
-
             <?php if (in_array($transaksi['status'] ?? '', ['proses', 'selesai'], true) && (session()->get('role') === 'admin' || $isShiftLeaderUser)): ?>
                 <button class="btn btn-danger w-100 mb-2" onclick="(async () => { if (await konfirmasi('Yakin ingin membatalkan transaksi ini?', { okText: 'Ya, Batalkan' })) { kirimUbahStatusAjax(<?= $transaksi['id'] ?>, 'batal'); } })()">
                     <i class="fas fa-times"></i> Batalkan
@@ -372,43 +366,6 @@
         <?php endif; ?>
     </div>
 </div>
-<!-- Final transaction correction modal -->
-<div class="modal fade" id="koreksiTransaksiSelesaiModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Koreksi Transaksi SELESAI</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted small">
-                    Transaksi asli akan menjadi BATAL dan tetap tersimpan sebagai histori.
-                    Transaksi pengganti dibuat dengan data di bawah.
-                </p>
-                <label class="form-label">Item JSON</label>
-                <textarea id="koreksiTransaksiKeranjang" class="form-control font-monospace" rows="10"><?= esc(json_encode(array_map(static function ($item) {
-                    return [
-                        'produk_id' => (int) ($item['produk_id'] ?? 1),
-                        'nama' => (string) ($item['nama_produk'] ?? ''),
-                        'kategori_id' => (int) ($item['kategori_id'] ?? 1),
-                        'jumlah' => (float) ($item['jumlah'] ?? 0),
-                        'harga' => (float) ($item['harga_satuan'] ?? 0),
-                        'subtotal' => (float) ($item['subtotal'] ?? 0),
-                    ];
-                }, $detail_items), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), 'html') ?></textarea>
-                <label class="form-label mt-3">Diskon</label>
-                <input id="koreksiTransaksiDiskon" type="number" min="0" step="0.01" class="form-control" value="<?= esc((float) ($transaksi['diskon'] ?? 0)) ?>">
-                <label class="form-label mt-3">Alasan koreksi</label>
-                <textarea id="koreksiTransaksiAlasan" class="form-control" maxlength="255" rows="3" placeholder="Contoh: qty salah input"></textarea>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-danger" onclick="submitKoreksiTransaksiSelesai()">Simpan Koreksi</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- ========================================== -->
 <!-- 🔥 NAVIGASI & CETAK                       -->
 <!-- ========================================== -->
@@ -722,62 +679,6 @@
     }
 
     $('#koreksiMetodeBaru').on('change', updateKoreksiUangDiterima);
-
-    function bukaKoreksiTransaksiSelesai() {
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('koreksiTransaksiSelesaiModal')).show();
-    }
-
-    async function submitKoreksiTransaksiSelesai() {
-        const alasan = $('#koreksiTransaksiAlasan').val().trim();
-        if (!alasan) {
-            showToast('Alasan koreksi wajib diisi.', 'danger');
-            return;
-        }
-
-        let keranjang;
-        try {
-            keranjang = JSON.parse($('#koreksiTransaksiKeranjang').val());
-        } catch (e) {
-            showToast('Format item JSON tidak valid.', 'danger');
-            return;
-        }
-
-        if (!Array.isArray(keranjang) || keranjang.length === 0) {
-            showToast('Item koreksi wajib diisi.', 'danger');
-            return;
-        }
-
-        if (!(await konfirmasi(
-            'Transaksi asli akan menjadi BATAL dan transaksi pengganti dibuat. Lanjutkan?',
-            { okText: 'Ya, Koreksi', okClass: 'btn-danger' }
-        ))) {
-            return;
-        }
-
-        $.ajax({
-            url: '<?= base_url('/api/koreksi-transaksi-selesai') ?>',
-            type: 'POST',
-            data: JSON.stringify({
-                transaksi_id: <?= (int) $transaksi['id'] ?>,
-                keranjang: keranjang,
-                diskon: parseFloat($('#koreksiTransaksiDiskon').val()) || 0,
-                alasan: alasan
-            }),
-            contentType: 'application/json',
-            dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') {
-                    showToast(response.message || 'Koreksi transaksi berhasil.', 'success');
-                    setTimeout(function() { location.href = '<?= base_url('/transaksi/detail/') ?>' + response.transaksi_baru_id; }, 800);
-                } else {
-                    showToast(response.message || 'Gagal mengoreksi transaksi.', 'danger');
-                }
-            },
-            error: function(xhr) {
-                showToast(xhr.responseJSON?.message || 'Gagal mengoreksi transaksi.', 'danger');
-            }
-        });
-    }
 
     // ================================================================
     // BAGIAN 2: FUNGSI CETAK
