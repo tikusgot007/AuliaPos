@@ -135,8 +135,8 @@ No other repository is modified.
 - Automated JS test: passed.
 - Target DB migration: passed.
 - Manual UI test: passed for resolved and fallback states.
-- Deployment is handled by the team; production smoke verification is not
-  independently claimed here.
+- Deployment is handled by the team; production smoke test was confirmed
+  passed by the user on 2026-10-05.
 
 ## 8. Edge cases
 
