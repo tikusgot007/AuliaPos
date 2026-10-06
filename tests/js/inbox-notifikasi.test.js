@@ -1,7 +1,8 @@
 // Tests for public/assets/js/inbox-notifikasi.js (notifikasi lintas
 // halaman: judul tab, favicon, notifikasi Windows + fallback toast untuk
 // Inbox).
-// Run: node tests/js/inbox-notifikasi.test.js   (no framework, no dependencies)
+// Run: node tests/js/inbox-notifikasi.test.js (Node.js built-in test runner)
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -93,8 +94,6 @@ function loadNotif(config = {}, notificationRef) {
     return { ctx, sessionStorage, localStorage, stackContainer, izinBtn, opened, get: (expr) => vm.runInContext(expr, ctx) };
 }
 
-const queue = [];
-function test(name, fn) { queue.push([name, fn]); }
 
 const item = (id, ts, label) => ({ id, last_message_at: ts, label: label || ('Pelanggan ' + id) });
 
