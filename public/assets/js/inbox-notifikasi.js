@@ -217,10 +217,12 @@ function perbaruiFaviconDot(tampilkanDot) {
 }
 
 function bukaInboxKePercakapan(id) {
+    const lebar = typeof screen !== 'undefined' ? screen.availWidth : 1200;
+    const tinggi = typeof screen !== 'undefined' ? screen.availHeight : 800;
     window.open(
         notifConfig.inboxUrl + '?conversation_id=' + id,
         'AuliaInbox',
-        'width=' + screen.availWidth + ',height=' + screen.availHeight + ',left=0,top=0'
+        'width=' + lebar + ',height=' + tinggi + ',left=0,top=0'
     );
 }
 
