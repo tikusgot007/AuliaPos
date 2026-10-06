@@ -131,6 +131,8 @@
 
 - [x] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442` — **DEC-4: Opsi A** → sekuens per hari `INV-YYYYMMDD-NNN` via lock/transaksi — **SELESAI 2026-10-06**
 
+- [ ] **TODO-F11** Medium — Ambil Alih percakapan via tombol: non-admin boleh takeover saat owner off-shift (grace 30 menit via `last_seen_by_assignee_at`) atau bila pengambil = Shift Leader aktif; flag `bisa_diambil` di daftar; guard race `WHERE assigned_to = <owner lama>`. Perluasan izin dibatasi pada titik takeover — `cekOwnership` TIDAK diubah. **Perlu keputusan lanjutan**: (a) apakah takeover perlu dicatat di `conversation_handoffs`/audit trail; (b) apakah grup perlu kebijakan takeover sendiri. Ref `docs/CHANGELOG.md` 2026-10-06; test `tests/feature/InboxAmbilAlihTest.php`. — **SELESAI 2026-10-06** (implementasi inti selesai; dua sub-pertanyaan (a)/(b) masih terbuka)
+
 ## Selesai / Ditutup
 
 ### Low

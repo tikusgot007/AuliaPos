@@ -129,6 +129,22 @@ class Inbox extends BaseController
     private const SEARCH_COLUMNS = ['contact_name', 'whatsapp_name', 'phone', 'manual_phone', 'chat_id'];
 
     /**
+     * Grace period (detik) setelah jam shift owner berakhir -- selama
+     * masih ada aktivitas owner (`last_seen_by_assignee_at`) dalam
+     * rentang ini, percakapan tetap dianggap miliknya dan belum boleh
+     * diambil orang lain.
+     */
+    private const GRACE_TAKEOVER_MENIT = 30;
+
+    /**
+     * Cache per-request hasil "apakah user X = Shift Leader saat ini".
+     * `cekOwnership()`/list chat bisa memanggil helper berkali-kali
+     * dalam satu request; lookup jadwal+priority tidak perlu diulang.
+     * Key: user id. Value: bool.
+     */
+    private array $shiftLeaderCache = [];
+
+    /**
      * GET /inbox
      *
      * UI Inbox utama (Phase 4): daftar conversation + riwayat pesan +
@@ -141,7 +157,7 @@ class Inbox extends BaseController
     public function index()
     {
         $conversationModel = new ConversationModel();
-        $conversations = $this->attachResponseState($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll()));
+        $conversations = $this->attachResponseState($this->attachBisaDiambil($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll())));
 
         $gatewayStatusModel = new GatewayStatusModel();
         $gatewayStatus = $this->buildGatewayStatusPayload($gatewayStatusModel);
@@ -222,7 +238,7 @@ class Inbox extends BaseController
             ->orderBy('last_message_at', 'DESC')
             ->findAll();
 
-        $conversations = $this->attachResponseState($this->attachAssignedNames($conversations));
+        $conversations = $this->attachResponseState($this->attachBisaDiambil($this->attachAssignedNames($conversations)));
 
         $slaService = new InboxSlaService();
         foreach ($conversations as &$conversation) {
@@ -1089,6 +1105,25 @@ class Inbox extends BaseController
     }
 
     /**
+     * Lengkapi setiap conversation dengan flag `bisa_diambil` (bool) --
+     * dipakai UI untuk menampilkan tombol "Ambil"/"Ambil Alih". Satu
+     * sumber kebenaran dengan guard server `ambilPercakapan()` lewat
+     * bisaAmbilPercakapan(), supaya tombol tidak pernah menampilkan
+     * aksi yang bakal ditolak 403.
+     */
+    private function attachBisaDiambil(array $conversations): array
+    {
+        $userId = (int) session()->get('id_user');
+        $role   = (string) session()->get('role');
+
+        foreach ($conversations as &$conversation) {
+            $conversation['bisa_diambil'] = $this->bisaAmbilPercakapan($userId, $role, $conversation);
+        }
+
+        return $conversations;
+    }
+
+    /**
      * Hitung Response State per conversation -- COMPUTED, tidak pernah
      * disimpan sebagai kolom fisik (lihat review Section 5: kalau jadi
      * kolom yang ditulis manual di banyak endpoint, risiko "kebalik"/lupa
@@ -1127,6 +1162,110 @@ class Inbox extends BaseController
         $namaPenangan = $penangan ? ($penangan['inisial'] ?: $penangan['username']) : ('User #' . $assignedTo);
 
         return "Percakapan ini sedang ditangani oleh {$namaPenangan}. Hanya {$namaPenangan} atau admin yang bisa membalas/menghapusnya.";
+    }
+
+    /**
+     * Apakah user ini = Shift Leader saat ini (hasil EffectiveShiftLeader
+     * Service, dihitung dari users.priority + jadwal + jam sekarang).
+     * Dibungkus Authority::isCurrentShiftLeader() yang sudah fail-closed
+     * (skema belum termigrasi -> dianggap bukan leader, bukan exception).
+     * Hasil di-cache per-request.
+     */
+    private function userAdalahShiftLeaderSaatIni(int $userId): bool
+    {
+        if (!array_key_exists($userId, $this->shiftLeaderCache)) {
+            $this->shiftLeaderCache[$userId] = \App\Services\Authority::isCurrentShiftLeader($userId);
+        }
+
+        return $this->shiftLeaderCache[$userId];
+    }
+
+    /**
+     * Apakah owner percakapan SUDAH di luar jam shift-nya sehingga
+     * percakapan boleh diambil alih (takeover) oleh staf lain.
+     *
+     * Off-shift bila: tidak ada row `jadwal` hari ini, shift = 'L'
+     * (Libur), atau jam sekarang di luar seluruh sesi shift-nya.
+     *
+     * Grace `GRACE_TAKEOVER_MENIT`: kalau owner masih terlihat aktif
+     * (`last_seen_by_assignee_at`) dalam rentang grace terakhir, dia
+     * dianggap MASIH memegang percakapan (belum off-shift) walau jam
+     * shiftnya sudah habis -- mencegah chat lepas saat lembur.
+     *
+     * `jadwal`/`users` ada di DB group `default` (kasir), BUKAN `inbox`
+     * -- query wajib eksplisit ke koneksi default.
+     */
+    private function ownerOffShift(?int $assignedTo, ?string $lastSeen): bool
+    {
+        if ($assignedTo === null) {
+            return false;
+        }
+
+        if ($lastSeen !== null && $lastSeen !== '') {
+            $batas = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))
+                ->modify('-' . self::GRACE_TAKEOVER_MENIT . ' minutes')
+                ->format('Y-m-d H:i:s');
+
+            if ($lastSeen >= $batas) {
+                return false;
+            }
+        }
+
+        // Fail-closed (mirror Authority::isCurrentShiftLeader): kalau tabel
+        // `jadwal`/skema belum ada di DB yang dipakai (mis. env testing
+        // SQLite), anggap owner TIDAK off-shift -- jangan melempar ke atas,
+        // supaya aksi yang sama sekali tidak butuh jawaban ini tetap jalan.
+        try {
+            $jadwal = \Config\Database::connect()
+                ->table('jadwal')
+                ->where('karyawan_id', $assignedTo)
+                ->where('tanggal', date('Y-m-d'))
+                ->get()->getRowArray();
+        } catch (\Throwable $e) {
+            log_message('error', 'Gagal cek jadwal owner untuk takeover (Inbox): ' . $e->getMessage());
+
+            return false;
+        }
+
+        if ($jadwal === null || $jadwal['shift'] === 'L') {
+            return true;
+        }
+
+        return !\App\Services\EvaluasiJendelaKerjaShift::sedangBekerja((string) $jadwal['shift'], date('H:i'));
+    }
+
+    /**
+     * Boleh-tidaknya user ini mengambil (atau mengambil alih) percakapan.
+     * Satu sumber kebenaran, dipakai `ambilPercakapan()` DAN flag
+     * `bisa_diambil` di daftar chat supaya tombol UI dan guard server
+     * tidak bisa menyimpang.
+     *
+     * Aturan: grup tidak pernah bisa diambil (CON-004); admin selalu
+     * boleh; user sendiri yang memang sudah memegang -> tidak perlu
+     * (dianggap tidak butuh tombol); assignment kosong -> boleh;
+     * owner off-shift -> boleh; Shift Leader saat ini -> boleh.
+     */
+    private function bisaAmbilPercakapan(int $userId, string $role, array $conversation): bool
+    {
+        if (($conversation['jid_type'] ?? null) === 'group') {
+            return false;
+        }
+
+        if ($role === 'admin') {
+            return true;
+        }
+
+        $assignedTo = !empty($conversation['assigned_to']) ? (int) $conversation['assigned_to'] : null;
+
+        if ($assignedTo === null || $assignedTo === $userId) {
+            return true;
+        }
+
+        if ($this->ownerOffShift($assignedTo, $conversation['last_seen_by_assignee_at'] ?? null)) {
+            return true;
+        }
+
+        return $this->userAdalahShiftLeaderSaatIni($userId);
     }
 
     /**
@@ -2355,14 +2494,33 @@ class Inbox extends BaseController
             ]);
         }
 
+        // Non-admin: cek izin dulu -- klaim biasa (unassigned) ATAU
+        // takeover (owner off-shift / user = Shift Leader saat ini).
+        // Admin selalu boleh (override), tanpa cek tambahan.
+        if ($role !== 'admin' && !$this->bisaAmbilPercakapan($userId, $role, $conversation)) {
+            $penangan = $assignedTo ? (new UserModel())->find($assignedTo) : null;
+            $namaPenangan = $penangan ? ($penangan['inisial'] ?: $penangan['username']) : ('User #' . $assignedTo);
+
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => "Percakapan ini sedang ditangani oleh {$namaPenangan}. Hanya {$namaPenangan}, Shift Leader, atau admin yang bisa mengambil alih.",
+            ]);
+        }
+
         $db = \Config\Database::connect('inbox');
         $builder = $db->table('conversations')->where('id', $conversationId);
 
-        // Non-admin HANYA boleh menang kalau baris masih benar-benar
-        // unassigned SAAT UPDATE dieksekusi (bukan saat find() di atas).
-        // Admin sengaja tanpa syarat tambahan (override/take over diizinkan).
+        // Guard race berbasis nilai owner LAMA (dibaca dari find() di
+        // atas): non-admin HANYA menang kalau baris masih persis seperti
+        // yang dia lihat -- `assigned_to IS NULL` untuk klaim, atau
+        // `assigned_to = <owner lama>` untuk takeover. Admin sengaja
+        // tanpa syarat (override/take over selalu diizinkan).
         if ($role !== 'admin') {
-            $builder->where('assigned_to', null);
+            if ($assignedTo === null) {
+                $builder->where('assigned_to', null);
+            } else {
+                $builder->where('assigned_to', $assignedTo);
+            }
         }
 
         $builder->update(['assigned_to' => $userId]);

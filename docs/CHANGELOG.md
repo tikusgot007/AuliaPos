@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2026-10-06 — Inbox: Ambil Alih percakapan (takeover via tombol)
+
+- Aturan lama: tombol "Ambil" hanya berlaku untuk percakapan belum diambil siapa pun
+  (`assigned_to IS NULL`); kasir non-admin tidak bisa mengambil percakapan yang sudah
+  dipegang staf lain (harus menunggu admin melepas). Setelah pergantian shift, chat
+  masih tercatat milik staf shift sebelumnya.
+- Aturan baru: kasir non-admin boleh mengambil alih percakapan yang sudah dipegang
+  orang lain lewat tombol **"Ambil Alih"** bila salah satu berlaku:
+  1. owner sedang off-shift: tidak ada row `jadwal` hari ini, `shift = 'L'` (Libur),
+     atau jam sekarang di luar sesi shift-nya (dievaluasi dengan
+     `EvaluasiJendelaKerjaShift::sedangBekerja()`), **atau**
+  2. pengambil adalah Shift Leader aktif saat itu (override — berlaku walau owner
+     masih on-shift).
+  Untuk owner off-shift berlaku **grace 30 menit**: selama owner masih menunjukkan
+  aktivitas (`last_seen_by_assignee_at` dalam 30 menit terakhir), percakapan tetap
+  dianggap miliknya (mencegah chat lepas saat lembur). Grup tidak pernah bisa
+  diambil alih (CON-004); admin tetap bisa override kapan pun (regresi: perilaku
+  admin tidak berubah).
+- Aturan balas TIDAK berubah: `cekOwnership()` tetap owner/null/admin — orang lain
+  tetap harus klik Ambil/Ambil Alih dulu sebelum bisa membalas (menghindari balasan
+  siluman tanpa jejak perpindahan).
+- Race dua staf menekan tombol bersamaan tetap ditangani conditional UPDATE
+  (`WHERE assigned_to = <nilai owner lama>` untuk takeover, `IS NULL` untuk klaim);
+  yang kalah menerima 409 dengan nama pemenang.
+- Implementasi: `ambilPercakapan()` (`app/Controllers/Inbox.php`) + flag
+  `bisa_diambil` pada daftar percakapan (`index()`/`apiConversations()`) yang dipakai
+  UI untuk merender tombol "Ambil" (unassigned) / "Ambil Alih" (owned).
+- Batasan diketahui: perpindahan takeover tidak tercatat di `conversation_handoffs`
+  (tabel riwayat Handoff eksplisit); jejak takeover hanya implicit dari
+  `messages.sent_by_user_id` (di luar scope perubahan ini).
+- Referensi: `tests/feature/InboxAmbilAlihTest.php`.
+
 ## 2026-10-06 — Inbox: Handoff menjadi event timeline
 
 - Aturan lama: riwayat Handoff ditampilkan sebagai panel sticky di atas thread dan dibaca

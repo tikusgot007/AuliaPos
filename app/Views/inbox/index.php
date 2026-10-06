@@ -1768,11 +1768,16 @@
                 if (punyaSaya || currentUserRole === 'admin') {
                     tombolAssign = '<button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Lepas percakapan" onclick="lepasPercakapan()">' +
                         '<i class="fas fa-user-slash"></i> Lepas</button>';
+                } else if (conv.bisa_diambil) {
+                    tombolAssign = '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Ambil alih percakapan (owner off-shift atau Shift Leader override)" onclick="ambilPercakapan()">' +
+                        '<i class="fas fa-user-check"></i> Ambil Alih</button>';
                 }
             } else {
                 infoAssign = ' <span class="badge bg-light text-muted border">Belum diambil</span>';
-                tombolAssign = '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Ambil percakapan" onclick="ambilPercakapan()">' +
-                    '<i class="fas fa-user-plus"></i> Ambil</button>';
+                if (conv && conv.bisa_diambil) {
+                    tombolAssign = '<button type="button" class="btn btn-sm btn-outline-primary me-1" title="Ambil percakapan" onclick="ambilPercakapan()">' +
+                        '<i class="fas fa-user-plus"></i> Ambil</button>';
+                }
             }
         }
 
