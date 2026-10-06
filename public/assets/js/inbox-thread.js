@@ -977,8 +977,7 @@ function renderHandoffTimelineHtml(h) {
         '<div class="inbox-handoff-timeline-meta">oleh ' + escapeHtmlInbox(oleh) + ', ' +
         escapeHtmlInbox(formatWaktuInbox(h.message_timestamp)) + '</div>' +
         '<div>' + escapeHtmlInbox(h.summary) + '</div>' +
-        '<div class="inbox-handoff-timeline-next">Tindakan lanjutan: ' + escapeHtmlInbox(h.next_action) + '</div>' +
-        (h.note ? '<div class="inbox-handoff-timeline-note">Catatan: ' + escapeHtmlInbox(h.note) + '</div>' : '') +
+        (h.summary ? '<div class="inbox-handoff-timeline-note">' + escapeHtmlInbox(h.summary) + '</div>' : '') +
         '</div>';
 }
 
