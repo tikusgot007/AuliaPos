@@ -471,6 +471,25 @@ class TransaksiModel extends Model
                         strpos($dbError['message'], 'kode_invoice') !== false
                     ) {
                         $db->transRollback();
+
+                        /*
+                    | Lepas lock sebelum retry. GET_LOCK bersifat
+                    | connection-level dan re-entrant: bila dibiarkan
+                    | tertahan, iterasi berikutnya tetap "berhasil"
+                    | mengunci tetapi hitungan lock naik, sehingga
+                    | satu RELEASE_LOCK di akhir tidak cukup dan lock
+                    | tertahan sampai koneksi ditutup.
+                    */
+                        if ($noOrderLockAcquired && $noOrderLockName !== null) {
+                            $db->query('SELECT RELEASE_LOCK(?)', [$noOrderLockName]);
+                            $noOrderLockAcquired = false;
+                        }
+
+                        if ($invoiceLockAcquired && $invoiceLockName !== null) {
+                            $db->query('SELECT RELEASE_LOCK(?)', [$invoiceLockName]);
+                            $invoiceLockAcquired = false;
+                        }
+
                         continue;
                     }
 
