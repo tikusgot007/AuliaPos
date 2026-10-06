@@ -217,7 +217,11 @@ function perbaruiFaviconDot(tampilkanDot) {
 }
 
 function bukaInboxKePercakapan(id) {
-    window.open(notifConfig.inboxUrl + '?conversation_id=' + id, 'AuliaInbox', 'width=1200,height=800');
+    window.open(
+        notifConfig.inboxUrl + '?conversation_id=' + id,
+        'AuliaInbox',
+        'width=' + screen.availWidth + ',height=' + screen.availHeight + ',left=0,top=0'
+    );
 }
 
 // Notifikasi Windows yang sedang tampil: { id, n }. Dipakai untuk menutup
