@@ -116,6 +116,20 @@ test('AC-21 style: dangerous text never becomes markup', () => {
     assert.ok(!html.includes('<i>a</i>'), html);
 });
 
+test('handoff timeline event renders as a non-message timeline item', () => {
+    const t = loadThread();
+    const h = {
+        item_type: 'handoff', handoff_id: 77, from_user_id: 1, to_user_id: 2,
+        initiated_by_user_id: 1, summary: '<ringkasan>', next_action: 'follow up',
+        note: null, message_timestamp: '2026-10-02 10:05:00'
+    };
+    const html = t.ctx.renderHandoffTimelineHtml(h);
+    assert.match(html, /inbox-handoff-timeline/);
+    assert.match(html, /data-id="handoff:77"/);
+    assert.ok(html.includes('&lt;ringkasan&gt;'));
+    assert.ok(!html.includes('<ringkasan>'));
+});
+
 test('bubble carries data-id and the direction class (incoming, outgoing, internal note)', () => {
     const t = loadThread();
     assert.match(t.ctx.renderBubbleHtml(msg(5)), /^<div class="inbox-bubble incoming" data-id="5">/);
@@ -207,6 +221,25 @@ const items = (t, list) => list.map((m) => ({ key: String(m.id), html: t.ctx.ren
 // arrays created inside the vm context have another realm's prototype; copy them before deepEqual
 const actions = (plan) => Array.from(plan.ops, (o) => o.action);
 const removed = (plan) => Array.from(plan.remove);
+
+test('timeline orders handoff chronologically without entering message cache', () => {
+    const t = loadThread();
+    const h = {
+        item_type: 'handoff', handoff_id: 8, from_user_id: 1, to_user_id: 2,
+        initiated_by_user_id: 1, summary: 'handoff', next_action: 'lanjut',
+        note: null, message_timestamp: '2026-10-02 10:01:00'
+    };
+    const m1 = msg(1, { message_timestamp: '2026-10-02 10:00:00' });
+    const m2 = msg(2, { message_timestamp: '2026-10-02 10:02:00' });
+    const tmap = new Map([
+        [t.ctx.timelineKey(m2), m2], [t.ctx.timelineKey(h), h], [t.ctx.timelineKey(m1), m1]
+    ]);
+    const ordered = Array.from(t.ctx.urutkanPesan(tmap));
+    assert.deepEqual(ordered.map(x => t.ctx.timelineKey(x)), ['message:1', 'handoff:8', 'message:2']);
+    poll(t, [m1, m2]);
+    assert.equal(t.get('pesanCached[1].id'), 1);
+    assert.equal(t.get('pesanCached[2].id'), 2);
+});
 
 test('AC-7: identical data -> every bubble is kept', () => {
     const t = loadThread();
