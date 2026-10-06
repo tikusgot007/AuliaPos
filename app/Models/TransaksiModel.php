@@ -349,7 +349,7 @@ class TransaksiModel extends Model
         // Semua transaksi baru selalu dimulai dari PROSES.
         // Status pembayaran dihitung terpisah dari lifecycle transaksi.
         $dataTransaksi['status'] = 'proses';
-        $db = \\Config\\Database::connect();
+        $db = \Config\Database::connect();
         $tanggalInvoice = (string) ($dataTransaksi['tanggal'] ?? date('Y-m-d H:i:s'));
         $tanggalInvoiceKey = date('Ymd', strtotime($tanggalInvoice));
         $isMySql = $db->getPlatform() === 'MySQLi';
