@@ -27,6 +27,7 @@ final class InboxMessagesPaginationTest extends CIUnitTestCase
 
         $this->inbox = db_connect('inbox');
         $this->inbox->table('messages')->emptyTable();
+        $this->inbox->table('conversation_handoffs')->emptyTable();
         $this->inbox->table('conversation_identities')->emptyTable();
         $this->inbox->table('conversations')->emptyTable();
     }
@@ -74,6 +75,17 @@ final class InboxMessagesPaginationTest extends CIUnitTestCase
         return $ids;
     }
 
+    private function seedHandoff(int $conversationId, string $createdAt, int $id): void
+    {
+        $this->inbox->table('conversation_handoffs')->insert([
+            'id' => $id, 'conversation_id' => $conversationId,
+            'from_user_id' => 1, 'to_user_id' => 2, 'initiated_by_user_id' => 1,
+            'summary' => 'Ringkasan handoff ' . $id,
+            'next_action' => 'Tindakan handoff ' . $id, 'note' => null,
+            'created_at' => $createdAt,
+        ]);
+    }
+
     private function fetchPage(int $conversationId, string $query = '')
     {
         return $this->withSession(['isLoggedIn' => true])
@@ -116,6 +128,24 @@ final class InboxMessagesPaginationTest extends CIUnitTestCase
 
         $this->assertSame($ids, $this->ids($json));
         $this->assertFalse($json['has_more'], 'Exactly one full page must not claim more.');
+    }
+
+    public function testTimelineMergesHandoffWithoutChangingMessagesRows(): void
+    {
+        $conv = $this->seedConversation('6281200000112@s.whatsapp.net');
+        $ids = $this->seedMessages($conv, 3);
+        $this->seedHandoff($conv, '2026-10-01 08:00:02', 7001);
+
+        $json = $this->json($this->fetchPage($conv));
+
+        $this->assertSame($ids, $this->ids($json));
+        $this->assertArrayHasKey('timeline', $json);
+        $this->assertSame(
+            ['message', 'message', 'handoff', 'message'],
+            array_map(static fn (array $item): string => $item['item_type'], $json['timeline'])
+        );
+        $this->assertSame('handoff:7001', $json['timeline'][2]['timeline_key']);
+        $this->assertSame('Ringkasan handoff 7001', $json['timeline'][2]['summary']);
     }
 
     // AC-3
