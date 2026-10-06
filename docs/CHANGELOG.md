@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-10-06 — Inbox: Handoff menjadi event timeline
+
+- Aturan lama: riwayat Handoff ditampilkan sebagai panel sticky di atas thread dan dibaca
+  melalui endpoint riwayat terpisah.
+- Aturan baru: Handoff tetap disimpan append-only di `conversation_handoffs`, tetapi
+  diproyeksikan sebagai event di timeline Inbox bersama Internal Note. Tidak ada row baru
+  yang ditambahkan ke `messages`.
+- Alasan: Handoff adalah aktivitas internal pada percakapan, sehingga konteksnya lebih
+  mudah dibaca bila berada pada posisi kronologisnya, tanpa mengambil ruang sticky.
+- Referensi: branch `feat/inbox-handoff-timeline`, test feature/JS terkait.
+
 ## 2026-10-05 — Inbox: notifikasi Windows sebagai jalur utama (toast jadi fallback)
 
 - Aturan lama: pesan Inbox yang perlu dibalas diberi tahu lewat toast hijau sticky di
