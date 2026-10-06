@@ -322,7 +322,6 @@ class Api extends BaseController
         // ==========================================
 
         $dataTransaksi = [
-            'kode_invoice' => $this->generateKodeInvoice(),
             'no_order' => $noOrder,
             'tanggal' => date('Y-m-d H:i:s'),
             'pelanggan_id' => $finalPelangganId,
@@ -397,11 +396,13 @@ class Api extends BaseController
 
         try {
             $transaksiId = $transaksiModel->simpanTransaksi($dataTransaksi, $detailItems, $dataPembayaran);
+            $transaksiTersimpan = $transaksiModel->find($transaksiId);
+            $kodeInvoice = $transaksiTersimpan['kode_invoice'] ?? '-';
 
             return $this->response->setJSON([
                 'status' => 'success',
                 'message' => $metode === 'dp' ? 'DP berhasil dibayar!' : 'Transaksi berhasil disimpan!',
-                'invoice' => $dataTransaksi['kode_invoice'],
+                'invoice' => $kodeInvoice,
                 'transaksi_id' => $transaksiId,
                 'grand_total' => $grandTotal,
                 'grand_total_sebelum_pembulatan' => $grandTotal + $selisihPembulatan,
@@ -425,29 +426,6 @@ class Api extends BaseController
         }
     }
 
-    private function generateKodeInvoice()
-    {
-        $transaksiModel = new \App\Models\TransaksiModel();
-
-        do {
-            $kodeInvoice =
-                'INV-'
-                . date('Ymd')
-                . '-'
-                . str_pad(
-                    random_int(1, 999),
-                    3,
-                    '0',
-                    STR_PAD_LEFT
-                );
-
-            $exists = $transaksiModel
-                ->where('kode_invoice', $kodeInvoice)
-                ->first();
-        } while ($exists);
-
-        return $kodeInvoice;
-    }
     // Pembayaran
     public function tambahPembayaran()
     {

@@ -1,7 +1,8 @@
 // Tests for public/assets/js/inbox-notifikasi.js (notifikasi lintas
 // halaman: judul tab, favicon, notifikasi Windows + fallback toast untuk
 // Inbox).
-// Run: node tests/js/inbox-notifikasi.test.js   (no framework, no dependencies)
+// Run: node tests/js/inbox-notifikasi.test.js (Node.js built-in test runner)
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -93,8 +94,6 @@ function loadNotif(config = {}, notificationRef) {
     return { ctx, sessionStorage, localStorage, stackContainer, izinBtn, opened, get: (expr) => vm.runInContext(expr, ctx) };
 }
 
-const queue = [];
-function test(name, fn) { queue.push([name, fn]); }
 
 const item = (id, ts, label) => ({ id, last_message_at: ts, label: label || ('Pelanggan ' + id) });
 
@@ -363,11 +362,3 @@ test('perbaruiTombolIzinNotifikasi: shows the enable button only when API exists
     t3.ctx.perbaruiTombolIzinNotifikasi();
     assert.equal(t3.izinBtn.style.display, 'none');
 });
-
-(async () => {
-    let passed = 0;
-    for (const [name, fn] of queue) {
-        try { await fn(); passed++; console.log('ok   ' + name); } catch (e) { console.log('FAIL ' + name + '\n' + e.stack); process.exitCode = 1; }
-    }
-    console.log(passed + ' passed' + (process.exitCode ? ', ' + (queue.length - passed) + ' FAILED' : ''));
-})();

@@ -172,6 +172,9 @@ class Cash extends BaseController
     public function simpanOpname()
     {
         $request = $this->request->getJSON(true);
+        if (!is_array($request)) {
+            $request = $this->request->getPost();
+        }
 
         $saldoFisik = (float) ($request['saldo_fisik'] ?? 0);
         $alasan = trim($request['alasan_selisih'] ?? '');

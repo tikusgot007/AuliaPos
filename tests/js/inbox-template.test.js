@@ -1,6 +1,7 @@
 // Tests for public/assets/js/inbox-template.js (AC-9, AC-10, AC-11, AC-12
 // of docs/requirements/2026-10-03-template-balasan-cepat.md).
-// Run: node tests/js/inbox-template.test.js   (no framework, no dependencies)
+// Run: node tests/js/inbox-template.test.js (Node.js built-in test runner)
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -56,8 +57,6 @@ function loadTemplate(overrides = {}) {
     return { ctx, elements, modalCalls, antrianCalls, toasts, opsiDibuang };
 }
 
-const queue = [];
-function test(name, fn) { queue.push([name, fn]); }
 
 test('T-1: muatDaftarTemplateBalasan renders a clickable item per template', async () => {
     const t = loadTemplate({
@@ -152,11 +151,3 @@ test('T-6: bukaModalTemplate does nothing without an active conversation', () =>
 
     assert.deepEqual(t.modalCalls, []);
 });
-
-(async () => {
-    let passed = 0;
-    for (const [name, fn] of queue) {
-        try { await fn(); passed++; console.log('ok   ' + name); } catch (e) { console.log('FAIL ' + name + '\n' + e.stack); process.exitCode = 1; }
-    }
-    console.log(passed + ' passed' + (process.exitCode ? ', ' + (queue.length - passed) + ' FAILED' : ''));
-})();

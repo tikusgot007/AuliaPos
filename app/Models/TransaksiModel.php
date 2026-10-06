@@ -297,30 +297,40 @@ class TransaksiModel extends Model
 
         return true;
     }
-    private function generateKodeInvoiceRetry()
+    /**
+     * Buat nomor invoice berikutnya untuk tanggal transaksi.
+     *
+     * Caller wajib memegang GET_LOCK per tanggal saat driver MySQL agar
+     * dua kasir tidak mengambil nomor yang sama secara bersamaan.
+     * Query + parsing suffix sengaja portable untuk test SQLite.
+     */
+    private function generateKodeInvoiceBerikutnya(string $tanggal): string
     {
-        do {
+        $tanggalKey = date('Ymd', strtotime($tanggal));
+        $prefix = 'INV-' . $tanggalKey . '-';
 
-            $kodeInvoice =
-                'INV-'
-                . date('Ymd')
-                . '-'
-                . str_pad(
-                    random_int(1, 999),
-                    3,
-                    '0',
-                    STR_PAD_LEFT
-                );
+        $rows = $this
+            ->select('kode_invoice')
+            ->like('kode_invoice', $prefix, 'after')
+            ->findAll();
 
-            $exists = $this
-                ->where(
-                    'kode_invoice',
-                    $kodeInvoice
-                )
-                ->first();
-        } while ($exists);
+        $terakhir = 0;
 
-        return $kodeInvoice;
+        foreach ($rows as $row) {
+            $kode = (string) ($row['kode_invoice'] ?? '');
+            if (strpos($kode, $prefix) !== 0) {
+                continue;
+            }
+
+            $suffix = substr($kode, strlen($prefix));
+            if ($suffix !== '' && ctype_digit($suffix)) {
+                $terakhir = max($terakhir, (int) $suffix);
+            }
+        }
+
+        $berikutnya = $terakhir + 1;
+
+        return $prefix . str_pad((string) $berikutnya, 3, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -340,6 +350,9 @@ class TransaksiModel extends Model
         // Status pembayaran dihitung terpisah dari lifecycle transaksi.
         $dataTransaksi['status'] = 'proses';
         $db = \Config\Database::connect();
+        $tanggalInvoice = (string) ($dataTransaksi['tanggal'] ?? date('Y-m-d H:i:s'));
+        $tanggalInvoiceKey = date('Ymd', strtotime($tanggalInvoice));
+        $isMySql = $db->getPlatform() === 'MySQLi';
 
         /*
     |--------------------------------------------------------------------------
@@ -352,6 +365,8 @@ class TransaksiModel extends Model
 
             $noOrderLockAcquired = false;
             $noOrderLockName = null;
+            $invoiceLockAcquired = false;
+            $invoiceLockName = null;
 
             try {
 
@@ -360,17 +375,10 @@ class TransaksiModel extends Model
             | Lock No Order untuk mencegah dua kasir menyimpan nomor yang sama
             | secara bersamaan. Histori tetap boleh memiliki duplikasi setelah
             | transaksi berstatus BATAL.
-            |
-            | GET_LOCK()/RELEASE_LOCK() adalah fungsi khusus MySQL -- pada
-            | driver lain (mis. SQLite3 di test suite) langkah lock dilewati
-            | dan HANYA validasi "no_order masih dipakai transaksi aktif" yang
-            | tetap berjalan. Test PHPUnit berjalan satu proses, jadi tidak
-            | butuh lock lintas-proses; perilaku ini disengaja, bukan celah.
             |--------------------------------------------------------------------------
             */
                 if (!empty($dataTransaksi['no_order'])) {
                     $noOrder = (int) $dataTransaksi['no_order'];
-                    $isMySql = $db->getPlatform() === 'MySQLi';
 
                     if ($isMySql) {
                         $noOrderLockName = 'auliapos:no_order:' . $noOrder;
@@ -403,6 +411,36 @@ class TransaksiModel extends Model
                     }
                 }
 
+                /*
+            |--------------------------------------------------------------------------
+            | Lock invoice per tanggal.
+            |
+            | Pada MySQL, GET_LOCK bersifat connection-level sehingga lock tetap
+            | hidup selama transaksi database dan dilepas eksplisit setelah
+            | commit/rollback. Pada SQLite test suite tidak ada GET_LOCK; test
+            | berjalan satu proses sehingga query max tetap deterministik.
+            |--------------------------------------------------------------------------
+            */
+                if ($isMySql) {
+                    $invoiceLockName = 'auliapos:invoice:' . $tanggalInvoiceKey;
+
+                    $lockResult = $db->query(
+                        'SELECT GET_LOCK(?, 10) AS acquired',
+                        [$invoiceLockName]
+                    )->getRowArray();
+
+                    if ((int) ($lockResult['acquired'] ?? 0) !== 1) {
+                        throw new \RuntimeException(
+                            'Nomor invoice tanggal ' . date('Y-m-d', strtotime($tanggalInvoice)) . ' sedang diproses kasir lain. Silakan coba lagi.',
+                            409
+                        );
+                    }
+
+                    $invoiceLockAcquired = true;
+                }
+
+                $dataTransaksi['kode_invoice'] = $this->generateKodeInvoiceBerikutnya($tanggalInvoice);
+
                 $db->transStart();
 
                 /*
@@ -426,49 +464,15 @@ class TransaksiModel extends Model
 
                     $dbError = $this->db->error();
 
-                    /*
-                |--------------------------------------------------------------------------
-                | Collision kode_invoice
-                |--------------------------------------------------------------------------
-                */
-
                     if (
                         isset($dbError['code']) &&
                         (int) $dbError['code'] === 1062 &&
                         isset($dbError['message']) &&
-                        strpos(
-                            $dbError['message'],
-                            'kode_invoice'
-                        ) !== false
+                        strpos($dbError['message'], 'kode_invoice') !== false
                     ) {
-
-                        /*
-                    | Batalkan transaction yang gagal.
-                    */
                         $db->transRollback();
-
-                        if ($noOrderLockAcquired && $noOrderLockName !== null) {
-                            $db->query('SELECT RELEASE_LOCK(?)', [$noOrderLockName]);
-                            $noOrderLockAcquired = false;
-                        }
-
-                        /*
-                    | Buat kode invoice baru.
-                    */
-                        $dataTransaksi['kode_invoice'] =
-                            $this->generateKodeInvoiceRetry();
-
-                        /*
-                    | Coba INSERT lagi.
-                    */
                         continue;
                     }
-
-                    /*
-                |--------------------------------------------------------------------------
-                | Error database lainnya
-                |--------------------------------------------------------------------------
-                */
 
                     throw new \Exception(
                         'Gagal mendapatkan ID transaksi. '
@@ -563,6 +567,11 @@ class TransaksiModel extends Model
                     $noOrderLockAcquired = false;
                 }
 
+                if ($invoiceLockAcquired && $invoiceLockName !== null) {
+                    $db->query('SELECT RELEASE_LOCK(?)', [$invoiceLockName]);
+                    $invoiceLockAcquired = false;
+                }
+
                 /*
             |--------------------------------------------------------------------------
             | 5. Berhasil
@@ -585,47 +594,19 @@ class TransaksiModel extends Model
                     $noOrderLockAcquired = false;
                 }
 
-                /*
-            |--------------------------------------------------------------------------
-            | Beberapa kondisi database bisa melempar
-            | exception langsung untuk duplicate key.
-            |--------------------------------------------------------------------------
-            */
-
-                $message =
-                    $e->getMessage();
-
-
-                if (
-                    strpos(
-                        $message,
-                        'Duplicate entry'
-                    ) !== false
-                    &&
-                    strpos(
-                        $message,
-                        'kode_invoice'
-                    ) !== false
-                ) {
-
-                    /*
-                | Buat kode invoice baru.
-                */
-                    $dataTransaksi['kode_invoice'] =
-                        $this->generateKodeInvoiceRetry();
-
-                    /*
-                | Coba lagi.
-                */
-                    continue;
+                if ($invoiceLockAcquired && $invoiceLockName !== null) {
+                    $db->query('SELECT RELEASE_LOCK(?)', [$invoiceLockName]);
+                    $invoiceLockAcquired = false;
                 }
 
+                $message = $e->getMessage();
 
-                /*
-            |--------------------------------------------------------------------------
-            | Error lain tidak diulang.
-            |--------------------------------------------------------------------------
-            */
+                if (
+                    strpos($message, 'Duplicate entry') !== false
+                    && strpos($message, 'kode_invoice') !== false
+                ) {
+                    continue;
+                }
 
                 throw $e;
             }

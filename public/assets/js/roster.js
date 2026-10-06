@@ -339,7 +339,7 @@
 
     async function muatBulanan() {
         const params = new URLSearchParams({
-            bulan: state.bulan || new Date().toISOString().slice(0, 7),
+            bulan: state.bulan || tanggalHariIniLokal().slice(0, 7),
             divisi: el('rosterFilterDivisi').value,
             shift: el('rosterFilterShift').value,
             search: el('rosterFilterSearch').value,
@@ -364,7 +364,7 @@
             el('rosterTabBulanan').classList.toggle('d-none', state.mode !== 'bulanan');
 
             if (state.mode === 'bulanan' && !state.bulan) {
-                state.bulan = new Date().toISOString().slice(0, 7);
+                state.bulan = tanggalHariIniLokal().slice(0, 7);
                 AuliaMonthPicker.set('rosterBulan', state.bulan);
                 muatBulanan();
             }

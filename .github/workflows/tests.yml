@@ -1,0 +1,36 @@
+name: Tests
+
+on:
+  push:
+    branches: ["v2.4"]
+  pull_request:
+    branches: ["v2.4"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, intl, sqlite3, pdo_sqlite
+          coverage: none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run JavaScript tests
+        run: composer test:js
+
+      - name: Run PHP unit tests
+        run: composer test

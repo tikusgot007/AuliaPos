@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Minimal PHPUnit config for pure-logic tests (no framework bootstrap, no database).
+  PHPUnit config for unit tests. Some unit tests extend CIUnitTestCase, so the
+  CodeIgniter test bootstrap is required to define the framework test constants.
+  This suite still does not connect to the production or development database.
   Compatible with PHPUnit 9.6 and 10.5+ (no coverage/source section on purpose).
   Run: vendor/bin/phpunit
 -->
-<phpunit bootstrap="vendor/autoload.php"
+<phpunit bootstrap="vendor/codeigniter4/framework/system/Test/bootstrap.php"
          colors="true"
          failOnWarning="true"
          failOnRisky="true"
