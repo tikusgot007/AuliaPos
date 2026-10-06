@@ -11,6 +11,18 @@
   mudah dibaca bila berada pada posisi kronologisnya, tanpa mengambil ruang sticky.
 - Referensi: branch `feat/inbox-handoff-timeline`, test feature/JS terkait.
 
+## 2026-10-06 — Inbox: sederhanakan form Handoff
+
+- Aturan lama: Handoff meminta ringkasan percakapan dan tindakan lanjutan sebagai dua
+  field wajib, dengan catatan tambahan opsional.
+- Aturan baru: Handoff hanya meminta satu **Catatan Handoff** yang opsional. Target
+  kasir tetap wajib dipilih.
+- Alasan: Handoff merupakan penanda perpindahan tanggung jawab; kasir tidak selalu
+  perlu menulis template ringkasan/tindakan terpisah.
+- Catatan teknis: schema `conversation_handoffs` tidak diubah. Kolom `next_action`
+  legacy tetap disimpan sebagai string kosong untuk data Handoff baru.
+- Referensi: branch `fix/inbox-handoff-form`.
+
 ## 2026-10-05 — Inbox: notifikasi Windows sebagai jalur utama (toast jadi fallback)
 
 - Aturan lama: pesan Inbox yang perlu dibalas diberi tahu lewat toast hijau sticky di
