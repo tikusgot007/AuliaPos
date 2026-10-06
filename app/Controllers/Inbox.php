@@ -157,11 +157,6 @@ class Inbox extends BaseController
             // Sumber sama dengan validasi server (UserModel::daftarKasirAktif,
             // Q6) -- server tetap 403 kalau dropdown basi (RISK-05).
             'daftarKasir'    => (new UserModel())->daftarKasirAktif(),
-            // Peta id => inisial/username SEMUA user (bukan hanya kasir
-            // aktif) -- dipakai JS untuk resolve label singkat di panel
-            // Riwayat Handoff, yang bisa menunjuk ke admin (lihat
-            // UserModel::labelMapAll()).
-            'semuaUserLabel' => (new UserModel())->labelMapAll(),
             // PRN-301: daftar tipe lampiran forwardable SATU sumber kebenaran --
             // view memakai konstanta server ini (bukan salinannya sendiri),
             // supaya rute otomatis UI dan guard server (TIPE_TERUSKAN_LAMPIRAN
@@ -452,10 +447,49 @@ class Inbox extends BaseController
         }
         unset($message);
 
+        // Timeline bersifat additive: kontrak lama `messages` tetap message-only.
+        // Handoff hanya diproyeksikan ke `timeline`, tanpa row baru di messages.
+        $handoffs = (new ConversationHandoffModel())->forConversation($conversationId, 50);
+        $timeline = array_map(
+            static fn(array $message): array => array_merge(
+                [
+                    'item_type'    => 'message',
+                    'timeline_key' => 'message:' . (int) $message['id'],
+                ],
+                $message
+            ),
+            $messages
+        );
+
+        foreach ($handoffs as $handoff) {
+            $timeline[] = array_merge(
+                [
+                    'item_type'          => 'handoff',
+                    'timeline_key'       => 'handoff:' . (int) $handoff['id'],
+                    'message_timestamp' => $handoff['created_at'],
+                ],
+                $handoff
+            );
+        }
+
+        usort($timeline, static function (array $a, array $b): int {
+            $timeCompare = strcmp((string) $a['message_timestamp'], (string) $b['message_timestamp']);
+            if ($timeCompare !== 0) return $timeCompare;
+
+            $typeCompare = (($a['item_type'] === 'handoff') ? 1 : 0)
+                <=> (($b['item_type'] === 'handoff') ? 1 : 0);
+            if ($typeCompare !== 0) return $typeCompare;
+
+            $idA = (int) ($a['id'] ?? $a['handoff_id'] ?? 0);
+            $idB = (int) ($b['id'] ?? $b['handoff_id'] ?? 0);
+            return $idA <=> $idB;
+        });
+
         return $this->response->setJSON([
             'status'       => 'success',
             'conversation' => $this->attachResponseState($this->attachAssignedNames([$conversation]))[0],
             'messages'     => $messages,
+            'timeline'     => $timeline,
             'has_more'     => $page['has_more'],
         ]);
     }
