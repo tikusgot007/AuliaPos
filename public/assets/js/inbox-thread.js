@@ -951,6 +951,37 @@ function renderIsiPesan(m) {
    (data server DAN state sisi klien seperti mediaGagal, mediaSementara,
    gatewayTerhubung, pesanTerkirimTanpaKutipan) sudah ikut di dalamnya,
    jadi tidak ada "tanda tangan" terpisah yang bisa lupa satu state. */
+function isHandoffTimelineItem(m) {
+    return !!m && m.item_type === 'handoff';
+}
+
+function timelineKey(m) {
+    if (isHandoffTimelineItem(m)) return 'handoff:' + String(m.handoff_id || m.id);
+    return 'message:' + String(m.id);
+}
+
+function labelStaffHandoffTimeline(id) {
+    if (typeof namaStaffHandoff === 'function') return namaStaffHandoff(id);
+    if (id === null || id === undefined || id === '') return 'Belum diambil';
+    return 'Kasir #' + id;
+}
+
+function renderHandoffTimelineHtml(h) {
+    const dari = labelStaffHandoffTimeline(h.from_user_id);
+    const ke = labelStaffHandoffTimeline(h.to_user_id);
+    const oleh = labelStaffHandoffTimeline(h.initiated_by_user_id);
+
+    return '<div class="inbox-handoff-timeline" data-id="' + escapeHtmlInbox(timelineKey(h)) + '">' +
+        '<div class="inbox-handoff-timeline-title"><i class="fas fa-share-square"></i> Handoff: ' +
+        '<strong>' + escapeHtmlInbox(dari) + '</strong> &rarr; <strong>' + escapeHtmlInbox(ke) + '</strong></div>' +
+        '<div class="inbox-handoff-timeline-meta">oleh ' + escapeHtmlInbox(oleh) + ', ' +
+        escapeHtmlInbox(formatWaktuInbox(h.message_timestamp)) + '</div>' +
+        '<div>' + escapeHtmlInbox(h.summary) + '</div>' +
+        '<div class="inbox-handoff-timeline-next">Tindakan lanjutan: ' + escapeHtmlInbox(h.next_action) + '</div>' +
+        (h.note ? '<div class="inbox-handoff-timeline-note">Catatan: ' + escapeHtmlInbox(h.note) + '</div>' : '') +
+        '</div>';
+}
+
 function renderBubbleHtml(m) {
     const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
     const arah = internal ? 'internal-note' : (m.direction === 'outgoing' ? 'outgoing' : 'incoming');
@@ -1116,7 +1147,11 @@ function labelTanggal(ts, sekarang) {
 // Urutan tampil yang sama dengan server: message_timestamp, lalu id.
 function urutPesan(a, b) {
     if (a.message_timestamp !== b.message_timestamp) return a.message_timestamp < b.message_timestamp ? -1 : 1;
-    return Number(a.id) - Number(b.id);
+
+    const typeCompare = (isHandoffTimelineItem(a) ? 1 : 0) - (isHandoffTimelineItem(b) ? 1 : 0);
+    if (typeCompare !== 0) return typeCompare;
+
+    return Number(a.id || a.handoff_id) - Number(b.id || b.handoff_id);
 }
 
 function urutkanPesan(peta) {
@@ -1133,11 +1168,22 @@ function gabungPesanThread(dikenal, terbaru, adaLagi) {
 
     if (!terbaru.length) return hasil;
 
+    const pesanTerbaru = terbaru.filter(function(m) { return !isHandoffTimelineItem(m); });
+    const batasPesan = pesanTerbaru.length ? urutkanPesan(new Map(
+        pesanTerbaru.map(function(m) { return [timelineKey(m), m]; })
+    ))[0] : null;
+
     dikenal.forEach(function(m, key) {
-        const didalamJendela = !adaLagi || urutPesan(m, terbaru[0]) >= 0;
+        if (isHandoffTimelineItem(m)) {
+            hasil.set(key, m);
+            return;
+        }
+
+        const didalamJendela = !adaLagi || !batasPesan || urutPesan(m, batasPesan) >= 0;
         if (!didalamJendela) hasil.set(key, m);
     });
-    terbaru.forEach(function(m) { hasil.set(String(m.id), m); });
+
+    terbaru.forEach(function(m) { hasil.set(timelineKey(m), m); });
 
     return hasil;
 }
@@ -1166,7 +1212,10 @@ function susunItemThread(messages, opsi) {
             hariTerakhir = hari;
         }
 
-        items.push({ key: String(m.id), html: renderBubbleHtml(m) });
+        items.push({
+            key: timelineKey(m),
+            html: isHandoffTimelineItem(m) ? renderHandoffTimelineHtml(m) : renderBubbleHtml(m)
+        });
     });
 
     return items;
@@ -1244,14 +1293,15 @@ function renderPesan(messages, paksaScroll, opsi) {
         return;
     }
 
-    // Cache untuk pilihKutipan() (Balas Pesan, REQ-005) dan Teruskan --
-    // berisi SEMUA pesan yang tampil, tidak menahan percakapan sebelumnya.
+    // Cache untuk Balas/Teruskan HANYA pesan nyata. Handoff tidak boleh
+    // masuk ke pesanCached porque bukan message.
     pesanCached = {};
-    messages.forEach(function(m) { pesanCached[m.id] = m; });
+    messages.forEach(function(m) {
+        if (!isHandoffTimelineItem(m)) pesanCached[m.id] = m;
+    });
 
-    // Penghitung pesan baru (AC-29): hanya pesan yang datang SETELAH pesan
-    // terakhir render sebelumnya, dan hanya bila kasir tidak sedang di dasar.
-    const kunciAkhirBaru = String(messages[messages.length - 1].id);
+    const pesanNyata = messages.filter(function(m) { return !isHandoffTimelineItem(m); });
+    const kunciAkhirBaru = pesanNyata.length ? String(pesanNyata[pesanNyata.length - 1].id) : null;
     if (harusScroll) {
         threadJumlahBaru = 0;
     } else if (!opsi.dariMuatLama && threadKunciAkhir !== null) {
@@ -1283,7 +1333,7 @@ function terimaPesanTerbaru(konvId, json, paksaScroll) {
         threadKonvId = konvId;
     }
 
-    const terbaru = json.messages || [];
+    const terbaru = json.timeline || json.messages || [];
     threadDikenal = gabungPesanThread(threadDikenal, terbaru, !!json.has_more);
 
     // Sebelum ada halaman lama yang dimuat, "ada riwayat lama" persis
@@ -1307,8 +1357,9 @@ function tampilkanToastThread(teks, jenis) {
    di atas ditambahkan ke scrollTop (AC-27). Mengembalikan Promise<boolean>. */
 function muatPesanLama() {
     const urut = urutkanPesan(threadDikenal);
+    const oldestMessage = urut.find(function(m) { return !isHandoffTimelineItem(m); });
 
-    if (threadMemuatLama || !threadOlderHasMore || threadKonvId === null || !urut.length) {
+    if (threadMemuatLama || !threadOlderHasMore || threadKonvId === null || !oldestMessage) {
         return Promise.resolve(false);
     }
 
@@ -1316,7 +1367,7 @@ function muatPesanLama() {
     threadMemuatLama = true;
     gambarUlangThread();
 
-    return fetch(threadConfig.apiMessagesUrl + '/' + konv + '/messages?before_id=' + encodeURIComponent(urut[0].id))
+    return fetch(threadConfig.apiMessagesUrl + '/' + konv + '/messages?before_id=' + encodeURIComponent(oldestMessage.id))
         .then(function(res) { return res.json(); })
         .then(function(json) {
             if (konv !== threadKonvId) return false;
