@@ -957,7 +957,7 @@ function isHandoffTimelineItem(m) {
 
 function timelineKey(m) {
     if (isHandoffTimelineItem(m)) return 'handoff:' + String(m.handoff_id || m.id);
-    return 'message:' + String(m.id);
+    return String(m.id);
 }
 
 function labelStaffHandoffTimeline(id) {
