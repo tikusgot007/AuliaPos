@@ -70,7 +70,6 @@
 
 - [ ] **TODO-BL42** Low — `is_locked` milik `produk`, bukan `users`; proteksi user hanya dari controller — schema `2026-09-08-000001:44-59,111`; `Auth.php:333,415-421`
 
-- [ ] **TODO-Q4** Tidak ada CI; 3 skrip test JS tanpa runner — rendah
 
 - [ ] **TODO-O5** Dokumentasikan prosedur update adapter produksi `aulia3` (bukan repo git; `npm` tidak ada → dependency baru seperti `ws` disalin manual dari `node_modules`; restart via task `AuliaEvolution` + `scripts/restart-adapter.ps1`; source Evolution `D:\\evolution-api-server`) — rendah
 
