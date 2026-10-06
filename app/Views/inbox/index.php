@@ -1395,8 +1395,6 @@
         document.getElementById('btnTemplateBalasan').disabled = true;
         batalkanKutipan();
         batalkanMediaBalasan();
-        // conversationAktif is now null, so the handoff panel is hidden too.
-        muatUlangRiwayatHandoff();
     }
 
     function setFilterConversation(filter) {
