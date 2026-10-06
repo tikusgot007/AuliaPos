@@ -362,11 +362,3 @@ test('perbaruiTombolIzinNotifikasi: shows the enable button only when API exists
     t3.ctx.perbaruiTombolIzinNotifikasi();
     assert.equal(t3.izinBtn.style.display, 'none');
 });
-
-(async () => {
-    let passed = 0;
-    for (const [name, fn] of queue) {
-        try { await fn(); passed++; console.log('ok   ' + name); } catch (e) { console.log('FAIL ' + name + '\n' + e.stack); process.exitCode = 1; }
-    }
-    console.log(passed + ' passed' + (process.exitCode ? ', ' + (queue.length - passed) + ' FAILED' : ''));
-})();
