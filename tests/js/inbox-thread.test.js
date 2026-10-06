@@ -780,11 +780,3 @@ test('DL-8: unduhMedia requests ?unduh=1, saves with the server file name, and n
     assert.equal(mati.kategori, 'sementara');
     assert.equal(toasts.length, 1, 'senyap suppresses the toast');
 });
-
-(async () => {
-    let passed = 0;
-    for (const [name, fn] of queue) {
-        try { await fn(); passed++; console.log('ok   ' + name); } catch (e) { console.log('FAIL ' + name + '\n' + e.stack); process.exitCode = 1; }
-    }
-    console.log(passed + ' passed' + (process.exitCode ? ', ' + (queue.length - passed) + ' FAILED' : ''));
-})();
