@@ -157,6 +157,9 @@ class Inbox extends BaseController
             // Sumber sama dengan validasi server (UserModel::daftarKasirAktif,
             // Q6) -- server tetap 403 kalau dropdown basi (RISK-05).
             'daftarKasir'    => (new UserModel())->daftarKasirAktif(),
+            // Label semua user dipakai timeline Handoff, termasuk user yang
+            // sudah tidak aktif atau admin yang pernah terlibat.
+            'semuaUserLabel' => (new UserModel())->labelMapAll(),
             // PRN-301: daftar tipe lampiran forwardable SATU sumber kebenaran --
             // view memakai konstanta server ini (bukan salinannya sendiri),
             // supaya rute otomatis UI dan guard server (TIPE_TERUSKAN_LAMPIRAN
@@ -1907,50 +1910,24 @@ class Inbox extends BaseController
 
         $userId = (int) session()->get('id_user');
 
-        // REQ-001 (CR-01): reject non-string values BEFORE any coercion so
-        // an array can never be stored as the string "Array" in a required
-        // text column. An absent field (null) is rejected here as well.
-        $summaryRaw    = $body['summary'] ?? null;
-        $nextActionRaw = $body['next_action'] ?? null;
-        $noteRaw       = $body['note'] ?? null;
-
-        if (
-            !is_string($summaryRaw) || !is_string($nextActionRaw)
-            || ($noteRaw !== null && !is_string($noteRaw))
-        ) {
+        // Handoff baru memakai satu catatan opsional. Kolom legacy
+        // next_action tetap diisi string kosong agar tidak perlu migration.
+        $summaryRaw = $body['summary'] ?? '';
+        if (!is_string($summaryRaw)) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
-                'message' => 'Ringkasan, tindakan berikutnya, dan catatan harus berupa teks.',
+                'message' => 'Catatan Handoff harus berupa teks.',
             ]);
         }
 
-        $summary    = trim($summaryRaw);
-        $nextAction = trim($nextActionRaw);
-        $note       = ($noteRaw === null || trim($noteRaw) === '')
-            ? null
-            : $noteRaw;
+        $summary = trim($summaryRaw);
+        $nextAction = '';
+        $note = null;
 
-        if ($summary === '') {
+        if (mb_strlen($summary) > 4096) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status'  => 'error',
-                'message' => 'Ringkasan Handoff (summary) wajib diisi.',
-            ]);
-        }
-        if ($nextAction === '') {
-            return $this->response->setStatusCode(400)->setJSON([
-                'status'  => 'error',
-                'message' => 'Tindakan berikutnya (next_action) wajib diisi.',
-            ]);
-        }
-        // REQ-003 (CR-05): the 4096 cap is measured in CHARACTERS
-        // (mb_strlen), matching VARCHAR(4096) and the UI maxlength.
-        if (
-            mb_strlen($summary) > 4096 || mb_strlen($nextAction) > 4096
-            || ($note !== null && mb_strlen($note) > 4096)
-        ) {
-            return $this->response->setStatusCode(400)->setJSON([
-                'status'  => 'error',
-                'message' => 'Ringkasan, tindakan berikutnya, dan catatan maksimal 4096 karakter.',
+                'message' => 'Catatan Handoff maksimal 4096 karakter.',
             ]);
         }
 
