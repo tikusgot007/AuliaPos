@@ -130,6 +130,16 @@ test('handoff timeline event renders as a non-message timeline item', () => {
     assert.ok(!html.includes('<ringkasan>'));
 });
 
+test('handoff timeline omits empty optional note', () => {
+    const t = loadThread();
+    const html = t.ctx.renderHandoffTimelineHtml({
+        item_type: 'handoff', handoff_id: 78, from_user_id: 1, to_user_id: 2,
+        initiated_by_user_id: 1, summary: '', message_timestamp: '2026-10-02 10:05:00'
+    });
+    assert.ok(html.includes('handoff:78'));
+    assert.ok(!html.includes('Tindakan lanjutan:'));
+});
+
 test('bubble carries data-id and the direction class (incoming, outgoing, internal note)', () => {
     const t = loadThread();
     assert.match(t.ctx.renderBubbleHtml(msg(5)), /^<div class="inbox-bubble incoming" data-id="5">/);
