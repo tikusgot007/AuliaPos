@@ -1105,19 +1105,9 @@
                         </small>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Ringkasan Keadaan Percakapan (wajib)</label>
-                        <textarea class="form-control" id="handoffSummary" rows="3" maxlength="4096" required
-                            placeholder="Contoh: customer tanya harga grosir, sudah dikirim price list v3."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Tindakan Lanjutan yang Diharapkan (wajib)</label>
-                        <textarea class="form-control" id="handoffNextAction" rows="2" maxlength="4096" required
-                            placeholder="Contoh: follow up besok pagi kalau belum ada balasan."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Catatan (opsional)</label>
-                        <textarea class="form-control" id="handoffNote" rows="2" maxlength="4096"
-                            placeholder="Catatan bebas antar staff, tidak terkirim ke pelanggan."></textarea>
+                        <label class="form-label">Catatan Handoff (opsional)</label>
+                        <textarea class="form-control" id="handoffSummary" rows="4" maxlength="4096"
+                            placeholder="Contoh: customer tanya harga grosir, sudah dikirim price list v3; follow up besok pagi jika belum ada balasan."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2214,6 +2204,16 @@
         showToast('Daftar percakapan dimuat ulang.', 'info');
     }
 
+    // Label staff untuk event Handoff di timeline. Gunakan semua user,
+    // bukan hanya kasir aktif, karena riwayat dapat melibatkan admin/user lama.
+    const namaKasirById = <?= json_encode((object) ($semuaUserLabel ?? []), JSON_UNESCAPED_UNICODE) ?>;
+
+    function namaStaffHandoff(id) {
+        if (id === null || id === undefined || id === '') return 'Belum diambil';
+        const nama = namaKasirById[String(id)];
+        return nama ? String(nama) : ('Kasir #' + id);
+    }
+
     function kirimHandoff(e) {
         e.preventDefault();
         if (!conversationAktif) return false;
@@ -2227,12 +2227,10 @@
 
         const target = document.getElementById('handoffTarget').value;
         const summary = document.getElementById('handoffSummary').value.trim();
-        const nextAction = document.getElementById('handoffNextAction').value.trim();
-        const note = document.getElementById('handoffNote').value.trim();
         const btn = document.getElementById('btnKirimHandoff');
 
-        if (!target || !summary || !nextAction) {
-            showToast('Target, ringkasan, dan tindakan lanjutan wajib diisi.', 'warning');
+        if (!target) {
+            showToast('Target Handoff wajib dipilih.', 'warning');
             return false;
         }
 
@@ -2242,8 +2240,6 @@
 
         const body = 'to_user_id=' + encodeURIComponent(target) +
             '&summary=' + encodeURIComponent(summary) +
-            '&next_action=' + encodeURIComponent(nextAction) +
-            '&note=' + encodeURIComponent(note) +
             '&expected_owner=' + encodeURIComponent(handoffExpectedOwner);
 
         fetch('<?= base_url('/inbox/percakapan/') ?>' + conversationAktif + '/handoff', {
