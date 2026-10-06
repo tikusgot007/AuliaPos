@@ -1,6 +1,7 @@
 // Tests for public/assets/js/inbox-thread.js (AC-6..AC-13 of
 // docs/requirements/2026-10-02-perbaikan-thread-inbox.md).
-// Run: node tests/js/inbox-thread.test.js   (no framework, no dependencies)
+// Run: node tests/js/inbox-thread.test.js (Node.js built-in test runner)
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -83,8 +84,6 @@ function loadThread() {
 }
 
 // Tests run one after another (some are async); results print in order.
-const queue = [];
-function test(name, fn) { queue.push([name, fn]); }
 
 const msg = (id, extra = {}) => ({
     id, wa_message_id: 'W' + id, direction: 'incoming', message_type: 'text', text: 'pesan ' + id, sender_name: null,
