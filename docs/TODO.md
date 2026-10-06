@@ -22,7 +22,7 @@
 
 ### Medium
 
-- [ ] **TODO-Q6** Medium — CI PHPUnit unit suite gagal karena syntax invalid `\\Config\\Database::connect()` di `app/Models/TransaksiModel.php:352`; ditemukan saat verifikasi TODO-Q4 — perlu diperbaiki sebelum CI PHP unit dapat hijau.
+- [x] **TODO-Q6** Medium — CI PHPUnit unit suite gagal karena syntax invalid `\\Config\\Database::connect()` di `app/Models/TransaksiModel.php:352`; diperbaiki dan CI hijau pada 2026-10-06.
 
 - [ ] **TODO-BL13** Medium — `sisa_tagihan` tak di-clamp → bisa negatif & distorsi `total_piutang` — `Tagihan.php:180-181,252`; `Laporan.php:1076`
 
