@@ -22,7 +22,7 @@
 
 ### Medium
 
-- [x] **TODO-Q6** Medium — CI PHPUnit unit suite gagal karena syntax invalid `\\Config\\Database::connect()` di `app/Models/TransaksiModel.php:352`; diperbaiki dan CI hijau pada 2026-10-06.
+- [x] **TODO-Q6** Medium — CI PHPUnit unit suite gagal karena syntax invalid `\\Config\\Database::connect()` di `app/Models/TransaksiModel.php:352`; diperbaiki dan CI hijau pada 2026-10-06 — **SELESAI 2026-10-06**
 
 - [ ] **TODO-BL13** Medium — `sisa_tagihan` tak di-clamp → bisa negatif & distorsi `total_piutang` — `Tagihan.php:180-181,252`; `Laporan.php:1076`
 
@@ -77,7 +77,7 @@
 
 ### High
 
-- [ ] **TODO-BL08** High — edit path hitung `$hasKategori16` tapi tak dipakai; `no_order` ditulis tanpa lock/cek unik — `Transaksi.php:1288-1317,1444-1453`
+- [x] **TODO-BL08** High — edit path hitung `$hasKategori16` tapi tak dipakai; `no_order` ditulis tanpa lock/cek unik — `Transaksi.php:1288-1317,1444-1453` — **SELESAI 2026-10-06**: validasiNoOrderEdit + noOrderDipakaiTransaksiAktifLain + GET_LOCK + test `TransaksiNoOrderEditTest`
 
 - [ ] **TODO-BL10** High — mutasi kas tak admin-gated; pengeluaran terima tanggal sembarang (termasuk lampau/depan) — `AuthFilter.php:70`; `Routes.php:231-246`; `Cash.php:439,547` — **DEC-1: Opsi B** → bukan admin-gating; yang dikerjakan = rekam audit + validasi tanggal pengeluaran
 
@@ -130,7 +130,7 @@
 
 ### Low
 
-- [ ] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442` — **DEC-4: Opsi A** → sekuens per hari via lock/transaksi
+- [x] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442` — **DEC-4: Opsi A** → sekuens per hari `INV-YYYYMMDD-NNN` via lock/transaksi — **SELESAI 2026-10-06**
 
 ## Selesai / Ditutup
 
