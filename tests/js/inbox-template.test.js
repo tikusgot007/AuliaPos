@@ -151,11 +151,3 @@ test('T-6: bukaModalTemplate does nothing without an active conversation', () =>
 
     assert.deepEqual(t.modalCalls, []);
 });
-
-(async () => {
-    let passed = 0;
-    for (const [name, fn] of queue) {
-        try { await fn(); passed++; console.log('ok   ' + name); } catch (e) { console.log('FAIL ' + name + '\n' + e.stack); process.exitCode = 1; }
-    }
-    console.log(passed + ' passed' + (process.exitCode ? ', ' + (queue.length - passed) + ' FAILED' : ''));
-})();
