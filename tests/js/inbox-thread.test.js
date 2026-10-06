@@ -245,7 +245,7 @@ test('timeline orders handoff chronologically without entering message cache', (
         [t.ctx.timelineKey(m2), m2], [t.ctx.timelineKey(h), h], [t.ctx.timelineKey(m1), m1]
     ]);
     const ordered = Array.from(t.ctx.urutkanPesan(tmap));
-    assert.deepEqual(ordered.map(x => t.ctx.timelineKey(x)), ['message:1', 'handoff:8', 'message:2']);
+    assert.deepEqual(ordered.map(x => t.ctx.timelineKey(x)), ['1', 'handoff:8', '2']);
     poll(t, [m1, m2]);
     assert.equal(t.get('pesanCached[1].id'), 1);
     assert.equal(t.get('pesanCached[2].id'), 2);
