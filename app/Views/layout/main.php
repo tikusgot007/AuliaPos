@@ -732,7 +732,7 @@
                     <li class="nav-item">
                         <a class="nav-link <?= (strpos(current_url(), '/inbox') !== false) ? 'active' : '' ?>"
                             href="<?= base_url('/inbox') ?>"
-                            onclick="window.open(this.href, 'AuliaInbox', 'width=1200,height=800'); return false;">
+                            onclick="window.open(this.href, 'AuliaInbox', 'width=' + screen.availWidth + ',height=' + screen.availHeight + ',left=0,top=0'); return false;">
                             <i class="fab fa-whatsapp"></i>
                             <span>Inbox WhatsApp</span>
                             <span class="badge bg-danger ms-1" id="sidebarInboxBadge" style="display:none;"></span>
