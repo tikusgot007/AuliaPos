@@ -135,6 +135,10 @@
 
 ## Selesai / Ditutup
 
+### Medium
+
+- [x] **TODO-INBOX-TUTUP-1** Medium — Tombol "Tutup" muncul tanpa cek kepemilikan (UI hanya cek `status==='open'`), dan `tutupPercakapan()` tidak melepas `assigned_to`. **SELESAI 2026-10-06**: flag server `bisa_ditutup` (aturan sama dengan `cekOwnership()`) dipakai UI; `tutupPercakapan()` kini juga set `assigned_to=NULL` (Tutup = menutup + lepas kepemilikan); reopen via pesan masuk tetap tanpa auto-assign. Test `tests/feature/InboxTutupPercakapanTest.php` (10/10). Ref `docs/CHANGELOG.md` 2026-10-07. **(proposal: baris ini boleh dihapus dari TODO setelah Anda konfirmasi, karena murni decision record.)**
+
 ### Low
 
 - [x] **TODO-BL37** Low — **DITUTUP BY-DESIGN 2026-10-06** — jendela shift memang inklusif dua ujung; P/S dan S/PM tumpang-tindih sesuai definisi jam kerja dan priority menentukan Effective Shift Leader — `EvaluasiJendelaKerjaShift.php:16`; `JadwalModel.php:50-61`

@@ -157,7 +157,7 @@ class Inbox extends BaseController
     public function index()
     {
         $conversationModel = new ConversationModel();
-        $conversations = $this->attachResponseState($this->attachBisaDiambil($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll())));
+        $conversations = $this->attachResponseState($this->attachBisaDitutup($this->attachBisaDiambil($this->attachAssignedNames($conversationModel->orderBy('last_message_at', 'DESC')->findAll()))));
 
         $gatewayStatusModel = new GatewayStatusModel();
         $gatewayStatus = $this->buildGatewayStatusPayload($gatewayStatusModel);
@@ -238,7 +238,7 @@ class Inbox extends BaseController
             ->orderBy('last_message_at', 'DESC')
             ->findAll();
 
-        $conversations = $this->attachResponseState($this->attachBisaDiambil($this->attachAssignedNames($conversations)));
+        $conversations = $this->attachResponseState($this->attachBisaDitutup($this->attachBisaDiambil($this->attachAssignedNames($conversations))));
 
         $slaService = new InboxSlaService();
         foreach ($conversations as &$conversation) {
@@ -506,7 +506,7 @@ class Inbox extends BaseController
 
         return $this->response->setJSON([
             'status'       => 'success',
-            'conversation' => $this->attachResponseState($this->attachAssignedNames([$conversation]))[0],
+            'conversation' => $this->attachResponseState($this->attachBisaDitutup($this->attachBisaDiambil($this->attachAssignedNames([$conversation]))))[0],
             'messages'     => $messages,
             'timeline'     => $timeline,
             'has_more'     => $page['has_more'],
@@ -1124,6 +1124,25 @@ class Inbox extends BaseController
     }
 
     /**
+     * Lengkapi setiap conversation dengan flag `bisa_ditutup` (bool) --
+     * dipakai UI untuk menampilkan tombol "Tutup". Satu sumber kebenaran
+     * dengan guard server `tutupPercakapan()` lewat
+     * bisaTutupPercakapan(), supaya tombol tidak pernah menampilkan aksi
+     * yang bakal ditolak 403.
+     */
+    private function attachBisaDitutup(array $conversations): array
+    {
+        $userId = (int) session()->get('id_user');
+        $role   = (string) session()->get('role');
+
+        foreach ($conversations as &$conversation) {
+            $conversation['bisa_ditutup'] = $this->bisaTutupPercakapan($userId, $role, $conversation);
+        }
+
+        return $conversations;
+    }
+
+    /**
      * Hitung Response State per conversation -- COMPUTED, tidak pernah
      * disimpan sebagai kolom fisik (lihat review Section 5: kalau jadi
      * kolom yang ditulis manual di banyak endpoint, risiko "kebalik"/lupa
@@ -1135,6 +1154,20 @@ class Inbox extends BaseController
     private function attachResponseState(array $conversations): array
     {
         return (new ConversationModel())->withComputedStatus($conversations);
+    }
+
+    /**
+     * Aturan kepemilikan TUNGGAL (predikat murni) -- boleh kalau
+     * conversation belum ditangani siapa pun (assigned_to NULL), ATAU
+     * ditangani oleh user ini sendiri, ATAU user ini admin (selalu
+     * boleh, untuk supervisi/override). Dipakai bersama oleh
+     * `cekOwnership()` (guard endpoint) dan `bisaTutupPercakapan()`
+     * (flag UI) supaya kedua sisi tidak bisa menyimpang saat aturan
+     * berubah.
+     */
+    private function userBerhakAtasPercakapan(int $userId, string $role, ?int $assignedTo): bool
+    {
+        return $assignedTo === null || $assignedTo === $userId || $role === 'admin';
     }
 
     /**
@@ -1154,7 +1187,7 @@ class Inbox extends BaseController
     {
         $assignedTo = $conversation['assigned_to'] ? (int) $conversation['assigned_to'] : null;
 
-        if ($assignedTo === null || $assignedTo === $userId || $role === 'admin') {
+        if ($this->userBerhakAtasPercakapan($userId, $role, $assignedTo)) {
             return null;
         }
 
@@ -1266,6 +1299,33 @@ class Inbox extends BaseController
         }
 
         return $this->userAdalahShiftLeaderSaatIni($userId);
+    }
+
+    /**
+     * Apakah user ini boleh menampilkan / mengeksekusi tombol "Tutup"
+     * pada sebuah conversation -- satu sumber kebenaran, dipakai
+     * `tutupPercakapan()` DAN flag `bisa_ditutup` di daftar chat supaya
+     * tombol UI dan guard server tidak bisa menyimpang.
+     *
+     * Aturan (sama persis dengan guard server di tutupPercakapan):
+     * - grup tidak pernah bisa ditutup (CON-004)
+     * - status harus 'open' (tutup hanya untuk conversation aktif)
+     * - kepemilikan: userBerhakAtasPercakapan() -- assigned_to NULL/self,
+     *   atau admin; milik staff lain -> tidak boleh
+     */
+    private function bisaTutupPercakapan(int $userId, string $role, array $conversation): bool
+    {
+        if (($conversation['jid_type'] ?? null) === 'group') {
+            return false;
+        }
+
+        if (($conversation['status'] ?? null) !== 'open') {
+            return false;
+        }
+
+        $assignedTo = $conversation['assigned_to'] ? (int) $conversation['assigned_to'] : null;
+
+        return $this->userBerhakAtasPercakapan($userId, $role, $assignedTo);
     }
 
     /**
@@ -2683,13 +2743,19 @@ class Inbox extends BaseController
      * (migration 2026-09-07-000001_CreateInboxTables.php), tidak ada
      * migration baru.
      *
-     * SENGAJA TIDAK menghapus/mengubah data lain apa pun (assignment,
-     * history pesan tetap utuh) -- murni penanda lifecycle. Reopen
-     * (CLOSED -> OPEN) TIDAK punya tombol manual di sini, sesuai spec:
-     * satu-satunya pemicu reopen adalah pesan masuk baru dari customer
-     * (lihat InboxGatewayApi::messages(), sudah memaksa status='open'
-     * untuk direction='incoming' sejak awal, tidak diubah oleh fitur
-     * ini).
+     * Klik "Tutup" = menutup conversation + MELEPAS kepemilikan. Tidak
+     * ada konsep PIC tetap/VIP: `assigned_to` cuma menandai siapa yang
+     * sedang menangani percakapan AKTIF, jadi begitu conversation
+     * selesai, ownership aktif itu berakhir (`assigned_to = NULL`).
+     * Riwayat pesan TETAP UTUH (tidak ada yang dihapus), dan `closed_by`
+     * tetap mencatat siapa yang menutup.
+     *
+     * Reopen (CLOSED -> OPEN) TIDAK punya tombol manual di sini, sesuai
+     * spec: satu-satunya pemicu reopen adalah pesan masuk baru dari
+     * customer (lihat InboxGatewayApi::messages(), sudah memaksa
+     * status='open' untuk direction='incoming' TANPA mengembalikan
+     * assigned_to -- percakapan kembali 'belum diambil', kasir mana pun
+     * yang tersedia bisa mengambilnya).
      *
      * Idempotent: kalau sudah closed, kembalikan sukses apa adanya
      * tanpa menimpa closed_at/closed_by yang sudah tercatat.
@@ -2729,15 +2795,17 @@ class Inbox extends BaseController
             $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
 
             $conversationModel->update($conversationId, [
-                'status'    => 'closed',
-                'closed_at' => $now,
-                'closed_by' => $userId,
+                'status'      => 'closed',
+                'closed_at'   => $now,
+                'closed_by'   => $userId,
+                // Menutup = mengakhiri kepemilikan aktif (bukan PIC tetap).
+                'assigned_to' => null,
             ]);
 
             log_message('info', "Inbox::tutupPercakapan sukses. conversation_id={$conversationId}, user_id={$userId}");
         }
 
-        $updated = $this->attachAssignedNames([$conversationModel->find($conversationId)])[0];
+        $updated = $this->attachResponseState($this->attachBisaDitutup($this->attachBisaDiambil($this->attachAssignedNames([$conversationModel->find($conversationId)]))))[0];
 
         return $this->response->setStatusCode(200)->setJSON([
             'status'       => 'success',

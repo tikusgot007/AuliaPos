@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2026-10-07 — Inbox: Tutup sekaligus lepas kepemilikan + tombol Tutup sesuai hak
+
+- Aturan lama: `tutupPercakapan()` hanya menulis `status='closed'`, `closed_at`, dan
+  `closed_by`; `assigned_to` tetap terisi. Tombol "Tutup" di UI dirender hanya
+  berdasarkan `status === 'open'` (bukan grup), tanpa mengecek kepemilikan — sehingga
+  tombol muncul untuk semua kasir walau endpoint server bisa menolak 403.
+- Aturan baru:
+  1. **Tutup = menutup + melepas kepemilikan.** Saat berhasil, `assigned_to` di-set
+     `NULL` (tidak ada konsep PIC tetap/VIP; `assigned_to` hanya menandai siapa yang
+     sedang menangani percakapan aktif). Riwayat pesan tetap utuh; `closed_by` tetap
+     mencatat siapa yang menutup.
+  2. **Flag `bisa_ditutup` server** menjadi satu-satunya sumber kebenaran hak tampil
+     tombol "Tutup" di UI. Dihitung dari aturan yang sama dengan guard server
+     `tutupPercakapan()`/`cekOwnership()`: grup → false; `status != open` → false;
+     `assigned_to` NULL/self/admin → true; milik staff lain → false.
+- Reopen tetap satu arah: pesan masuk customer pada percakapan `closed` membukanya
+  kembali (`status='open'`) TANPA mengembalikan `assigned_to` (tetap NULL), sehingga
+  percakapan kembali "belum diambil" dan kasir mana pun yang tersedia bisa mengambilnya.
+- Idempoten dipertahankan: menutup percakapan yang sudah `closed` tidak menimpa
+  `closed_at`/`closed_by` lama.
+- Implementasi: `bisaTutupPercakapan()` + `attachBisaDitutup()` di
+  `app/Controllers/Inbox.php`, di-chain ke `index()`/`apiConversations()`/
+  `apiMessages()`/`tutupPercakapan()`; `tombolTutup` di `app/Views/inbox/index.php`
+  memakai `conv.bisa_ditutup`.
+- Referensi: `tests/feature/InboxTutupPercakapanTest.php`.
+
 ## 2026-10-06 — Inbox: Ambil Alih percakapan (takeover via tombol)
 
 - Aturan lama: tombol "Ambil" hanya berlaku untuk percakapan belum diambil siapa pun

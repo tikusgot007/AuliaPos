@@ -1756,6 +1756,9 @@
 
         // CON-001 -- Ambil/Lepas TIDAK dirender sama sekali untuk grup.
         // CON-006 -- badge kepemilikan juga tidak dirender untuk grup.
+        // Lifecycle: aksi kepemilikan (Ambil/Lepas) hanya relevan untuk
+        // percakapan AKTIF (status='open') -- setelah Tutup, ownership
+        // sudah dilepas server, jadi tidak ada yang bisa dilepas lagi.
         if (!isGrup) {
             if (conv && conv.assigned_to) {
                 // String() SENGAJA -- lihat catatan cariConversation() di atas
@@ -1794,16 +1797,17 @@
             '<i class="fas fa-shield-alt"></i> Konfirmasi Nomor</button>' :
             '';
 
-        // Tahap 1 lifecycle status (Section 12): tombol "Tutup" HANYA
-        // muncul kalau conversation sedang OPEN -- tidak ada tombol
-        // "Open" manual (reopen cuma lewat pesan masuk baru, lihat
-        // InboxGatewayApi::messages()). CON-006 -- badge lifecycle
+        // Tahap 1 lifecycle status (Section 12): tombol "Tutup" memakai
+        // flag `bisa_ditutup` dari server (satu sumber kebenaran dengan
+        // guard tutupPercakapan()) -- bukan cek status lokal di JS. Tidak
+        // ada tombol "Open" manual (reopen cuma lewat pesan masuk baru,
+        // lihat InboxGatewayApi::messages()). CON-006 -- badge lifecycle
         // OPEN/CLOSED tidak dirender untuk grup. CON-001 -- tombol Tutup
         // tidak dirender sama sekali untuk grup.
         const badgeStatus = (conv && !isGrup) ?
             ' <span class="badge ' + (conv.status === 'closed' ? 'bg-secondary' : 'bg-success') + '">' + conv.status.toUpperCase() + '</span>' :
             '';
-        const tombolTutup = (!isGrup && conv && conv.status === 'open') ?
+        const tombolTutup = (conv && conv.bisa_ditutup) ?
             '<button type="button" class="btn btn-sm btn-outline-danger me-1" title="Tutup percakapan" onclick="tutupPercakapan()">' +
             '<i class="fas fa-times-circle"></i> Tutup</button>' :
             '';
