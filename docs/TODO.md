@@ -73,6 +73,10 @@
 
 - [ ] **TODO-O5** Dokumentasikan prosedur update adapter produksi `aulia3` (bukan repo git; `npm` tidak ada → dependency baru seperti `ws` disalin manual dari `node_modules`; restart via task `AuliaEvolution` + `scripts/restart-adapter.ps1`; source Evolution `D:\\evolution-api-server`) — rendah
 
+- [ ] **TODO-Q3a** Gateway test `test/simulate-evolution-adapter.js` GAGAL di assertion "path webhook/set benar" (`captured[0]` dibaca setelah `setWebhook` tanpa reset `captured`) — **pre-existing** di HEAD gateway `b48c2e5`, bukan dari fitur read-receipt; buat `npm test` hijau — rendah — ref temuan sesi 2026-10-07 `feat/whatsapp-read-receipt`.
+
+- [ ] **TODO-Q3b** DB uji `aulia_inboxdb_test` harus disamakan skemanya setiap ada migrasi Inbox baru (mis. kolom `delivered_at`/`read_at` ditambahkan manual 2026-10-07) karena `php spark migrate` tidak membangun DB uji — lemahkan/otomatiskan alur setup agar feature suite tidak gagal `Unknown column` — rendah — ref `docs/ARCHITECTURE.md` §9.
+
 ## Sedang dikerjakan
 
 ### High
@@ -137,7 +141,7 @@
 
 ### Medium
 
-- [x] **TODO-INBOX-TUTUP-1** Medium — Tombol "Tutup" muncul tanpa cek kepemilikan (UI hanya cek `status==='open'`), dan `tutupPercakapan()` tidak melepas `assigned_to`. **SELESAI 2026-10-06**: flag server `bisa_ditutup` (aturan sama dengan `cekOwnership()`) dipakai UI; `tutupPercakapan()` kini juga set `assigned_to=NULL` (Tutup = menutup + lepas kepemilikan); reopen via pesan masuk tetap tanpa auto-assign. Test `tests/feature/InboxTutupPercakapanTest.php` (10/10). Ref `docs/CHANGELOG.md` 2026-10-07. **(proposal: baris ini boleh dihapus dari TODO setelah Anda konfirmasi, karena murni decision record.)**
+- [x] **TODO-INBOX-TUTUP-1** Medium — Tombol "Tutup" muncul tanpa cek kepemilikan (UI hanya cek `status==='open'`), dan `tutupPercakapan()` tidak melepas `assigned_to`. **SELESAI 2026-10-06**: flag server `bisa_ditutup` (aturan sama dengan `cekOwnership()`) dipakai UI; `tutupPercakapan()` kini juga set `assigned_to=NULL` (Tutup = menutup + lepas kepemilikan); reopen via pesan masuk tetap tanpa auto-assign. **PERLUASAN 2026-10-07**: balasan POS ke closed membuka kembali + auto-assign pengirim (reopen via POS). Test `InboxTutupPercakapanTest.php` (10/10) + `InboxReopenFromPosTest.php` (6/6). Ref `docs/CHANGELOG.md` 2026-10-07. **(proposal: baris ini boleh dihapus dari TODO setelah Anda konfirmasi, karena murni decision record.)**
 
 ### Low
 

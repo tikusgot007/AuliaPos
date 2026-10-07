@@ -1918,19 +1918,7 @@ class Inbox extends BaseController
         // sudah lebih baru (mis. retry lambat / clock skew), jadi
         // updateLastMessageIfNewer() yang menentukan apakah 2 kolom itu
         // benar-benar maju; kolom lain tetap ditulis tanpa syarat.
-        $conversationUpdate = [
-            'last_replied_by'          => $userId,
-            'last_seen_by_assignee_at' => $now,
-        ];
-        // Auto-assign ke pengirim pertama kalau belum ada yang menangani
-        // -- lihat catatan sama di kirimKeConversation(). REQ-008: grup
-        // DIKECUALIKAN dari auto-assign (assigned_to tidak boleh terisi
-        // otomatis untuk grup, karena lepasPercakapan() selalu menolak
-        // 403 untuk grup -- tanpa pengecualian ini grup akan macet
-        // permanen "dipegang" satu kasir tanpa jalan melepasnya).
-        if (($conversation['jid_type'] ?? null) !== 'group' && empty($conversation['assigned_to'])) {
-            $conversationUpdate['assigned_to'] = $userId;
-        }
+        $conversationUpdate = $this->updateSetelahKirimSukses($conversation, $userId, $now);
         $conversationModel = new ConversationModel();
         $conversationModel->updateLastMessageIfNewer($conversationId, $now, 'outgoing', $conversationUpdate);
 
@@ -2697,6 +2685,71 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/percakapan/(:num)/whatsapp-dibaca
+     *
+     * WhatsApp read receipt (Arah 1): minta Gateway/Evolution menandai pesan
+     * MASUK pelanggan pada percakapan ini sebagai sudah dibaca, supaya WhatsApp
+     * mengirim blue tick ke pelanggan.
+     *
+     * Dipicu klien saat kasir MEMBUKA percakapan dan saat menekan tombol
+     * "Tandai Dibaca" -- BUKAN dari polling, supaya tidak spam.
+     *
+     * BEDA dari `tandaiDibaca()` (state INTERNAL `last_seen_by_assignee_at`):
+     * endpoint ini murni untuk WA read receipt dan TIDAK mengubah state internal.
+     *
+     * FAIL-SOFT: kegagalan Gateway/Evolution TIDAK menggagalkan apa pun --
+     * selalu balas 200. Percakapan grup dan chat `@lid` dilewati (Evolution
+     * tidak mendukung read untuk keduanya).
+     */
+    public function whatsappDibaca($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+        $conversation = (new ConversationModel())->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Conversation tidak ditemukan.']);
+        }
+
+        if (($conversation['jid_type'] ?? null) === 'group') {
+            return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'skipped' => 'group', 'requested' => 0]);
+        }
+
+        // Otorisasi sama dengan aksi percakapan lain (tandaiDibaca/ambil/tutup).
+        // cekOwnership() masih mengizinkan percakapan BELUM diambil
+        // (assigned_to NULL), jadi alur "buka percakapan belum diambil" tetap jalan.
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => $ownershipError]);
+        }
+
+        $chatId = (string) ($conversation['chat_id'] ?? '');
+        // Sinyal LID kanonik = `jid_type === 'lid'` (dipakai UI/ConversationModel);
+        // suffix `@lid` dipertahankan sebagai jaring pengaman. Evolution tidak
+        // mendukung read untuk LID, jadi keduanya di-skip.
+        if (($conversation['jid_type'] ?? null) === 'lid' || str_ends_with($chatId, '@lid')) {
+            return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'skipped' => 'lid', 'requested' => 0]);
+        }
+
+        $ids = (new MessageModel())->incomingWaMessageIdsForConversation($conversationId);
+        if ($ids === []) {
+            return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'requested' => 0]);
+        }
+
+        $config = new InboxConfig();
+        if ($config->gatewayBaseUrl === '' || $config->gatewayToken === '') {
+            return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'requested' => 0, 'whatsapp_read' => false]);
+        }
+
+        $result = $this->callGatewayMarkRead($config, $chatId, $ids);
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'        => 'success',
+            'requested'     => count($ids),
+            'whatsapp_read' => $result['ok'],
+        ]);
+    }
+
+    /**
      * POST /inbox/percakapan/(:num)/snooze
      *
      * Follow-up sementara: sembunyikan conversation dari 'perlu_dibalas'
@@ -2751,11 +2804,15 @@ class Inbox extends BaseController
      * tetap mencatat siapa yang menutup.
      *
      * Reopen (CLOSED -> OPEN) TIDAK punya tombol manual di sini, sesuai
-     * spec: satu-satunya pemicu reopen adalah pesan masuk baru dari
-     * customer (lihat InboxGatewayApi::messages(), sudah memaksa
-     * status='open' untuk direction='incoming' TANPA mengembalikan
-     * assigned_to -- percakapan kembali 'belum diambil', kasir mana pun
-     * yang tersedia bisa mengambilnya).
+     * spec. Pemicu reopen ada dua:
+     *  1. Pesan masuk baru dari customer (lihat InboxGatewayApi::messages(),
+     *     memaksa status='open' untuk direction='incoming' TANPA
+     *     mengembalikan assigned_to -- percakapan kembali 'belum diambil').
+     *  2. Balasan kasir dari POS (teks/balasan/Teruskan/media) lewat
+     *     updateSetelahKirimSukses() -- membuka kembali + auto-assign ke
+     *     pengirim (keputusan bisnis 2026-10-07).
+     * Balasan outgoing yang disinkronkan dari WA Web/HP TIDAK membuka
+     * kembali (tetap sync pesan saja).
      *
      * Idempotent: kalau sudah closed, kembalikan sukses apa adanya
      * tanpa menimpa closed_at/closed_by yang sudah tercatat.
@@ -3159,6 +3216,57 @@ class Inbox extends BaseController
     }
 
     /**
+     * Satu sumber kebenaran untuk kolom conversation yang diperbarui
+     * SETELAH kiriman OUTGOING dari POS benar-benar sukses (teks, balasan,
+     * Teruskan, maupun media). Dipakai bersama oleh jalur teks dan media
+     * supaya aturan reopen/auto-assign tidak terduplikasi dan tidak bisa
+     * menyimpang (kirimKeConversation/kirimMedia sebelumnya menyalin blok
+     * yang sama).
+     *
+     * Aturan (keputusan bisnis 2026-10-07):
+     * - `last_replied_by`/`last_seen_by_assignee_at` selalu ditulis.
+     * - Balasan POS ke percakapan `closed` MEMBUKA kembali (status='open',
+     *   snooze direset) + auto-assign ke pengirim: model `assigned_to`
+     *   = penangan aktif, jadi `closed` tidak boleh punya penangan aktif.
+     * - Percakapan `open` tanpa pemilik -> auto-assign ke pengirim
+     *   (perilaku lama). Pemilik lain TIDAK pernah dioverride di sini.
+     * - Grup DIKECUALIKAN total (tidak reopen, tidak auto-assign) --
+     *   konsisten dengan guard Tutup/lepasPercakapan yang menolak grup.
+     *
+     * SENGAJA tidak menyentuh `closed_at`/`closed_by`: keduanya tetap
+     * berarti "terakhir ditutup" (tanpa audit reopen, keputusan Q-A).
+     *
+     * @param array<string, mixed> $conversation baris conversation SEBELUM update
+     *
+     * @return array<string, mixed> kolom untuk updateLastMessageIfNewer()
+     */
+    private function updateSetelahKirimSukses(array $conversation, int $userId, string $now): array
+    {
+        $update = [
+            'last_replied_by'          => $userId,
+            'last_seen_by_assignee_at' => $now,
+        ];
+
+        if (($conversation['jid_type'] ?? null) === 'group') {
+            return $update;
+        }
+
+        if (($conversation['status'] ?? null) === 'closed') {
+            $update['status']        = 'open';
+            $update['snoozed_until'] = null;
+            $update['assigned_to']   = $userId;
+
+            return $update;
+        }
+
+        if (empty($conversation['assigned_to'])) {
+            $update['assigned_to'] = $userId;
+        }
+
+        return $update;
+    }
+
+    /**
      * Eksekusi bersama jalur TEKS (kirim biasa/Balas dan Teruskan): cek
      * Gateway siap -> kirim -> simpan -> rakit respons. Dipisah dari validasi
      * masing-masing aksi supaya orkestrasinya tidak terduplikasi
@@ -3278,20 +3386,7 @@ class Inbox extends BaseController
 
         // `last_message_at`/`last_message_direction` dijaga monoton --
         // lihat catatan sama di Inbox::kirimMedia().
-        $conversationUpdate = [
-            'last_replied_by'          => $userId,
-            'last_seen_by_assignee_at' => $now,
-        ];
-        // Auto-assign ke pengirim pertama kalau belum ada yang menangani
-        // conversation ini -- masuk akal untuk kasir yang membalas
-        // duluan otomatis "memegang" percakapan itu, tanpa perlu klik
-        // "Ambil" secara terpisah. Tidak menimpa assignment yang sudah
-        // ada (cekOwnership() di atas sudah memastikan hanya yang
-        // berhak yang sampai ke titik ini). REQ-008: grup DIKECUALIKAN
-        // dari auto-assign -- lihat catatan sama di Inbox::kirimMedia().
-        if (($conversation['jid_type'] ?? null) !== 'group' && empty($conversation['assigned_to'])) {
-            $conversationUpdate['assigned_to'] = $userId;
-        }
+        $conversationUpdate = $this->updateSetelahKirimSukses($conversation, $userId, $now);
 
         $conversationModel = new ConversationModel();
         $conversationModel->updateLastMessageIfNewer($conversationId, $now, 'outgoing', $conversationUpdate);
@@ -3841,6 +3936,59 @@ class Inbox extends BaseController
             'replayed'   => is_array($json) ? (bool) ($json['replayed'] ?? false) : false,
             'http_code'  => $httpCode,
         ];
+    }
+
+    /**
+     * Panggil POST /read milik Gateway: minta Evolution menandai pesan MASUK
+     * sebagai dibaca (WhatsApp read receipt Arah 1). FAIL-SOFT -- tidak pernah
+     * throw; pemanggil hanya butuh tahu berhasil/tidak.
+     *
+     * @param array<int, string> $waMessageIds
+     * @return array{ok: bool, requested?: int, error?: ?string}
+     */
+    protected function callGatewayMarkRead(InboxConfig $config, string $chatId, array $waMessageIds): array
+    {
+        $url = $config->gatewayBaseUrl . '/read';
+
+        $payload = json_encode([
+            'chat_id'        => $chatId,
+            'wa_message_ids' => array_values($waMessageIds),
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $config->gatewayToken,
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            // Best-effort (blue tick) di jalur buka percakapan: timeout SENGAJA
+            // pendek supaya worker PHP tidak tertahan lama bila Gateway lambat.
+            CURLOPT_TIMEOUT        => 3,
+            CURLOPT_CONNECTTIMEOUT => 2,
+        ]);
+
+        $rawResponse = curl_exec($ch);
+        $curlError   = curl_error($ch);
+        $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($rawResponse === false) {
+            log_message('warning', 'Inbox::whatsappDibaca gagal menghubungi Gateway: ' . $curlError);
+            return ['ok' => false, 'error' => $curlError];
+        }
+
+        $json = json_decode($rawResponse, true);
+        $ok = $httpCode >= 200 && $httpCode < 300 && is_array($json) && ($json['success'] ?? false) === true;
+
+        if (!$ok) {
+            log_message('warning', 'Inbox::whatsappDibaca ditolak Gateway (HTTP ' . $httpCode . ').');
+            return ['ok' => false, 'error' => is_array($json) ? ($json['message'] ?? null) : null];
+        }
+
+        return ['ok' => true, 'requested' => (int) ($json['requested'] ?? 0)];
     }
 
     /**

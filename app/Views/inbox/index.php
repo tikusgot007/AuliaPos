@@ -238,6 +238,12 @@
         margin-right: 3px;
     }
 
+    /* WhatsApp read receipt: centang ganda biru = dibaca pelanggan. */
+    .inbox-centang-read {
+        color: #53bdeb;
+        margin-right: 3px;
+    }
+
     .inbox-gagal {
         color: #dc3545;
         margin-right: 3px;
@@ -1891,6 +1897,7 @@
             .then(function(json) {
                 if (json.status === 'success') {
                     muatUlangDaftarConversation();
+                    panggilWhatsappDibaca(conversationAktif);
                 } else {
                     showToast(json.message || 'Gagal menandai dibaca.', 'danger');
                 }
@@ -1898,6 +1905,20 @@
             .catch(function(err) {
                 showToast('Gagal menghubungi server: ' + err.message, 'danger');
             });
+    }
+
+    /* Kirim permintaan WA read receipt (blue tick) ke server -- Arah 1.
+       BEDA dari tombol "Tandai Dibaca" (state internal): ini murni meminta
+       Evolution menandai pesan masuk pelanggan sebagai dibaca. Fire-and-forget:
+       kegagalan WA read TIDAK boleh mengganggu buka percakapan. Dipanggil saat
+       kasir membuka percakapan dan saat menekan "Tandai Dibaca" -- bukan tiap polling. */
+    function panggilWhatsappDibaca(id) {
+        if (!id) return;
+
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + id + '/whatsapp-dibaca', {
+                method: 'POST'
+            })
+            .catch(function() { /* fail-soft: blue tick best-effort */ });
     }
 
     // Same limit as the Internal Note endpoint (CL-006). Measured in UTF-8
@@ -2319,6 +2340,7 @@
         document.getElementById('teksBalasan').focus();
 
         muatUlangPesan(true);
+        panggilWhatsappDibaca(id);
         return false;
     }
 

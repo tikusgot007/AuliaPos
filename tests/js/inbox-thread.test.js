@@ -628,7 +628,7 @@ test('AC-18: no older history and no source -> toast, no error', async () => {
 });
 
 // ---- P7 visuals (AC-29, AC-30) -------------------------------------------
-test('AC-30: one tick for sent, "!" for failed, nothing for incoming, internal notes or other states', () => {
+test('AC-30: one tick for sent, double tick for delivered, blue double tick for read, "!" for failed', () => {
     const t = loadThread();
     const out = (extra) => t.ctx.renderBubbleHtml(msg(1, { direction: 'outgoing', ...extra }));
     assert.ok(out({ send_status: 'sent' }).includes('fa-check inbox-centang'));
@@ -636,7 +636,18 @@ test('AC-30: one tick for sent, "!" for failed, nothing for incoming, internal n
     assert.ok(!out({ send_status: 'received' }).includes('inbox-centang'));
     assert.ok(!out({ send_status: 'sent', is_internal: true }).includes('inbox-centang'));
     assert.ok(!t.ctx.renderBubbleHtml(msg(2)).includes('inbox-centang'));
-    assert.ok(!out({ send_status: 'sent' }).includes('fa-check-double'), 'no double/blue tick: the gateway sends no delivered/read');
+
+    // WhatsApp read receipt: delivered_at -> centang ganda (bukan biru).
+    const delivered = out({ send_status: 'sent', delivered_at: '2026-10-07 10:00:00' });
+    assert.ok(delivered.includes('fa-check-double inbox-centang'), 'delivered -> double tick');
+    assert.ok(!delivered.includes('inbox-centang-read'), 'delivered bukan read');
+
+    // read_at -> centang ganda biru (read menang atas delivered).
+    const read = out({ send_status: 'sent', delivered_at: '2026-10-07 10:00:00', read_at: '2026-10-07 10:05:00' });
+    assert.ok(read.includes('inbox-centang-read'), 'read -> blue double tick');
+
+    // sent tanpa delivered/read tetap satu centang (tanpa ganda).
+    assert.ok(!out({ send_status: 'sent' }).includes('fa-check-double'), 'sent tanpa receipt tetap satu centang');
 });
 
 test('AC-29: new messages while reading upward are counted and shown on the button; reaching the bottom clears it', () => {
