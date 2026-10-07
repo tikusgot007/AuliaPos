@@ -47,6 +47,12 @@ $routes->get('/inbox/media/(:num)', 'Inbox::media/$1', ['filter' => 'auth']);
 $routes->get('/inbox/test', 'Inbox::testPage', ['filter' => 'auth']);
 $routes->post('/inbox/kirim', 'Inbox::kirim', ['filter' => 'auth']);
 $routes->post('/inbox/kirim-media', 'Inbox::kirimMedia', ['filter' => 'auth']);
+// Pesan KELUAR: edit (teks, <=15 menit) & hapus-untuk-semua. `(:num)` =
+// `messages.id` lokal; controller memetakan ke `wa_message_id` sebelum
+// memanggil adapter. Sesi auth (browser) -- token Gateway tidak pernah
+// sampai ke browser (lihat Inbox::callGatewayDelete/Edit).
+$routes->post('/inbox/pesan/(:num)/edit', 'Inbox::editPesan/$1', ['filter' => 'auth']);
+$routes->post('/inbox/pesan/(:num)/hapus', 'Inbox::hapusPesan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/hapus', 'Inbox::hapusPercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/ambil', 'Inbox::ambilPercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/lepas', 'Inbox::lepasPercakapan/$1', ['filter' => 'auth']);
