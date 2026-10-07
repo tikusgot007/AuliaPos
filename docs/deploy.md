@@ -31,6 +31,9 @@ Hal yang belum terverifikasi ada di bagian terakhir.
 - [ ] Migrasi baru dibaca dan `down()`-nya dipahami (lihat bagian 5).
 - [ ] Perubahan aturan bisnis sudah tercatat di `docs/CHANGELOG.md`.
 - [ ] Jika menyentuh kontrak POS <-> Gateway: sisi Gateway sudah disiapkan lebih dulu atau bersamaan.
+- [ ] Jika menyentuh status baca WhatsApp (read receipt): instance gateway sudah
+  `readreceipts: all` (cek via `chat/fetchPrivacySettings`; cara lengkap di
+  `petunjuk-penggunaan.md` gateway bagian 4.1). Tanpa ini blue tick tidak muncul.
 - [ ] Waktu rilis di luar jam ramai kasir.
 
 ## 3. Backup (wajib sebelum migrasi)
