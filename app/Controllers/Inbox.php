@@ -2685,6 +2685,71 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/percakapan/(:num)/whatsapp-dibaca
+     *
+     * WhatsApp read receipt (Arah 1): minta Gateway/Evolution menandai pesan
+     * MASUK pelanggan pada percakapan ini sebagai sudah dibaca, supaya WhatsApp
+     * mengirim blue tick ke pelanggan.
+     *
+     * Dipicu klien saat kasir MEMBUKA percakapan dan saat menekan tombol
+     * "Tandai Dibaca" -- BUKAN dari polling, supaya tidak spam.
+     *
+     * BEDA dari `tandaiDibaca()` (state INTERNAL `last_seen_by_assignee_at`):
+     * endpoint ini murni untuk WA read receipt dan TIDAK mengubah state internal.
+     *
+     * FAIL-SOFT: kegagalan Gateway/Evolution TIDAK menggagalkan apa pun --
+     * selalu balas 200. Percakapan grup dan chat `@lid` dilewati (Evolution
+     * tidak mendukung read untuk keduanya).
+     */
+    public function whatsappDibaca($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+        $conversation = (new ConversationModel())->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Conversation tidak ditemukan.']);
+        }
+
+        if (($conversation['jid_type'] ?? null) === 'group') {
+            return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'skipped' => 'group', 'requested' => 0]);
+        }
+
+        // Otorisasi sama dengan aksi percakapan lain (tandaiDibaca/ambil/tutup).
+        // cekOwnership() masih mengizinkan percakapan BELUM diambil
+        // (assigned_to NULL), jadi alur "buka percakapan belum diambil" tetap jalan.
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => $ownershipError]);
+        }
+
+        $chatId = (string) ($conversation['chat_id'] ?? '');
+        // Sinyal LID kanonik = `jid_type === 'lid'` (dipakai UI/ConversationModel);
+        // suffix `@lid` dipertahankan sebagai jaring pengaman. Evolution tidak
+        // mendukung read untuk LID, jadi keduanya di-skip.
+        if (($conversation['jid_type'] ?? null) === 'lid' || str_ends_with($chatId, '@lid')) {
+            return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'skipped' => 'lid', 'requested' => 0]);
+        }
+
+        $ids = (new MessageModel())->incomingWaMessageIdsForConversation($conversationId);
+        if ($ids === []) {
+            return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'requested' => 0]);
+        }
+
+        $config = new InboxConfig();
+        if ($config->gatewayBaseUrl === '' || $config->gatewayToken === '') {
+            return $this->response->setStatusCode(200)->setJSON(['status' => 'success', 'requested' => 0, 'whatsapp_read' => false]);
+        }
+
+        $result = $this->callGatewayMarkRead($config, $chatId, $ids);
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'        => 'success',
+            'requested'     => count($ids),
+            'whatsapp_read' => $result['ok'],
+        ]);
+    }
+
+    /**
      * POST /inbox/percakapan/(:num)/snooze
      *
      * Follow-up sementara: sembunyikan conversation dari 'perlu_dibalas'
@@ -3871,6 +3936,59 @@ class Inbox extends BaseController
             'replayed'   => is_array($json) ? (bool) ($json['replayed'] ?? false) : false,
             'http_code'  => $httpCode,
         ];
+    }
+
+    /**
+     * Panggil POST /read milik Gateway: minta Evolution menandai pesan MASUK
+     * sebagai dibaca (WhatsApp read receipt Arah 1). FAIL-SOFT -- tidak pernah
+     * throw; pemanggil hanya butuh tahu berhasil/tidak.
+     *
+     * @param array<int, string> $waMessageIds
+     * @return array{ok: bool, requested?: int, error?: ?string}
+     */
+    protected function callGatewayMarkRead(InboxConfig $config, string $chatId, array $waMessageIds): array
+    {
+        $url = $config->gatewayBaseUrl . '/read';
+
+        $payload = json_encode([
+            'chat_id'        => $chatId,
+            'wa_message_ids' => array_values($waMessageIds),
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $config->gatewayToken,
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            // Best-effort (blue tick) di jalur buka percakapan: timeout SENGAJA
+            // pendek supaya worker PHP tidak tertahan lama bila Gateway lambat.
+            CURLOPT_TIMEOUT        => 3,
+            CURLOPT_CONNECTTIMEOUT => 2,
+        ]);
+
+        $rawResponse = curl_exec($ch);
+        $curlError   = curl_error($ch);
+        $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($rawResponse === false) {
+            log_message('warning', 'Inbox::whatsappDibaca gagal menghubungi Gateway: ' . $curlError);
+            return ['ok' => false, 'error' => $curlError];
+        }
+
+        $json = json_decode($rawResponse, true);
+        $ok = $httpCode >= 200 && $httpCode < 300 && is_array($json) && ($json['success'] ?? false) === true;
+
+        if (!$ok) {
+            log_message('warning', 'Inbox::whatsappDibaca ditolak Gateway (HTTP ' . $httpCode . ').');
+            return ['ok' => false, 'error' => is_array($json) ? ($json['message'] ?? null) : null];
+        }
+
+        return ['ok' => true, 'requested' => (int) ($json['requested'] ?? 0)];
     }
 
     /**

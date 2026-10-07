@@ -34,6 +34,7 @@ $routes->post('/api/inbox/gateway/messages', 'InboxGatewayApi::messages', ['filt
 $routes->post('/api/inbox/gateway/status', 'InboxGatewayApi::status', ['filter' => 'gatewaytoken']);
 // TODO-F7: penanda lifecycle (pesan diedit/dihapus pelanggan).
 $routes->post('/api/inbox/gateway/message-event', 'InboxGatewayApi::messageEvent', ['filter' => 'gatewaytoken']);
+$routes->post('/api/inbox/gateway/message-status', 'InboxGatewayApi::messageStatus', ['filter' => 'gatewaytoken']);
 
 // Endpoint browser POS (kasir/admin, session-authenticated) untuk
 // kirim balasan text -- Phase 3. UI utama + polling -- Phase 4.
@@ -53,6 +54,7 @@ $routes->post('/inbox/percakapan/(:num)/tutup', 'Inbox::tutupPercakapan/$1', ['f
 $routes->post('/inbox/percakapan/(:num)/profil', 'Inbox::updateCustomerProfile/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/konfirmasi-nomor', 'Inbox::konfirmasiNomorWhatsapp/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/tandai-dibaca', 'Inbox::tandaiDibaca/$1', ['filter' => 'auth']);
+$routes->post('/inbox/percakapan/(:num)/whatsapp-dibaca', 'Inbox::whatsappDibaca/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/snooze', 'Inbox::snoozePercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/catatan', 'Inbox::catatanInternal/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/handoff', 'Inbox::handoffPercakapan/$1', ['filter' => 'auth']);

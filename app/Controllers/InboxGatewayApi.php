@@ -862,4 +862,83 @@ class InboxGatewayApi extends BaseController
             'matched' => $matched,
         ]);
     }
+
+    /**
+     * POST /api/inbox/gateway/message-status
+     *
+     * WhatsApp read receipt (Arah 2): terima status kirim pesan KELUAR dari
+     * Gateway (bersumber dari event `MESSAGES_UPDATE` Evolution) dan update
+     * baris `messages` yang cocok.
+     *
+     * Body: { "wa_message_id": "<id>", "status": "delivered"|"read",
+     *         "event_time": "<ISO 8601, opsional>",
+     *         "chat_id"?: string, "from_me"?: bool }
+     *
+     * Kontrak respons:
+     * - 200 `{status:'success', matched:true}`  -> baris pesan KELUAR ditemukan
+     *   & ditandai (idempotent).
+     * - 200 `{status:'success', matched:false}` -> pesan tidak ada / BUKAN pesan
+     *   keluar (mis. balapan waktu, ID placeholder) -> aman dilewati, TIDAK
+     *   memicu retry tak berujung.
+     * - 400 -> payload tidak valid (ditolak permanen oleh Gateway, tanpa retry).
+     * - 500 -> kegagalan DB. CATATAN DEPLOY: bila kolom `delivered_at`/`read_at`
+     *   belum ada (migrasi Inbox belum dijalankan), UPDATE melempar
+     *   `Unknown column` -> 500; jalankan migrasi LEBIH DULU (URUTAN DEPLOY).
+     *
+     * Idempotent & monoton: `MessageModel::markDelivered()`/`markRead()` hanya
+     * mengisi kolom bila masih NULL, sehingga status `read` yang datang
+     * berulang atau `delivered` yang datang terlambat tidak merusak data.
+     */
+    public function messageStatus()
+    {
+        $payload = $this->request->getJSON(true) ?? [];
+
+        $waMessageId = isset($payload['wa_message_id']) ? trim((string) $payload['wa_message_id']) : '';
+        if ($waMessageId === '') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'wa_message_id' wajib diisi.",
+            ]);
+        }
+        if (strlen($waMessageId) > 255) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'wa_message_id' terlalu panjang (maks 255).",
+            ]);
+        }
+
+        $status = isset($payload['status']) ? (string) $payload['status'] : '';
+        if (! in_array($status, ['delivered', 'read'], true)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => "Field 'status' harus 'delivered' atau 'read'.",
+            ]);
+        }
+
+        $messageModel = new MessageModel();
+        $row = $messageModel->findByWaMessageId($waMessageId);
+
+        // Hanya pesan KELUAR yang punya status kirim. Pesan masuk / tidak ada
+        // / placeholder lokal -> matched=false (bukan error), Gateway tidak retry.
+        if ($row === null || ($row['direction'] ?? '') !== 'outgoing') {
+            return $this->response->setStatusCode(200)->setJSON([
+                'status'  => 'success',
+                'matched' => false,
+            ]);
+        }
+
+        $at = $this->parseTimestamp($payload['event_time'] ?? null)
+            ?? (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        if ($status === 'read') {
+            $messageModel->markRead((int) $row['id'], $at);
+        } else {
+            $messageModel->markDelivered((int) $row['id'], $at);
+        }
+
+        return $this->response->setJSON([
+            'status'  => 'success',
+            'matched' => true,
+        ]);
+    }
 }

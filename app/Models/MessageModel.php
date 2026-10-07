@@ -57,6 +57,11 @@ class MessageModel extends Model
         'message_timestamp',
         'sent_by_user_id',
         'send_status',
+        // WhatsApp read receipt (dua arah): status kirim dari Evolution.
+        // Nullable; HANYA diisi via markDelivered()/markRead() (idempotent,
+        // first-seen/monotonic). Lihat migration 2026-10-07-000001.
+        'delivered_at',
+        'read_at',
         'is_internal',
         'gateway_operation_id',
         // Balas Pesan (Tahap 3, spec Section 4.2): snapshot kutipan pada baris
@@ -216,6 +221,85 @@ class MessageModel extends Model
             ->update([$column => date('Y-m-d H:i:s')]);
 
         return true;
+    }
+
+    /**
+     * WhatsApp read receipt (Arah 2): tandai pesan KELUAR sebagai "sampai ke
+     * HP pelanggan" (DELIVERY_ACK Evolution).
+     *
+     * Menerima ID lokal baris (`messages.id`) -- pemanggil sudah memegang
+     * barisnya, jadi TIDAK ada SELECT kedua.
+     *
+     * IDEMPOTEN & MAJU: kolom hanya diisi bila masih NULL, jadi event
+     * delivered berulang / retry Gateway tidak mengubah nilai pertama.
+     */
+    public function markDelivered(int $messageId, ?string $at = null): void
+    {
+        db_connect('inbox')->table('messages')
+            ->where('id', $messageId)
+            ->where('delivered_at', null)
+            ->update(['delivered_at' => $at ?? date('Y-m-d H:i:s')]);
+    }
+
+    /**
+     * WhatsApp read receipt (Arah 2): tandai pesan KELUAR sebagai "dibaca
+     * pelanggan" (READ Evolution). Read menyiratkan delivered, jadi
+     * delivered_at diisi lebih dulu bila masih kosong.
+     *
+     * Menerima ID lokal baris (`messages.id`) -- pemanggil sudah memegang
+     * barisnya, jadi TIDAK ada SELECT kedua.
+     *
+     * IDEMPOTEN & MAJU: hanya diisi bila masih NULL.
+     */
+    public function markRead(int $messageId, ?string $at = null): void
+    {
+        $at = $at ?? date('Y-m-d H:i:s');
+        $db = db_connect('inbox');
+
+        $db->table('messages')
+            ->where('id', $messageId)
+            ->where('delivered_at', null)
+            ->update(['delivered_at' => $at]);
+
+        $db->table('messages')
+            ->where('id', $messageId)
+            ->where('read_at', null)
+            ->update(['read_at' => $at]);
+    }
+
+    /**
+     * WhatsApp read receipt (Arah 1): daftar `wa_message_id` pesan MASUK pada
+     * satu percakapan yang layak dikirim ke Evolution untuk ditandai dibaca.
+     *
+     * Hanya ID WhatsApp asli yang dikembalikan -- placeholder lokal
+     * (`local-`/`internal-`) dan ID sintetis adapter (`evolution:`/`status:`
+     * /`lifecycle:`) DIBUANG karena Evolution tidak mengenalinya.
+     *
+     * @return array<int, string>
+     */
+    public function incomingWaMessageIdsForConversation(int $conversationId, int $limit = 200): array
+    {
+        $limit = max(1, min($limit, 500));
+
+        $rows = db_connect('inbox')->table('messages')
+            ->select('wa_message_id')
+            ->where('conversation_id', $conversationId)
+            ->where('direction', 'incoming')
+            ->where('wa_message_id IS NOT NULL', null, false)
+            ->notLike('wa_message_id', 'local-', 'after')
+            ->notLike('wa_message_id', 'internal-', 'after')
+            ->notLike('wa_message_id', 'evolution:%', 'after')
+            ->notLike('wa_message_id', 'status:%', 'after')
+            ->notLike('wa_message_id', 'lifecycle:%', 'after')
+            ->orderBy('id', 'DESC')
+            ->limit($limit)
+            ->get()
+            ->getResultArray();
+
+        return array_values(array_unique(array_map(
+            static fn(array $row): string => (string) $row['wa_message_id'],
+            $rows
+        )));
     }
 
     /**

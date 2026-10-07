@@ -1016,13 +1016,17 @@ function renderBubbleHtml(m) {
         '</div>';
 }
 
-/* Penanda kirim pada pesan keluar (AC-30): satu centang untuk `sent`, ikon
-   "!" untuk `failed`. Centang ganda/biru tidak ada: gateway tidak mengirim
-   status delivered/read. Catatan internal tidak pernah dikirim ke pelanggan. */
+/* Penanda kirim pada pesan keluar (AC-30): satu centang untuk `sent`,
+   centang ganda untuk `delivered`, centang ganda "biru" (read) untuk `read`,
+   dan ikon "!" untuk `failed`. `delivered_at`/`read_at` berasal dari WhatsApp
+   read receipt (Evolution MESSAGES_UPDATE); centang ganda biru HANYA untuk
+   `read`. Catatan internal tidak pernah dikirim ke pelanggan. */
 function renderCentangKirim(m) {
     const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
 
     if (m.direction !== 'outgoing' || internal) return '';
+    if (m.read_at) return '<i class="fas fa-check-double inbox-centang-read" title="Dibaca"></i> ';
+    if (m.delivered_at) return '<i class="fas fa-check-double inbox-centang" title="Terkirim ke HP"></i> ';
     if (m.send_status === 'sent') return '<i class="fas fa-check inbox-centang" title="Terkirim"></i> ';
     if (m.send_status === 'failed') return '<i class="fas fa-exclamation-circle inbox-gagal" title="Gagal terkirim"></i> ';
 

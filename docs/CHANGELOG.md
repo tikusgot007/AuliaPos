@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-10-07 — Inbox: WhatsApp read receipt dua arah
+
+- Arah 1 (customer -> POS): saat kasir membuka percakapan pribadi (atau menekan
+  "Tandai Dibaca"), AuliaPos meminta Gateway/Evolution menandai pesan MASUK
+  pelanggan sebagai dibaca, sehingga WhatsApp mengirim blue tick ke pelanggan.
+  Fail-soft: kegagalan TIDAK menggagalkan buka percakapan. Grup & `@lid` dilewati.
+- Arah 2 (POS -> customer): event `MESSAGES_UPDATE` Evolution (`READ`/`DELIVERY_ACK`)
+  kini diteruskan Gateway ke `POST /api/inbox/gateway/message-status`.
+  `messages.read_at`/`delivered_at` diisi idempotent & monoton; pesan tak cocok
+  (bukan outgoing / tak ada) -> 200 `matched:false` (tanpa retry tak berujung).
+- UI: pesan keluar menampilkan centang ganda (`delivered`) / centang ganda biru
+  (`read`). State internal `last_seen_by_assignee_at` dan makna
+  `send_status(received/sent/failed)` **tidak** berubah.
+- Endpoint baru: Gateway `POST /read` (Bearer), POS
+  `POST /api/inbox/gateway/message-status` (gatewaytoken), POS
+  `POST /inbox/percakapan/:id/whatsapp-dibaca` (auth).
+- Migrasi: `2026-10-07-000001_AddReadStatusToMessages` (kolom `delivered_at`,
+  `read_at`; DB group `inbox`).
+- Referensi: `docs/requirements/2026-10-07-whatsapp-read-receipt.md`,
+  `docs/design/2026-10-07-whatsapp-read-receipt.md`; test
+  `tests/feature/InboxGatewayApiMessageStatusTest.php` (POS) +
+  `test/test-read-status.js` (Gateway).
+
 ## 2026-10-07 — Inbox: Balasan POS ke percakapan closed membuka kembali (reopen)
 
 - Aturan baru: kasir membalas (teks/balasan/Teruskan/media) dari POS ke percakapan
