@@ -124,6 +124,7 @@ class Laporan extends BaseController
             ->where('DATE(tanggal) >=', $tanggal_awal)
             ->where('DATE(tanggal) <=', $tanggal_akhir)
             ->where('status !=', 'batal')
+            ->where('status !=', 'mangkrak')
             ->countAllResults();
 
         log_message('debug', 'Jumlah Transaksi (count): ' . $count);
@@ -135,6 +136,7 @@ class Laporan extends BaseController
             ->where('DATE(tanggal) >=', $tanggal_awal)
             ->where('DATE(tanggal) <=', $tanggal_akhir)
             ->where('transaksi.status !=', 'batal')
+            ->where('transaksi.status !=', 'mangkrak')
             ->orderBy('transaksi.tanggal', 'ASC')
             ->findAll();
 
@@ -1082,7 +1084,7 @@ class Laporan extends BaseController
                 'subtotal' => $subtotal,
                 'diskon' => $diskon,
                 'grand_total' => $grandTotal,
-                'sisa_tagihan' => $t['grand_total'] - ($t['total_dibayar'] ?? 0),
+                'sisa_tagihan' => max(0, $t['grand_total'] - ($t['total_dibayar'] ?? 0)),
                 'status_pembayaran' => $t['status_pembayaran'],
                 'status' => $t['status']
             ];

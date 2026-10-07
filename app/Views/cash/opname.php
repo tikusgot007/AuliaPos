@@ -53,7 +53,7 @@
 
                         <div class="form-group mb-3">
                             <label for="alasan_selisih">Alasan Selisih (Opsional)</label>
-                            <input type="text" class="form-control" id="alasan_selisih" name="alasan_selisih" placeholder="Jika ada selisih, jelaskan alasannya">
+                            <textarea class="form-control" id="alasan_selisih" name="alasan_selisih" rows="2" placeholder="Jika ada selisih, jelaskan alasannya (opsional)"></textarea>
                         </div>
 
                         <div class="form-group mb-3">

@@ -13,18 +13,15 @@
 
 ### High
 
+- [x] **TODO-BL11** High — kas awal bisa di-insert dua kali (select-then-insert, tanpa unique key) → saldo membengkak — **SELESAI 2026-10-07**: transaction + forUpdate() lock pada saveOpeningCash() cegah race condition
 
-- [ ] **TODO-BL09** High — `cash_opname.pemasukan_tunai` diisi `kas_awal + penjualan` → kas awal dobel — `Cash.php:216-219`; `CashBalanceService.php:27`
-
-- [ ] **TODO-BL11** High — kas awal bisa di-insert dua kali (select-then-insert, tanpa unique key) → saldo membengkak — `CashBalanceService.php:49-73`
-
-- [ ] **TODO-BL12** High — `alasan_selisih` opname dipaksa string tetap read-only → validasi selisih tak bermakna — `Views/cash/index.php:795-810`; `Cash.php:196-201`
+- [x] **TODO-BL12** High — `alasan_selisih` opname dipaksa string tetap read-only → validasi selisih tak bermakna — **SELESAI 2026-10-07**: ubah alasan jadi optional textarea, validasi wajib dihapus
 
 ### Medium
 
 - [x] **TODO-Q6** Medium — CI PHPUnit unit suite gagal karena syntax invalid `\\Config\\Database::connect()` di `app/Models/TransaksiModel.php:352`; diperbaiki dan CI hijau pada 2026-10-06 — **SELESAI 2026-10-06**
 
-- [ ] **TODO-BL13** Medium — `sisa_tagihan` tak di-clamp → bisa negatif & distorsi `total_piutang` — `Tagihan.php:180-181,252`; `Laporan.php:1076`
+- [x] **TODO-BL13** Medium — `sisa_tagihan` tak di-clamp → bisa negatif & distorsi `total_piutang` — **SELESAI 2026-10-07**: max(0, ...) di Tagihan.php:258 dan Laporan.php:1085
 
 - [ ] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
 
@@ -32,7 +29,7 @@
 
 - [ ] **TODO-BL16** Medium — `exportExcel(jenis=harian)` memakai jalur akrual, beda dari tabel Harian — `Laporan.php:1433,1490-1541` — **DEC-2: tidak prioritas (hanya tab Bulanan yang dipakai)**
 
-- [ ] **TODO-BL17** Medium — `mangkrak` dikecualikan di Tagihan tapi dihitung di piutang laporan — `Tagihan.php:81-82`; `Laporan.php:117,128,1365`
+- [x] **TODO-BL17** Medium — `mangkrak` dikecualikan di Tagihan tapi dihitung di piutang laporan — **SELESAI 2026-10-07**: exclude mangkrak di Laporan.php line 126 dan 137
 
 - [ ] **TODO-BL18** Medium — saat filter kategori, `grand_total` pro-rata tapi `sisa_tagihan` penuh → piutang overstated — `Laporan.php:1043-1061,1076`
 

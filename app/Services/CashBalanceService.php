@@ -48,29 +48,42 @@ final class CashBalanceService
     public function saveOpeningCash(float $amount, int $userId, ?string $note = null): bool
     {
         $date = date('Y-m-d');
-        $existing = $this->db->table('cash_expense')->select('id')
-            ->where('kategori', 'kas_awal_hari')
-            ->where('tanggal >=', $date . ' 00:00:00')->where('tanggal <=', $date . ' 23:59:59')
-            ->get()->getRowArray();
         $now = date('Y-m-d H:i:s');
 
-        if ($existing !== null) {
-            return $this->db->table('cash_expense')->where('id', $existing['id'])->update([
-                'nominal' => $amount,
-                'keterangan' => $note ?: 'Update kas awal hari',
-                'updated_at' => $now,
-            ]);
-        }
+        try {
+            $this->db->transBegin();
 
-        return $this->db->table('cash_expense')->insert([
-            'tanggal' => $now,
-            'kategori' => 'kas_awal_hari',
-            'nominal' => $amount,
-            'keterangan' => $note ?: 'Kas awal hari ' . date('d/m/Y'),
-            'penerima' => 'System',
-            'user_id' => $userId,
-            'created_at' => $now,
-        ]);
+            $existing = $this->db->table('cash_expense')->select('id')
+                ->where('kategori', 'kas_awal_hari')
+                ->where('tanggal >=', $date . ' 00:00:00')
+                ->where('tanggal <=', $date . ' 23:59:59')
+                ->forUpdate()
+                ->get()->getRowArray();
+
+            if ($existing !== null) {
+                $result = $this->db->table('cash_expense')->where('id', $existing['id'])->update([
+                    'nominal' => $amount,
+                    'keterangan' => $note ?: 'Update kas awal hari',
+                    'updated_at' => $now,
+                ]);
+            } else {
+                $result = $this->db->table('cash_expense')->insert([
+                    'tanggal' => $now,
+                    'kategori' => 'kas_awal_hari',
+                    'nominal' => $amount,
+                    'keterangan' => $note ?: 'Kas awal hari ' . date('d/m/Y'),
+                    'penerima' => 'System',
+                    'user_id' => $userId,
+                    'created_at' => $now,
+                ]);
+            }
+
+            $this->db->transCommit();
+            return $result;
+        } catch (\Exception $e) {
+            $this->db->transRollback();
+            throw $e;
+        }
     }
 
     /** @param list<string> $categories */

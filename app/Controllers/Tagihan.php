@@ -255,7 +255,7 @@ class Tagihan extends BaseController
         $pelanggan = $transaksi['pelanggan_id'] ? $pelangganModel->find($transaksi['pelanggan_id']) : null;
 
         $total_dibayar = array_sum(array_column($pembayaran, 'jumlah'));
-        $sisa_tagihan = $transaksi['grand_total'] - $total_dibayar;
+        $sisa_tagihan = max(0, $transaksi['grand_total'] - $total_dibayar);
 
         // 🔥 Flag: apakah ini dari halaman tagihan?
         $dariTagihan = true; // Karena ini controller Tagihan

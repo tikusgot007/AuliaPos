@@ -195,14 +195,6 @@ class Cash extends BaseController
         // Hitung selisih
         $selisih = $saldoFisik - $saldoSistem;
 
-        // Validasi: jika selisih != 0, alasan wajib diisi
-        if (abs($selisih) > 0.01 && empty($alasan)) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Alasan selisih wajib diisi karena terjadi selisih.'
-            ]);
-        }
-
         // Tentukan status selisih
         if (abs($selisih) < 0.01) {
             $statusSelisih = 'sesuai';
