@@ -474,10 +474,10 @@ Design notes:
 Replace the current §3 block (lines 88-107) with:
 
 ```markdown
-## 3. Service (auto-start, auto-restart) + Start / Stop / Status manual
+## 3. Start / Stop / Status (sekarang berbasis Windows Service)
 
 Evolution API dan adapter berjalan sebagai **Windows Service** (dibungkus
-[WinSW](https://github.com/winsw/winsw), bukan NSSM), terdaftar otomatis oleh
+[WinSW](https://github.com/winsw/winsw)), terdaftar otomatis oleh
 `install.ps1`:
 
 | Service | Nama default | Dependensi |
@@ -521,7 +521,16 @@ powershell -ExecutionPolicy Bypass -File installer\tests\check-service.ps1
   WinSW) disegarkan otomatis; registrasi service itu sendiri tidak diulang.
 ```
 
-Note: this keeps the exact required tokens for `check-runbook.ps1` (`install.ps1`, `start.ps1`, `stop.ps1`, `status.ps1`, section heading starting with `## 3. Start / Stop / Status` — the heading text itself changes to add "Service..." as a prefix; **verify** `check-runbook.ps1:11` matches `'## 3. Start / Stop / Status'` as a substring, which the new heading `## 3. Service (auto-start, auto-restart) + Start / Stop / Status manual` still contains verbatim).
+Note (corrected during implementation): the heading must contain the literal
+substring `## 3. Start / Stop / Status` because `check-runbook.ps1:11` asserts
+it verbatim. The originally-suggested heading `## 3. Service (...) + Start /
+Stop / Status manual` did **not** contain that substring (the required text is
+not contiguous), so the heading actually used is
+`## 3. Start / Stop / Status (sekarang berbasis Windows Service)`, which does.
+Also note: the runbook text must **not** contain the literal `NSSM` (case any),
+because `check-static.ps1` §6 scans every `.md`/`.ps1`/`.js` under `installer/`
+for `nssm`/`NSSM`; the decision "WinSW, not NSSM" is recorded here in the design
+doc (outside `installer/`), not in the runbook.
 
 ## 5. Impact
 
