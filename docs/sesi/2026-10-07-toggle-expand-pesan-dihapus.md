@@ -50,10 +50,45 @@ Locked: server membuang `text`/`media_metadata` dari respons untuk pesan
   naik dari 56 → 60 (4 kasus baru: locked no-chevron, unlocked text chevron,
   unlocked semua tipe media no-chevron, toggle expand/collapse).
 
+## Verifikasi manual browser (2026-10-07)
+
+Dijalankan di dev lokal: `http://localhost/aulia/inbox` (Apache XAMPP port 80),
+percakapan `628563324637` (conversation_id=4), dengan pesan revoked:
+teks `3EB075D3278D6C9DDABE6C` (id 556, `oke2`) + `A5EEAADFEE8213C409189E92652D6722`
+(id 551, `Tes ke 00707`), media `ACBA30FFC033FF8D1A746AFB0F3815D2` (id 555,
+`image`). Command clear cache: `php spark cache:clear`.
+
+LOCKED (`inbox.deletedMessageLocked=true`, default):
+- Placeholder teks tanpa chevron, tidak bisa di-expand: OK.
+- Placeholder media tanpa render gambar asli: OK.
+- DevTools Network `/inbox/api/conversations/4/messages`: `text`=null,
+  `media_metadata`=null, `expandable`=false: OK.
+- DB tetap utuh (strip di response, bukan DB): OK — dicek langsung via MySQL.
+
+UNLOCKED (`inbox.deletedMessageLocked=false`):
+- Chevron muncul untuk teks; klik expand menampilkan teks asli + meta
+  "Dihapus di WhatsApp pada ...": OK.
+- Media tetap tanpa chevron & tanpa render: OK.
+- DevTools: teks `expandable`=true + `text` asli; media `expandable`=false +
+  `media_metadata`=null: OK.
+- DB tetap utuh: OK.
+
+REVERT (`inbox.deletedMessageLocked=true`):
+- Chevron hilang, kembali placeholder permanen: OK.
+
+Total 12/12 OK, tanpa bug / temuan CSS. `.env` lokal dikembalikan ke
+`inbox.deletedMessageLocked = true`.
+
+## Commit & push
+
+- `ad938db` feat(inbox): toggle admin expand isi pesan dihapus (teks saja).
+- `19aa8c3` docs(inbox): requirements/design/sesi + feature test edit/hapus pesan keluar.
+- `43e7257` feat(inbox): route edit/hapus pesan keluar + tandai TODO-F12/F13 selesai.
+- `26a1b9d` docs(todo): hapus TODO-F12 & TODO-F13.
+- Push ke `origin/v2.4` (`f77bfa2..26a1b9d`).
+
 ## Belum diverifikasi
 
-- Verifikasi manual UI di browser (klik chevron sungguhan, DevTools Network
-  untuk konfirmasi payload locked tidak bocor) — belum dijalankan, butuh
-  server PHP + DB dev berjalan.
-- `inbox.deletedMessageLocked` belum ditambahkan ke `.env` lokal (hanya
-  `.env.example`) — default Config (`true`) sudah berlaku tanpa itu.
+- Tidak ada; verifikasi manual browser (locked/unlocked/revert) sudah
+  dijalankan dan lulus. Sisi gateway tidak tersentuh (endpoint `/delete` &
+  `/edit` sudah ada & ter-push di `origin/evolution`).
