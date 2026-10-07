@@ -47,6 +47,21 @@ class Inbox extends BaseController
     private const MESSAGES_PER_PAGE = 200;
 
     /**
+     * Jendela edit pesan keluar (detik) = 900 (15 menit), sama dengan batas
+     * WhatsApp. Ini hanya penjaga AWAL supaya tombol disembunyikan & request
+     * di luar jendela ditolak cepat; adapter/Evolution tetap penentu akhir
+     * (dapat menjawab EDIT_WINDOW_EXPIRED).
+     */
+    private const EDIT_WINDOW_SECONDS = 900;
+
+    /**
+     * Prefix `wa_message_id` placeholder untuk baris keluar yang tidak pernah
+     * menerima ID WhatsApp asli (lihat Inbox.php:3358). Baris seperti ini
+     * TIDAK bisa diedit/dihapus lewat adapter karena tidak punya ID nyata.
+     */
+    private const WA_MESSAGE_ID_LOCAL_PREFIX = 'local-';
+
+    /**
      * Pesan `400` generik untuk SEMUA kegagalan resolusi kutipan (SEC-001
      * review ronde-2): "sumber tidak ada" dan "sumber di percakapan lain"
      * tidak boleh bisa dibedakan oleh pemanggil yang berhak atas percakapan
@@ -453,6 +468,9 @@ class Inbox extends BaseController
         // supaya pesan grup masuk diberi label identitas pengirim.
         $messages = $this->attachSenderNames($page['messages'], $conversation['jid_type']);
 
+        // Task 2026-10-07: dibaca SEKALI per request, bukan per pesan.
+        $pesanDihapusLocked = (new InboxConfig())->deletedMessageLocked;
+
         foreach ($messages as &$message) {
             $message['is_internal'] = (bool) ($message['is_internal'] ?? false);
             // CLN-402: penanda Teruskan ikut dinormalkan ke bool, supaya view
@@ -463,6 +481,9 @@ class Inbox extends BaseController
             $message['is_edited']               = ! empty($message['edited_at']);
             $message['is_edited_text_resolved'] = ! empty($message['edited_text_resolved_at']);
             $message['is_revoked']               = ! empty($message['revoked_at']);
+            // Task 2026-10-07: toggle admin (inbox.deletedMessageLocked) --
+            // strip isi asli pesan terhapus dari RESPONS (bukan cuma UI).
+            $this->terapkanKebijakanPesanDihapus($message, $pesanDihapusLocked);
         }
         unset($message);
 
@@ -1075,6 +1096,43 @@ class Inbox extends BaseController
         }
 
         return $messages;
+    }
+
+    /**
+     * Task 2026-10-07: terapkan toggle GLOBAL `inbox.deletedMessageLocked`
+     * pada SATU baris pesan yang sudah ber-`is_revoked` (dipanggil SETELAH
+     * flag itu dihitung). Mengubah `$message` secara in-place (referensi).
+     *
+     * LOCKED (default): `text`/`media_metadata` DIBUANG dari respons --
+     * bukan cuma disembunyikan UI. `expandable` selalu `false`.
+     *
+     * UNLOCKED: `text`/`media_metadata` dipertahankan APA ADANYA, TAPI
+     * `expandable` hanya `true` untuk `message_type==='text'`. Media yang
+     * dihapus tetap `expandable=false` -- WhatsApp/Gateway tidak pernah
+     * mengirim byte media yang sudah dihapus, jadi tidak ada apa pun yang
+     * bisa di-expand untuk tipe itu (Opsi A, cakupan teks saja).
+     *
+     * Pesan yang BUKAN revoked tidak tersentuh sama sekali (tidak diberi
+     * `expandable` -- field itu HANYA relevan untuk pesan terhapus, supaya
+     * payload pesan normal tidak berubah bentuk).
+     *
+     * @param bool $locked nilai `InboxConfig::$deletedMessageLocked`, dibaca
+     *                      SEKALI oleh pemanggil (bukan per pesan).
+     */
+    private function terapkanKebijakanPesanDihapus(array &$message, bool $locked): void
+    {
+        if (empty($message['is_revoked'])) {
+            return;
+        }
+
+        if ($locked) {
+            $message['text']           = null;
+            $message['media_metadata'] = null;
+            $message['expandable']     = false;
+            return;
+        }
+
+        $message['expandable'] = ($message['message_type'] ?? null) === 'text';
     }
 
     /**
@@ -3836,6 +3894,314 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/pesan/(:num)/edit
+     *
+     * Kasir mengedit TEKS pesan KELUAR yang sudah terkirim. `(:num)` = id
+     * lokal `messages.id`; server memetakan ke `wa_message_id` yang dikirim
+     * ke adapter. Batas: hanya `message_type='text'`, hanya bila pesan belum
+     * dihapus, dan hanya dalam `EDIT_WINDOW_SECONDS` (15 menit). `operation_id`
+     * WAJIB (adapter menolaknya bila kosong) dan diteruskan apa adanya supaya
+     * retry manual memakai kunci yang sama (idempoten).
+     */
+    public function editPesan($messageId = null)
+    {
+        return $this->aksiPesanKeluar($messageId, 'edit');
+    }
+
+    /**
+     * POST /inbox/pesan/(:num)/hapus
+     *
+     * Kasir menghapus pesan KELUAR untuk semua (teks maupun media). `(:num)` =
+     * id lokal `messages.id`; server memetakan ke `wa_message_id`. Idempoten:
+     * pesan yang sudah `revoked_at` terisi dijawab sukses tanpa memanggil
+     * adapter lagi. `operation_id` opsional (adapter opsional).
+     */
+    public function hapusPesan($messageId = null)
+    {
+        return $this->aksiPesanKeluar($messageId, 'delete');
+    }
+
+    /**
+     * Orkestrasi bersama edit/hapus pesan keluar: validasi batas kepercayaan,
+     * cek Gateway siap, panggil adapter, lalu tandai baris lokal pada sukses.
+     * Dipisah supaya kedua aksi tidak menyalin urutan validasi (pola yang sama
+     * dengan `kirimTeksViaGateway()`).
+     *
+     * @param mixed  $messageId id lokal `messages.id` dari segmen URL
+     * @param string $aksi      'edit' | 'delete'
+     */
+    private function aksiPesanKeluar($messageId, string $aksi)
+    {
+        $messageId = (int) $messageId;
+        if ($messageId < 1) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'ID pesan tidak valid.',
+            ]);
+        }
+
+        $messageModel = new MessageModel();
+        $message      = $messageModel->find($messageId);
+        if (! $message) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Pesan tidak ditemukan.',
+            ]);
+        }
+
+        // IDOR: hanya pesan KELUAR. Pesan MASUK tidak pernah bisa diedit/dihapus
+        // dari POS (itu ranah pelanggan di WhatsApp).
+        if (($message['direction'] ?? null) !== 'outgoing') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'message' => 'Hanya pesan keluar yang bisa diedit atau dihapus.',
+            ]);
+        }
+
+        // Baris tanpa ID WhatsApp nyata (placeholder `local-…`, lihat insert di
+        // kirimTeksViaGateway) tidak punya target di WhatsApp -> tolak jelas,
+        // jangan kirim `undefined` ke adapter.
+        $waMessageId = trim((string) ($message['wa_message_id'] ?? ''));
+        if ($waMessageId === '' || str_starts_with($waMessageId, self::WA_MESSAGE_ID_LOCAL_PREFIX)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 'error',
+                'error_code' => 'MESSAGE_NOT_SYNCED',
+                'message' => 'Pesan ini belum punya ID WhatsApp (belum tersinkron), jadi tidak bisa diedit/dihapus.',
+            ]);
+        }
+
+        $conversationModel = new ConversationModel();
+        $conversation      = $conversationModel->find((int) $message['conversation_id']);
+        if (! $conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $sudahDihapus = ! empty($message['revoked_at']);
+
+        if ($aksi === 'delete') {
+            // Idempoten: sudah ditandai dihapus -> jawab sukses tanpa adapter.
+            if ($sudahDihapus) {
+                return $this->response->setStatusCode(200)->setJSON([
+                    'status'   => 'success',
+                    'state'    => 'deleted',
+                    'replayed' => true,
+                    'already'  => true,
+                ]);
+            }
+        } else {
+            if ($sudahDihapus) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'error_code' => 'MESSAGE_DELETED',
+                    'message' => 'Pesan yang sudah dihapus tidak bisa diedit.',
+                ]);
+            }
+
+            if (($message['message_type'] ?? null) !== 'text') {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'error_code' => 'EDIT_MEDIA_UNSUPPORTED',
+                    'message' => 'WhatsApp hanya mengizinkan edit pada pesan teks.',
+                ]);
+            }
+
+            if ($this->pesanDiLuarJendelaEdit((string) $message['created_at'])) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'error_code' => 'EDIT_WINDOW_EXPIRED',
+                    'message' => 'Batas waktu edit WhatsApp adalah 15 menit.',
+                ]);
+            }
+        }
+
+        $operationId = trim((string) ($this->request->getPost('operation_id') ?? ''));
+        $operationId = $operationId === '' ? null : $operationId;
+
+        $newText = null;
+        if ($aksi === 'edit') {
+            // Edit WAJIB punya operation_id (idempotensi; target bisa berbeda
+            // dengan teks yang sama) -- sama dengan kontrak adapter.
+            if ($operationId === null) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'error_code' => 'MISSING_OPERATION_ID',
+                    'message' => 'operation_id wajib diisi untuk edit pesan.',
+                ]);
+            }
+
+            $newText = trim((string) ($this->request->getPost('new_text') ?? ''));
+            if ($newText === '') {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'error_code' => 'INVALID_TEXT',
+                    'message' => 'Teks pesan tidak boleh kosong.',
+                ]);
+            }
+            if (strlen($newText) > 4096) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'status'  => 'error',
+                    'error_code' => 'TEXT_TOO_LONG',
+                    'message' => 'Teks pesan terlalu panjang (maksimal 4096 karakter).',
+                ]);
+            }
+        }
+
+        $config = new InboxConfig();
+        $konteks = $aksi === 'edit' ? 'editPesan' : 'hapusPesan';
+        $gagal   = $this->pastikanGatewaySiap($config, $konteks);
+        if ($gagal !== null) {
+            return $gagal;
+        }
+
+        $chatId = (string) $conversation['chat_id'];
+
+        $result = $aksi === 'edit'
+            ? $this->callGatewayEdit($config, $chatId, $waMessageId, $newText, $operationId)
+            : $this->callGatewayDelete($config, $chatId, $waMessageId, $operationId);
+
+        if (! $result['ok']) {
+            return $this->gatewayFailureResponse(
+                $result,
+                (int) $conversation['id'],
+                $konteks,
+                $aksi === 'edit' ? 'Gagal mengedit pesan: ' : 'Gagal menghapus pesan: '
+            );
+        }
+
+        // Sukses: tandai baris lokal SEKARANG supaya UI (dan polling) akurat
+        // tanpa menunggu webhook Evolution menyusul. Kedua model method
+        // idempoten (first-seen), jadi webhook yang sama tidak merusak nilai.
+        if ($aksi === 'delete') {
+            $messageModel->markLifecycle($waMessageId, 'deleted');
+        } else {
+            $messageModel->updateEditedText($waMessageId, $newText);
+        }
+
+        log_message('info', "Inbox::{$konteks} sukses. conversation_id={$conversation['id']} message_id={$messageId}");
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'   => 'success',
+            'state'    => $aksi === 'edit' ? 'edited' : 'deleted',
+            'replayed' => (bool) ($result['replayed'] ?? false),
+        ]);
+    }
+
+    /**
+     * Umur pesan (dalam detik, wall-clock Asia/Jakarta) melebihi jendela edit?
+     * Memakai waktu server; adapter/Evolution tetap penentu akhir.
+     */
+    private function pesanDiLuarJendelaEdit(string $createdAt): bool
+    {
+        try {
+            $zona   = new \DateTimeZone('Asia/Jakarta');
+            $dibuat = new \DateTime($createdAt, $zona);
+            $now    = new \DateTime('now', $zona);
+        } catch (\Exception $e) {
+            // Timestamp rusak -> jangan blokir dengan tebakan; biar adapter
+            // yang memutuskan (akan menjawab EDIT_WINDOW_EXPIRED bila memang).
+            return false;
+        }
+
+        return ($now->getTimestamp() - $dibuat->getTimestamp()) > self::EDIT_WINDOW_SECONDS;
+    }
+
+    /**
+     * Panggil POST /delete milik Gateway (Bearer gatewayToken). Mengembalikan
+     * bentuk array yang sama dengan `callGatewaySend()` supaya bisa diproses
+     * `gatewayFailureResponse()`.
+     *
+     * @return array{ok: bool, state?: ?string, replayed?: bool, error?: string, error_code?: ?string, http_code?: int}
+     */
+    protected function callGatewayDelete(InboxConfig $config, string $chatId, string $waMessageId, ?string $operationId): array
+    {
+        $payloadData = [
+            'chat_id'       => $chatId,
+            'wa_message_id' => $waMessageId,
+        ];
+        if ($operationId !== null) {
+            $payloadData['operation_id'] = $operationId;
+        }
+
+        return $this->callGatewayPesanKeluar($config->gatewayBaseUrl . '/delete', $payloadData);
+    }
+
+    /**
+     * Panggil POST /edit milik Gateway (Bearer gatewayToken).
+     *
+     * @return array{ok: bool, state?: ?string, replayed?: bool, error?: string, error_code?: ?string, http_code?: int}
+     */
+    protected function callGatewayEdit(InboxConfig $config, string $chatId, string $waMessageId, string $newText, ?string $operationId): array
+    {
+        return $this->callGatewayPesanKeluar($config->gatewayBaseUrl . '/edit', [
+            'chat_id'       => $chatId,
+            'wa_message_id' => $waMessageId,
+            'new_text'      => $newText,
+            'operation_id'  => $operationId,
+        ]);
+    }
+
+    /**
+     * Kirim satu request JSON ke adapter untuk aksi pesan keluar (edit/hapus)
+     * dan normalkan responsnya. Dipisah dari `callGatewaySend()` karena tidak
+     * menyentuh `InboxOutgoingRequest` (tidak ada quoted/forward).
+     *
+     * @param array<string, mixed> $payloadData
+     * @return array{ok: bool, state?: ?string, replayed?: bool, error?: string, error_code?: ?string, http_code?: int}
+     */
+    private function callGatewayPesanKeluar(string $url, array $payloadData): array
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($payloadData),
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . (new InboxConfig())->gatewayToken,
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_CONNECTTIMEOUT => 5,
+        ]);
+
+        $rawResponse = curl_exec($ch);
+        $curlError   = curl_error($ch);
+        $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($rawResponse === false) {
+            return ['ok' => false, 'error' => 'Tidak bisa menghubungi Gateway: ' . $curlError];
+        }
+
+        $json = json_decode($rawResponse, true);
+
+        if ($httpCode >= 200 && $httpCode < 300 && is_array($json) && ($json['success'] ?? false) === true) {
+            return [
+                'ok'         => true,
+                'state'      => $json['state'] ?? null,
+                'replayed'   => (bool) ($json['replayed'] ?? false),
+                'error_code' => null,
+                'http_code'  => $httpCode,
+            ];
+        }
+
+        $errorMessage = is_array($json)
+            ? ($json['message'] ?? ('Gateway menolak (HTTP ' . $httpCode . ')'))
+            : ('HTTP ' . $httpCode . ', respons Gateway tidak valid: ' . substr((string) $rawResponse, 0, 200));
+
+        return [
+            'ok'         => false,
+            'error'      => $errorMessage,
+            'error_code' => is_array($json) ? ($json['error_code'] ?? null) : null,
+            'state'      => is_array($json) ? ($json['state'] ?? null) : null,
+            'replayed'   => is_array($json) ? (bool) ($json['replayed'] ?? false) : false,
+            'http_code'  => $httpCode,
+        ];
+    }
+
+    /**
      * Panggil POST /send milik Gateway lewat cURL langsung -- tidak
      * bergantung ke library HTTP client tambahan (Guzzle dkk) yang
      * belum tentu ter-install di project ini.
@@ -4122,7 +4488,7 @@ class Inbox extends BaseController
     {
         $errorCode = $result['error_code'] ?? null;
 
-        if (in_array($errorCode, ['SEND_IN_PROGRESS', 'SEND_UNRESOLVED'], true)) {
+        if (in_array($errorCode, ['SEND_IN_PROGRESS', 'SEND_UNRESOLVED', 'DELETE_UNRESOLVED', 'EDIT_UNRESOLVED'], true)) {
             log_message('warning', "Inbox::{$context} hasil belum pasti. conversation_id={$conversationId} error_code={$errorCode} state=" . ($result['state'] ?? 'unknown'));
             return $this->response->setStatusCode((int) ($result['http_code'] ?? 409))->setJSON([
                 'status' => 'error', 'error_code' => $errorCode,

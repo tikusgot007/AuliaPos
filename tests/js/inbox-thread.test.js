@@ -189,12 +189,109 @@ test('TODO-F7/F8: edit/delete lifecycle labels and validated text state', () => 
 
     const deleted = t.ctx.renderBubbleHtml(msg(22, { is_revoked: true }));
     assert.ok(deleted.includes('Pesan dihapus'), deleted);
-    assert.ok(deleted.includes('inbox-teks-basi'), deleted);
+    // Task 2026-10-07: placeholder pesan terhapus TIDAK lagi pakai
+    // inbox-teks-basi (teks diburamkan) -- sekarang `inbox-pesan-dihapus`
+    // dengan data-expandable (lihat renderPlaceholderDihapus()).
+    assert.ok(deleted.includes('inbox-pesan-dihapus'), deleted);
+    assert.ok(deleted.includes('data-expandable="false"'), 'locked/non-text default: not expandable: ' + deleted);
+    assert.ok(!deleted.includes('inbox-teks-basi'), deleted);
 
     const normal = t.ctx.renderBubbleHtml(msg(23));
     assert.ok(!normal.includes('Pesan diedit'), normal);
     assert.ok(!normal.includes('Pesan dihapus'), normal);
     assert.ok(!normal.includes('inbox-teks-basi'), normal);
+});
+
+test('task 2026-10-07: Edit/Hapus buttons only for eligible outgoing messages', () => {
+    const t = loadThread();
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    const nowStr = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' '
+        + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+
+    // outgoing teks segar -> Edit + Hapus
+    const textHtml = t.ctx.renderBubbleHtml(msg(40, { direction: 'outgoing', send_status: 'sent', message_type: 'text', created_at: nowStr }));
+    assert.ok(textHtml.includes('bukaEditPesan(40)'), textHtml);
+    assert.ok(textHtml.includes('bukaKonfirmasiHapus(40)'), textHtml);
+
+    // outgoing media -> Hapus ada, Edit TIDAK
+    const imgHtml = t.ctx.renderBubbleHtml(msg(41, { direction: 'outgoing', send_status: 'sent', message_type: 'image', created_at: nowStr }));
+    assert.ok(imgHtml.includes('bukaKonfirmasiHapus(41)'), imgHtml);
+    assert.ok(!imgHtml.includes('bukaEditPesan(41)'), 'media must not offer Edit: ' + imgHtml);
+
+    // > 15 menit -> Edit hilang, Hapus tetap
+    const oldHtml = t.ctx.renderBubbleHtml(msg(42, { direction: 'outgoing', send_status: 'sent', message_type: 'text', created_at: '2026-01-01 00:00:00' }));
+    assert.ok(!oldHtml.includes('bukaEditPesan(42)'), 'expired window must not offer Edit: ' + oldHtml);
+    assert.ok(oldHtml.includes('bukaKonfirmasiHapus(42)'), oldHtml);
+
+    // pesan masuk -> tidak ada Edit/Hapus
+    const incHtml = t.ctx.renderBubbleHtml(msg(43, { direction: 'incoming', created_at: nowStr }));
+    assert.ok(!incHtml.includes('bukaEditPesan(43)'));
+    assert.ok(!incHtml.includes('bukaKonfirmasiHapus(43)'));
+});
+
+test('task 2026-10-07: revoked message shows placeholder and hides reply/forward', () => {
+    const t = loadThread();
+    const html = t.ctx.renderBubbleHtml(msg(44, { is_revoked: true, text: 'isi asli rahasia' }));
+    assert.ok(html.includes('Pesan ini telah dihapus'), html);
+    assert.ok(html.includes('inbox-pesan-dihapus'), html);
+    assert.ok(!html.includes('isi asli rahasia'), 'original text must not show: ' + html);
+    assert.ok(!html.includes('pilihKutipan(44)'), 'reply hidden on revoked: ' + html);
+    assert.ok(!html.includes('bukaPemilihTeruskan(44)'), 'forward hidden on revoked: ' + html);
+});
+
+test('task 2026-10-07: admin toggle -- locked (expandable absent) never shows chevron', () => {
+    const t = loadThread();
+    // Server LOCKED: `expandable` tidak dikirim sama sekali (lihat
+    // Inbox::terapkanKebijakanPesanDihapus() -- locked tidak set field itu
+    // di PHP side, tapi normalisasi JS memperlakukan undefined sebagai false).
+    const html = t.ctx.renderBubbleHtml(msg(50, { is_revoked: true, text: null }));
+    assert.ok(html.includes('data-expandable="false"'), html);
+    assert.ok(!html.includes('inbox-pesan-dihapus__toggle'), 'locked must not render chevron button: ' + html);
+    assert.ok(!html.includes('\u25BC'), 'locked must not render chevron glyph: ' + html);
+});
+
+test('task 2026-10-07: admin toggle -- unlocked text message renders chevron + hidden original text', () => {
+    const t = loadThread();
+    const html = t.ctx.renderBubbleHtml(msg(51, {
+        is_revoked: true, expandable: true, message_type: 'text',
+        text: 'Harga beras Rp 12.000/kg', revoked_at: '2026-10-07 10:32:00',
+    }));
+    assert.ok(html.includes('data-expandable="true"'), html);
+    assert.ok(html.includes('inbox-pesan-dihapus__toggle'), html);
+    assert.ok(html.includes('aria-expanded="false"'), html);
+    assert.ok(html.includes('inbox-pesan-dihapus__isi'), html);
+    assert.ok(html.includes('hidden'), 'content starts collapsed: ' + html);
+    assert.ok(html.includes('Harga beras Rp 12.000/kg'), 'expandable text must be present in markup: ' + html);
+    assert.ok(html.includes('Dihapus di WhatsApp pada'), html);
+});
+
+test('task 2026-10-07: admin toggle -- unlocked MEDIA message stays non-expandable', () => {
+    const t = loadThread();
+    for (const type of ['image', 'document', 'sticker', 'audio', 'video']) {
+        const html = t.ctx.renderBubbleHtml(msg(52, { is_revoked: true, expandable: false, message_type: type, text: null }));
+        assert.ok(html.includes('data-expandable="false"'), type + ': ' + html);
+        assert.ok(!html.includes('inbox-pesan-dihapus__toggle'), type + ' must not offer chevron: ' + html);
+    }
+});
+
+test('task 2026-10-07: togglePesanDihapus flips aria-expanded and hidden state', () => {
+    const t = loadThread();
+    const isi = { hidden: true };
+    let expanded = 'false';
+    const btn = {
+        closest: () => ({ querySelector: () => isi }),
+        getAttribute: () => expanded,
+        setAttribute: (name, value) => { if (name === 'aria-expanded') expanded = value; },
+    };
+
+    t.ctx.togglePesanDihapus(btn);
+    assert.equal(expanded, 'true');
+    assert.equal(isi.hidden, false);
+
+    t.ctx.togglePesanDihapus(btn);
+    assert.equal(expanded, 'false');
+    assert.equal(isi.hidden, true);
 });
 
 test('TODO-F8: stale edit bubble is redrawn when text becomes resolved', () => {

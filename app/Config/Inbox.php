@@ -101,6 +101,24 @@ class Inbox extends BaseConfig
      */
     public string $mediaStoragePath;
 
+    /**
+     * Setting GLOBAL (bukan per-user, bukan RBAC): apakah isi pesan yang
+     * DIHAPUS (`messages.revoked_at` terisi) boleh di-expand oleh user Inbox.
+     *
+     * true (default)  = LOCKED   -> placeholder permanen; `text`/`media_metadata`
+     *                               TIDAK dikirim ke frontend sama sekali.
+     * false            = UNLOCKED -> `text` dikirim + `expandable:true`, TAPI
+     *                               HANYA untuk `message_type='text'`. Pesan
+     *                               media yang dihapus tetap placeholder
+     *                               permanen (`expandable:false`) walau
+     *                               unlocked -- WhatsApp sendiri tidak
+     *                               menyimpan byte media yang sudah dihapus,
+     *                               dan Gateway tidak mengirimkannya.
+     *
+     * Diisi lewat .env: inbox.deletedMessageLocked (opsional, default true).
+     */
+    public bool $deletedMessageLocked = true;
+
     public function __construct()
     {
         // SEC-901: BaseConfig::__construct() menimpa properti dengan nilai env
@@ -120,6 +138,19 @@ class Inbox extends BaseConfig
         $this->maxMediaDownloadMb = $this->batasiEnvMb('inbox.maxMediaDownloadMb', $defaultDownload);
         $this->maxMediaPrefetchMb = $this->batasiEnvMb('inbox.maxMediaPrefetchMb', $defaultPrefetch, $this->maxMediaDownloadMb);
         $this->mediaStoragePath = (string) (env('inbox.mediaStoragePath') ?? '');
+
+        // SEC-901: nilai tidak sah (bukan "true"/"false") jatuh ke default
+        // LOCKED (true) -- fail-closed, supaya salah ketik di .env tidak
+        // diam-diam membuka isi pesan yang dihapus.
+        $lockedEnv = env('inbox.deletedMessageLocked');
+        if ($lockedEnv !== null) {
+            $parsed = filter_var($lockedEnv, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($parsed === null) {
+                log_message('warning', 'Config\\Inbox: env inbox.deletedMessageLocked tidak sah (' . $lockedEnv . '); memakai default true (LOCKED).');
+            } else {
+                $this->deletedMessageLocked = $parsed;
+            }
+        }
     }
 
     /**

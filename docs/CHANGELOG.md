@@ -1,5 +1,62 @@
 # CHANGELOG
 
+## 2026-10-07 — Inbox: Toggle admin untuk expand isi pesan yang dihapus (teks saja)
+
+- Setting GLOBAL baru (bukan per-user, bukan RBAC) lewat `.env`:
+  `inbox.deletedMessageLocked` (default `true` = LOCKED).
+- **LOCKED** (default): respons `GET /inbox/api/conversations/(:num)/messages`
+  untuk pesan dengan `revoked_at` terisi kini **membuang** `text` dan
+  `media_metadata` dari payload server — bukan sekadar disembunyikan UI
+  seperti sebelumnya. `expandable:false`.
+- **UNLOCKED**: `text` dikirim apa adanya + `expandable:true`, **HANYA**
+  untuk `message_type='text'`. Pesan media (image/document/sticker/audio/
+  video) yang dihapus **tetap** `expandable:false` walau unlocked (Opsi A,
+  cakupan teks saja) — konsisten untuk kedua arah (incoming & outgoing).
+- Nilai `.env` yang tidak sah (bukan true/false) **fail-closed** ke LOCKED,
+  dengan log warning.
+- UI: placeholder pesan dihapus (`.inbox-pesan-dihapus`) kini punya chevron
+  ▼ opsional ketika `expandable:true` — klik untuk expand/collapse isi asli
+  + label "Dihapus di WhatsApp pada `<timestamp>`". Tanpa chevron saat
+  locked/media (perilaku sebelumnya, tidak berubah secara visual).
+- **Bug pra-eksisting diperbaiki sekalian**: `renderIsiPesan()` memeriksa
+  `message_type` SEBELUM `is_revoked`, sehingga pesan MEDIA yang dihapus
+  sebelumnya tetap merender `<img>`/kartu dokumen PENUH (bukan placeholder)
+  — bertentangan dengan tujuan fitur "Pesan dihapus" itu sendiri. Guard
+  `is_revoked` sekarang dicek PALING AWAL di `renderIsiPesan()`.
+- **Tanpa migrasi, tanpa route baru, tanpa halaman admin, tanpa audit log**
+  (sesuai scope). Kontrak adapter `/delete`/`/edit`, handler lifecycle, dan
+  tombol Edit/Hapus TIDAK disentuh.
+- File: `app/Config/Inbox.php`, `.env.example`, `app/Controllers/Inbox.php`
+  (`terapkanKebijakanPesanDihapus()`), `public/assets/js/inbox-thread.js`
+  (`renderPlaceholderDihapus()`, `togglePesanDihapus()`), `app/Views/inbox/index.php` (CSS).
+- Test: `tests/feature/InboxApiMessagesDeletedLockTest.php` (12 kasus),
+  `tests/js/inbox-thread.test.js` (+4 kasus baru, total 60).
+
+## 2026-10-07 — Inbox: Edit & Hapus pesan KELUAR + tampilan "Pesan dihapus"
+
+- Fitur baru: kasir bisa **mengedit** (teks, maks 15 menit) dan **menghapus**
+  (teks & media, "hapus untuk semua orang") pesan KELUAR langsung dari Inbox.
+  Adapter gateway `POST /delete`/`POST /edit` (Bearer `gatewayToken`) dipanggil
+  oleh CI4; token tidak pernah sampai ke browser.
+- POS: endpoint baru `POST /inbox/pesan/(:num)/edit` & `.../hapus` (filter `auth`);
+  `(:num)` = `messages.id` lokal, dipetakan server ke `wa_message_id`. Otorisasi
+  mengikuti pola `kirim()` (cukup `auth`, konsisten operasional shift); validasi
+  baris harus `direction='outgoing'` & milik percakapan (cegah IDOR).
+- Aturan bisnis: edit hanya `message_type='text'`; di luar jendela 15 menit
+  ditolak (`EDIT_WINDOW_EXPIRED`); pesan tanpa `wa_message_id` nyata (placeholder
+  `local-…`) ditolak (`MESSAGE_NOT_SYNCED`); hapus idempoten (sudah `revoked_at`
+  → sukses tanpa memanggil adapter). `operation_id` wajib untuk edit, opsional
+  untuk hapus; `*_UNRESOLVED` TIDAK auto-retry (kunci dipertahankan untuk retry
+  manual).
+- UI: tombol **Edit**/**Hapus** pada bubble pesan keluar; modal edit + modal
+  konfirmasi hapus; pesan yang dihapus dirender placeholder italic abu-abu
+  "Pesan ini telah dihapus" dan aksi Balas/Teruskan disembunyikan.
+- **Tanpa migrasi**: memakai kolom yang sudah ada `revoked_at`/`edited_at`/
+  `edited_text_resolved_at` (TODO-F7/F8). Handler `message-event` yang ada tetap
+  dipakai (webhook `MESSAGES_DELETE` menyusul hapus dari POS, idempoten).
+- Referensi: `docs/requirements/2026-10-07-edit-hapus-pesan-keluar-inbox.md`,
+  `docs/design/2026-10-07-edit-hapus-pesan-keluar-inbox.md`.
+
 ## 2026-10-07 — Inbox: WhatsApp read receipt dua arah
 
 - Arah 1 (customer -> POS): saat kasir membuka percakapan pribadi (atau menekan

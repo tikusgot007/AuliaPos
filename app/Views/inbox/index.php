@@ -710,6 +710,67 @@
         opacity: 0.5;
     }
 
+    /* Task 2026-10-07: placeholder pesan yang dihapus -- italic abu-abu,
+       menggantikan isi asli (bukan sekadar diburamkan). */
+    .inbox-pesan-dihapus {
+        font-style: italic;
+        color: #6c757d;
+    }
+
+    /* Task 2026-10-07: toggle admin expand (inbox.deletedMessageLocked=false,
+       message_type='text' saja). Tombol flat abu-abu -- tidak boleh terlihat
+       seperti tombol aksi utama (Edit/Hapus), supaya kasir tidak salah kira
+       ini mengubah data. */
+    .inbox-pesan-dihapus__toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: none;
+        border: none;
+        padding: 0;
+        color: #6c757d;
+        font-style: italic;
+        cursor: pointer;
+    }
+
+    .inbox-pesan-dihapus__toggle:hover {
+        color: #495057;
+        text-decoration: underline;
+    }
+
+    .inbox-pesan-dihapus__chevron {
+        display: inline-block;
+        font-size: 0.7em;
+        transition: transform 0.15s ease-in-out;
+    }
+
+    .inbox-pesan-dihapus__toggle[aria-expanded="true"] .inbox-pesan-dihapus__chevron {
+        transform: rotate(180deg);
+    }
+
+    /* Border kiri oranye: menandai jelas bahwa isi di bawah ini adalah data
+       pesan yang SUDAH TIDAK BERLAKU (dihapus), bukan pesan aktif biasa --
+       warna sengaja beda dari .inbox-teks-basi (edit, abu-abu polos). */
+    .inbox-pesan-dihapus__isi {
+        margin-top: 6px;
+        padding: 6px 10px;
+        border-left: 3px solid #fd7e14;
+        background: rgba(253, 126, 20, 0.06);
+    }
+
+    .inbox-pesan-dihapus__teks {
+        font-style: italic;
+        color: #6c757d;
+        margin: 0 0 4px 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .inbox-pesan-dihapus__meta {
+        font-size: 0.75rem;
+        color: #adb5bd;
+    }
+
     .inbox-media-caption {
         margin-top: 4px;
         font-size: 0.85rem;
@@ -1179,6 +1240,53 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL EDIT PESAN KELUAR (task 2026-10-07)      -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalEditPesan" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-pen"></i> Edit Pesan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEditPesan" onsubmit="return simpanEditPesan(event)">
+                <div class="modal-body">
+                    <div class="text-muted small mb-2">WhatsApp hanya mengizinkan edit dalam 15 menit pertama setelah pesan dikirim.</div>
+                    <div class="alert alert-warning small d-none" id="editPesanAlert" role="alert"></div>
+                    <textarea class="form-control" id="teksEditPesan" rows="3" maxlength="4096"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary" id="btnSimpanEditPesan"><i class="fas fa-pen"></i> Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL KONFIRMASI HAPUS PESAN KELUAR            -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalKonfirmasiHapus" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-trash"></i> Hapus Pesan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger small d-none" id="hapusPesanAlert" role="alert"></div>
+                <p class="mb-0">Hapus pesan ini untuk semua orang? Tindakan ini tidak bisa dibatalkan.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-danger" id="btnKonfirmasiHapus" onclick="konfirmasiHapusPesan()"><i class="fas fa-trash"></i> Hapus untuk semua</button>
+            </div>
         </div>
     </div>
 </div>
@@ -3233,6 +3341,146 @@
         // kunci DIPERTAHANKAN supaya percobaan ulang tetap idempoten.
         showToast(json.message || pesanDefault, 'danger');
         return true;
+    }
+
+    // ================================================================
+    // EDIT / HAPUS PESAN KELUAR (task 2026-10-07)
+    // ================================================================
+    // Kunci idempotensi per-aksi hidup sampai operasi SELESAI; retry manual
+    // (mis. setelah "hasil belum pasti") memakai kunci yang SAMA supaya adapter
+    // membacanya sebagai operasi yang sama, bukan aksi baru. Kunci hanya dibuat
+    // ulang saat adapter menolak dengan OPERATION_ID_REUSED.
+    let editPesanAktif = { id: null, operationId: null };
+    let hapusPesanAktif = { id: null, operationId: null };
+
+    function tampilkanAlertPesanKeluar(elId, pesan, tipe) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        el.className = 'alert alert-' + (tipe || 'danger') + ' small';
+        el.textContent = pesan;
+        el.classList.remove('d-none');
+    }
+
+    function sembunyikanAlertPesanKeluar(elId) {
+        const el = document.getElementById(elId);
+        if (el) el.classList.add('d-none');
+    }
+
+    function bukaEditPesan(id) {
+        const pesan = (typeof pesanDikenal === 'function') ? pesanDikenal(id) : null;
+        if (!pesan) {
+            showToast('Pesan tidak ada di layar; muat ulang lalu coba lagi.', 'warning');
+            return;
+        }
+        editPesanAktif = { id: id, operationId: null };
+        sembunyikanAlertPesanKeluar('editPesanAlert');
+        const ta = document.getElementById('teksEditPesan');
+        ta.value = pesan.text || '';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditPesan')).show();
+    }
+
+    function simpanEditPesan(e) {
+        e.preventDefault();
+        if (!editPesanAktif.id) return false;
+
+        const teks = document.getElementById('teksEditPesan').value.trim();
+        if (!teks) {
+            tampilkanAlertPesanKeluar('editPesanAlert', 'Teks pesan tidak boleh kosong.', 'warning');
+            return false;
+        }
+        if (teks.length > 4096) {
+            tampilkanAlertPesanKeluar('editPesanAlert', 'Teks terlalu panjang (maksimal 4096 karakter).', 'warning');
+            return false;
+        }
+
+        const btn = document.getElementById('btnSimpanEditPesan');
+        btn.disabled = true;
+        if (!editPesanAktif.operationId) editPesanAktif.operationId = buatOperationId();
+
+        fetch('<?= base_url('/inbox/pesan/') ?>' + editPesanAktif.id + '/edit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'new_text=' + encodeURIComponent(teks) + '&operation_id=' + encodeURIComponent(editPesanAktif.operationId)
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditPesan')).hide();
+                    editPesanAktif = { id: null, operationId: null };
+                    showToast('Pesan berhasil diedit.', 'success');
+                    muatUlangPesan(false);
+                    return;
+                }
+                if (json.error_code === 'OPERATION_ID_REUSED') {
+                    // Kunci lama tidak boleh dipakai lagi -> buang, retry pakai kunci baru.
+                    editPesanAktif.operationId = null;
+                    tampilkanAlertPesanKeluar('editPesanAlert', json.message || 'Kunci pengiriman tidak valid. Coba simpan lagi.', 'danger');
+                    return;
+                }
+                if (json.error_code === 'EDIT_UNRESOLVED' || json.error_code === 'SEND_UNRESOLVED') {
+                    // Hasil belum pasti: JANGAN auto-retry; kunci dipertahankan.
+                    tampilkanAlertPesanKeluar('editPesanAlert', 'Hasil edit belum pasti. Cek WhatsApp Web sebelum coba lagi.', 'warning');
+                    showToast('Hasil edit belum pasti. Cek WhatsApp Web.', 'warning');
+                    return;
+                }
+                tampilkanAlertPesanKeluar('editPesanAlert', json.message || 'Gagal mengedit pesan.', 'danger');
+                showToast(json.message || 'Gagal mengedit pesan.', 'danger');
+            })
+            .catch(function(err) {
+                // Jaringan gagal: hasil TIDAK diketahui -> jangan retry otomatis.
+                tampilkanAlertPesanKeluar('editPesanAlert', 'Gagal menghubungi server: ' + err.message + ' Hasil belum pasti, cek WhatsApp Web.', 'warning');
+                showToast('Hasil edit belum pasti. Cek WhatsApp Web.', 'warning');
+            })
+            .finally(function() { btn.disabled = false; });
+
+        return false;
+    }
+
+    function bukaKonfirmasiHapus(id) {
+        hapusPesanAktif = { id: id, operationId: null };
+        sembunyikanAlertPesanKeluar('hapusPesanAlert');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKonfirmasiHapus')).show();
+    }
+
+    function konfirmasiHapusPesan() {
+        if (!hapusPesanAktif.id) return;
+
+        const btn = document.getElementById('btnKonfirmasiHapus');
+        btn.disabled = true;
+        if (!hapusPesanAktif.operationId) hapusPesanAktif.operationId = buatOperationId();
+
+        fetch('<?= base_url('/inbox/pesan/') ?>' + hapusPesanAktif.id + '/hapus', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'operation_id=' + encodeURIComponent(hapusPesanAktif.operationId)
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(json) {
+                if (json.status === 'success') {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKonfirmasiHapus')).hide();
+                    hapusPesanAktif = { id: null, operationId: null };
+                    showToast('Pesan berhasil dihapus.', 'success');
+                    muatUlangPesan(false);
+                    return;
+                }
+                if (json.error_code === 'OPERATION_ID_REUSED') {
+                    hapusPesanAktif.operationId = null;
+                    tampilkanAlertPesanKeluar('hapusPesanAlert', json.message || 'Kunci pengiriman tidak valid. Coba lagi.', 'danger');
+                    return;
+                }
+                if (json.error_code === 'DELETE_UNRESOLVED') {
+                    tampilkanAlertPesanKeluar('hapusPesanAlert', 'Hasil hapus belum pasti. Cek WhatsApp Web sebelum coba lagi.', 'warning');
+                    showToast('Hasil hapus belum pasti. Cek WhatsApp Web.', 'warning');
+                    return;
+                }
+                tampilkanAlertPesanKeluar('hapusPesanAlert', json.message || 'Gagal menghapus pesan.', 'danger');
+                showToast(json.message || 'Gagal menghapus pesan.', 'danger');
+            })
+            .catch(function(err) {
+                tampilkanAlertPesanKeluar('hapusPesanAlert', 'Gagal menghubungi server: ' + err.message + ' Hasil belum pasti, cek WhatsApp Web.', 'warning');
+                showToast('Hasil hapus belum pasti. Cek WhatsApp Web.', 'warning');
+            })
+            .finally(function() { btn.disabled = false; });
     }
 
     // ================================================================

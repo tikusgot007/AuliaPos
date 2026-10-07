@@ -511,11 +511,55 @@ function renderAksiTeruskan(m) {
 function renderAksiPesan(m) {
     if (modePilih) return '';
 
-    const tombol = renderAksiBalas(m) + renderAksiTeruskan(m);
+    const tombol = renderAksiBalas(m) + renderAksiTeruskan(m) + renderAksiEdit(m) + renderAksiHapus(m);
 
     if (tombol === '') return '';
 
     return '<div class="bubble-aksi">' + tombol + '</div>';
+}
+
+// ================================================================
+// AKSI EDIT / HAPUS PESAN KELUAR (WhatsApp: edit <=15 menit, teks saja)
+// ================================================================
+/* Server MENEGAKKAN aturan yang sama (lihat Inbox::aksiPesanKeluar); predikat
+   di sini hanya untuk UX (menyembunyikan tombol), bukan batas keamanan. */
+function parseWaktuServer(ts) {
+    // 'YYYY-MM-DD HH:MM:SS' dari server (Asia/Jakarta). Diurai sebagai waktu
+    // LOKAL browser; server tetap penentu akhir jendela edit.
+    const m = String(ts || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+    if (!m) return null;
+    return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+}
+
+function dalamJendelaEdit(m) {
+    const waktu = parseWaktuServer(m.created_at || m.message_timestamp);
+    if (!waktu) return false;
+    return (Date.now() - waktu.getTime()) <= 15 * 60 * 1000;
+}
+
+function pesanBisaDiedit(m) {
+    if (m.direction !== 'outgoing' || m.message_type !== 'text' || m.send_status !== 'sent') return false;
+    if (m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1') return false;
+    return dalamJendelaEdit(m);
+}
+
+function pesanBisaDihapus(m) {
+    if (m.direction !== 'outgoing' || m.send_status !== 'sent') return false;
+    return !(m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1');
+}
+
+function renderAksiEdit(m) {
+    if (!pesanBisaDiedit(m)) return '';
+
+    return '<button type="button" class="btn btn-outline-primary btn-sm" onclick="bukaEditPesan(' + m.id + ')"' +
+        ' title="Edit pesan (batas WhatsApp 15 menit)"><i class="fas fa-pen"></i> Edit</button>';
+}
+
+function renderAksiHapus(m) {
+    if (!pesanBisaDihapus(m)) return '';
+
+    return '<button type="button" class="btn btn-outline-danger btn-sm" onclick="bukaKonfirmasiHapus(' + m.id + ')"' +
+        ' title="Hapus untuk semua orang"><i class="fas fa-trash"></i> Hapus</button>';
 }
 
 // ================================================================
@@ -525,14 +569,16 @@ function renderAksiPesan(m) {
    dan Teruskan supaya tidak ada dua salinan predikat yang bisa menyimpang.
    Namanya sengaja netral (`aksiPesanTersedia`), bukan nama salah satu aksi
    saja, karena predikat yang sama menggerbangi "Balas" DAN "Teruskan".
-   Sumber yang tidak layak: catatan internal (isi untuk toko) dan outgoing
+   Sumber yang tidak layak: catatan internal (isi untuk toko), pesan yang
+   sudah dihapus (tidak ada lagi isi untuk dibalas/diteruskan), dan outgoing
    yang belum terkirim (tidak pernah sampai ke siapa pun). Aturan yang sama
    ditegakkan server (GUD-001). */
 function aksiPesanTersedia(m) {
     const internal = m.is_internal === true || m.is_internal === 1 || m.is_internal === '1';
+    const revoked = m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1';
     const belumTerkirim = m.direction === 'outgoing' && m.send_status !== 'sent';
 
-    return !internal && !belumTerkirim;
+    return !internal && !revoked && !belumTerkirim;
 }
 
 /* REQ-008/AC-008: label "Diteruskan" dibangun dari kolom `is_forwarded`
@@ -767,7 +813,63 @@ function klikMediaPilih(id) {
     gambarUlangThread();
 }
 
+// ================================================================
+// TOGGLE ADMIN: EXPAND ISI PESAN DIHAPUS (task 2026-10-07)
+// ================================================================
+/* `m.expandable` HANYA dikirim server untuk pesan `is_revoked` (lihat
+   Inbox::terapkanKebijakanPesanDihapus()):
+   - locked (default)         -> field absen/false, `m.text` sudah null.
+   - unlocked, message_type lain dari 'text' (media) -> false.
+   - unlocked, message_type==='text'                 -> true, `m.text` ASLI.
+   UI hanya membaca flag ini -- tidak ada logic privasi di sisi klien;
+   server adalah satu-satunya penjaga kebijakan (fail-closed di Config). */
+function pesanDihapusBisaDiexpand(m) {
+    return m.expandable === true || m.expandable === 1 || m.expandable === '1';
+}
+
+function renderPlaceholderDihapus(m) {
+    if (!pesanDihapusBisaDiexpand(m)) {
+        return '<div class="inbox-pesan-dihapus" data-expandable="false">' +
+            '<span class="inbox-pesan-dihapus__icon">\u{1F6AB}</span> Pesan ini telah dihapus</div>';
+    }
+
+    const waktuHapus = formatWaktuInbox(m.revoked_at || m.message_timestamp);
+
+    return '<div class="inbox-pesan-dihapus" data-expandable="true" data-id="' + escapeAttrInbox(String(m.id)) + '">' +
+        '<button type="button" class="inbox-pesan-dihapus__toggle" aria-expanded="false" onclick="togglePesanDihapus(this)">' +
+        '<span class="inbox-pesan-dihapus__icon">\u{1F6AB}</span> Pesan ini telah dihapus' +
+        '<span class="inbox-pesan-dihapus__chevron">\u25BC</span>' +
+        '</button>' +
+        '<div class="inbox-pesan-dihapus__isi" hidden>' +
+        '<p class="inbox-pesan-dihapus__teks">' + formatTeksWa(m.text) + '</p>' +
+        '<small class="inbox-pesan-dihapus__meta">Dihapus di WhatsApp pada ' + escapeHtmlInbox(waktuHapus) + '</small>' +
+        '</div></div>';
+}
+
+/* Dipasang via onclick inline (pola yang sama dengan bukaEditPesan/
+   bukaKonfirmasiHapus di index.php) -- bubble di-render ulang tiap
+   polling/terapkanRencanaThread(), jadi listener addEventListener yang
+   dipasang terpisah akan lenyap begitu node diganti. onclick inline aman
+   dari masalah itu, konsisten dengan pola lain di file ini. */
+function togglePesanDihapus(btn) {
+    const container = btn.closest('.inbox-pesan-dihapus');
+    const isi = container.querySelector('.inbox-pesan-dihapus__isi');
+    const expanded = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!expanded));
+    isi.hidden = expanded;
+}
+
 function renderIsiPesan(m) {
+    // Task 2026-10-07: pesan REVOKED diperiksa DI SINI, SEBELUM cabang per
+    // message_type media (image/sticker/document/audio/video) -- bug
+    // pra-eksisting: tanpa guard ini, pesan media yang dihapus tetap
+    // merender <img>/kartu dokumen penuh (fallback ke urlMedia), padahal
+    // seharusnya SELALU placeholder permanen untuk media, terlepas dari
+    // locked/unlocked (lihat tabel cakupan Opsi A di requirements).
+    if (m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1') {
+        return renderPlaceholderDihapus(m);
+    }
+
     const urlMedia = threadConfig.mediaBaseUrl + m.id;
 
     if (m.message_type === 'image') {
@@ -928,15 +1030,15 @@ function renderIsiPesan(m) {
             '</div>';
     }
 
-    // TODO-F7: teks pesan yang SUDAH TIDAK UPDATE -- pesan ASLI yang kemudian
-    // diedit/dihapus -- dibuat SAMAR, supaya kasir tidak mengira ini isi
-    // terbaru. Badge "Pesan diedit/dihapus" di atasnya tetap jelas.
+    // Task 2026-10-07: is_revoked sudah ditangani di AWAL fungsi ini (guard
+    // tunggal, sebelum cabang media) -- baris ini sengaja TIDAK diulang di
+    // sini supaya hanya ada SATU tempat yang memutuskan placeholder vs expand.
+
     const edited = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1';
     const resolved = m.is_edited_text_resolved === true
         || m.is_edited_text_resolved === 1
         || m.is_edited_text_resolved === '1';
-    const teksBasi = (edited && !resolved)
-        || m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1';
+    const teksBasi = edited && !resolved;
     const isiTeks = formatTeksWa(m.text);
 
     return teksBasi ? '<span class="inbox-teks-basi">' + isiTeks + '</span>' : isiTeks;
@@ -1231,6 +1333,13 @@ let threadOlderDimuat = false;      // sudah pernah memuat halaman lama di perca
 let threadMemuatLama = false;
 let threadKunciAkhir = null;        // id pesan terakhir pada render sebelumnya
 let threadJumlahBaru = 0;           // pesan baru yang masuk selagi kasir membaca ke atas
+
+/* Akses baca satu pesan yang sedang tampil (task edit/hapus 2026-10-07):
+   dipakai skrip halaman (index.php) untuk mengisi form edit tanpa harus
+   menyalin daftar pesan. Null bila pesan belum dimuat di layar. */
+function pesanDikenal(id) {
+    return threadDikenal.get(String(id)) || null;
+}
 
 /* Kosongkan state thread. `htmlKosong` (opsional) menjadi isi kontainer,
    mis. placeholder "Belum ada percakapan dipilih". */
