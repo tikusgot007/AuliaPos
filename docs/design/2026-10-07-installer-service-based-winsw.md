@@ -1,7 +1,7 @@
 # Design: Installer Evolution Gateway Berbasis Windows Service (WinSW)
 
 - **Date**: 2026-10-07
-- **Status**: draft
+- **Status**: approved
 - **Requirements**: `docs/requirements/2026-10-07-installer-service-based-winsw.md`
 - **SDLC tier**: A
 - **Target repo (implementation)**: `C:\Projects\evolution-gateway` (remote `https://github.com/tikusgot007/WA-Gateway.git`, branch `evolution`, local checkout currently on branch `evolution`). Docs stay in `aulia-app` (this repo).
@@ -569,4 +569,4 @@ Honesty note, matching the pattern already established in `docs/design/2026-10-0
 
 ## 9. Approval (Gate 2)
 
-- [ ] Approved by: —, date: —
+- [x] Approved by: user, date: 2026-10-07

@@ -1,7 +1,7 @@
 # Requirements: Installer Evolution Gateway Berbasis Windows Service (WinSW)
 
 - **Tanggal**: 2026-10-07
-- **Status**: draf
+- **Status**: disetujui
 - **Tier SDLC**: A (infrastruktur installer, lintas proses, menyentuh startup produksi)
 - **Penanggung jawab**: —
 - **Terkait**:
@@ -94,4 +94,4 @@ Pertanyaan: tidak ada — tool (WinSW), lokasi (installer/ saja), dan target uji
 
 ## 8. Persetujuan (Gate 1)
 
-- [ ] Disetujui oleh: —, tanggal: —
+- [x] Disetujui oleh: user, tanggal: 2026-10-07
