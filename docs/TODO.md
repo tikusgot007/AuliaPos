@@ -137,7 +137,7 @@
 
 ### Medium
 
-- [x] **TODO-INBOX-TUTUP-1** Medium — Tombol "Tutup" muncul tanpa cek kepemilikan (UI hanya cek `status==='open'`), dan `tutupPercakapan()` tidak melepas `assigned_to`. **SELESAI 2026-10-06**: flag server `bisa_ditutup` (aturan sama dengan `cekOwnership()`) dipakai UI; `tutupPercakapan()` kini juga set `assigned_to=NULL` (Tutup = menutup + lepas kepemilikan); reopen via pesan masuk tetap tanpa auto-assign. Test `tests/feature/InboxTutupPercakapanTest.php` (10/10). Ref `docs/CHANGELOG.md` 2026-10-07. **(proposal: baris ini boleh dihapus dari TODO setelah Anda konfirmasi, karena murni decision record.)**
+- [x] **TODO-INBOX-TUTUP-1** Medium — Tombol "Tutup" muncul tanpa cek kepemilikan (UI hanya cek `status==='open'`), dan `tutupPercakapan()` tidak melepas `assigned_to`. **SELESAI 2026-10-06**: flag server `bisa_ditutup` (aturan sama dengan `cekOwnership()`) dipakai UI; `tutupPercakapan()` kini juga set `assigned_to=NULL` (Tutup = menutup + lepas kepemilikan); reopen via pesan masuk tetap tanpa auto-assign. **PERLUASAN 2026-10-07**: balasan POS ke closed membuka kembali + auto-assign pengirim (reopen via POS). Test `InboxTutupPercakapanTest.php` (10/10) + `InboxReopenFromPosTest.php` (6/6). Ref `docs/CHANGELOG.md` 2026-10-07. **(proposal: baris ini boleh dihapus dari TODO setelah Anda konfirmasi, karena murni decision record.)**
 
 ### Low
 

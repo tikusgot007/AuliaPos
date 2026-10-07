@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2026-10-07 — Inbox: Balasan POS ke percakapan closed membuka kembali (reopen)
+
+- Aturan baru: kasir membalas (teks/balasan/Teruskan/media) dari POS ke percakapan
+  `closed` membuka kembali percakapan ke `status='open'` + auto-assign ke kasir
+  pengirim. `snoozed_until` direset. `closed_at`/`closed_by` dibiarkan sebagai
+  "terakhir ditutup" (tidak ada audit reopen tambahan, keputusan Q-A).
+- Pemicu reopen: **hanya balasan dari POS**. Outgoing yang disinkronkan dari
+  WA Web/HP (direction='outgoing' lewat Gateway) **tidak** membuka kembali —
+  hanya sync pesan, status tidak diubah. Incoming customer tetap reopen seperti
+  sebelumnya (TANPA auto-assign).
+- Auto-assign saat reopen: kasir pengirim POS menjadi `assigned_to` (model
+  `assigned_to` = penangan aktif; percakapan `closed` tidak boleh punya penangan
+  aktif). Percakapan `open` tanpa pemilik -> auto-assign seperti sebelumnya.
+  Owner lain pada `open` TIDAK dioverride.
+- Internal note tidak membuka kembali (bukan pesan ke customer).
+- Implementasi: helper tunggal `updateSetelahKirimSukses()` di
+  `app/Controllers/Inbox.php` dipakai bersama oleh `kirimTeksViaGateway()`
+  (teks/balasan/Teruskan) dan `kirimMediaViaGateway()` (media) supaya aturan
+  reopen/auto-assign tidak terduplikasi.
+- Referensi: `tests/feature/InboxReopenFromPosTest.php`.
+
 ## 2026-10-07 — Inbox: Tutup sekaligus lepas kepemilikan + tombol Tutup sesuai hak
 
 - Aturan lama: `tutupPercakapan()` hanya menulis `status='closed'`, `closed_at`, dan

@@ -1918,19 +1918,7 @@ class Inbox extends BaseController
         // sudah lebih baru (mis. retry lambat / clock skew), jadi
         // updateLastMessageIfNewer() yang menentukan apakah 2 kolom itu
         // benar-benar maju; kolom lain tetap ditulis tanpa syarat.
-        $conversationUpdate = [
-            'last_replied_by'          => $userId,
-            'last_seen_by_assignee_at' => $now,
-        ];
-        // Auto-assign ke pengirim pertama kalau belum ada yang menangani
-        // -- lihat catatan sama di kirimKeConversation(). REQ-008: grup
-        // DIKECUALIKAN dari auto-assign (assigned_to tidak boleh terisi
-        // otomatis untuk grup, karena lepasPercakapan() selalu menolak
-        // 403 untuk grup -- tanpa pengecualian ini grup akan macet
-        // permanen "dipegang" satu kasir tanpa jalan melepasnya).
-        if (($conversation['jid_type'] ?? null) !== 'group' && empty($conversation['assigned_to'])) {
-            $conversationUpdate['assigned_to'] = $userId;
-        }
+        $conversationUpdate = $this->updateSetelahKirimSukses($conversation, $userId, $now);
         $conversationModel = new ConversationModel();
         $conversationModel->updateLastMessageIfNewer($conversationId, $now, 'outgoing', $conversationUpdate);
 
@@ -2751,11 +2739,15 @@ class Inbox extends BaseController
      * tetap mencatat siapa yang menutup.
      *
      * Reopen (CLOSED -> OPEN) TIDAK punya tombol manual di sini, sesuai
-     * spec: satu-satunya pemicu reopen adalah pesan masuk baru dari
-     * customer (lihat InboxGatewayApi::messages(), sudah memaksa
-     * status='open' untuk direction='incoming' TANPA mengembalikan
-     * assigned_to -- percakapan kembali 'belum diambil', kasir mana pun
-     * yang tersedia bisa mengambilnya).
+     * spec. Pemicu reopen ada dua:
+     *  1. Pesan masuk baru dari customer (lihat InboxGatewayApi::messages(),
+     *     memaksa status='open' untuk direction='incoming' TANPA
+     *     mengembalikan assigned_to -- percakapan kembali 'belum diambil').
+     *  2. Balasan kasir dari POS (teks/balasan/Teruskan/media) lewat
+     *     updateSetelahKirimSukses() -- membuka kembali + auto-assign ke
+     *     pengirim (keputusan bisnis 2026-10-07).
+     * Balasan outgoing yang disinkronkan dari WA Web/HP TIDAK membuka
+     * kembali (tetap sync pesan saja).
      *
      * Idempotent: kalau sudah closed, kembalikan sukses apa adanya
      * tanpa menimpa closed_at/closed_by yang sudah tercatat.
@@ -3159,6 +3151,57 @@ class Inbox extends BaseController
     }
 
     /**
+     * Satu sumber kebenaran untuk kolom conversation yang diperbarui
+     * SETELAH kiriman OUTGOING dari POS benar-benar sukses (teks, balasan,
+     * Teruskan, maupun media). Dipakai bersama oleh jalur teks dan media
+     * supaya aturan reopen/auto-assign tidak terduplikasi dan tidak bisa
+     * menyimpang (kirimKeConversation/kirimMedia sebelumnya menyalin blok
+     * yang sama).
+     *
+     * Aturan (keputusan bisnis 2026-10-07):
+     * - `last_replied_by`/`last_seen_by_assignee_at` selalu ditulis.
+     * - Balasan POS ke percakapan `closed` MEMBUKA kembali (status='open',
+     *   snooze direset) + auto-assign ke pengirim: model `assigned_to`
+     *   = penangan aktif, jadi `closed` tidak boleh punya penangan aktif.
+     * - Percakapan `open` tanpa pemilik -> auto-assign ke pengirim
+     *   (perilaku lama). Pemilik lain TIDAK pernah dioverride di sini.
+     * - Grup DIKECUALIKAN total (tidak reopen, tidak auto-assign) --
+     *   konsisten dengan guard Tutup/lepasPercakapan yang menolak grup.
+     *
+     * SENGAJA tidak menyentuh `closed_at`/`closed_by`: keduanya tetap
+     * berarti "terakhir ditutup" (tanpa audit reopen, keputusan Q-A).
+     *
+     * @param array<string, mixed> $conversation baris conversation SEBELUM update
+     *
+     * @return array<string, mixed> kolom untuk updateLastMessageIfNewer()
+     */
+    private function updateSetelahKirimSukses(array $conversation, int $userId, string $now): array
+    {
+        $update = [
+            'last_replied_by'          => $userId,
+            'last_seen_by_assignee_at' => $now,
+        ];
+
+        if (($conversation['jid_type'] ?? null) === 'group') {
+            return $update;
+        }
+
+        if (($conversation['status'] ?? null) === 'closed') {
+            $update['status']        = 'open';
+            $update['snoozed_until'] = null;
+            $update['assigned_to']   = $userId;
+
+            return $update;
+        }
+
+        if (empty($conversation['assigned_to'])) {
+            $update['assigned_to'] = $userId;
+        }
+
+        return $update;
+    }
+
+    /**
      * Eksekusi bersama jalur TEKS (kirim biasa/Balas dan Teruskan): cek
      * Gateway siap -> kirim -> simpan -> rakit respons. Dipisah dari validasi
      * masing-masing aksi supaya orkestrasinya tidak terduplikasi
@@ -3278,20 +3321,7 @@ class Inbox extends BaseController
 
         // `last_message_at`/`last_message_direction` dijaga monoton --
         // lihat catatan sama di Inbox::kirimMedia().
-        $conversationUpdate = [
-            'last_replied_by'          => $userId,
-            'last_seen_by_assignee_at' => $now,
-        ];
-        // Auto-assign ke pengirim pertama kalau belum ada yang menangani
-        // conversation ini -- masuk akal untuk kasir yang membalas
-        // duluan otomatis "memegang" percakapan itu, tanpa perlu klik
-        // "Ambil" secara terpisah. Tidak menimpa assignment yang sudah
-        // ada (cekOwnership() di atas sudah memastikan hanya yang
-        // berhak yang sampai ke titik ini). REQ-008: grup DIKECUALIKAN
-        // dari auto-assign -- lihat catatan sama di Inbox::kirimMedia().
-        if (($conversation['jid_type'] ?? null) !== 'group' && empty($conversation['assigned_to'])) {
-            $conversationUpdate['assigned_to'] = $userId;
-        }
+        $conversationUpdate = $this->updateSetelahKirimSukses($conversation, $userId, $now);
 
         $conversationModel = new ConversationModel();
         $conversationModel->updateLastMessageIfNewer($conversationId, $now, 'outgoing', $conversationUpdate);
