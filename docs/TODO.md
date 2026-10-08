@@ -15,8 +15,6 @@
 
 (Semua item high selesai)
 
-- [ ] **TODO-BL18** Medium — saat filter kategori, `grand_total` pro-rata tapi `sisa_tagihan` penuh → piutang overstated — `Laporan.php:1043-1061,1076`
-
 - [ ] **TODO-BL19** Medium — atribusi kategori campur master-produk & `detail_transaksi.kategori_id`; pembulatan tak direkonsiliasi — `Laporan.php:869,1247-1251,1288-1305`
 
 - [ ] **TODO-BL20** Medium — merge live+arsip via `array_merge` tanpa dedup `id` → double-count saat delete gagal — `Laporan.php:150-153,179-193`; `TransaksiArchiveService.php:705-730`
@@ -112,6 +110,23 @@
 - [ ] **TODO-F11** Medium — Ambil Alih percakapan via tombol: non-admin boleh takeover saat owner off-shift (grace 30 menit via `last_seen_by_assignee_at`) atau bila pengambil = Shift Leader aktif; flag `bisa_diambil` di daftar; guard race `WHERE assigned_to = <owner lama>`. Perluasan izin dibatasi pada titik takeover — `cekOwnership` TIDAK diubah. **Perlu keputusan lanjutan**: (a) apakah takeover perlu dicatat di `conversation_handoffs`/audit trail; (b) apakah grup perlu kebijakan takeover sendiri. Ref `docs/CHANGELOG.md` 2026-10-06; test `tests/feature/InboxAmbilAlihTest.php`. — **SELESAI 2026-10-06** (implementasi inti selesai; dua sub-pertanyaan (a)/(b) masih terbuka)
 
 ## Selesai / Ditutup
+
+- [x] **TODO-BL18** Medium — saat filter kategori, `grand_total` pro-rata tapi `sisa_tagihan` penuh → piutang overstated — `Laporan.php:1043-1061,1087`
+  - **DONE — code fix and regression tests verified**
+  - Commit: `745524a`
+  - Root cause: Line 1087 menggunakan `$t['grand_total']` (invoice penuh) padahal `$grandTotal` sudah di-pro-rata per kategori.
+  - Fix: `sisa_tagihan = (invoice_sisa) * (kategori_grand_total / invoice_grand_total)` untuk pro-rata pembayaran per kategori.
+  - Regression tests all pass:
+    - `LaporanBL18Test::testMultiKategoriPartialPaymentProrata()` ✓
+    - `LaporanBL18Test::testMultiKategoriWithDiskonProrata()` ✓
+    - `LaporanBL18Test::testWithoutKategoriFilterUnchanged()` ✓
+    - `LaporanBL18Test::testEmptyDetailSkipped()` ✓
+  - Database safety:
+    - Production DB untouched (14,876 transaksi unchanged)
+    - Test only, read-only fix
+  - Backward compatibility:
+    - Behavior tanpa kategori filter unchanged
+    - BL19 (atribusi kategori) tidak disentuh
 
 - [x] **TODO-BL15** Medium — Harian (basis kas) vs Periode/Kategori (akrual) tidak sinkron untuk tanggal sama — `Laporan.php:60-64` vs `:123-130`
   - **CLOSED / BY DESIGN — DEC-2**
