@@ -1084,7 +1084,7 @@ class Laporan extends BaseController
                 'subtotal' => $subtotal,
                 'diskon' => $diskon,
                 'grand_total' => $grandTotal,
-                'sisa_tagihan' => max(0, $t['grand_total'] - ($t['total_dibayar'] ?? 0)),
+                'sisa_tagihan' => max(0, ($t['grand_total'] - ($t['total_dibayar'] ?? 0)) * ($grandTotal / ($t['grand_total'] ?: 1))),
                 'status_pembayaran' => $t['status_pembayaran'],
                 'status' => $t['status']
             ];
