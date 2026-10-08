@@ -453,6 +453,16 @@ class Api extends BaseController
             ]);
         }
 
+        $detailModel = new \App\Models\DetailTransaksiModel();
+        $detailItems = $detailModel->where('transaksi_id', $transaksiId)->findAll();
+
+        if (empty($detailItems)) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Transaksi harus memiliki item detail sebelum dapat dibayar.'
+            ]);
+        }
+
         $pembayaranModel = new \App\Models\PembayaranModel();
         $totalDibayar = $pembayaranModel->getTotalDibayar($transaksiId);
         $sisa = max(0, (float) $transaksi['grand_total'] - $totalDibayar);
