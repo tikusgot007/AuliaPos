@@ -24,10 +24,10 @@ class RepairTotalDibayar extends BaseCommand
         $fix = array_key_exists('fix', $params) || CLI::getOption('fix') !== null;
 
         $rows = $db->table('transaksi t')
-            ->select('t.id, t.total_dibayar AS cached_total, COALESCE(SUM(p.jumlah), 0) AS actual_total, t.grand_total')
+            ->select('t.id, t.total_dibayar AS cached_total, COALESCE(SUM(CASE WHEN p.status = \'aktif\' THEN p.jumlah ELSE 0 END), 0) AS actual_total, t.grand_total')
             ->join('pembayaran p', 'p.transaksi_id = t.id', 'left')
             ->groupBy('t.id')
-            ->having('(ABS(COALESCE(t.total_dibayar, 0) - COALESCE(SUM(p.jumlah), 0)) > 0.0001)', null, false)
+            ->having('(ABS(COALESCE(t.total_dibayar, 0) - COALESCE(SUM(CASE WHEN p.status = \'aktif\' THEN p.jumlah ELSE 0 END), 0)) > 0.0001)', null, false)
             ->orderBy('t.id', 'ASC')
             ->get()
             ->getResultArray();

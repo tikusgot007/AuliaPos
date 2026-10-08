@@ -58,6 +58,72 @@ final class TransaksiPembayaranStatusTest extends CIUnitTestCase
     }
 
     /**
+     * TODO-BL14: Koreksi pembayaran (reversed + insert baru) harus maintain cache consistency.
+     * Pembayaran lama → reversed, pembayaran baru → aktif, cache = sum(aktif saja).
+     */
+    public function testKoreksiPembayaranMaintainConsistency(): void
+    {
+        $model = new \App\Models\TransaksiModel();
+        $db = db_connect();
+
+        $model->tambahPembayaran(2, $this->paymentData());
+
+        $pembayaranModel = new \App\Models\PembayaranModel();
+        $pembayaranLama = $db->table('pembayaran')
+            ->where('transaksi_id', 2)
+            ->where('status', 'aktif')
+            ->get()
+            ->getRowArray();
+
+        $this->assertNotNull($pembayaranLama, 'Initial payment must exist');
+
+        $dataBaru = [
+            'tanggal'       => date('Y-m-d H:i:s'),
+            'jumlah'        => 100000,
+            'metode'        => 'qris',
+            'uang_diterima' => null,
+            'kembalian'     => 0,
+            'keterangan'    => 'Koreksi metode tunai → qris',
+            'kasir_id'      => 1,
+        ];
+
+        try {
+            $db->table('pembayaran')
+                ->where('id', $pembayaranLama['id'])
+                ->set(['status' => 'reversed'])
+                ->update();
+
+            $model->tambahPembayaran(2, $dataBaru);
+        } catch (\Throwable $e) {
+            $this->fail('Koreksi pembayaran failed: ' . $e->getMessage());
+        }
+
+        $transaksi = $db->table('transaksi')->where('id', 2)->get()->getRowArray();
+        $pembayaranAktif = $db->table('pembayaran')
+            ->where('transaksi_id', 2)
+            ->where('status', 'aktif')
+            ->get()
+            ->getResultArray();
+        $pembayaranReversed = $db->table('pembayaran')
+            ->where('transaksi_id', 2)
+            ->where('status', 'reversed')
+            ->get()
+            ->getResultArray();
+
+        $totalAktif = array_sum(array_column($pembayaranAktif, 'jumlah'));
+
+        $this->assertCount(1, $pembayaranAktif, 'Must have exactly 1 aktif payment');
+        $this->assertCount(1, $pembayaranReversed, 'Must have exactly 1 reversed payment');
+
+        $this->assertEqualsWithDelta(100000.0, (float) $transaksi['total_dibayar'], 0.001, 'Cache must equal aktif payment only, not include reversed');
+        $this->assertEqualsWithDelta($totalAktif, (float) $transaksi['total_dibayar'], 0.001, 'Cache must match SUM(aktif)');
+        $this->assertSame('lunas', $transaksi['status_pembayaran'], 'Status pembayaran must be lunas');
+
+        $consistency = $model->cekKonsistensiPembayaran(2);
+        $this->assertTrue($consistency['konsisten'], 'After koreksi, pembayaran must be consistent: ' . json_encode($consistency));
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function paymentData(): array
