@@ -1107,19 +1107,11 @@ class Laporan extends BaseController
         // 🔥 Ambil semua tanggal dalam bulan
         $tanggalAwal = date('Y-m-01', strtotime($transaksi[0]['tanggal'] ?? date('Y-m-d')));
         $tanggalAkhir = date('Y-m-t', strtotime($tanggalAwal));
-        $startDate = new \DateTime($tanggalAwal);
-        $endDate = new \DateTime($tanggalAkhir);
-        $endDate->modify('+1 day');
+         $startDate = new \DateTime($tanggalAwal);
+         $endDate = new \DateTime($tanggalAkhir);
+         $endDate->modify('+1 day');
 
-        // 🔥 Ambil semua produk untuk mapping kategori
-        $produkModel = new \App\Models\ProdukModel();
-        $allProduk = $produkModel->select('id, kategori_id, nama')->findAll();
-        $produkKategoriMap = [];
-        foreach ($allProduk as $p) {
-            $produkKategoriMap[$p['id']] = $p['kategori_id'];
-        }
-
-        // 🔥 Inisialisasi semua tanggal
+         // 🔥 Inisialisasi semua tanggal
         $interval = new \DateInterval('P1D');
         $dateRange = new \DatePeriod($startDate, $interval, $endDate);
 
@@ -1159,11 +1151,11 @@ class Laporan extends BaseController
             $subtotalDigitalPrinting = 0;
             $totalSubtotalAll = 0;
 
-            foreach ($details as $d) {
-                $produkId = $d['produk_id'] ?? 0;
-                $katId = $produkKategoriMap[$produkId] ?? 0;
-                $subtotalItem = $d['subtotal'] ?? 0;
-                $totalSubtotalAll += $subtotalItem;
+             foreach ($details as $d) {
+                 // 🔥 BL19-A: Gunakan kategori_id dari detail_transaksi (snapshot historis)
+                 $katId = (int) ($d['kategori_id'] ?? 0);
+                 $subtotalItem = $d['subtotal'] ?? 0;
+                 $totalSubtotalAll += $subtotalItem;
 
                 switch ($katId) {
                     case 1:
@@ -1248,20 +1240,12 @@ class Laporan extends BaseController
     /**
      * Proses Laporan per Kategori
      */
-    private function processPerKategori($transaksi, $detailGroup, $kategori_id = null)
-    {
-        $data = [];
-        $kategoriModel = new \App\Models\KategoriModel();
-        $produkModel = new \App\Models\ProdukModel();
+     private function processPerKategori($transaksi, $detailGroup, $kategori_id = null)
+     {
+         $data = [];
+         $kategoriModel = new \App\Models\KategoriModel();
 
-        // 🔥 Ambil semua produk dengan kategori-nya
-        $allProduk = $produkModel->select('id, kategori_id')->findAll();
-        $produkKategoriMap = [];
-        foreach ($allProduk as $p) {
-            $produkKategoriMap[$p['id']] = $p['kategori_id'];
-        }
-
-        $kategoriList = $kategoriModel->orderBy('nama', 'ASC')->findAll();
+         $kategoriList = $kategoriModel->orderBy('nama', 'ASC')->findAll();
 
         // 🔥 Buat mapping kategori
         $kategoriMap = [];
@@ -1294,22 +1278,23 @@ class Laporan extends BaseController
         foreach ($transaksi as $t) {
             $details = $detailGroup[$t['id']] ?? [];
 
-            foreach ($details as $d) {
-                // 🔥 Ambil kategori_id dari produk
-                $produkId = $d['produk_id'] ?? 0;
-                $katId = $produkKategoriMap[$produkId] ?? 0;
+             foreach ($details as $d) {
+                 // 🔥 BL19-A: Gunakan kategori_id dari detail_transaksi (snapshot historis)
+                 $katId = (int) ($d['kategori_id'] ?? 0);
 
-                if (!isset($kategoriData[$katId])) {
-                    continue;
-                }
+                 if (!isset($kategoriData[$katId])) {
+                     continue;
+                 }
 
-                // 🔥 Hitung diskon proporsional
-                $totalSubtotalAll = $t['subtotal'];
-                if ($totalSubtotalAll > 0) {
-                    $diskonItem = ($d['subtotal'] / $totalSubtotalAll) * $t['diskon'];
-                } else {
-                    $diskonItem = 0;
-                }
+                 // 🔥 Hitung diskon proporsional
+                 // Note: selisih_pembulatan (rounding difference) disimpan di level transaksi
+                 // dan belum dialokasikan ke kategori individual.
+                 $totalSubtotalAll = $t['subtotal'];
+                 if ($totalSubtotalAll > 0) {
+                     $diskonItem = ($d['subtotal'] / $totalSubtotalAll) * $t['diskon'];
+                 } else {
+                     $diskonItem = 0;
+                 }
 
                 $kategoriData[$katId]['total_kotor'] += $d['subtotal'];
                 $kategoriData[$katId]['total_diskon'] += $diskonItem;
