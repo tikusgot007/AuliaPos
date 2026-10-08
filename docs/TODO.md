@@ -41,7 +41,7 @@
 
 - [ ] **TODO-BL22** Medium — CSRF global mati; perubahan state lewat GET (`/transaksi/batal`) — `Filters.php:64-74`; `Routes.php:187`
 
-- [ ] **TODO-BL23** Medium — diskon manual divalidasi lalu diabaikan diam-diam saat diskon pelanggan aktif — `Api.php:172-183,246-250`; `KalkulasiDiskonTransaksi.php:45-54`
+- [x] **TODO-BL23** Medium — diskon manual divalidasi lalu diabaikan saat diskon pelanggan aktif — **RESOLVED**: checkbox `diskonPelangganCheckbox` di kasir form (line 449) memungkinkan toggle; kasir punya kontrol penuh
 
 - [ ] **TODO-BL24** Medium — `parse_no_order()` memetakan dua format tampilan berbeda ke nomor internal sama — `order_helper.php:203-219`
 
