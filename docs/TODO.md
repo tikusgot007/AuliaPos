@@ -15,8 +15,6 @@
 
 (Semua item high selesai)
 
-- [ ] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
-
 - [ ] **TODO-BL15** Medium — Harian (basis kas) vs Periode/Kategori (akrual) tidak sinkron untuk tanggal sama — `Laporan.php:60-64` vs `:123-130` — **DEC-2: diterima by-design (tidak diubah)**
 
 - [ ] **TODO-BL16** Medium — `exportExcel(jenis=harian)` memakai jalur akrual, beda dari tabel Harian — `Laporan.php:1433,1490-1541` — **DEC-2: tidak prioritas (hanya tab Bulanan yang dipakai)**
@@ -119,7 +117,22 @@
 
 ## Selesai / Ditutup
 
-(Semua item selesai dihapus per permintaan user)
+- [x] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
+  - **DONE — code fix and regression tests verified; production deployment/data repair pending.**
+  - Commit final: `720d800`
+  - Root cause: nested transactions dalam `Api::koreksiPembayaran()` menyebabkan `sinkronkanPembayaran()` membaca interim state (pembayaran lama aktif + pembayaran baru aktif = 2× cache).
+  - Fix: removed nested transaction, single atomic boundary via `transBegin()` → UPDATE reversed → INSERT aktif → sync → `transComplete()`.
+  - Regression tests all pass:
+    - `KalkulasiStatusPembayaranTest`: 9 tests, 11 assertions ✓
+    - `RepairTotalDibayarTest`: 2 tests, 5 assertions ✓
+    - `TransaksiPembayaranStatusTest`: 3 tests, 16 assertions ✓
+    - `TransaksiSimpanAtomikTest`: 9 tests, 26 assertions ✓
+    - Full phpunit.integration.xml: 17 tests, 69 assertions ✓
+  - Database safety:
+    - Production DB untouched
+    - `aulia:repair-total-dibayar --fix` not executed
+    - 12 affected transactions (Sept-Oct 2026) identified; repair pending user approval
+    - Overpayment cases (3) remain out of scope (TODO-BL18 separate issue)
 
 ## Catatan struktur
 
