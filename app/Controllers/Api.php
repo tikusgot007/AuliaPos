@@ -612,6 +612,8 @@ class Api extends BaseController
             ? $keterangan
             : 'Koreksi metode ' . strtoupper($pembayaran['metode']) . ' ke ' . strtoupper($metodeBaru);
 
+        $db->transBegin();
+
         try {
             $updated = $pembayaranModel
                 ->where('id', $pembayaranId)
@@ -634,7 +636,15 @@ class Api extends BaseController
                 'kasir_id' => $kasirId,
             ];
 
-            $transaksiModel->tambahPembayaran($transaksiId, $dataPembayaranBaru);
+            $transaksiModel->koreksiPembayaranTanpaSync($transaksiId, $dataPembayaranBaru);
+
+            $transaksiModel->sinkronkanPembayaran($transaksiId);
+
+            $db->transComplete();
+
+            if (!$db->transStatus()) {
+                throw new \Exception('Transaksi database gagal.');
+            }
 
             return $this->response->setJSON([
                 'status' => 'success',
@@ -647,12 +657,7 @@ class Api extends BaseController
                 'jumlah' => $jumlah
             ]);
         } catch (\Throwable $e) {
-            if ($updated ?? false) {
-                $pembayaranModel
-                    ->where('id', $pembayaranId)
-                    ->set(['status' => 'aktif'])
-                    ->update();
-            }
+            $db->transRollback();
 
             log_message('error', 'Error koreksiPembayaran: ' . $e->getMessage());
             log_message('error', 'Trace: ' . $e->getTraceAsString());

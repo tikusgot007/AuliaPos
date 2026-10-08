@@ -59,16 +59,16 @@ final class TransaksiPembayaranStatusTest extends CIUnitTestCase
 
     /**
      * TODO-BL14: Koreksi pembayaran (reversed + insert baru) harus maintain cache consistency.
-     * Pembayaran lama → reversed, pembayaran baru → aktif, cache = sum(aktif saja).
+     * Test flow: UPDATE old→reversed, INSERT new→aktif, sync cache.
+     * Seluruh operasi dalam single transaction boundary, atomic rollback jika gagal.
      */
-    public function testKoreksiPembayaranMaintainConsistency(): void
+    public function testKoreksiPembayaranAtomicTransaction(): void
     {
         $model = new \App\Models\TransaksiModel();
         $db = db_connect();
 
         $model->tambahPembayaran(2, $this->paymentData());
 
-        $pembayaranModel = new \App\Models\PembayaranModel();
         $pembayaranLama = $db->table('pembayaran')
             ->where('transaksi_id', 2)
             ->where('status', 'aktif')
@@ -87,15 +87,28 @@ final class TransaksiPembayaranStatusTest extends CIUnitTestCase
             'kasir_id'      => 1,
         ];
 
+        $db->transBegin();
         try {
-            $db->table('pembayaran')
+            $updated = $db->table('pembayaran')
                 ->where('id', $pembayaranLama['id'])
+                ->where('status', 'aktif')
                 ->set(['status' => 'reversed'])
                 ->update();
 
-            $model->tambahPembayaran(2, $dataBaru);
+            if (!$updated) {
+                throw new \Exception('Pembayaran lama gagal ditandai reversed');
+            }
+
+            $model->koreksiPembayaranTanpaSync(2, $dataBaru);
+            $model->sinkronkanPembayaran(2);
+
+            $db->transComplete();
+            if (!$db->transStatus()) {
+                throw new \Exception('Transaksi database gagal');
+            }
         } catch (\Throwable $e) {
-            $this->fail('Koreksi pembayaran failed: ' . $e->getMessage());
+            $db->transRollback();
+            $this->fail('Koreksi pembayaran atomic failed: ' . $e->getMessage());
         }
 
         $transaksi = $db->table('transaksi')->where('id', 2)->get()->getRowArray();
@@ -114,8 +127,11 @@ final class TransaksiPembayaranStatusTest extends CIUnitTestCase
 
         $this->assertCount(1, $pembayaranAktif, 'Must have exactly 1 aktif payment');
         $this->assertCount(1, $pembayaranReversed, 'Must have exactly 1 reversed payment');
+        $this->assertSame('reversed', $pembayaranReversed[0]['status'], 'Old payment must be reversed');
+        $this->assertSame('aktif', $pembayaranAktif[0]['status'], 'New payment must be aktif');
+        $this->assertSame('qris', $pembayaranAktif[0]['metode'], 'New payment metode must be qris');
 
-        $this->assertEqualsWithDelta(100000.0, (float) $transaksi['total_dibayar'], 0.001, 'Cache must equal aktif payment only, not include reversed');
+        $this->assertEqualsWithDelta(100000.0, (float) $transaksi['total_dibayar'], 0.001, 'Cache must equal aktif payment only, not 200k or doubled');
         $this->assertEqualsWithDelta($totalAktif, (float) $transaksi['total_dibayar'], 0.001, 'Cache must match SUM(aktif)');
         $this->assertSame('lunas', $transaksi['status_pembayaran'], 'Status pembayaran must be lunas');
 

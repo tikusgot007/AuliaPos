@@ -896,6 +896,12 @@ class TransaksiModel extends Model
      */
     private function tulisPembayaran(array $data): void
     {
+        $this->tulisPembayaranTanpaSync($data);
+        $this->sinkronkanPembayaran((int) $data['transaksi_id']);
+    }
+
+    private function tulisPembayaranTanpaSync(array $data): void
+    {
         $pembayaranModel = model(PembayaranModel::class);
 
         $pembayaranId = $pembayaranModel->insert($data);
@@ -910,8 +916,29 @@ class TransaksiModel extends Model
                     . ($dbError['message'] ?? 'Unknown database error')
             );
         }
+    }
 
-        $this->sinkronkanPembayaran((int) $data['transaksi_id']);
+    public function koreksiPembayaranTanpaSync(int $transaksi_id, array $data, bool $isAdmin = false, bool $isShiftLeader = false): void
+    {
+        $transaksi = $this->find($transaksi_id);
+
+        if (!$transaksi) {
+            throw new \Exception('Transaksi tidak ditemukan.');
+        }
+
+        if (strtolower(trim((string) ($transaksi['status'] ?? ''))) === 'batal') {
+            throw new \Exception('Pembayaran tidak dapat dicatat pada transaksi yang sudah dibatalkan.');
+        }
+
+        $data = $this->normalisasiPembayaran(
+            $transaksi_id,
+            $transaksi,
+            $data,
+            $isAdmin,
+            $isShiftLeader
+        );
+
+        $this->tulisPembayaranTanpaSync($data);
     }
 
     /**
