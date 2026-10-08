@@ -244,6 +244,10 @@ class Tagihan extends BaseController
             return redirect()->to('/tagihan')->with('error', 'Transaksi tidak ditemukan.');
         }
 
+        if ($transaksi['status_pembayaran'] === 'lunas' || in_array($transaksi['status'], ['batal', 'mangkrak'])) {
+            return redirect()->to('/tagihan')->with('error', 'Transaksi tidak bisa dilunasi.');
+        }
+
         $detailItems = $detailModel->where('transaksi_id', $id)->findAll();
         $pembayaran = $pembayaranModel
             ->select('pembayaran.*, users.nama as kasir_nama, users.username as kasir_username, users.inisial as kasir_inisial')
