@@ -61,9 +61,9 @@
 
 
 
-- [ ] **TODO-BL39** Low — "Tunai" diturunkan `total - non-tunai`; bisa salah saat detail/subtotal kosong — `Views/laporan/index.php:448,885`; `Laporan.php:371-384,494-516`
+- [x] **TODO-BL39** Low — "Tunai" diturunkan `total - non-tunai`; bisa salah saat detail kosong — **SELESAI 2026-10-08**: validate detail non-empty sebelum pembayaran di `Api.php:tambahPembayaran()`
 
-- [ ] **TODO-BL40** Low — `Tagihan::detail` tanpa guard status; tombol Lunasi tampil tanpa cek; `saya=1` + filter kasir → list kosong — `Tagihan.php:84-90,166-168`; `Views/transaksi/detail.php:357-363`
+- [x] **TODO-BL40** Low — `Tagihan::detail` tanpa guard status; tombol Lunasi tampil tanpa cek — **SELESAI 2026-10-08**: guard status redirect lunas/batal/mangkrak
 
 - [ ] **TODO-BL42** Low — `is_locked` milik `produk`, bukan `users`; proteksi user hanya dari controller — schema `2026-09-08-000001:44-59,111`; `Auth.php:333,415-421`
 
