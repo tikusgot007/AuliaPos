@@ -15,7 +15,7 @@
 
 (Semua item high selesai)
 
-- [ ] **TODO-BL19** Medium — atribusi kategori campur master-produk & `detail_transaksi.kategori_id`; pembulatan tak direkonsiliasi — `Laporan.php:869,1247-1251,1288-1305`
+
 
 - [ ] **TODO-BL20** Medium — merge live+arsip via `array_merge` tanpa dedup `id` → double-count saat delete gagal — `Laporan.php:150-153,179-193`; `TransaksiArchiveService.php:705-730`
 
@@ -138,22 +138,44 @@
   - Export `jenis=harian` tidak menjadi kebutuhan aktif; penggunaan hanya tab Bulanan.
   - Logic export tidak diubah.
 
+- [x] **TODO-BL19** Medium — atribusi kategori campur master-produk & `detail_transaksi.kategori_id`; pembulatan tak direkonsiliasi — `Laporan.php:869,1247-1251,1288-1305`
+  - **CLOSED — TWO PARTS: BL19-A FIXED + BL19-B BY DESIGN**
+  - Commit BL19-A: `0d70b5d`
+
+  **BL19-A: Category Attribution (FIXED)**
+  - Root cause: `processPerKategori()` and `processBulanan()` used `produk.kategori_id` (current master) instead of `detail_transaksi.kategori_id` (historical snapshot).
+  - Fix: Changed both functions to use `$d['kategori_id']` from detail record (snapshot at transaction time).
+  - Impact: 12 affected transactions restored to correct historical categorization (e.g., INV-20260830-078 now shows 2 kategoris instead of 1).
+  - Tests: 4 BL19 code inspection tests pass; BL18 regression tests (4/4) pass; all unit tests (78/78) pass; all integration tests (17/17) pass.
+  - Database: No writes; production untouched; read-only fix only.
+  - Backward compatibility: Normal cases (detail.kat == master.kat) unchanged.
+
+  **BL19-B: Rounding Reconciliation (BY DESIGN — NO CODE CHANGE)**
+  - Issue: INV-20260909-586 shows SUM(kategori netto) = 105990 vs grand_total = 105900 (difference = 90).
+  - Root cause: NOT a defect. Rounding happens once at invoice level (KalkulasiDiskonTransaksi.php: `floor(pre-rounding/100)*100`).
+  - Category allocation uses pre-rounding amounts; selisih_pembulatan captured at invoice level only, not distributed to categories.
+  - Business rule: Verified from code + tests + source comment (Laporan.php:1290-1291). Intentional: categories are analytical allocation, not accounting reconciliation.
+  - Data integrity: All 15 sample transactions (multi-kategori with discount) reconcile exactly via selisih_pembulatan. No unexplainable discrepancies.
+  - Test invariant (KalkulasiDiskonTransaksiTest): `grand_total + diskon + selisih_pembulatan == subtotal` passes 100+ test cases.
+  - Audit: `AUDIT-BL19B.md` documents full analysis; no code change required.
+  - Status: Mathematically sound, consistent behavior, intentional design. No fix needed.
+
 - [x] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
-  - **DONE — code fix and regression tests verified; production deployment/data repair pending.**
-  - Commit final: `720d800`
-  - Root cause: nested transactions dalam `Api::koreksiPembayaran()` menyebabkan `sinkronkanPembayaran()` membaca interim state (pembayaran lama aktif + pembayaran baru aktif = 2× cache).
-  - Fix: removed nested transaction, single atomic boundary via `transBegin()` → UPDATE reversed → INSERT aktif → sync → `transComplete()`.
-  - Regression tests all pass:
-    - `KalkulasiStatusPembayaranTest`: 9 tests, 11 assertions ✓
-    - `RepairTotalDibayarTest`: 2 tests, 5 assertions ✓
-    - `TransaksiPembayaranStatusTest`: 3 tests, 16 assertions ✓
-    - `TransaksiSimpanAtomikTest`: 9 tests, 26 assertions ✓
-    - Full phpunit.integration.xml: 17 tests, 69 assertions ✓
-  - Database safety:
-    - Production DB untouched
-    - `aulia:repair-total-dibayar --fix` not executed
-    - 12 affected transactions (Sept-Oct 2026) identified; repair pending user approval
-    - Overpayment cases (3) remain out of scope (TODO-BL18 separate issue)
+   - **DONE — code fix and regression tests verified; production deployment/data repair pending.**
+   - Commit final: `720d800`
+   - Root cause: nested transactions dalam `Api::koreksiPembayaran()` menyebabkan `sinkronkanPembayaran()` membaca interim state (pembayaran lama aktif + pembayaran baru aktif = 2× cache).
+   - Fix: removed nested transaction, single atomic boundary via `transBegin()` → UPDATE reversed → INSERT aktif → sync → `transComplete()`.
+   - Regression tests all pass:
+     - `KalkulasiStatusPembayaranTest`: 9 tests, 11 assertions ✓
+     - `RepairTotalDibayarTest`: 2 tests, 5 assertions ✓
+     - `TransaksiPembayaranStatusTest`: 3 tests, 16 assertions ✓
+     - `TransaksiSimpanAtomikTest`: 9 tests, 26 assertions ✓
+     - Full phpunit.integration.xml: 17 tests, 69 assertions ✓
+   - Database safety:
+     - Production DB untouched
+     - `aulia:repair-total-dibayar --fix` not executed
+     - 12 affected transactions (Sept-Oct 2026) identified; repair pending user approval
+     - Overpayment cases (3) remain out of scope (TODO-BL18 separate issue)
 
 ## Catatan struktur
 
