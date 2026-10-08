@@ -15,10 +15,6 @@
 
 (Semua item high selesai)
 
-- [ ] **TODO-BL15** Medium — Harian (basis kas) vs Periode/Kategori (akrual) tidak sinkron untuk tanggal sama — `Laporan.php:60-64` vs `:123-130` — **DEC-2: diterima by-design (tidak diubah)**
-
-- [ ] **TODO-BL16** Medium — `exportExcel(jenis=harian)` memakai jalur akrual, beda dari tabel Harian — `Laporan.php:1433,1490-1541` — **DEC-2: tidak prioritas (hanya tab Bulanan yang dipakai)**
-
 - [ ] **TODO-BL18** Medium — saat filter kategori, `grand_total` pro-rata tapi `sisa_tagihan` penuh → piutang overstated — `Laporan.php:1043-1061,1076`
 
 - [ ] **TODO-BL19** Medium — atribusi kategori campur master-produk & `detail_transaksi.kategori_id`; pembulatan tak direkonsiliasi — `Laporan.php:869,1247-1251,1288-1305`
@@ -116,6 +112,16 @@
 - [ ] **TODO-F11** Medium — Ambil Alih percakapan via tombol: non-admin boleh takeover saat owner off-shift (grace 30 menit via `last_seen_by_assignee_at`) atau bila pengambil = Shift Leader aktif; flag `bisa_diambil` di daftar; guard race `WHERE assigned_to = <owner lama>`. Perluasan izin dibatasi pada titik takeover — `cekOwnership` TIDAK diubah. **Perlu keputusan lanjutan**: (a) apakah takeover perlu dicatat di `conversation_handoffs`/audit trail; (b) apakah grup perlu kebijakan takeover sendiri. Ref `docs/CHANGELOG.md` 2026-10-06; test `tests/feature/InboxAmbilAlihTest.php`. — **SELESAI 2026-10-06** (implementasi inti selesai; dua sub-pertanyaan (a)/(b) masih terbuka)
 
 ## Selesai / Ditutup
+
+- [x] **TODO-BL15** Medium — Harian (basis kas) vs Periode/Kategori (akrual) tidak sinkron untuk tanggal sama — `Laporan.php:60-64` vs `:123-130`
+  - **CLOSED / BY DESIGN — DEC-2**
+  - Perbedaan basis kas (Harian) vs akrual (Periode/Kategori) diterima sebagai desain sistem.
+  - Logic laporan tidak diubah.
+
+- [x] **TODO-BL16** Medium — `exportExcel(jenis=harian)` memakai jalur akrual, beda dari tabel Harian — `Laporan.php:1433,1490-1541`
+  - **CLOSED / NOT PRIORITY — DEC-2**
+  - Export `jenis=harian` tidak menjadi kebutuhan aktif; penggunaan hanya tab Bulanan.
+  - Logic export tidak diubah.
 
 - [x] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
   - **DONE — code fix and regression tests verified; production deployment/data repair pending.**
