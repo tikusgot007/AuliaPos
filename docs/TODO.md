@@ -13,23 +13,13 @@
 
 ### High
 
-- [x] **TODO-BL11** High — kas awal bisa di-insert dua kali (select-then-insert, tanpa unique key) → saldo membengkak — **SELESAI 2026-10-07**: transaction + forUpdate() lock pada saveOpeningCash() cegah race condition
-
-- [x] **TODO-BL12** High — `alasan_selisih` opname dipaksa string tetap read-only → validasi selisih tak bermakna — **SELESAI 2026-10-07**: ubah alasan jadi optional textarea, validasi wajib dihapus
-
-### Medium
-
-- [x] **TODO-Q6** Medium — CI PHPUnit unit suite gagal karena syntax invalid `\\Config\\Database::connect()` di `app/Models/TransaksiModel.php:352`; diperbaiki dan CI hijau pada 2026-10-06 — **SELESAI 2026-10-06**
-
-- [x] **TODO-BL13** Medium — `sisa_tagihan` tak di-clamp → bisa negatif & distorsi `total_piutang` — **SELESAI 2026-10-07**: max(0, ...) di Tagihan.php:258 dan Laporan.php:1085
+(Semua item high selesai)
 
 - [ ] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
 
 - [ ] **TODO-BL15** Medium — Harian (basis kas) vs Periode/Kategori (akrual) tidak sinkron untuk tanggal sama — `Laporan.php:60-64` vs `:123-130` — **DEC-2: diterima by-design (tidak diubah)**
 
 - [ ] **TODO-BL16** Medium — `exportExcel(jenis=harian)` memakai jalur akrual, beda dari tabel Harian — `Laporan.php:1433,1490-1541` — **DEC-2: tidak prioritas (hanya tab Bulanan yang dipakai)**
-
-- [x] **TODO-BL17** Medium — `mangkrak` dikecualikan di Tagihan tapi dihitung di piutang laporan — **SELESAI 2026-10-07**: exclude mangkrak di Laporan.php line 126 dan 137
 
 - [ ] **TODO-BL18** Medium — saat filter kategori, `grand_total` pro-rata tapi `sisa_tagihan` penuh → piutang overstated — `Laporan.php:1043-1061,1076`
 
@@ -40,8 +30,6 @@
 - [ ] **TODO-BL21** Medium — `masterApply` menjadwalkan user non-aktif, tak transaksional, tanpa cap `jumlah_minggu` — `MasterJadwalModel.php:122-184`; `Jadwal.php:704-734`
 
 - [ ] **TODO-BL22** Medium — CSRF global mati; perubahan state lewat GET (`/transaksi/batal`) — `Filters.php:64-74`; `Routes.php:187`
-
-- [x] **TODO-BL23** Medium — diskon manual divalidasi lalu diabaikan saat diskon pelanggan aktif — **RESOLVED**: checkbox `diskonPelangganCheckbox` di kasir form (line 449) memungkinkan toggle; kasir punya kontrol penuh
 
 - [ ] **TODO-BL24** Medium — `parse_no_order()` memetakan dua format tampilan berbeda ke nomor internal sama — `order_helper.php:203-219`
 
@@ -59,15 +47,6 @@
 
 ### Low
 
-
-
-- [x] **TODO-BL39** Low — "Tunai" diturunkan `total - non-tunai`; bisa salah saat detail kosong — **SELESAI 2026-10-08**: validate detail non-empty sebelum pembayaran di `Api.php:tambahPembayaran()`
-
-- [x] **TODO-BL40** Low — `Tagihan::detail` tanpa guard status; tombol Lunasi tampil tanpa cek — **SELESAI 2026-10-08**: guard status redirect lunas/batal/mangkrak
-
-- [x] **TODO-BL42** Low — `is_locked` milik `produk`, untuk cegah edit saat Excel management — **RESOLVED**: by-design, tidak ada issue
-
-
 - [ ] **TODO-O5** Dokumentasikan prosedur update adapter produksi `aulia3` (bukan repo git; `npm` tidak ada → dependency baru seperti `ws` disalin manual dari `node_modules`; restart via task `AuliaEvolution` + `scripts/restart-adapter.ps1`; source Evolution `D:\\evolution-api-server`) — rendah
 
 - [ ] **TODO-Q3a** Gateway test `test/simulate-evolution-adapter.js` GAGAL di assertion "path webhook/set benar" (`captured[0]` dibaca setelah `setWebhook` tanpa reset `captured`) — **pre-existing** di HEAD gateway `b48c2e5`, bukan dari fitur read-receipt; buat `npm test` hijau — rendah — ref temuan sesi 2026-10-07 `feat/whatsapp-read-receipt`.
@@ -83,8 +62,6 @@
 ## Sedang dikerjakan
 
 ### High
-
-- [x] **TODO-BL08** High — edit path hitung `$hasKategori16` tapi tak dipakai; `no_order` ditulis tanpa lock/cek unik — `Transaksi.php:1288-1317,1444-1453` — **SELESAI 2026-10-06**: validasiNoOrderEdit + noOrderDipakaiTransaksiAktifLain + GET_LOCK + test `TransaksiNoOrderEditTest`
 
 - [ ] **TODO-BL10** High — mutasi kas tak admin-gated; pengeluaran terima tanggal sembarang (termasuk lampau/depan) — `AuthFilter.php:70`; `Routes.php:231-246`; `Cash.php:439,547` — **DEC-1: Opsi B** → bukan admin-gating; yang dikerjakan = rekam audit + validasi tanggal pengeluaran
 
@@ -142,27 +119,7 @@
 
 ## Selesai / Ditutup
 
-### Medium
-
-- [x] **TODO-INBOX-TUTUP-1** Medium — Tombol "Tutup" muncul tanpa cek kepemilikan (UI hanya cek `status==='open'`), dan `tutupPercakapan()` tidak melepas `assigned_to`. **SELESAI 2026-10-06**: flag server `bisa_ditutup` (aturan sama dengan `cekOwnership()`) dipakai UI; `tutupPercakapan()` kini juga set `assigned_to=NULL` (Tutup = menutup + lepas kepemilikan); reopen via pesan masuk tetap tanpa auto-assign. **PERLUASAN 2026-10-07**: balasan POS ke closed membuka kembali + auto-assign pengirim (reopen via POS). Test `InboxTutupPercakapanTest.php` (10/10) + `InboxReopenFromPosTest.php` (6/6). Ref `docs/CHANGELOG.md` 2026-10-07. **(proposal: baris ini boleh dihapus dari TODO setelah Anda konfirmasi, karena murni decision record.)**
-
-### Low
-
-- [x] **TODO-BL37** Low — **DITUTUP BY-DESIGN 2026-10-06** — jendela shift memang inklusif dua ujung; P/S dan S/PM tumpang-tindih sesuai definisi jam kerja dan priority menentukan Effective Shift Leader — `EvaluasiJendelaKerjaShift.php:16`; `JadwalModel.php:50-61`
-
-- [x] **TODO-BL31** Low — hapus route Kasir legacy yang menunjuk method non-existent dan pulihkan route GET/POST `/cash/opname`; handler opname menerima JSON maupun form POST.
-
-### Tanpa prioritas
-
-- [x] **TODO-DEC1** Otorisasi kas (BL-10) — **DIPUTUSKAN: Opsi B** — kasir tetap boleh semua aksi kas, tetapi setiap perubahan direkam audit (siapa/kapan/nilai sebelum→sesudah); **tanpa** pembatasan peran ke admin.
-
-- [x] **TODO-DEC2** Basis laporan (BL-15/16) — **DIPUTUSKAN: pertahankan basis sekarang** — Harian/Bulanan = basis kas, Periode/Kategori = akrual; fokus operasional pada **tab Bulanan**. BL-15 diterima by-design; BL-16 tidak prioritas.
-
-- [x] **TODO-DEC3** Arsip piutang (BL-06) — **DIPUTUSKAN: A+ dengan katup E** — `belum_bayar`/`dp` tidak diarsipkan; pengaman UI (tampilkan jumlah/nilai piutang saat pilih bulan); piutang macet ditandai `mangkrak` dulu baru boleh diarsipkan; cek korektif piutang yang terlanjur terarsip (ESC-002).
-
-- [x] **TODO-DEC4** Penomoran invoice (BL-33) — **DIPUTUSKAN: Opsi A** — sekuens per hari `INV-YYYYMMDD-NNN` via lock/transaksi.
-
-- [x] **TODO-F7** SELESAI 2026-10-04. Tandai pesan WhatsApp yang diedit/dihapus pelanggan di Inbox (fitur terpadu, Tier A). Rencana: `docs/requirements/2026-10-04-tandai-pesan-diedit-inbox.md` + `docs/design/2026-10-04-tandai-pesan-diedit-inbox.md`. **Spike**: (1) **edit** via `messages.upsert` `secretEncryptedMessage` (`secretEncType=2`, `targetMessageKey.id`) — teks OPAQUE/tak terbaca (Baileys tak men-dekode; dekripsi manual gagal); (2) **hapus** via webhook **`messages.delete`** (`data.id` = wa_message_id pesan dihapus, `status:'DELETED'`) — sumber Evolution `whatsapp.baileys.service.ts:1663-1678`, perlu instance melanggan `MESSAGES_DELETE`. Keduanya ditangani satu mekanisme: endpoint `POST /api/inbox/gateway/message-event` + kolom `edited_at`/`revoked_at` + badge UI + teks pesan asli dibuat samar (`inbox-teks-basi`); baris noise `unsupported` dihapus. **Verifikasi**: feature 6/6, unit 53/53, JS 50/50, gateway suite OK (lokal) + **uji end-to-end produksi via HP nyata, dikonfirmasi user 2026-10-04 bekerja** (edit & hapus tampil benar di Inbox). **Deploy produksi**: POS `AULIA-SERVER2` commit `7fd5265` + migrasi `edited_at`/`revoked_at`; gateway `aulia3` commit `940242a` (`C:\\Projects\\evolution-gateway`) + langganan `MESSAGES_DELETE` + adapter di-restart. — selesai
+(Semua item selesai dihapus per permintaan user)
 
 ## Catatan struktur
 

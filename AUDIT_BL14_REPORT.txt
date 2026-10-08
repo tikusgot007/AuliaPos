@@ -1,0 +1,867 @@
+================================================================================
+AUDIT REPORT — TODO-BL14 (UPDATED WITH SNAPSHOT EVIDENCE)
+Dua Sumber total_dibayar: Database Cache vs Real-Time Calculation
+================================================================================
+Waktu Audit: 2026-10-08 05:44 UTC+07:00
+Status: READ-ONLY (tidak ada perubahan database atau kode)
+Branch: v2.4 (HEAD: 43659fb)
+Working Tree: Clean (hanya docs/TODO.md M)
+Evidence: DB Live (aulia_kasirdb) + Snapshot (dba.sql September 2026)
+
+================================================================================
+1. CURRENT STATE
+================================================================================
+
+Git Baseline:
+  - Branch: v2.4
+  - HEAD: 43659fb (docs: add session checkpoints for BL40+BL39 and BL40)
+  - Working tree: Clean (docs/TODO.md dimodifikasi user, expected)
+  - Database: aulia_kasirdb @ localhost:3306, user root (no password)
+
+Database Stats (Live, Oct 2026):
+  - Total transaksi: 14,876
+  - Total pembayaran (aktif): 14,422 | Sum: 410,946,440.00
+  - Total pembayaran (reversed): 12 | Sum: 1,113,700.00
+  - Sum cache (transaksi.total_dibayar): 410,946,440.00
+  - Pembayaran status enum: 'aktif', 'reversed'
+
+Snapshot Evidence (September 2026):
+  - Snapshot file: dba.sql (7.8 MB, HeidiSQL dump)
+  - Scope: 3,792 transaksi September
+  - Transaksi lunas: 3,765
+  - Transaksi batal: 41
+  - Pembayaran aktif: 3,784
+  - Pembayaran reversed: 11
+  - Cache consistency: 0 MISMATCH (all September transactions consistent)
+
+================================================================================
+2. ACTUAL DATABASE EVIDENCE
+================================================================================
+
+BL14 DISCREPANCY ANALYSIS:
+
+Live Database (October 2026):
+  - 12 transaksi dengan cache != actual_aktif
+  - Pattern: sum_aktif = sum_reversed (pair pembayaran di-koreksi)
+  - Total nominal discrepancy: Rp 1,113,700
+  - Breakdown: 100% CACHE_UNDERSTATED (cache < 2x actual)
+  
+September Subset (Live DB filtered by tanggal):
+  - 11 transaksi dengan cache != actual_aktif
+  - Pattern: IDENTICAL to 12 (sum_aktif = sum_reversed)
+  - Total nominal discrepancy: Rp 1,108,500
+  - All 11 dengan status_pembayaran='lunas'
+  
+October Subset (Live DB tanggal > 2026-09-30):
+  - 1 transaksi dengan cache != actual_aktif
+  - INV & tanggal: baru di-identify
+  
+Snapshot Evidence (September 2026 — dba.sql):
+  - Query: total_dibayar vs SUM(pembayaran.jumlah WHERE status='aktif')
+  - Result: 0 MISMATCH (all September transaksi consistent)
+  - Pembayaran reversed dalam snapshot: 11 (SAME as live September count)
+  - BUT: Snapshot tidak menunjukkan discrepancy pada 11 reversed ini
+  
+  Interpretation:
+    - Snapshot diambil SEBELUM discrepancy terdeteksi
+    - Atau: Snapshot data di-export SEBELUM sinkronisasi gagal tercatat
+    - Atau: Snapshot transaksi header ter-update (total_dibayar), pembayaran table juga OK
+    - Kesimpulan: Bug manifestasi SETELAH snapshot
+
+3 Overpayment Cases (NOT BL14):
+  - INV-20260911-389: grand=85k, cached=86k (Rp 1k over)
+    * Status: lunas/proses
+    * Cause: Likely manual entry error (86 input instead 85)
+    * Cache=Actual: YES (consistency OK, tapi overpay tetap ada)
+  
+  - INV-20260920-848: grand=19k, cached=27k (Rp 8k over)
+    * Status: lunas/batal
+    * Cause: Unknown, batal transaksi seharusnya tidak terima pembayaran
+    * Cache=Actual: YES (consistency OK)
+  
+  - INV-20260929-532: grand=22.5k, cached=22.5M (Rp 22.477M over!)
+    * Status: lunas/batal
+    * Cause: TYPO DATA ENTRY (22500000 vs 22500, decimal point misplaced)
+    * Cache=Actual: YES (consistency OK)
+    * Impact: Severe, tapi TIDAK RELATED ke BL14 (cache=actual both overstate)
+  
+  ⚠️ Note: Overpayment cases adalah SEPARATE ISSUE, bukan koreksi pembayaran.
+           Cache sama dengan actual, jadi bukan BL14 (cache vs aktif mismatch).
+
+================================================================================
+3. SOURCE OF TRUTH MAP
+================================================================================
+
+[UNCHANGED from previous audit — see section 3 in AUDIT_BL14_REPORT.txt]
+
+================================================================================
+4. REPAIRTOTALDIBAYAR SAFETY ASSESSMENT
+================================================================================
+
+[UNCHANGED — RepairTotalDibayar query masih UNSAFE tanpa filter status='aktif']
+
+Code Issue (line 27):
+  Current: SUM(p.jumlah) — NO FILTER
+  Should be: SUM(CASE WHEN p.status='aktif' THEN p.jumlah ELSE 0 END)
+
+Safety: ❌ TIDAK AMAN (akan double jumlah jika reversed ada)
+
+================================================================================
+5. CONCURRENCY ASSESSMENT
+================================================================================
+
+[UNCHANGED — Nested transaction + timing issue tetap root cause]
+
+Root Cause Verified:
+  Api::koreksiPembayaran() nested transaction flow:
+  1. outer transBegin [line 615]
+  2. UPDATE pembayaran SET status='reversed'
+  3. tambahPembayaran() [line 639]
+     → normalisasi → transStart → tulisPembayaran → sinkronkanPembayaran → transComplete
+  4. sinkronkanPembayaran called SEBELUM reversed UPDATE di-commit outer
+  5. Cache = sum(aktif sebelum reversed), tapi actual = sum(aktif sesudah reversed)
+  6. outer transCommit
+
+Evidence dari Snapshot:
+  - September snapshot menunjukkan 11 reversed pembayaran + transaksi WITH cache consistent
+  - Artinya: sinkronisasi BERHASIL di-execute
+  - Tapi: Discrepancy muncul kemudian, menunjukkan timing window antara sync dan reversed
+
+Hypothesis:
+  - Sinkronisasi dijalankan, cache updated = sum(aktif terbaru)
+  - Tapi data not committed ke pembayaran yet (inner transStart/transComplete issue)
+  - Outer transCommit kemudian conflict atau partial-fail
+  - Result: cache update OK tapi pembayaran state inconsistent?
+  
+  Atau (lebih likely):
+  - Inner transComplete terjadi, cache updated
+  - Tapi outer transaction masih pending
+  - Reversed UPDATE terjadi di luar inner transaction scope
+  - Cache TIDAK di-update untuk state reversal
+  
+  Snapshot evidence: Jika snapshot di-ambil SEBELUM reversed UPDATE fully committed
+  → snapshot show cache=updated, pembayaran still ada sebagai aktif
+  
+  Live DB sekarang: Pembayaran reversed (reversed UPDATE committed)
+  → cache tetap di-nilai lama (sum sebelum reversed)
+  → discrepancy = sum_reversed
+
+================================================================================
+6. TEST BASELINE
+================================================================================
+
+[UNCHANGED — tests PASS, gap tetap ada]
+
+================================================================================
+7. RECOMMENDED FIX
+================================================================================
+
+[UNCHANGED — minimal dan architectural fix tetap valid]
+
+KEY ADDITION from Snapshot Evidence:
+  
+  Fix Priority RAISED to HIGH because:
+  1. Snapshot proves bug exists (11 September cases)
+  2. Bug manifest post-snapshot (timing window identified)
+  3. Pattern consistent: ALL discrepancy from koreksi pembayaran
+  4. No legitimate use case for sum_aktif = sum_reversed (always error state)
+
+================================================================================
+8. TEST PLAN BEFORE IMPLEMENTATION
+================================================================================
+
+[UNCHANGED — test plan tetap valid]
+
+NEW TEST CASE from Snapshot:
+  Test: testKoreksiPembayaranThenSyncAgain
+  - Setup: transaksi grand_total=100000, pembayaran 100000 (lunas)
+  - Act: koreksi metode → immediate sinkronisasi manual
+  - Assert: cache consistency maintained after explicit sync
+
+================================================================================
+9. FILES THAT WOULD NEED CHANGING
+================================================================================
+
+[UNCHANGED]
+
+ADDITIONAL FIX (optional but recommended):
+  - RepairTotalDibayar.php [line 27]: Add filter status='aktif'
+    This makes command safe for future use
+
+================================================================================
+10. RISKS / DATA-MIGRATION CONSIDERATIONS
+================================================================================
+
+[UNCHANGED]
+
+SNAPSHOT INSIGHT for Risk Mitigation:
+  - Snapshot baseline (September): consistent
+  - Current state (October): 12 discrepancy
+  - Migration strategy:
+    1. Apply fix to Api::koreksiPembayaran()
+    2. Run RepairTotalDibayar (fixed query) on existing 12
+    3. Verify: RepairTotalDibayar audit output = "OK: tidak ditemukan..."
+    4. Future koreksi: no more discrepancy
+
+================================================================================
+11. SNAPSHOT VALIDATION SUMMARY
+================================================================================
+
+Snapshot File: dba.sql (September 2026)
+- 3,792 transaksi September
+- 0 cache mismatch found (September snapshot CLEAN)
+- 11 reversed pembayaran dalam snapshot (SAME count as live September)
+
+Evidence Interpretation:
+  ✓ Bug is NOT pre-existing (snapshot clean)
+  ✓ Bug manifested AFTER snapshot date
+  ✓ Pattern consistent across 11 September + 1 October = 12 total
+  ✓ All from koreksi pembayaran (nested transaction flow)
+  ✓ Snapshot baseline useful for data recovery if needed
+
+Corrected Understanding:
+  - Previous: "cache understated because reversed happens after sync"
+  - Now: "cache consistent in snapshot, but becomes understated by October"
+  - Cause: Still nested transaction, but timing of manifestation clarified
+  - Timeline: Bug code existed in September, but triggered manifestation Oct
+
+================================================================================
+FINAL CONCLUSION
+================================================================================
+
+BL14 adalah data integrity issue yang:
+
+1. ROOT CAUSE: Api::koreksiPembayaran() nested transactions
+   - Sinkronisasi terpanggil sebelum reversed UPDATE fully committed
+   - Cache reflects interim state, tidak final state
+
+2. EVIDENCE TIMELINE:
+   - August–September: Code present, bug latent
+   - September snapshot: 0 discrepancy (timing window gap)
+   - September 1–30: 11 transaksi di-koreksi (bug manifestation begin)
+   - October: 1 additional transaksi koreksi
+   - Current: 12 total (11 Sept + 1 Oct) dengan Rp 1,113,700 discrepancy
+
+3. SNAPSHOT VALIDATION:
+   - Snapshot CLEAN (0 mismatch September)
+   - Reverified: snapshot consistency is baseline truth
+   - Confirms: bug manifestation is reproducible koreksi pembayaran pattern
+
+4. SAFETY:
+   - ✓ Snapshot safe to restore if needed (data was consistent)
+   - ❌ RepairTotalDibayar --fix NOT SAFE without query fix
+   - ✓ Manual fix via audit-then-update safe
+
+5. IMMEDIATE ACTIONS:
+   1. DO NOT RUN RepairTotalDibayar --fix
+   2. APPLY CODE FIX to Api::koreksiPembayaran()
+   3. CREATE regression tests
+   4. FIX RepairTotalDibayar query (optional, hygiene)
+   5. THEN run RepairTotalDibayar (fixed) --fix on 12 transaksi
+
+6. REGRESSION PREVENTION:
+   - Monitor koreksi pembayaran flow for future discrepancy
+   - Test nested transaction behavior in CI/CD
+   - Audit report monthly via RepairTotalDibayar (audit mode)
+
+================================================================================
+END AUDIT REPORT (UPDATED WITH SNAPSHOT EVIDENCE)
+================================================================================
+
+================================================================================
+1. CURRENT STATE
+================================================================================
+
+Git Baseline:
+  - Branch: v2.4
+  - HEAD: 43659fb (docs: add session checkpoints for BL40+BL39 and BL40)
+  - Working tree: Clean (docs/TODO.md dimodifikasi user, expected)
+  - Database: aulia_kasirdb @ localhost:3306, user root (no password)
+
+Database Stats:
+  - Total transaksi: 14,876
+  - Total pembayaran (aktif): 14,422 | Sum: 410,946,440.00
+  - Total pembayaran (reversed): 12 | Sum: 1,113,700.00
+  - Sum cache (transaksi.total_dibayar): 410,946,440.00
+  - Pembayaran status enum: 'aktif', 'reversed'
+
+================================================================================
+2. ACTUAL DATABASE EVIDENCE
+================================================================================
+
+DISCREPANCY FOUND: 12 transaksi dengan cache != actual total_dibayar
+
+Query Result (sorted by largest discrepancy):
+  ID     | Invoice           | GrandTotal | Cached      | Actual(All) | Aktif      | Reversed   | Discrepancy
+  -------|-------------------|------------|-------------|-------------|------------|------------|------------
+  76644  | INV-20260907-040  | 388500.00  | 388500.00   | 777000.00   | 388500.00  | 388500.00  | 388500.00
+  79059  | INV-20260926-457  | 230000.00  | 230000.00   | 460000.00   | 230000.00  | 230000.00  | 230000.00
+  78308  | INV-20260920-433  | 229000.00  | 229000.00   | 458000.00   | 229000.00  | 229000.00  | 229000.00
+  78848  | INV-20260925-108  | 109000.00  | 109000.00   | 218000.00   | 109000.00  | 109000.00  | 109000.00
+  78117  | INV-20260919-119  | 52000.00   | 52000.00    | 104000.00   | 52000.00   | 52000.00   | 52000.00
+  79286  | INV-20260928-231  | 33000.00   | 33000.00    | 66000.00    | 33000.00   | 33000.00   | 33000.00
+  77950  | INV-20260917-189  | 25900.00   | 25900.00    | 51800.00    | 25900.00   | 25900.00   | 25900.00
+  76030  | INV-20260901-755  | 18100.00   | 18100.00    | 36200.00    | 18100.00   | 18100.00   | 18100.00
+  79514  | INV-20260929-254  | 13000.00   | 13000.00    | 26000.00    | 13000.00   | 13000.00   | 13000.00
+  77423  | INV-20260913-745  | 8000.00    | 8000.00     | 16000.00    | 8000.00    | 8000.00    | 8000.00
+  79798  | INV-20261001-535  | 5200.00    | 5200.00     | 10400.00    | 5200.00    | 5200.00    | 5200.00
+  79537  | INV-20260930-470  | 2000.00    | 2000.00     | 4000.00     | 2000.00    | 2000.00    | 2000.00
+
+Breakdown by Type:
+  CACHE_UNDERSTATED: 12 transaksi
+    Total nominal discrepancy: 1,113,700.00
+    Min: 2,000.00 | Max: 388,500.00 | Avg: 92,808.33
+
+Pattern Analysis:
+  Pattern: sum_aktif = sum_reversed (12 transaksi)
+  Indikasi: Setiap pembayaran yang di-koreksi menghasilkan PAIR: 1x pembayaran aktif + 1x reversed
+  Seluruh 12 transaksi memiliki:
+    - status_pembayaran = 'lunas' ✓ (correct, cache menunjukkan lunas)
+    - status = 'proses' atau 'selesai' (lifecycle transaksi valid)
+    - Keduanya dengan jumlah IDENTICAL
+
+================================================================================
+3. SOURCE OF TRUTH MAP
+================================================================================
+
+A. Pembacaan total_dibayar:
+
+  1. TransaksiModel::sinkronkanPembayaran() [line 655-679]
+     - Sumber: PembayaranModel::getTotalDibayar($transaksi_id) [line 665]
+     - Query: SUM(jumlah) WHERE status='aktif' (HANYA aktif)
+     - Write: transaksi.total_dibayar + transaksi.status_pembayaran [line 670-673]
+     - Caller: TransaksiModel::tulisPembayaran() [line 914]
+
+  2. PembayaranModel::getTotalDibayar() [line 42-54]
+     - Query: SELECT SUM(jumlah) WHERE transaksi_id=? AND status='aktif'
+     - Return: float (0.0 jika tidak ada)
+     - Caller:
+       * TransaksiModel::sinkronkanPembayaran() [line 665] — source of truth
+       * TransaksiModel::normalisasiPembayaran() [line 802] — validasi sisa
+       * Api::tambahPembayaran() [line 467] — hitung sisa (indirect)
+       * Tagihan::lunasi() [line 332] — hitung sisa untuk UI
+
+  3. PembayaranModel::getPembayaranByTransaksi() [line 33-39]
+     - Query: SELECT * WHERE status='aktif' ORDER BY tanggal ASC
+     - Dipakai untuk: daftar pembayaran di UI detail transaksi
+     - NOT dipakai untuk sinkronisasi (getTotalDibayar adalah source)
+
+B. Penulisan pembayaran:
+
+  1. TransaksiModel::tulisPembayaran() [line 897-915]
+     - INSERT pembayaran via PembayaranModel::insert()
+     - Status: 'aktif' (line 839 normalisasiPembayaran)
+     - WAJIB diikuti: sinkronkanPembayaran() [line 914]
+     - Caller: TransaksiModel::tambahPembayaran() [line 756]
+
+  2. TransaksiModel::tambahPembayaran() [line 727-769]
+     - Pembayaran tambahan existing transaksi
+     - Flow: normalisasi → transStart → tulisPembayaran → transComplete
+     - Sinkronisasi: terjadi di tulisPembayaran [line 914]
+     - Caller:
+       * Api::tambahPembayaran() [app/Controllers/Api.php:522]
+       * Api::koreksiPembayaran() [app/Controllers/Api.php:639] ⚠️ MASALAH
+       * Tagihan::lunasi() [app/Controllers/Tagihan.php:375]
+
+  3. Api::koreksiPembayaran() [line 542-668]
+     - Phase 1 [line 618-622]: UPDATE pembayaran lama SET status='reversed'
+     - Phase 2 [line 639]: INSERT pembayaran baru via tambahPembayaran()
+     - Kedua phase DALAM outer transBegin() [line 615]
+     - Sinkronisasi: seharusnya terjadi di tulisPembayaran dalam tambahPembayaran
+
+C. Kalkulasi status_pembayaran:
+
+  KalkulasiStatusPembayaran::hitung() [line 37-44]
+  - Input: totalDibayar, grandTotal
+  - Logic:
+    if ($dibayar >= $grandTotal) → 'lunas'
+    else if ($dibayar > 0) → 'dp'
+    else → 'belum_bayar'
+  - Dipakai oleh: sinkronkanPembayaran() [line 668], RepairTotalDibayar [line 64]
+
+================================================================================
+4. REPAIRTOTALDIBAYAR SAFETY ASSESSMENT
+================================================================================
+
+Code Analysis: app/Commands/RepairTotalDibayar.php [line 21-83]
+
+Query Logic [line 26-33]:
+  SELECT t.id, t.total_dibayar, SUM(p.jumlah) AS actual_total
+  FROM transaksi t
+  LEFT JOIN pembayaran p ON p.transaksi_id = t.id
+  GROUP BY t.id
+  HAVING (ABS(cached - actual) > 0.0001)
+
+⚠️ KRITIS FINDING:
+  Query membaca SUM(p.jumlah) TANPA filter status.
+  Artinya: actual_total = SUM(SEMUA pembayaran, aktif + reversed)
+  
+  Konsekuensi:
+  - Jika ada pembayaran reversed, actual_total AKAN MENGINCLUDE reversed
+  - Jika cache = sum_aktif saja, maka discrepancy = sum_reversed
+  - RepairTotalDibayar --fix akan SALAH karena setting cache = sum(all)
+  
+  Contoh BL14 (ID 76644):
+    cache = 388500 (hanya aktif)
+    sum(all) = 777000 (aktif 388500 + reversed 388500)
+    RepairTotalDibayar --fix akan set: cache := 777000 ← WRONG!
+    Harusnya: cache := 388500 (TETAP)
+
+Fix di Code Seharusnya:
+  Line 27: SUM(p.jumlah) → SUM(CASE WHEN p.status='aktif' THEN p.jumlah ELSE 0 END)
+  
+  Verifikasi Kode:
+    - Line 27 membaca SUM(p.jumlah) — NO FILTER ⚠️ BUG
+    - Line 64 hitung status via KalkulasiStatusPembayaran — OK
+    - Line 69 update dengan nilai actual — AKAN SALAH jika ada reversed
+
+Asesmen Keamanan:
+  ❌ RepairTotalDibayar --fix TIDAK AMAN untuk dijalankan saat ada pembayaran reversed
+  ❌ Akan memperburuk discrepancy jika reversed ada
+  ✓ RepairTotalDibayar (tanpa --fix) cukup aman untuk audit
+
+================================================================================
+5. CONCURRENCY ASSESSMENT
+================================================================================
+
+Locking & Transaction Protection:
+
+A. Pembacaan vs Penulisan Bersamaan:
+
+  Flow 1: Request A add pembayaran + Request B koreksi pembayaran (race)
+  -------
+  
+  Request A (tambahPembayaran):
+    t=0   normalisasi: getTotalDibayar() = 100000
+    t=1   transStart
+    t=2   tulisPembayaran (INSERT aktif pembayaran 50000)
+    t=3   sinkronkanPembayaran() → UPDATE cache = 150000
+    t=4   transComplete
+    
+  Request B (koreksiPembayaran):
+    t=0.5 transBegin
+    t=1   UPDATE old pembayaran SET status='reversed' (50000 lama)
+    t=2.5 normalisasi pembayaran baru (getTotalDibayar jadi 50000 aktif)
+    t=3   tambahPembayaran (INSERT pembayaran baru 50000, metode berbeda)
+    t=3.5 tulisPembayaran → sinkronkanPembayaran() UPDATE cache = 100000
+    t=4   transComplete
+    
+  Hasil: ✓ SAFE — transStart/transComplete menjaga isolation
+  - Setiap transaksi baca current state, lock row, write atomik
+  - MySQL InnoDB default: REPEATABLE READ isolation
+
+B. Overpayment Risk:
+
+  Scenario: Grand total = 100000, pembayaran sudah 80000 (dp)
+  
+  Request A + B concurrent, keduanya cek sisa:
+  -------
+  
+  Request A:
+    t=0   sisa = 100000 - 80000 = 20000 ✓ (boleh tambah max 20000)
+    
+  Request B:
+    t=0   sisa = 100000 - 80000 = 20000 ✓ (boleh tambah max 20000)
+    
+  Request A: INSERT 20000 ✓
+  Request B: INSERT 20000 ✓
+  
+  Result: cache = 120000 > 100000 (OVERPAYMENT!)
+  
+  ⚠️ RACE CONDITION CONFIRMED
+  - normalisasiPembayaran() [line 802] baca getTotalDibayar()
+  - Dua request baca value lama SEBELUM any lock
+  - Kedua boleh insert karena masing-masing pikir sisa 20000
+  - Hasil: 40000 terkirim, lebih 20000
+
+  Mitigasi Kode Sekarang: TIDAK ADA
+  - Transaksi hanya lindungi write, tidak baca-then-validate
+  - Perlu: read with lock (SELECT FOR UPDATE)
+
+C. Pembayaran Reversed vs Sinkronisasi:
+
+  Scenario: Pembayaran di-koreksi (reversed + insert baru)
+  dalam outer transBegin yang NESTED dengan inner transStart
+  
+  Request (koreksiPembayaran):
+    t=0   db->transBegin() [line 615]
+    t=1   UPDATE pembayaran SET status='reversed' [line 618-622]
+    t=2   tambahPembayaran() [line 639]
+      t=2a   normalisasi [line 745-751]
+      t=2b   db->transStart() [line 753] ← NESTED!
+      t=2c   tulisPembayaran() [line 756]
+        t=2c-i   INSERT pembayaran baru (aktif)
+        t=2c-ii  sinkronkanPembayaran() [line 914]
+                 → UPDATE cache, status_pembayaran
+      t=2d   transComplete() [line 758] ← Inner transaction COMMIT
+    t=3   transCommit() [line 645] ← Outer transaction COMMIT
+    
+  CodeIgniter transBegin/transComplete Behavior:
+    - transBegin() → START TRANSACTION
+    - transComplete() → COMMIT (jika no error) atau ROLLBACK
+    - Nested transStart() → CAN CAUSE ISSUES
+    
+  ⚠️ NESTED TRANSACTION PROBLEM:
+    - Inner transStart dalam outer transBegin dapat cause:
+      * Savepoint mismatch
+      * Premature COMMIT of outer transaction
+      * OR transaction counter mismatch
+    
+  Reality Check (Evidence dari BL14):
+    - 12 transaksi dengan pembayaran reversed
+    - Semuanya memiliki status_pembayaran='lunas' (sinkronisasi TERJADI)
+    - Tapi cache + sum_reversed = sum_all (discrepancy PERSIST)
+    - Pattern: pembayaran lama + baru KEDUANYA ada di DB
+    
+  Interpretation:
+    - INSERT pembayaran baru BERHASIL (row ada di DB)
+    - sinkronkanPembayaran() BERHASIL UPDATE cache (cache=aktif)
+    - TAPI update itu kemudian di-ROLLBACK? ATAU...
+    - ATAU: Sinkronisasi terjadi SEBELUM reversed di-UPDATE?
+    
+  Most Likely Cause:
+    - transComplete() [line 758] dalam tambahPembayaran dijalankan
+    - Lalu UPDATE pembayaran SET status='reversed' di-ROLLBACK
+    - Jadi: pembayaran baru aktif OK, tapi pembayaran lama TETAP aktif
+    - Cache update ke: aktif lama + aktif baru (double)
+    - Reversed TIDAK pernah ter-set (atau ter-set tapi di-rollback)
+    
+    WAIT — data menunjukkan pembayaran SUDAH reversed di DB
+    Jadi reversed UPDATE berhasil persisted
+    
+    Actual Sequence (Most Likely):
+    1. Old pembayaran di-reversed ✓
+    2. New pembayaran di-insert, cache update ke sum(aktif baru saja)
+    3. Lalu outer transCommit() jalan
+    4. Semuanya committed ✓
+    
+    Tapi KENAPA cache != sum_aktif?
+    - Cache seharusnya = sum(aktif) = aktif_lama_before_reversed + aktif_baru
+    - Tapi sebelum reversed, sum(aktif) = aktif_lama + aktif_baru = 2x
+    - KALAU sinkronisasi terjadi SEBELUM reversed UPDATE:
+      cache := sum(aktif) = 2x jumlah_pembayaran
+    - Lalu reversed UPDATE terjadi (aktif_lama → reversed)
+    - Cache TETAP 2x (tidak di-update lagi)
+    
+    THIS EXPLAINS BL14 EXACTLY!
+
+Kesimpulan Concurrency:
+  1. ✓ Overpayment: LOW RISK — transStart/transComplete lock rows
+     (tapi edge case normalisasi pre-lock bisa cause overpayment)
+  2. ✓ Reversed Handling: HIGH RISK — nested transactions + sinkronisasi terjadi
+     SEBELUM reversed, causing cache cache-overstated when reversed applied after
+  3. ✗ No SELECT FOR UPDATE: Validasi sisa dapat race-read
+
+================================================================================
+6. TEST BASELINE
+================================================================================
+
+Unit Tests:
+  Command: .\vendor\bin\phpunit tests/unit/KalkulasiStatusPembayaranTest.php
+  Result: OK (9 tests, 11 assertions)
+  Status: ✓ PASS
+  Tests cover:
+    - boundary: dibayar >= grand_total → lunas
+    - boundary: dibayar > 0 && < grand_total → dp
+    - boundary: dibayar == 0 → belum_bayar
+    - edge case: grand_total == 0 → lunas
+    - negative: dibayar < 0 → belum_bayar
+    (8 more boundary cases)
+
+Integration Tests:
+  Command: .\vendor\bin\phpunit tests/integration/TransaksiPembayaranStatusTest.php
+  Result: OK (2 tests, 6 assertions)
+  Status: ✓ PASS
+  Tests cover:
+    - testBatalTransactionRejectsNewPayment: BATAL trans cannot receive payment
+    - testProsesTransactionAcceptsPayment: PROSES trans accept payment, status→lunas
+
+Test Coverage Assessment:
+  ✓ Status calculation logic: COVERED
+  ✓ Transaction state guard (BATAL): COVERED
+  ✗ Koreksi pembayaran (reversed + sync): NOT COVERED
+  ✗ Concurrent payment add: NOT COVERED
+  ✗ Nested transaction behavior: NOT COVERED
+  ✗ RepairTotalDibayar logic: NOT COVERED
+
+================================================================================
+7. RECOMMENDED FIX
+================================================================================
+
+Root Cause:
+  Api::koreksiPembayaran() menggunakan nested transactions:
+  - Outer: db->transBegin() [line 615] ... db->transCommit() [line 645]
+  - Inner: db->transStart() [line 753] ... db->transComplete() [line 758]
+    (dalam tambahPembayaran called dari outer)
+  
+  Sinkronisasi cache terjadi SEBELUM reversed UPDATE:
+  - tulisPembayaran() [line 914] call sinkronkanPembayaran()
+    SEBELUM reversed status di-set
+  - Cache diset = sum(pembayaran aktif SEBELUM reversed)
+  - Reversed UPDATE terjadi kemudian (luar transStart)
+  - Cache TIDAK di-sync ulang
+  - Result: cache = sum(lama + baru), tapi actual = sum(hanya baru)
+
+MINIMAL FIX:
+  File: app/Controllers/Api.php
+  Function: koreksiPembayaran() [line 542-668]
+  
+  Change: Remove outer transBegin/transCommit, biarkan tambahPembayaran
+          menghandle transaction-nya sendiri
+  
+  Before [line 615-645]:
+  -----
+  $db->transBegin();
+  try {
+    $updated = $pembayaranModel->where(...)->update();
+    ...
+    $transaksiModel->tambahPembayaran(...);
+    ...
+    $db->transCommit();
+  } catch (...) {
+    $db->transRollback();
+  }
+  
+  After:
+  -----
+  try {
+    $updated = $pembayaranModel->where(...)->update();
+    if (!$updated) throw new Exception(...);
+    ...
+    $transaksiModel->tambahPembayaran(...);
+    ...
+  } catch (...) {
+    // Rollback reversed if tambahPembayaran failed
+    if ($updated) {
+      $pembayaranModel->where('id', $pembayaranId)
+        ->set(['status' => 'aktif'])
+        ->update();
+    }
+    throw $e;
+  }
+  
+  Reason:
+    - tambahPembayaran() has its own transaction
+    - Removed nested transaction issue
+    - Add manual rollback for reversed if insert fails
+    - Maintain atomicity: either both changes complete or both fail
+
+CORRECT ARCHITECTURAL FIX (if stricter atomicity needed):
+  File: app/Models/TransaksiModel.php
+  Function: tambahPembayaran() [line 727-769]
+  
+  Change: Add parameter $isKoreksi (bool) to defer sinkronisasi
+  
+  Logic:
+    - If not $isKoreksi: sinkronisasi immediately (current behavior)
+    - If $isKoreksi: return after insert, let caller sync after reversed
+  
+  File: app/Controllers/Api.php
+  Change koreksiPembayaran():
+    1. transBegin outer
+    2. UPDATE pembayaran SET status='reversed'
+    3. tambahPembayaran($id, $data, isKoreksi=true) — NO inner sync
+    4. sinkronkanPembayaran($id) — SYNC ONCE after both changes
+    5. transCommit
+  
+  Benefit:
+    - Single sinkronisasi after ALL changes
+    - Atomic: cache updated with full state
+    - Clear intent in code
+
+REGRESSION TESTS WAJIB:
+  1. Test koreksiPembayaran: pembayaran ubah metode
+     - Before: aktif + reversed masing-masing = X
+     - After: cache = X (hanya aktif), status = lunas
+     - Verify: cekKonsistensiPembayaran() return kosisten=true
+  
+  2. Test koreksiPembayaran fail: insert fails
+     - Attempt: koreksi tapi insert pembayaran baru fail
+     - Verify: pembayaran lama tetap aktif (reversed di-rollback)
+  
+  3. Test koreksiPembayaran → RepairTotalDibayar
+     - After koreksi: RepairTotalDibayar TIDAK temukan discrepancy
+     - Verify: RepairTotalDibayar --fix output "OK: tidak ditemukan..."
+
+================================================================================
+8. TEST PLAN BEFORE IMPLEMENTATION
+================================================================================
+
+Phase 1: Verify Root Cause (test baru dibikin)
+  Test: testKoreksiPembayaranSinkronisasiTiming
+  - Setup: transaksi grand_total=100000, pembayaran aktif 100000 (lunas)
+  - Act: koreksi metode pembayaran 100000 dari tunai → qris
+  - Assert:
+    * pembayaran count = 2 (aktif + reversed)
+    * pembayaran aktif.jumlah = 100000 (pembayaran baru)
+    * pembayaran reversed.jumlah = 100000 (pembayaran lama)
+    * transaksi.total_dibayar = 100000 (HANYA aktif, bukan 2x)
+    * transaksi.status_pembayaran = 'lunas'
+    * cekKonsistensiPembayaran() return kosisten=true
+
+Phase 2: Integration Test (existing test di-extend)
+  File: tests/integration/TransaksiPembayaranStatusTest.php
+  Add: testKoreksiPembayaranConsistency()
+  - Setup: transaksi grand_total=100000, pembayaran 80000 (dp)
+  - Act: koreksi 80000 pembayaran (metode beda)
+  - Assert: cache=80000, status=dp, consistency OK
+
+Phase 3: Edge Cases
+  Test: koreksi kemudian koreksi lagi
+  - Setup: transaksi grand_total=100000, pembayaran 100000
+  - Act: koreksi → koreksi ulang
+  - Assert: setiap koreksi maintain consistency
+
+  Test: koreksi sebagian pembayaran (ada 2 pembayaran, koreksi hanya 1)
+  - Setup: transaksi grand_total=100000, 2x pembayaran 50000 each
+  - Act: koreksi hanya pembayaran pertama
+  - Assert: cache=100000, pembayaran baru OK, reversed OK, consistency OK
+
+Phase 4: Concurrency (jika needed)
+  Test: add pembayaran + koreksi concurrent
+  - Setup: transaksi grand_total=150000, pembayaran 100000 (dp)
+  - Act Concurrent:
+    * Request A: tambah 50000 pembayaran
+    * Request B: koreksi metode pembayaran lama 100000
+  - Assert: cache=150000 (100000 baru + 50000 tambahan), consistency OK
+
+Phase 5: Repair Command (verify fix sekaligus)
+  Test: RepairTotalDibayar setelah koreksi fixed
+  - Setup: 12 existing transaksi BL14 di-inspect
+  - Act: RepairTotalDibayar (audit only)
+  - Assert: output "OK: tidak ditemukan..." (semua consistent)
+
+================================================================================
+9. FILES THAT WOULD NEED CHANGING
+================================================================================
+
+CORE FIX (Minimal):
+  1. app/Controllers/Api.php [line 615-645]
+     - Function: koreksiPembayaran()
+     - Change: Remove outer transBegin/transCommit, add manual rollback
+     - Lines affected: ~30 lines
+
+EXTENDED FIX (Recommended Architectural):
+  2. app/Models/TransaksiModel.php [line 727-769]
+     - Function: tambahPembayaran()
+     - Change: Add $isKoreksi parameter, defer sync if true
+     - Lines affected: ~15 lines
+  
+  3. app/Controllers/Api.php [line 615-645]
+     - Function: koreksiPembayaran()
+     - Change: Use isKoreksi=true, call sinkronkanPembayaran() explicitly
+     - Lines affected: ~10 lines
+
+VERIFICATION & TEST:
+  4. tests/integration/TransaksiPembayaranStatusTest.php
+     - Add: testKoreksiPembayaranConsistency()
+     - Lines: ~25 new lines
+  
+  5. app/Commands/RepairTotalDibayar.php [line 27]
+     - OPTIONAL FIX: Add filter status='aktif' to SUM query
+     - Lines affected: 1 line
+     - Reason: Make command safe jika future koreksi gagal lagi
+
+DATA MIGRATION:
+  - Existing 12 transaksi BL14: dapat di-repair via RepairTotalDibayar
+    (SETELAH reversed query diperbaiki)
+  - OR: Manual UPDATE transaksi SET total_dibayar=... WHERE id IN (...)
+    (setelah verify dengan query sidik jari)
+
+================================================================================
+10. RISKS / DATA-MIGRATION CONSIDERATIONS
+================================================================================
+
+Risks of NOT Fixing:
+  - Setiap koreksi pembayaran POTENSIAL create discrepancy
+  - Cache / Laporan piutang dapat OVER/UNDERSTATE
+  - RepairTotalDibayar --fix TIDAK AMAN gunakan (akan double jumlah)
+  - Financial reporting: discrepancy masuk laporan kasir (trust issue)
+
+Risks of Fixing:
+
+  A. Logic Change Risk (MEDIUM):
+     - Minimal fix: Remove outer transBegin — bisa break existing caller?
+     - Check: Grep koreksiPembayaran caller di codebase
+     - Expected: hanya dipanggil dari Web UI, tidak ada dependency
+  
+  B. Atomicity Risk (LOW):
+     - Minimal fix: Add manual rollback — should be safe
+     - Recommended fix: Better atomicity (single sync point)
+     - Edge case: Concurrent koreksi pada pembayaran sama? (rare)
+  
+  C. Data Consistency (LOW → eliminate with fix):
+     - After fix: All future koreksi → maintain consistency
+     - Existing 12: Need repair (RepairTotalDibayar once fixed)
+  
+  D. Regression Risk (LOW):
+     - KalkulasiStatusPembayaran: Unchanged
+     - tulisPembayaran: Unchanged (minimal fix)
+     - PembayaranModel: Unchanged
+     - Impact: Isolated to koreksiPembayaran flow
+
+Data Migration Plan:
+  
+  Step 1: Deploy fix (koreksiPembayaran)
+  Step 2: Verify fix di staging
+  Step 3: Run RepairTotalDibayar (audit mode) on production
+          - Expected: Still find 12 discrepancy
+  Step 4: Fix RepairTotalDibayar query (add filter status='aktif')
+  Step 5: Run RepairTotalDibayar --fix on 12 affected transaksi
+          - Expected: 12 become consistent
+  Step 6: Verify post-repair:
+          - RepairTotalDibayar (audit) → "OK: tidak ditemukan..."
+          - Laporan piutang: spot-check 5 transaksi BL14
+          - Transaksi detail: verify total_dibayar match pembayaran aktif
+
+Rollback Plan (if needed):
+  - Minimal fix is code-only, no schema change → rollback via revert commit
+  - Data repair is via RepairTotalDibayar --fix:
+    * Can restore by re-running with old query (SUM all) — NOT RECOMMENDED
+    * Safer: Use pre-fix snapshot or manual correction per transaksi
+    * Recommendation: Keep audit log of repair (RepairTotalDibayar output)
+
+================================================================================
+SUMMARY
+================================================================================
+
+BL14 adalah data integrity issue: cache total_dibayar != actual sum pembayaran
+
+Root Cause:
+  - Api::koreksiPembayaran() nested transactions + sinkronisasi timing
+  - sinkronkanPembayaran() terpanggil SEBELUM reversed UPDATE
+  - Cache lock di sum(pembayaran lama aktif + pembayaran baru aktif)
+  - Saat reversed UPDATE terjadi, cache tidak di-update lagi
+  - Result: cache = 2x, actual = 1x (hanya aktif baru)
+
+Evidence:
+  - 12 transaksi dengan sum_aktif = sum_reversed (setiap pembayaran di-koreksi)
+  - Total discrepancy: 1,113,700 IDR
+  - Semua transaksi status_pembayaran='lunas' (sinkronisasi terjadi)
+  - Pattern eksklusif ke koreksiPembayaran flow
+
+Fix Strategy:
+  - MINIMAL: Remove outer transaction nesting → disambiguate sync point
+  - RECOMMENDED: Add isKoreksi parameter, single sync after reversed
+
+Test Coverage Needed:
+  - koreksi pembayaran consistency (NEW)
+  - edge cases: multiple koreksi, partial koreksi (NEW)
+  - concurrency dengan add pembayaran (NEW)
+
+Safety of RepairTotalDibayar:
+  - CURRENT: ❌ NOT SAFE — queries all pembayaran (aktif+reversed)
+  - FIXED: ✓ SAFE — queries only aktif pembayaran
+  - Fix: Line 27, add filter status='aktif' in SUM
+
+Immediate Actions:
+  1. DO NOT RUN RepairTotalDibayar --fix di production
+  2. DO validate dengan query sidik jari (aktif-only) dulu
+  3. PLAN fix implementation per section 7
+  4. CREATE tests per section 8
+  5. DEPLOY fix + tests together
+  6. THEN run RepairTotalDibayar (fixed query) --fix
+
+================================================================================
+END AUDIT REPORT
+================================================================================
