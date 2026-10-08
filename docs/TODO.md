@@ -51,11 +51,9 @@
 
 - [ ] **TODO-Q3e** Instance WhatsApp gateway WAJIB `readreceipts: all` (bila `none`, Evolution tetap balas 201 tetapi blue tick tidak pernah terkirim) — sudah dicatat di `docs/deploy.md` §2 & gateway `petunjuk-penggunaan.md` §4.1; usulkan **otomatiskan** saat setup instance (mis. di `scripts/setup-instance.js`) agar tak bergantung cek manual — rendah — ref temuan 2026-10-07.
 
+- [ ] **TODO-Q3f** Medium — **Rencana cutover gateway produksi `aulia3`**: ganti mekanisme Scheduled Task (`AuliaEvolution`/`AuliaAdapter`/`AuliaStackWatchdog`) dengan **Windows Service (WinSW)**; pertahankan port/instance/token **identik** (`:8080`/`:3000`, instance `aulia-toko`) supaya CI4 tak diubah & tak perlu pairing ulang; jangan hapus task (disable saja) untuk rollback. **Blockers**: (1) installer butuh mode **"services-only"** agar tak menimpa `.env`/instance/DB produksi — belum ada; (2) commit perubahan adapter (toggle `HEARTBEAT_ENABLED` + test) ke repo WA-Gateway. Sertakan reboot test + kill test + rollback. — sedang (rencana; belum eksekusi) — ref `docs/design/2026-10-08-cutover-gateway-service.md`
+
 ## Sedang dikerjakan
-
-### High
-
-- [ ] **TODO-BL10** High — mutasi kas tak admin-gated; pengeluaran terima tanggal sembarang (termasuk lampau/depan) — `AuthFilter.php:70`; `Routes.php:231-246`; `Cash.php:439,547` — **DEC-1: Opsi B** → bukan admin-gating; yang dikerjakan = rekam audit + validasi tanggal pengeluaran
 
 ### Medium
 
@@ -110,6 +108,36 @@
 - [ ] **TODO-F11** Medium — Ambil Alih percakapan via tombol: non-admin boleh takeover saat owner off-shift (grace 30 menit via `last_seen_by_assignee_at`) atau bila pengambil = Shift Leader aktif; flag `bisa_diambil` di daftar; guard race `WHERE assigned_to = <owner lama>`. Perluasan izin dibatasi pada titik takeover — `cekOwnership` TIDAK diubah. **Perlu keputusan lanjutan**: (a) apakah takeover perlu dicatat di `conversation_handoffs`/audit trail; (b) apakah grup perlu kebijakan takeover sendiri. Ref `docs/CHANGELOG.md` 2026-10-06; test `tests/feature/InboxAmbilAlihTest.php`. — **SELESAI 2026-10-06** (implementasi inti selesai; dua sub-pertanyaan (a)/(b) masih terbuka)
 
 ## Selesai / Ditutup
+
+- [x] **TODO-BL10** High — mutasi kas tak admin-gated; pengeluaran terima tanggal sembarang (termasuk lampau/depan) — `AuthFilter.php:70`; `Routes.php:231-246`; `Cash.php:439,547` — **DEC-1: Opsi B** → bukan admin-gating; dikerjakan = rekam audit + validasi tanggal pengeluaran
+  - **DONE — code, migration, and tests verified; production migration deployment pending.**
+  - Keputusan: audit = tabel terpisah `cash_expense_audit` (JSON before/after,
+    Opsi B+A); tanggal = tolak masa depan & tolak tanggal yang sudah
+    `closing_kas` (Opsi A); kunci closing berlaku untuk update **dan**
+    delete (Opsi A).
+  - File baru: `app/Database/Migrations/2026-10-08-000001_CreateCashExpenseAuditTable.php`,
+    `app/Models/CashExpenseAuditModel.php`.
+  - File diubah: `app/Models/CashExpenseModel.php` (`validasiTanggal()`,
+    `updatePengeluaran()`, `hapusPengeluaran()` sekarang transaksional +
+    menulis audit + wajib `$userId`), `app/Controllers/Cash.php`
+    (`cekTanggalSudahClosing()` + guard di `tambahPengeluaran()`,
+    `updatePengeluaran()`, `hapusPengeluaran()`).
+  - **Self-review menemukan & memperbaiki bug**: `updatePengeluaran()`/
+    `hapusPengeluaran()` semula tidak memeriksa hasil `update()`/`delete()`
+    sebelum menulis audit & commit — kegagalan validasi model (bukan error
+    DB) bisa lolos sebagai "sukses" dan menulis audit palsu. Diperbaiki
+    dengan cek hasil eksplisit + `transRollback()` manual; ditambah test
+    regresi.
+  - Test: `tests/unit/CashExpenseValidasiTanggalTest.php` (4 kasus),
+    `tests/integration/CashExpenseAuditTest.php` (4 kasus, termasuk regresi
+    bug di atas), `tests/integration/CashExpenseClosingLockTest.php`
+    (5 kasus) — semua lulus; regresi penuh `phpunit.xml` (82 tests) &
+    `phpunit.integration.xml` (26 tests) tetap lulus.
+  - Database: migrasi **belum** dijalankan ke database produksi (menunggu
+    jadwal deploy terpisah); tidak ada data existing yang disentuh.
+  - Ref: `docs/requirements/2026-10-08-audit-validasi-kas-keluar.md`,
+    `docs/design/2026-10-08-audit-validasi-kas-keluar.md`,
+    `docs/CHANGELOG.md` 2026-10-08.
 
 - [x] **TODO-BL18** Medium — saat filter kategori, `grand_total` pro-rata tapi `sisa_tagihan` penuh → piutang overstated — `Laporan.php:1043-1061,1087`
   - **DONE — code fix and regression tests verified**

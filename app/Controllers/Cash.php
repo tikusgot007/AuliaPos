@@ -461,6 +461,16 @@ class Cash extends BaseController
             ]);
         }
 
+        $errorTanggal = CashExpenseModel::validasiTanggal($tanggal);
+        if ($errorTanggal) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $errorTanggal]);
+        }
+
+        $errorClosing = $this->cekTanggalSudahClosing($tanggal);
+        if ($errorClosing) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $errorClosing]);
+        }
+
         $expenseModel = new CashExpenseModel();
         $data = [
             'tanggal' => $tanggal,
@@ -571,6 +581,26 @@ class Cash extends BaseController
             ]);
         }
 
+        $errorTanggal = CashExpenseModel::validasiTanggal($tanggal);
+        if ($errorTanggal) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $errorTanggal]);
+        }
+
+        // TODO-BL10: tanggal LAMA maupun tanggal BARU tidak boleh jatuh pada
+        // hari yang sudah di-closing -- baik mengubah isi baris di hari yang
+        // sudah final, maupun memindahkan baris itu ke hari yang sudah final.
+        $errorClosingLama = $this->cekTanggalSudahClosing($data['tanggal']);
+        if ($errorClosingLama) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $errorClosingLama]);
+        }
+
+        $errorClosingBaru = $this->cekTanggalSudahClosing($tanggal);
+        if ($errorClosingBaru) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $errorClosingBaru]);
+        }
+
+        $userId = session()->get('id_user') ?? 1;
+
         try {
 
             $expenseModel->updatePengeluaran($id, [
@@ -578,7 +608,7 @@ class Cash extends BaseController
                 'nominal'    => $nominal,
                 'keterangan' => $keterangan,
                 'penerima'   => $penerima,
-            ]);
+            ], $userId);
 
             return $this->response->setJSON([
                 'status'  => 'success',
@@ -600,8 +630,26 @@ class Cash extends BaseController
     {
         $expenseModel = new CashExpenseModel();
 
+        $data = $expenseModel->find($id);
+        if (!$data) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Data pengeluaran tidak ditemukan.'
+            ]);
+        }
+
+        // TODO-BL10: baris pada tanggal yang sudah di-closing tidak boleh
+        // dihapus -- closing adalah snapshot final yang menjumlahkan baris
+        // cash_expense ini (lihat CashBalanceService::getBalance()).
+        $errorClosing = $this->cekTanggalSudahClosing($data['tanggal']);
+        if ($errorClosing) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $errorClosing]);
+        }
+
+        $userId = session()->get('id_user') ?? 1;
+
         try {
-            $expenseModel->hapusPengeluaran($id);
+            $expenseModel->hapusPengeluaran($id, $userId);
             return $this->response->setJSON([
                 'status' => 'success',
                 'message' => 'Pengeluaran berhasil dihapus.'
@@ -612,5 +660,34 @@ class Cash extends BaseController
                 'message' => 'Gagal menghapus: ' . $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * TODO-BL10: cek apakah tanggal kalender dari sebuah nilai tanggal/waktu
+     * kas keluar sudah punya snapshot `closing_kas`. Closing bersifat final
+     * (TODO-BL02) dan ikut menghitung dari cash_expense
+     * (CashBalanceService::getBalance()), sehingga tanggal yang sudah
+     * closing tidak boleh jadi target create/update/delete pengeluaran.
+     * Dipakai oleh tambahPengeluaran(), updatePengeluaran() (tanggal lama &
+     * baru), dan hapusPengeluaran().
+     */
+    private function cekTanggalSudahClosing(?string $tanggalWaktu): ?string
+    {
+        if (empty($tanggalWaktu)) {
+            return null;
+        }
+
+        $timestamp = strtotime($tanggalWaktu);
+        if ($timestamp === false) {
+            return null;
+        }
+
+        $tanggal = date('Y-m-d', $timestamp);
+
+        if ((new ClosingKasModel())->getByTanggal($tanggal)) {
+            return 'Tanggal ' . $tanggal . ' sudah di-closing dan tidak boleh diubah lagi.';
+        }
+
+        return null;
     }
 }

@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2026-10-08 — Kas Keluar: audit trail + validasi tanggal (TODO-BL10)
+
+- **Aturan bisnis baru**: pengeluaran kas (tambah/ubah) **tidak boleh**
+  bertanggal masa depan, dan **tidak boleh** menyentuh tanggal yang sudah
+  punya snapshot `closing_kas` (baik tanggal lama maupun tanggal baru saat
+  mengedit). Berlaku juga untuk hapus: baris pada tanggal yang sudah
+  di-closing tidak boleh dihapus. Hari ini dan tanggal lampau yang **belum**
+  di-closing tetap boleh, tidak berubah dari sebelumnya.
+- **DEC-1 (tetap berlaku)**: modul Kas Keluar TIDAK menjadi admin-only; akses
+  tetap seperti sebelumnya (filter `auth`, bukan admin-gating).
+- **Audit trail baru**: setiap update/delete pada `cash_expense` menulis satu
+  baris ke tabel baru `cash_expense_audit` (append-only, tanpa FK supaya
+  baris delete tidak ikut terhapus cascade) berisi snapshot JSON nilai
+  sebelum & sesudah, pelaku, dan waktu. Create tidak diaudit (sudah tercatat
+  lewat `user_id` baris itu sendiri).
+- File: `app/Database/Migrations/2026-10-08-000001_CreateCashExpenseAuditTable.php`,
+  `app/Models/CashExpenseAuditModel.php`, `app/Models/CashExpenseModel.php`
+  (`validasiTanggal()`, `updatePengeluaran()`, `hapusPengeluaran()`),
+  `app/Controllers/Cash.php` (`cekTanggalSudahClosing()` + ketiga endpoint
+  kas keluar).
+- **Self-review menemukan bug**: `updatePengeluaran()`/`hapusPengeluaran()`
+  sebelumnya tidak memeriksa hasil `update()`/`delete()` sebelum menulis baris
+  audit & commit — kegagalan validasi model (mis. nominal gagal
+  `greater_than[0]`) mengembalikan `false` TANPA error level-DB, sehingga
+  `transStatus()` saja tidak mendeteksinya; audit palsu bisa tertulis untuk
+  perubahan yang sebenarnya tidak terjadi. Diperbaiki dengan memeriksa hasil
+  `update()`/`delete()` secara eksplisit dan `transRollback()` manual bila
+  gagal, sebelum pernah menulis baris audit.
+- Test: `tests/unit/CashExpenseValidasiTanggalTest.php` (4 kasus),
+  `tests/integration/CashExpenseAuditTest.php` (4 kasus, termasuk regresi
+  bug di atas), `tests/integration/CashExpenseClosingLockTest.php`
+  (5 kasus) — seluruhnya lulus (`phpunit.xml`, `phpunit.integration.xml`).
+- Ref: `docs/requirements/2026-10-08-audit-validasi-kas-keluar.md`,
+  `docs/design/2026-10-08-audit-validasi-kas-keluar.md`.
+- **Migrasi belum dijalankan ke database produksi** — menunggu jadwal
+  deployment terpisah.
+
 ## 2026-10-07 — Inbox: Toggle admin untuk expand isi pesan yang dihapus (teks saja)
 
 - Setting GLOBAL baru (bukan per-user, bukan RBAC) lewat `.env`:
