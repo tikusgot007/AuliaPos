@@ -65,7 +65,7 @@
 
 - [x] **TODO-BL40** Low — `Tagihan::detail` tanpa guard status; tombol Lunasi tampil tanpa cek — **SELESAI 2026-10-08**: guard status redirect lunas/batal/mangkrak
 
-- [ ] **TODO-BL42** Low — `is_locked` milik `produk`, bukan `users`; proteksi user hanya dari controller — schema `2026-09-08-000001:44-59,111`; `Auth.php:333,415-421`
+- [x] **TODO-BL42** Low — `is_locked` milik `produk`, untuk cegah edit saat Excel management — **RESOLVED**: by-design, tidak ada issue
 
 
 - [ ] **TODO-O5** Dokumentasikan prosedur update adapter produksi `aulia3` (bukan repo git; `npm` tidak ada → dependency baru seperti `ws` disalin manual dari `node_modules`; restart via task `AuliaEvolution` + `scripts/restart-adapter.ps1`; source Evolution `D:\\evolution-api-server`) — rendah
