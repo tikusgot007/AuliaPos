@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-10-09 — Cutover gateway produksi `aulia3` → `aulia7` + deploy POS ke production
+
+- **Perubahan operasional (bukan aturan bisnis)**: gateway WhatsApp produksi
+  dipindah dari `aulia3` (Scheduled Task) ke `aulia7` (Windows Service WinSW:
+  `AuliaPosGatewayEvolution` + `AuliaPosGatewayAdapter`). Nomor WhatsApp
+  `6285155105633` di-pairing ulang di aulia7. Port/instance tetap identik
+  (`:3000` adapter, `:8080` Evolution, instance `aulia-toko`) sehingga kontrak
+  CI4↔adapter tidak berubah.
+- **CI4 (`aulia-server2`)**: `inbox.gatewayBaseUrl` → `http://192.168.1.68:3000`;
+  proxy WebSocket Apache `/realtime-ws` → `ws://192.168.1.68:3000/realtime`
+  (realtime Inbox kembali terhubung). `gateway_status` terverifikasi `connected`.
+- **aulia3**: task `AuliaEvolution`/`AuliaAdapter`/`AuliaStackWatchdog`/`AuliaMonitor`
+  di-**disable** (bukan dihapus) demi rollback; port 3000/8080 berhenti.
+- **Deploy POS**: `aulia-server2` di-update `4c99c42` → `a55d86e` (fast-forward,
+  36 commit) dan migrasi DB diterapkan — `cash_expense_audit` (`aulia_kasirdb`)
+  + `message_send_audit` (`aulia_inboxdb`) — melengkapi fitur yang sebelumnya
+  berstatus *"production migration deployment pending"*.
+- **Backup pra-deploy**: `C:\xampp\backup-db-aulia-server2\` (mysqldump
+  `aulia_kasirdb` + `aulia_inboxdb`, hash SHA256 tercatat).
+- Rollback: lihat `docs/TODO.md` **TODO-Q3i**.
+- Ref: `docs/requirements/2026-10-09-cutover-gateway-aulia7.md`.
+
 ## 2026-10-08 — Kas Keluar: audit trail + validasi tanggal (TODO-BL10)
 
 - **Aturan bisnis baru**: pengeluaran kas (tambah/ubah) **tidak boleh**
