@@ -159,22 +159,33 @@ function unduhMedia(id, opsi) {
 }
 
 // Tombol unduh di bubble/lightbox: spinner + nonaktif selama proses.
-function unduhSatu(id, tombol) {
+// `opsi.skipGate` dipakai unduhDariLightbox() yang sudah melewati Nudge 2
+// sendiri, supaya modal konfirmasi tidak muncul dua kali.
+function unduhSatu(id, tombol, opsi) {
+    opsi = opsi || {};
     if (tombol && tombol.disabled) return Promise.resolve(null);
 
-    const html = tombol ? tombol.innerHTML : '';
-    if (tombol) {
-        tombol.disabled = true;
-        tombol.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    }
+    const gate = (opsi.skipGate || typeof nudgeUnduhGate !== 'function')
+        ? Promise.resolve(true)
+        : nudgeUnduhGate();
 
-    return unduhMedia(id).then(function(hasil) {
+    return gate.then(function(lanjut) {
+        if (!lanjut) return null;
+
+        const html = tombol ? tombol.innerHTML : '';
         if (tombol) {
-            tombol.disabled = false;
-            tombol.innerHTML = html;
+            tombol.disabled = true;
+            tombol.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         }
 
-        return hasil;
+        return unduhMedia(id).then(function(hasil) {
+            if (tombol) {
+                tombol.disabled = false;
+                tombol.innerHTML = html;
+            }
+
+            return hasil;
+        });
     });
 }
 
@@ -256,37 +267,48 @@ let sedangUnduhMassal = false;
 function unduhTerpilih() {
     if (sedangUnduhMassal || pilihanUnduh.size === 0) return Promise.resolve(null);
 
-    // Urutan thread (lama -> baru), hanya yang masih ada dan layak diunduh.
-    let ids = urutkanPesan(threadDikenal).filter(function(m) { return pilihanUnduh.has(String(m.id)) && pesanBisaDiunduh(m); })
-        .map(function(m) { return m.id; });
-    let terpotong = 0;
+    // Nudge 2 (Fase 2): tanya SEKALI sebelum seluruh batch dimulai.
+    // [Batal] membatalkan seluruh batch -- tidak ada file yang diunduh,
+    // pilihan tetap utuh.
+    const gate = (typeof nudgeUnduhGate === 'function')
+        ? nudgeUnduhGate()
+        : Promise.resolve(true);
 
-    if (ids.length > UNDUH_MAKS_SEKALIGUS) {
-        terpotong = ids.length - UNDUH_MAKS_SEKALIGUS;
-        ids = ids.slice(0, UNDUH_MAKS_SEKALIGUS);
-    }
+    return gate.then(function(lanjut) {
+        if (!lanjut) return null;
 
-    sedangUnduhMassal = true;
-    const bar = document.getElementById('barPilihUnduh');
-    const aksi = bar && bar.querySelector('.inbox-pilih-unduh');
-    if (aksi) aksi.disabled = true;
+        // Urutan thread (lama -> baru), hanya yang masih ada dan layak diunduh.
+        let ids = urutkanPesan(threadDikenal).filter(function(m) { return pilihanUnduh.has(String(m.id)) && pesanBisaDiunduh(m); })
+            .map(function(m) { return m.id; });
+        let terpotong = 0;
 
-    return unduhBeruntun(ids, function(id) { return unduhMedia(id, { senyap: true }); }, function(ms) {
-        return new Promise(function(resolve) { setTimeout(resolve, ms); });
-    }).then(function(hasil) {
-        sedangUnduhMassal = false;
-        let teks = ringkasanUnduhan(hasil);
-        if (terpotong > 0) teks += ' ' + terpotong + ' file lain belum diunduh (batas ' + UNDUH_MAKS_SEKALIGUS + ' per aksi).';
-        tampilkanToastThread(teks, hasil.gagal > 0 ? 'warning' : 'success');
-
-        // Yang berhasil dilepas dari pilihan; yang gagal tetap tercentang untuk dicoba lagi.
-        if (hasil.gagal === 0) {
-            alihkanModePilih(false);
-        } else {
-            perbaruiBarPilih();
+        if (ids.length > UNDUH_MAKS_SEKALIGUS) {
+            terpotong = ids.length - UNDUH_MAKS_SEKALIGUS;
+            ids = ids.slice(0, UNDUH_MAKS_SEKALIGUS);
         }
 
-        return hasil;
+        sedangUnduhMassal = true;
+        const bar = document.getElementById('barPilihUnduh');
+        const aksi = bar && bar.querySelector('.inbox-pilih-unduh');
+        if (aksi) aksi.disabled = true;
+
+        return unduhBeruntun(ids, function(id) { return unduhMedia(id, { senyap: true }); }, function(ms) {
+            return new Promise(function(resolve) { setTimeout(resolve, ms); });
+        }).then(function(hasil) {
+            sedangUnduhMassal = false;
+            let teks = ringkasanUnduhan(hasil);
+            if (terpotong > 0) teks += ' ' + terpotong + ' file lain belum diunduh (batas ' + UNDUH_MAKS_SEKALIGUS + ' per aksi).';
+            tampilkanToastThread(teks, hasil.gagal > 0 ? 'warning' : 'success');
+
+            // Yang berhasil dilepas dari pilihan; yang gagal tetap tercentang untuk dicoba lagi.
+            if (hasil.gagal === 0) {
+                alihkanModePilih(false);
+            } else {
+                perbaruiBarPilih();
+            }
+
+            return hasil;
+        });
     });
 }
 
@@ -310,7 +332,16 @@ function bukaLightbox(id) {
 function unduhDariLightbox(tombol) {
     if (lightboxIdAktif === null) return Promise.resolve(null);
 
-    return unduhSatu(lightboxIdAktif, tombol);
+    // Nudge 2 (Fase 2): konfirmasi sekali di sini; unduhSatu() dipanggil
+    // dengan skipGate agar tidak menampilkan modal dua kali.
+    const gate = (typeof nudgeUnduhGate === 'function')
+        ? nudgeUnduhGate()
+        : Promise.resolve(true);
+
+    return gate.then(function(lanjut) {
+        if (!lanjut) return null;
+        return unduhSatu(lightboxIdAktif, tombol, { skipGate: true });
+    });
 }
 
 // ================================================================

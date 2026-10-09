@@ -2073,6 +2073,103 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/percakapan/(:num)/nudge-unduh
+     *
+     * Log keputusan kasir yang memilih "[Unduh saja]" pada percakapan
+     * `belum_diambil` TANPA mengambilnya (Nudge 2). Ditulis sebagai note
+     * internal di tabel `messages` (is_internal=1) -- TIDAK menyentuh kolom
+     * `conversations` sama sekali, sehingga tidak memicu auto-assign, tidak
+     * menggeser `last_message_at`, dan tidak menambah `perlu_dibalas`/unread.
+     * Ditolak 409 `{ok:false, reason:'already_assigned'}` bila percakapan
+     * sudah punya pemilik (state klien boleh stale; server yang menegakkan).
+     *
+     * Teks note dibangun SERVER-SIDE (klien tidak pernah mengirim teks note),
+     * prefix "[auto] " agar bisa dibedakan dari note manual. Coalesce 30 menit
+     * per (conversation_id, sent_by_user_id): klik berulang tidak menumpuk
+     * note. Batas waktu dihitung di PHP dengan zona Asia/Jakarta -- konsisten
+     * dengan `message_timestamp` yang ditulis aplikasi (bukan `NOW()` MySQL
+     * yang bergantung zona timezone server database).
+     */
+    public function catatNudgeUnduh($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status'  => 'error',
+                'message' => $grupError,
+            ]);
+        }
+
+        if (($conversation['status'] ?? null) === 'closed') {
+            return $this->response->setStatusCode(409)->setJSON([
+                'status'  => 'error',
+                'message' => 'Percakapan sudah ditutup.',
+            ]);
+        }
+
+        // Note [auto] hanya valid untuk percakapan belum_diambil. Klien bisa
+        // stale (kasir lain sudah meng-klaim, tab ini masih melihat
+        // queue_status lama), jadi server yang harus menegakkan -- bukan
+        // bergantung pada state klien.
+        if (!empty($conversation['assigned_to'])) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'ok'     => false,
+                'reason' => 'already_assigned',
+            ]);
+        }
+
+        $userId = (int) session()->get('id_user');
+
+        $batas = (new \DateTime('-30 minutes', new \DateTimeZone('Asia/Jakarta')))
+            ->format('Y-m-d H:i:s');
+
+        $sudahAda = db_connect('inbox')->query(
+            'SELECT 1 FROM `messages`
+              WHERE `conversation_id` = ? AND `is_internal` = 1 AND `sent_by_user_id` = ?
+                AND `message_timestamp` > ?
+                AND `text` LIKE ?
+              LIMIT 1',
+            [$conversationId, $userId, $batas, '[auto]%']
+        )->getRowArray();
+
+        if ($sudahAda) {
+            return $this->response->setJSON(['ok' => false, 'reason' => 'duplicate']);
+        }
+
+        $user = (new UserModel())->find($userId);
+        $nama = $user ? ($user['inisial'] ?: $user['username']) : ('User #' . $userId);
+
+        $now = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+
+        (new MessageModel())->insert([
+            'conversation_id'   => $conversationId,
+            'wa_message_id'     => 'internal-' . $conversationId . '-' . bin2hex(random_bytes(8)),
+            'direction'         => 'outgoing',
+            'message_type'      => 'text',
+            'sender_jid'        => null,
+            'text'              => '[auto] ' . $nama . ' mengunduh lampiran tanpa mengambil percakapan.',
+            'message_timestamp' => $now,
+            'sent_by_user_id'   => $userId,
+            'send_status'       => 'sent',
+            'is_internal'       => true,
+        ]);
+
+        return $this->response->setJSON(['ok' => true]);
+    }
+
+    /**
      * POST /inbox/percakapan/(:num)/handoff
      *
      * M3 Phase 2a (TB-01) -- serah-terima (Handoff) percakapan antar

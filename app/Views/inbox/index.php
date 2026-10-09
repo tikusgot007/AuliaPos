@@ -610,6 +610,39 @@
         display: none;
     }
 
+    /* Nudge 1 (Fase 5): banner tepat di atas composer balasan, di luar area
+       scroll thread. Warna kuning-oranye soft (bukan alarm), border kiri tebal.
+       Grid 1fr auto 1fr menaruh teks di kiri dan tombol presisi di tengah. */
+    .inbox-nudge-ambil {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 44px;
+        padding: 0.4rem 0.75rem;
+        background: #fff8e1;
+        border-left: 4px solid #e0a800;
+        border-top: 1px solid #ffe69c;
+        border-bottom: 1px solid #ffe69c;
+        font-size: 0.85rem;
+    }
+
+    .inbox-nudge-ambil .inbox-nudge-ambil-teks {
+        grid-column: 1;
+        min-width: 0;
+        color: #664d03;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .inbox-nudge-ambil .inbox-nudge-ambil-aksi {
+        grid-column: 2;
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
     /* Mode pilih (unduh massal). */
     .inbox-bubble-pilih {
         position: relative;
@@ -940,6 +973,18 @@
                         <i class="fas fa-download"></i> Unduh
                     </button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="alihkanModePilih(false)">Batal</button>
+                </div>
+
+                <!-- Nudge 1 (Fase 5): banner tepat di atas textarea balasan,
+                     di luar area scroll thread. Muncul setelah 7 dtk pada
+                     percakapan belum_diambil; boleh muncul lagi setelah pindah
+                     conversation lalu kembali. -->
+                <div class="inbox-nudge-ambil" id="nudgeAmbilBanner" style="display:none;">
+                    <span class="inbox-nudge-ambil-teks">Mau diambil, atau lihat-lihat saja?</span>
+                    <span class="inbox-nudge-ambil-aksi">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="nudgeAmbilSekarang()">Ambil</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="nudgeAmbilLihatSaja()">Lihat saja</button>
+                    </span>
                 </div>
 
                 <div class="inbox-thread-form">
@@ -1392,6 +1437,28 @@
     </div>
 </div>
 
+<!-- Nudge 2 (Fase 2): konfirmasi sebelum unduh media pada percakapan yang
+     belum diambil / dipegang orang lain. Di luar #threadMessages supaya
+     polling tidak menutupnya. Tombol "Ambil"/"Ambil Alih" memanggil endpoint
+     /ambil yang sudah ada; "Unduh saja" tetap mengunduh (read-only). -->
+<div class="modal fade" id="nudgeUnduhModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <span class="modal-title small fw-semibold">Ambil percakapan?</span>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="nudgeUnduhTeks"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-primary" id="btnNudgeAmbilUnduh" onclick="nudgeUnduhPilih('ambil')">Ambil &amp; Unduh</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnNudgeUnduhSaja" onclick="nudgeUnduhPilih('unduh')">Unduh saja</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="nudgeUnduhPilih('batal')">Batal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     window.INBOX_THREAD_CONFIG = {
         mediaBaseUrl: <?= json_encode(base_url('/inbox/media/')) ?>,
@@ -1417,6 +1484,14 @@
     let filterAktif = 'belum_diambil';
     const currentUserId = <?= (int) $currentUserId ?>;
     const currentUserRole = <?= json_encode($currentUserRole) ?>;
+
+    // Nudge 1 (Fase 5). Timer disimpan global dan SELALU di-clear sebelum
+    // di-set ulang supaya tidak menumpuk saat kasir cepat pindah thread.
+    // `nudgeAmbilTampilUntukId` menyimpan id percakapan (String) yang banner-nya
+    // SEDANG tampil; di-reset saat pindah conversation sehingga banner boleh
+    // muncul lagi saat kasir kembali -- asalkan masih belum_diambil.
+    let nudgeAmbilTimer = null;
+    let nudgeAmbilTampilUntukId = null;
 
     // ================================================================
     // UTIL
@@ -1509,6 +1584,15 @@
         document.getElementById('btnTemplateBalasan').disabled = true;
         batalkanKutipan();
         batalkanMediaBalasan();
+
+        // Nudge 1: panel dikosongkan -> batalkan timer & sembunyikan banner
+        // supaya tidak ada banner nyangkut atau timer yang masih berjalan.
+        if (nudgeAmbilTimer !== null) {
+            clearTimeout(nudgeAmbilTimer);
+            nudgeAmbilTimer = null;
+        }
+        tutupNudgeAmbil();
+        nudgeAmbilTampilUntukId = null;
     }
 
     function setFilterConversation(filter) {
@@ -2283,6 +2367,174 @@
     }
 
     // ================================================================
+    // NUDGE "AMBIL" (Fase 2)
+    // ================================================================
+    // Nudge 1 (Fase 5): banner setelah 7 detik membuka percakapan belum_diambil.
+    // Timer disimpan global & selalu di-clear di awal pilihConversation().
+    function jadwalkanNudgeAmbil(id) {
+        if (nudgeAmbilTimer !== null) {
+            clearTimeout(nudgeAmbilTimer);
+            nudgeAmbilTimer = null;
+        }
+
+        const kunci = String(id);
+        // Banner sudah tampil untuk percakapan ini dan belum pindah -> jangan
+        // ulang. Variabel ini di-reset saat pindah conversation.
+        if (nudgeAmbilTampilUntukId === kunci) return;
+
+        nudgeAmbilTimer = setTimeout(function() {
+            nudgeAmbilTimer = null;
+
+            // Thread harus masih percakapan yang sama.
+            if (String(conversationAktif) !== kunci) return;
+            // Tab harus aktif saat timer jatuh tempo.
+            if (document.visibilityState !== 'visible') return;
+
+            const conv = conversationAktifSaatIni();
+            // Satu sumber kebenaran status: queue_status dari server
+            // (withComputedStatus) -- BUKAN kombinasi kolom manual.
+            if (!conv || conv.queue_status !== 'belum_diambil') return;
+
+            nudgeAmbilTampilUntukId = kunci;
+            const banner = document.getElementById('nudgeAmbilBanner');
+            if (banner) banner.style.display = 'grid';
+        }, 7000);
+    }
+
+    function tutupNudgeAmbil() {
+        const banner = document.getElementById('nudgeAmbilBanner');
+        if (banner) banner.style.display = 'none';
+    }
+
+    // [Lihat saja]: hanya menutup banner. TIDAK mencatat internal note apa pun.
+    function nudgeAmbilLihatSaja() {
+        tutupNudgeAmbil();
+    }
+
+    function nudgeAmbilSekarang() {
+        if (!conversationAktif) return;
+
+        panggilAmbilPercakapan(conversationAktif).then(function(json) {
+            if (json.status === 'success') {
+                showToast('Percakapan berhasil diambil.', 'success');
+                tutupNudgeAmbil();
+                muatUlangDaftarConversation();
+            } else {
+                showToast(json.message || 'Gagal mengambil percakapan.', 'danger');
+            }
+        }).catch(function(err) {
+            showToast('Gagal menghubungi server: ' + err.message, 'danger');
+        });
+    }
+
+    // Helper Promise: endpoint Ambil existing. Fungsi lama ambilPercakapan()
+    // tidak mengembalikan promise sehingga tidak bisa ditunggu.
+    function panggilAmbilPercakapan(id) {
+        return fetch('<?= base_url('/inbox/percakapan/') ?>' + id + '/ambil', {
+            method: 'POST'
+        }).then(function(res) {
+            return res.json();
+        });
+    }
+
+    // --- Nudge 2: konfirmasi sebelum unduh media -------------------
+    // Dipanggil oleh inbox-thread.js (unduhSatu/unduhTerpilih/
+    // unduhDariLightbox). Resolve true = lanjutkan unduh, false = batal.
+    let nudgeUnduhResolver = null;
+
+    function nudgeUnduhGate() {
+        const conv = conversationAktifSaatIni();
+
+        // Tanpa konteks / grup / sudah ditutup / sudah milik sendiri:
+        // tidak perlu tanya apa pun.
+        if (!conv) return Promise.resolve(true);
+        if (conv.jid_type === 'group') return Promise.resolve(true);
+        if (conv.status === 'closed') return Promise.resolve(true);
+        if (conv.assigned_to && String(conv.assigned_to) === String(currentUserId)) {
+            return Promise.resolve(true);
+        }
+
+        return new Promise(function(resolve) {
+            bukaNudgeUnduhModal(conv, resolve);
+        });
+    }
+
+    function bukaNudgeUnduhModal(conv, resolve) {
+        nudgeUnduhResolver = resolve;
+
+        const teks = document.getElementById('nudgeUnduhTeks');
+        const btnAmbil = document.getElementById('btnNudgeAmbilUnduh');
+        const belumDiambil = conv.queue_status === 'belum_diambil';
+        const nama = conv.assigned_to_name || ('User #' + conv.assigned_to);
+
+        if (belumDiambil) {
+            teks.textContent = 'Chat ini belum diambil. Ambil dulu agar tidak diproses kasir lain?';
+            btnAmbil.style.display = '';
+            btnAmbil.textContent = 'Ambil & Unduh';
+        } else if (conv.bisa_diambil) {
+            teks.textContent = 'Dipegang ' + nama + ' (off-shift). Ambil alih?';
+            btnAmbil.style.display = '';
+            btnAmbil.textContent = 'Ambil Alih & Unduh';
+        } else {
+            teks.textContent = 'Dipegang ' + nama + '. Anda hanya bisa unduh.';
+            btnAmbil.style.display = 'none';
+        }
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('nudgeUnduhModal')).show();
+    }
+
+    function nudgeUnduhPilih(aksi) {
+        const resolve = nudgeUnduhResolver;
+        nudgeUnduhResolver = null;
+
+        const modalEl = document.getElementById('nudgeUnduhModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+        if (aksi === 'batal') {
+            modal.hide();
+            if (resolve) resolve(false);
+            return;
+        }
+
+        if (aksi === 'unduh') {
+            // Catat note HANYA untuk percakapan belum_diambil (bukan yang
+            // sudah dipegang orang lain). Best-effort, tidak menunggu.
+            const conv = conversationAktifSaatIni();
+            if (conv && conv.queue_status === 'belum_diambil') {
+                catatNudgeUnduh(conversationAktif);
+            }
+            modal.hide();
+            if (resolve) resolve(true);
+            return;
+        }
+
+        // aksi === 'ambil' (juga dipakai Ambil Alih -- endpoint sama).
+        panggilAmbilPercakapan(conversationAktif).then(function(json) {
+            if (json.status === 'success') {
+                showToast('Percakapan berhasil diambil.', 'success');
+                muatUlangDaftarConversation();
+            } else {
+                // 409 "sudah diambil orang lain" -> tetap lanjut unduh (read-only).
+                showToast(json.message || 'Gagal mengambil percakapan.', 'warning');
+            }
+            modal.hide();
+            if (resolve) resolve(true);
+        }).catch(function(err) {
+            // Gagal jaringan: tetap lanjut unduh read-only.
+            showToast('Gagal menghubungi server: ' + err.message, 'danger');
+            modal.hide();
+            if (resolve) resolve(true);
+        });
+    }
+
+    function catatNudgeUnduh(id) {
+        // Best-effort: kegagalan note tidak boleh mengganggu unduhan.
+        fetch('<?= base_url('/inbox/percakapan/') ?>' + id + '/nudge-unduh', {
+            method: 'POST'
+        }).catch(function() {});
+    }
+
+    // ================================================================
     // HANDOFF (M3 Fase 2a, TB-01/TASK-004)
     // ================================================================
     // expected_owner dibaca SAAT DIALOG DIBUKA (bukan saat submit) --
@@ -2427,6 +2679,16 @@
     // PILIH CONVERSATION & RIWAYAT PESAN
     // ================================================================
     function pilihConversation(id) {
+        // Nudge 1: hentikan timer lama, sembunyikan banner, dan reset state
+        // "sudah tampil" -- banner boleh muncul lagi saat kasir kembali ke
+        // percakapan ini selama masih belum_diambil.
+        if (nudgeAmbilTimer !== null) {
+            clearTimeout(nudgeAmbilTimer);
+            nudgeAmbilTimer = null;
+        }
+        tutupNudgeAmbil();
+        nudgeAmbilTampilUntukId = null;
+
         conversationAktif = id;
         renderDaftarConversation();
         renderThreadHeader();
@@ -2449,6 +2711,7 @@
 
         muatUlangPesan(true);
         panggilWhatsappDibaca(id);
+        jadwalkanNudgeAmbil(id);
         return false;
     }
 

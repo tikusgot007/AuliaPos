@@ -63,6 +63,10 @@ $routes->post('/inbox/percakapan/(:num)/tandai-dibaca', 'Inbox::tandaiDibaca/$1'
 $routes->post('/inbox/percakapan/(:num)/whatsapp-dibaca', 'Inbox::whatsappDibaca/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/snooze', 'Inbox::snoozePercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/catatan', 'Inbox::catatanInternal/$1', ['filter' => 'auth']);
+// Nudge 2 (Fase 2): log keputusan kasir "[Unduh saja]" pada percakapan
+// belum_diambil. Note internal server-side (teks dibangun server), coalesce
+// 30 menit; tidak menyentuh kepemilikan/last-message.
+$routes->post('/inbox/percakapan/(:num)/nudge-unduh', 'Inbox::catatNudgeUnduh/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/handoff', 'Inbox::handoffPercakapan/$1', ['filter' => 'auth']);
 // Riwayat Handoff (baca, TB-03) -- pasangan GET dari route POST di atas.
 // Gerbang baca cukup `auth` (Q7); TIDAK ada gerbang assignee seperti di

@@ -65,7 +65,7 @@
 
 - [ ] **TODO-Q2** Test gap: belum ada test jalur kirim Gateway (`kirim`, `kirimMedia`, `callGatewaySend*`), `handoffPercakapan()` (290 baris), lifecycle percakapan, `GatewayTokenFilter` — sedang
 
-- [ ] **TODO-Q3** Kontrak cross-repo Gateway baru terverifikasi satu sisi (repo gateway tidak ada di workspace) — sedang
+- [ ] **TODO-Q3** Kontrak cross-repo Gateway: repo gateway **tersedia** di `C:\Projects\evolution-gateway` (branch `evolution`) dan Evolution di `C:\Projects\evolution-api-server` (2 patch lokal: view-once, LID) — verifikasi dua sisi kini memungkinkan. Sisa: belum ada test kontrak formal dua sisi (CI4↔adapter) — sedang
 
 - [ ] **TODO-Q5** God-object & duplikasi render: `Inbox.php` 3721 baris, `Views/inbox/index.php` 3650 baris, daftar percakapan dirender 2× (PHP `index.php:778` vs JS `index.php:1474`) — sedang
 
@@ -74,8 +74,6 @@
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
 
 - [ ] **TODO-F3** Terapkan ulang patch Evolution (`PATCH-ADAPTER (2026-10-01)` di `whatsapp.baileys.service.ts`) setiap kali Evolution di-upgrade; prosedur `C:\\Projects\\evolution-gateway\\docs\\evolution-viewonce-patch.md` — sedang
-
-- [ ] **TODO-F9** Kasir bisa mengerjakan percakapan `belum_diambil` tanpa meninggalkan jejak "sedang dikerjakan" — buka chat lalu **unduh gambar/dokumen** (`Inbox::media()` `Inbox.php:572`; baca terbuka REQ-002, tidak menulis `assigned_to` maupun `last_seen_by_assignee_at`) dan memprosesnya selesai (mis. bikin transaksi) **tanpa membalas**. Auto-assign hanya terjadi saat kirim (`Inbox.php:1646`, `kirimMedia`/`kirimKeConversation`), sedangkan `Ambil` (`Inbox.php:2267`) dan `Tandai Dibaca` (`Inbox.php:2395`) harus ditekan manual — jadi queue tetap `belum_diambil` (`ConversationModel::withComputedStatus()` `ConversationModel.php:234-237`) dan kasir lain tidak tahu percakapan ini sedang/sudah ditangani → risiko dikerjakan dobel. **Perlu keputusan**: perlukah aksi penanda "sedang dikerjakan" otomatis (mis. saat thread dibuka / media diunduh), atau cukup andalkan tombol `Ambil`. — sedang — ref `docs/requirements/2026-10-03-unduh-media-inbox.md`
 
 - [ ] **TODO-F10** Perkuat pencegahan/deteksi kehilangan pesan masuk (khususnya **media**) akibat kegagalan sesi/dekripsi LID — sedang — ref insiden 2026-10-05 pelanggan Mell `6287857570921`.
   - **Insiden**: Mell mengirim PNG `1_20261005_094116_0000.png` (~6 MB, caption `160x60`) ke **nomor resmi toko `6285155105633`** (nomor yang di-link ke gateway), tetapi pesan itu **tidak pernah sampai ke perangkat tertaut (Evolution) → tidak ada di gateway → tidak ada di POS**. Terverifikasi berlapis: tidak ada di Evolution `chat/findMessages` (chat tersimpan di bawah LID `224854976532488@lid`; satu-satunya file yang ada = `IMG_20261005_095239.jpg` caption `200x50`), tidak ada di `incoming_queue` gateway, tidak ada di media store `D:\\evolution-gateway\\data\\media`, tidak ada di `aulia_inboxdb`. Karena file tak pernah diterima, **tidak bisa dipulihkan dari server** (solusi sementara: minta pelanggan kirim ulang).
@@ -110,6 +108,15 @@
 - [ ] **TODO-F11** Medium — Ambil Alih percakapan via tombol: non-admin boleh takeover saat owner off-shift (grace 30 menit via `last_seen_by_assignee_at`) atau bila pengambil = Shift Leader aktif; flag `bisa_diambil` di daftar; guard race `WHERE assigned_to = <owner lama>`. Perluasan izin dibatasi pada titik takeover — `cekOwnership` TIDAK diubah. **Perlu keputusan lanjutan**: (a) apakah takeover perlu dicatat di `conversation_handoffs`/audit trail; (b) apakah grup perlu kebijakan takeover sendiri. Ref `docs/CHANGELOG.md` 2026-10-06; test `tests/feature/InboxAmbilAlihTest.php`. — **SELESAI 2026-10-06** (implementasi inti selesai; dua sub-pertanyaan (a)/(b) masih terbuka)
 
 ## Selesai / Ditutup
+
+- [x] **TODO-F9** Kasir bisa mengerjakan percakapan `belum_diambil` tanpa meninggalkan jejak "sedang dikerjakan" → **ditutup dengan nudge manual** (bukan auto-assign).
+  - **Keputusan**: dorong kasir menekan `Ambil` lewat nudge. TIDAK auto-assign `assigned_to`, tidak tambah status queue, tidak ubah skema, tidak tambah writer ke `assigned_to`/`last_seen_by_assignee_at`.
+  - **Nudge 1 (banner)** — `app/Views/inbox/index.php`: banner non-modal tepat di atas textarea balasan (di luar area scroll), teks "Mau diambil, atau lihat-lihat saja?", tombol [`Ambil`]/[`Lihat saja`]. Muncul 7 dtk setelah buka percakapan `belum_diambil`; boleh muncul lagi setelah pindah conversation dan kembali (state `nudgeAmbilTampilUntukId` di-reset saat `pilihConversation()`). `[Lihat saja]` HANYA menutup banner, tidak mencatat note.
+  - **Nudge 2 (modal unduh)** — `app/Views/inbox/index.php`, `public/assets/js/inbox-thread.js`: konfirmasi sebelum unduh media pada percakapan `belum_diambil`/dipegang orang lain; tombol `[Ambil & Unduh]`/`[Unduh saja]`/`[Batal]` + cabang ambil-alih bila grace lewat; `[Unduh saja]` mencatat note internal `[auto]` (best-effort).
+  - **Backend** — `app/Controllers/Inbox.php` (`Inbox::catatNudgeUnduh()`), `app/Config/Routes.php`: `POST /inbox/percakapan/(:num)/nudge-unduh`; note `[auto]` server-side, coalesce 30 mnt per (conversation, user), tolak 409 `{ok:false, reason:'already_assigned'}` bila percakapan sudah punya pemilik. `catatanInternal()` tidak diubah.
+  - **Verifikasi**: `tests/feature/InboxNudgeUnduhTest.php` (8 test) lulus; JS `tests/js/inbox-thread.test.js` 60/60; suite unit 82 / integration 26 / feature 133 lulus. Uji browser manual (11+ skenario interaksi) oleh user: **PASS (2026-10-09)**.
+  - **Status**: kode & test selesai; **belum commit/deploy**.
+  - Ref prior: `docs/requirements/2026-10-03-unduh-media-inbox.md`.
 
 - [x] **TODO-BL10** High — mutasi kas tak admin-gated; pengeluaran terima tanggal sembarang (termasuk lampau/depan) — `AuthFilter.php:70`; `Routes.php:231-246`; `Cash.php:439,547` — **DEC-1: Opsi B** → bukan admin-gating; dikerjakan = rekam audit + validasi tanggal pengeluaran
   - **DONE — code, migration, and tests verified; production migration deployment pending.**
