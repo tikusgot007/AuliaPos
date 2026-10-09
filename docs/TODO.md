@@ -45,7 +45,7 @@
 
 - [ ] **TODO-Q3e** Instance WhatsApp gateway WAJIB `readreceipts: all` (bila `none`, Evolution tetap balas 201 tetapi blue tick tidak pernah terkirim) — sudah dicatat di `docs/deploy.md` §2 & gateway `petunjuk-penggunaan.md` §4.1; usulkan **otomatiskan** saat setup instance (mis. di `scripts/setup-instance.js`) agar tak bergantung cek manual — rendah — ref temuan 2026-10-07.
 
-- [ ] **TODO-Q3i** Medium — **Prosedur rollback cutover gateway `aulia7` → `aulia3`**: dokumentasikan langkah memulihkan gateway lama bila cutover dibatalkan — (1) aulia3: `schtasks /change /enable` + `/run` untuk `AuliaEvolution`/`AuliaAdapter`/`AuliaStackWatchdog` (+`AuliaMonitor`); (2) CI4 aulia-server2: kembalikan `inbox.gatewayBaseUrl` ke `http://AULIA3:3000`; (3) Apache aulia-server2: kembalikan `ProxyPass "/realtime-ws"` ke `ws://AULIA3:3000/realtime` + restart Apache; (4) aulia7: stop + disable service `AuliaPosGatewayEvolution`/`AuliaPosGatewayAdapter` agar tak dobel; (5) verifikasi port 3000/8080, status task, dan `gateway_status` CI4. — rendah — ref `docs/requirements/2026-10-09-cutover-gateway-aulia7.md`
+- [ ] **TODO-Q3i** Low — **Prosedur rollback cutover gateway `aulia7` → `aulia3`**: dokumentasikan langkah memulihkan gateway lama bila cutover dibatalkan — (1) aulia3: `schtasks /change /enable` + `/run` untuk `AuliaEvolution`/`AuliaAdapter`/`AuliaStackWatchdog` (+`AuliaMonitor`); (2) CI4 aulia-server2: kembalikan `inbox.gatewayBaseUrl` ke `http://AULIA3:3000`; (3) Apache aulia-server2: kembalikan `ProxyPass "/realtime-ws"` ke `ws://AULIA3:3000/realtime` + restart Apache; (4) aulia7: stop + disable service `AuliaPosGatewayEvolution`/`AuliaPosGatewayAdapter` agar tak dobel; (5) verifikasi port 3000/8080, status task, dan `gateway_status` CI4. — rendah — ref `docs/requirements/2026-10-09-cutover-gateway-aulia7.md`
 
 ## Sedang dikerjakan
 
@@ -84,13 +84,12 @@
 - [ ] **TODO-L2** Tutup/terminalize baris `outgoing_operations` berstatus `in_flight` yang basi saat adapter start (saat ini hanya **dicatat**, `outgoingOperationService.js:396`), supaya tidak mengendap & muncul terus di ringkasan startup — perubahan gateway (`src/store/outgoingOperations.js` / `src/delivery/outgoingOperationService.js`) — higiene; perlu persetujuan — ref `docs/sesi/2026-10-06-analisa-log-gateway-aulia3.md`
 - [ ] **TODO-L3** Auditabilitas kiriman keluar yang **gagal**: gateway sengaja hanya simpan `payload_hash` (SEC-001) dan POS hanya menulis baris `messages` setelah kirim sukses (`Inbox.php:1594→1642`), sehingga isi kiriman gagal tak bisa diaudit/dilihat. **Perlu keputusan**: perlukah POS mencatat baris `messages`/status `failed` saat kirim gagal (agar kasir & investigasi punya jejak), atau diterima by-design. — rendah/sedang — ref `docs/sesi/2026-10-06-analisa-log-gateway-aulia3.md`
 
-### Low
+
+## Selesai / Ditutup
 
 - [x] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442` — **DEC-4: Opsi A** → sekuens per hari `INV-YYYYMMDD-NNN` via lock/transaksi — **SELESAI 2026-10-06**
 
-- [ ] **TODO-F11** Medium — Ambil Alih percakapan via tombol: non-admin boleh takeover saat owner off-shift (grace 30 menit via `last_seen_by_assignee_at`) atau bila pengambil = Shift Leader aktif; flag `bisa_diambil` di daftar; guard race `WHERE assigned_to = <owner lama>`. Perluasan izin dibatasi pada titik takeover — `cekOwnership` TIDAK diubah. **Perlu keputusan lanjutan**: (a) apakah takeover perlu dicatat di `conversation_handoffs`/audit trail; (b) apakah grup perlu kebijakan takeover sendiri. Ref `docs/CHANGELOG.md` 2026-10-06; test `tests/feature/InboxAmbilAlihTest.php`. — **SELESAI 2026-10-06** (implementasi inti selesai; dua sub-pertanyaan (a)/(b) masih terbuka)
-
-## Selesai / Ditutup
+- [x] **TODO-F11** Medium — Ambil Alih percakapan via tombol: non-admin boleh takeover saat owner off-shift (grace 30 menit via `last_seen_by_assignee_at`) atau bila pengambil = Shift Leader aktif; flag `bisa_diambil` di daftar; guard race `WHERE assigned_to = <owner lama>`. Perluasan izin dibatasi pada titik takeover — `cekOwnership` TIDAK diubah. **Perlu keputusan lanjutan**: (a) apakah takeover perlu dicatat di `conversation_handoffs`/audit trail; (b) apakah grup perlu kebijakan takeover sendiri. Ref `docs/CHANGELOG.md` 2026-10-06; test `tests/feature/InboxAmbilAlihTest.php`. — **SELESAI 2026-10-06** (implementasi inti selesai; dua sub-pertanyaan (a)/(b) masih terbuka)
 
 - [x] **TODO-O5** Low — **DITUTUP: kedaluwarsa** — prosedur update adapter di `aulia3` (non-git, npm manual, restart via task) tak lagi relevan setelah cutover ke `aulia7` (repo git + Windows Service WinSW). Lihat TODO-Q3h.
 
@@ -127,7 +126,7 @@
   - Ref prior: `docs/requirements/2026-10-03-unduh-media-inbox.md`.
 
 - [x] **TODO-BL10** High — mutasi kas tak admin-gated; pengeluaran terima tanggal sembarang (termasuk lampau/depan) — `AuthFilter.php:70`; `Routes.php:231-246`; `Cash.php:439,547` — **DEC-1: Opsi B** → bukan admin-gating; dikerjakan = rekam audit + validasi tanggal pengeluaran
-  - **DONE — code, migration, and tests verified; production migration deployment pending.**
+  - **DONE — code, migration, and tests verified; deployed to production 2026-10-09 (`git pull` ke `a55d86e` + migrasi `cash_expense_audit` diterapkan).**
   - Keputusan: audit = tabel terpisah `cash_expense_audit` (JSON before/after,
     Opsi B+A); tanggal = tolak masa depan & tolak tanggal yang sudah
     `closing_kas` (Opsi A); kunci closing berlaku untuk update **dan**
@@ -206,7 +205,7 @@
   - Status: Mathematically sound, consistent behavior, intentional design. No fix needed.
 
 - [x] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
-   - **DONE — code fix and regression tests verified; production deployment/data repair pending.**
+   - **DONE — code fix deployed to production 2026-10-09 (`git pull` ke `a55d86e`); data repair (`aulia:repair-total-dibayar --fix`) masih pending.**
    - Commit final: `720d800`
    - Root cause: nested transactions dalam `Api::koreksiPembayaran()` menyebabkan `sinkronkanPembayaran()` membaca interim state (pembayaran lama aktif + pembayaran baru aktif = 2× cache).
    - Fix: removed nested transaction, single atomic boundary via `transBegin()` → UPDATE reversed → INSERT aktif → sync → `transComplete()`.
