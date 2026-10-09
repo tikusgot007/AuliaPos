@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-08 | [Installer gateway: ambil source via Git, ganti ZIP (TODO-Q3g)](2026-10-08-installer-git-based-source.md) | selesai (kode + 9/9 cek lokal lulus; commit `1336aee` aulia-app, `82d1b9b` WA-Gateway; E2E PC/VM bersih belum) |
 | 2026-10-08 | [Audit trail + validasi tanggal Kas Keluar (TODO-BL10) + rencana cutover gateway (TODO-Q3f)](2026-10-08-audit-validasi-kas-keluar-todo-bl10.md) | sebagian (BL10 kode+migrasi lokal selesai, commit `6e9e39a`/`747c0fb` ter-push; migrasi staging/produksi belum) |
 | 2026-10-07 | [WhatsApp read receipt dua arah — implementasi + deploy produksi](2026-10-07-whatsapp-read-receipt-deploy.md) | sebagian (fitur ter-deploy & terverifikasi lokal/API; uji HP produksi belum; auto-start gateway belum andal) |
 | 2026-10-06 | [Analisa log gateway aulia3 (bug balas-gambar + hasil F10)](2026-10-06-analisa-log-gateway-aulia3.md) | selesai (analisa read-only; bug quoted-image sudah diperbaiki `b48c2e5`; F10 bersih) |
