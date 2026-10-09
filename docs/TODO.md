@@ -59,8 +59,6 @@
 
 ### Medium
 
-- [ ] **TODO-S2** Login: belum ada rate-limit/lockout (bagian `session()->regenerate()` selesai 2026-10-03) — `Auth.php:64-107` — sedang
-
 - [ ] **TODO-S3** Route `/migrasi-manual` masih aktif di produksi AULIA-SERVER2 (dipakai deploy F8 2026-10-05); nonaktifkan/hapus 2 baris route setelah tidak diperlukan — `app/Config/Routes.php:100-101`; `app/Controllers/MigrasiManual.php` — sedang
 
 - [ ] **TODO-Q2** Test gap: belum ada test jalur kirim Gateway (`kirim`, `kirimMedia`, `callGatewaySend*`), `handoffPercakapan()` (290 baris), lifecycle percakapan, `GatewayTokenFilter` — sedang
@@ -99,6 +97,11 @@
 - [ ] **TODO-F11** Medium — Ambil Alih percakapan via tombol: non-admin boleh takeover saat owner off-shift (grace 30 menit via `last_seen_by_assignee_at`) atau bila pengambil = Shift Leader aktif; flag `bisa_diambil` di daftar; guard race `WHERE assigned_to = <owner lama>`. Perluasan izin dibatasi pada titik takeover — `cekOwnership` TIDAK diubah. **Perlu keputusan lanjutan**: (a) apakah takeover perlu dicatat di `conversation_handoffs`/audit trail; (b) apakah grup perlu kebijakan takeover sendiri. Ref `docs/CHANGELOG.md` 2026-10-06; test `tests/feature/InboxAmbilAlihTest.php`. — **SELESAI 2026-10-06** (implementasi inti selesai; dua sub-pertanyaan (a)/(b) masih terbuka)
 
 ## Selesai / Ditutup
+
+- [x] **TODO-S2** Login: rate-limit/lockout — **DITUTUP: accepted risk (DEC-S2)**.
+  - Alasan: aplikasi POS hanya diakses dari **LAN internal** (dikonfirmasi user 2026-10-09), tanpa eksposur internet; `prosesLogin()` (`Auth.php:64-117`) dibiarkan tanpa throttling/lockout.
+  - `session()->regenerate()` (fixation) sudah ada (`Auth.php:108`).
+  - Mitigasi murah yang **belum** dikerjakan (opsional, hanya bila suatu saat diekspos ke luar LAN): pesan error generik "Username atau password salah" untuk menutup enumeration (`Auth.php:81,86`) + `Throttler` bawaan CI4 per-IP.
 
 - [x] **TODO-F9** Kasir bisa mengerjakan percakapan `belum_diambil` tanpa meninggalkan jejak "sedang dikerjakan" → **ditutup dengan nudge manual** (bukan auto-assign).
   - **Keputusan**: dorong kasir menekan `Ambil` lewat nudge. TIDAK auto-assign `assigned_to`, tidak tambah status queue, tidak ubah skema, tidak tambah writer ke `assigned_to`/`last_seen_by_assignee_at`.
