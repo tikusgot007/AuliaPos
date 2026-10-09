@@ -6,6 +6,7 @@ use App\Models\ConversationModel;
 use App\Models\ConversationHandoffModel;
 use App\Models\BalasanTemplateModel;
 use App\Models\MessageModel;
+use App\Models\MessageSendAuditModel;
 use App\Models\GatewayStatusModel;
 use App\Models\UserModel;
 use App\Libraries\PhoneNumber;
@@ -1886,7 +1887,7 @@ class Inbox extends BaseController
         );
 
         if (!$result['ok']) {
-            return $this->gatewayFailureResponse($result, $conversationId, 'kirimMedia', 'Gagal mengirim media: ');
+            return $this->gatewayFailureResponse($result, $conversationId, 'kirimMedia', 'Gagal mengirim media: ', $operationId);
         }
 
         // M1 Wave 2 (TASK-017 perluasan / F-03): sama seperti jalur teks,
@@ -3465,7 +3466,7 @@ class Inbox extends BaseController
         );
 
         if (!$result['ok']) {
-            return $this->gatewayFailureResponse($result, $conversationId, $konteks, 'Gagal mengirim pesan: ');
+            return $this->gatewayFailureResponse($result, $conversationId, $konteks, 'Gagal mengirim pesan: ', $operationId);
         }
 
         // --- Sukses: BARU sekarang simpan sebagai outgoing 'sent' ----------
@@ -4164,7 +4165,8 @@ class Inbox extends BaseController
                 $result,
                 (int) $conversation['id'],
                 $konteks,
-                $aksi === 'edit' ? 'Gagal mengedit pesan: ' : 'Gagal menghapus pesan: '
+                $aksi === 'edit' ? 'Gagal mengedit pesan: ' : 'Gagal menghapus pesan: ',
+                $operationId
             );
         }
 
@@ -4581,9 +4583,40 @@ class Inbox extends BaseController
         ];
     }
 
-    private function gatewayFailureResponse(array $result, int $conversationId, string $context, string $prefix)
+    private function gatewayFailureResponse(array $result, int $conversationId, string $context, string $prefix, ?string $operationId = null, ?int $userId = null)
     {
         $errorCode = $result['error_code'] ?? null;
+
+        // L3: catat audit SETIAP kegagalan kirim. insertAudit() menelan error
+        // (hanya log_message) sehingga kegagalan audit TIDAK mengubah respons.
+        // Bentuk respons JSON di bawah tetap identik dengan sebelum perubahan.
+        // operation_id diambil dari parameter, atau dari respons Gateway bila
+        // pemanggil tidak menyuplainya. user_id dari parameter, atau sesi.
+        $operationId = $operationId ?: ($result['operation_id'] ?? null);
+        $userId      = $userId ?? (session()->get('id_user') !== null ? (int) session()->get('id_user') : null);
+
+        if (in_array($errorCode, ['SEND_IN_PROGRESS', 'SEND_UNRESOLVED', 'DELETE_UNRESOLVED', 'EDIT_UNRESOLVED'], true)) {
+            $outcomeKind = 'unresolved';
+        } elseif ($errorCode !== null) {
+            // Termasuk OPERATION_ID_REUSED dan seluruh error_code definitif lain.
+            $outcomeKind = 'definitive';
+        } else {
+            // Tanpa error_code machine-readable (mis. gagal menghubungi Gateway).
+            $outcomeKind = 'network';
+        }
+
+        (new MessageSendAuditModel())->insertAudit([
+            'operation_id'    => $operationId,
+            'conversation_id' => $conversationId ?: null,
+            'direction'       => 'outgoing',
+            'outcome_kind'    => $outcomeKind,
+            'error_code'      => $errorCode,
+            'error_message'   => $result['error'] ?? null,
+            'http_code'       => $result['http_code'] ?? null,
+            'context'         => $context,
+            'user_id'         => $userId,
+            'created_at'      => date('Y-m-d H:i:s'),
+        ]);
 
         if (in_array($errorCode, ['SEND_IN_PROGRESS', 'SEND_UNRESOLVED', 'DELETE_UNRESOLVED', 'EDIT_UNRESOLVED'], true)) {
             log_message('warning', "Inbox::{$context} hasil belum pasti. conversation_id={$conversationId} error_code={$errorCode} state=" . ($result['state'] ?? 'unknown'));
