@@ -127,6 +127,8 @@ $routes->get('/log-kirim-gagal', 'LogKirimGagal::index', ['filter' => 'auth']);
 $routes->get('/log-kirim-gagal/data', 'LogKirimGagal::data', ['filter' => 'auth']);
 $routes->get('/log-audit-kas', 'LogAuditKas::index', ['filter' => 'auth']);
 $routes->get('/log-audit-kas/data', 'LogAuditKas::data', ['filter' => 'auth']);
+$routes->get('/log-closing-kas', 'LogClosingKas::index', ['filter' => 'auth']);
+$routes->get('/log-closing-kas/data', 'LogClosingKas::data', ['filter' => 'auth']);
 
 // ==========================================
 // ROUTE MANAJEMEN USER (HANYA ADMIN) - OTOMATIS KENA AUTH

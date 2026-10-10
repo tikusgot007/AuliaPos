@@ -101,8 +101,7 @@ class ClosingKasModel extends Model
         $existing = $this->getByTanggal($tanggal);
 
         if ($existing) {
-            $this->update($existing['id'], $data);
-            return $existing['id'];
+            return $this->updateDenganAudit($existing, $data, $tanggal, $userId);
         }
 
         $insertError = null;
@@ -127,8 +126,7 @@ class ClosingKasModel extends Model
         $existing = $this->getByTanggal($tanggal);
 
         if ($existing) {
-            $this->update($existing['id'], $data);
-            return $existing['id'];
+            return $this->updateDenganAudit($existing, $data, $tanggal, $userId);
         }
 
         if ($insertError !== null) {
@@ -136,5 +134,48 @@ class ClosingKasModel extends Model
         }
 
         return false;
+    }
+
+    /**
+     * Update an existing closing row and append a revision row
+     * (`closing_kas_audit`) in the SAME transaction (TODO-BL28): either both
+     * the change and its history are stored, or neither is. Mirrors
+     * CashExpenseModel::updatePengeluaran() (TODO-BL10).
+     *
+     * @param array<string,mixed> $existing The row before the change.
+     * @param array<string,mixed> $data     The update payload.
+     */
+    private function updateDenganAudit(array $existing, array $data, string $tanggal, int $userId): int
+    {
+        $id = (int) $existing['id'];
+
+        $db = \Config\Database::connect($this->DBGroup);
+        $db->transStart();
+
+        try {
+            // Validation failure returns false without a DB-level error, so
+            // transStatus() alone would not catch it -- abort before any audit
+            // row is written for a change that never happened.
+            if ($this->update($id, $data) === false) {
+                throw new \Exception('Gagal memperbarui closing kas.');
+            }
+
+            $sesudah = $this->getByTanggal($tanggal) ?? array_merge($existing, $data);
+
+            if (!(new ClosingKasAuditModel())->catatUpdate($id, $existing, $sesudah, $userId)) {
+                throw new \Exception('Gagal mencatat riwayat closing kas.');
+            }
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            throw $e;
+        }
+
+        $db->transComplete();
+
+        if (!$db->transStatus()) {
+            throw new \Exception('Gagal menyimpan closing kas.');
+        }
+
+        return $id;
     }
 }

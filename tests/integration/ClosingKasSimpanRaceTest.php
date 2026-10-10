@@ -34,11 +34,27 @@ final class ClosingKasSimpanRaceTest extends CIUnitTestCase
         $forge->addKey('id', true);
         $forge->addUniqueKey('tanggal');
         $forge->createTable('closing_kas', true);
+
+        // simpanClosing() writes a revision row (TODO-BL28) whenever it edits
+        // an existing closing, so the audit table must exist here too.
+        $forge->addField([
+            'id'           => ['type' => 'INTEGER', 'constraint' => 20, 'auto_increment' => true],
+            'closing_id'   => ['type' => 'INTEGER', 'constraint' => 20],
+            'aksi'         => ['type' => 'VARCHAR', 'constraint' => 10],
+            'data_sebelum' => ['type' => 'TEXT'],
+            'data_sesudah' => ['type' => 'TEXT'],
+            'user_id'      => ['type' => 'INTEGER', 'constraint' => 11],
+            'created_at'   => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $forge->addKey('id', true);
+        $forge->createTable('closing_kas_audit', true);
     }
 
     protected function tearDown(): void
     {
-        \Config\Database::forge()->dropTable('closing_kas', true);
+        $forge = \Config\Database::forge();
+        $forge->dropTable('closing_kas_audit', true);
+        $forge->dropTable('closing_kas', true);
 
         parent::tearDown();
     }

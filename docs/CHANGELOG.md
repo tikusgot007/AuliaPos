@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2026-10-11 — Riwayat revisi closing kas + halaman Log Revisi (TODO-BL28)
+
+- **Masalah**: baris `closing_kas` boleh diubah kapan saja (sesuai desain), tetapi
+  hanya menyimpan `updated_at`/`updated_by` — nilai lama (`saldo_sistem`,
+  `saldo_fisik`, `selisih`) **hilang** saat ditimpa, sehingga revisi tidak bisa
+  diaudit.
+- **Perubahan (aturan "closing boleh diedit" TIDAK diubah)**: setiap edit closing
+  yang sudah tersimpan kini menulis satu baris riwayat append-only ke tabel baru
+  `closing_kas_audit` (snapshot JSON penuh sebelum/sesudah, `user_id`,
+  `created_at`) **dalam transaksi DB yang sama** dengan perubahannya — perubahan
+  tanpa riwayat tidak mungkin terjadi (gagal catat riwayat → rollback). Pembuatan
+  closing pertama tidak dicatat; nilai awalnya terlihat sebagai "Sebelum" pada
+  revisi pertama. Pola identik `cash_expense_audit` (TODO-BL10).
+- **Perubahan skema (additive)**: migrasi
+  `2026-10-11-000001_CreateClosingKasAuditTable.php` membuat `closing_kas_audit`
+  (tanpa FK ke `closing_kas`; index `closing_id`, `user_id`). **Wajib dijalankan di
+  produksi saat deploy** (via `/migrasi-manual`) — tanpa tabel ini edit closing akan
+  gagal. Rollback kode aman; tabel boleh dibiarkan.
+- **Halaman baru (admin-only, read-only)**: `/log-closing-kas` ("Log Revisi Closing
+  Kas", menu Administrasi) — daftar revisi dengan filter rentang tanggal revisi +
+  pagination; guard admin (prefix di `AuthFilter::$adminRoutes` + cek inline).
+- **File**: `ClosingKasAuditModel`, `LogClosingKas`, view `log_closing_kas/index`,
+  `ClosingKasModel::simpanClosing()` (update via `updateDenganAudit()`), route,
+  filter, menu `layout/main.php`.
+- **Verifikasi**: `tests/integration/ClosingKasAuditTest.php` (5 test: tanpa
+  riwayat saat insert, snapshot before/after, riwayat per edit, rollback saat
+  riwayat gagal, JOIN user + filter waktu), `tests/feature/LogClosingKasTest.php`
+  (5 test guard admin + data), `ClosingKasSimpanRaceTest` disesuaikan.
+  Unit **98 OK** (7 incomplete pra-ada), integration **43 OK**, feature
+  (`composer test:feature`) **167 OK** (2 skipped).
+- Ref: `docs/TODO.md` **TODO-BL28**.
+
 ## 2026-10-11 — Tangani race closing kas secara presisi (TODO-BL27)
 
 - **Bug (keandalan kas)**: `Cash::simpanClosing()` memakai `catch (\Exception)`
