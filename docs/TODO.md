@@ -39,8 +39,6 @@
 
 ### Low
 
-- [ ] **TODO-Q3a** Gateway test `test/simulate-evolution-adapter.js` GAGAL di assertion "path webhook/set benar" (`captured[0]` dibaca setelah `setWebhook` tanpa reset `captured`) — **pre-existing** di HEAD gateway `b48c2e5`, bukan dari fitur read-receipt; buat `npm test` hijau — rendah — ref temuan sesi 2026-10-07 `feat/whatsapp-read-receipt`.
-
 - [ ] **TODO-Q3b** DB uji `aulia_inboxdb_test` harus disamakan skemanya setiap ada migrasi Inbox baru (mis. kolom `delivered_at`/`read_at` ditambahkan manual 2026-10-07) karena `php spark migrate` tidak membangun DB uji — lemahkan/otomatiskan alur setup agar feature suite tidak gagal `Unknown column` — rendah — ref `docs/ARCHITECTURE.md` §9.
 
 - [ ] **TODO-Q3e** Instance WhatsApp gateway WAJIB `readreceipts: all` (bila `none`, Evolution tetap balas 201 tetapi blue tick tidak pernah terkirim) — sudah dicatat di `docs/deploy.md` §2 & gateway `petunjuk-penggunaan.md` §4.1; usulkan **otomatiskan** saat setup instance (mis. di `scripts/setup-instance.js`) agar tak bergantung cek manual — rendah — ref temuan 2026-10-07.
@@ -83,6 +81,11 @@
 
 
 ## Selesai / Ditutup
+
+- [x] **TODO-Q3a** Low — Gateway test `test/simulate-evolution-adapter.js` GAGAL di assertion "path webhook/set benar" — **SELESAI 2026-10-10**.
+  - Root cause (bug di test, bukan kode produksi): `captured` tidak di-reset sebelum `realClient.setWebhook()`, sehingga `captured[0]` masih request `sendMedia` → assertion membandingkan URL yang salah; sebelumnya assertion di-**skip** (dikomentari) sehingga test "hijau" palsu. Pre-existing di HEAD gateway `b48c2e5`, bukan dari fitur read-receipt.
+  - Fix: tambah `captured.length = 0;` sebelum `setWebhook()`, buka kembali assertion `path webhook/set benar` (`endsWith('/webhook/set/inst-uji')`), hapus komentar workaround — `test/simulate-evolution-adapter.js:1086-1093` (repo `evolution-gateway`).
+  - Verifikasi: `npm test` gateway (12 file test) lulus semua, exit bersih; assertion kini benar-benar ditegakkan. Murni test-hygiene; tidak menyentuh kode produksi gateway/CI4.
 
 - [x] **TODO-L3** Low/Medium — Auditabilitas kiriman keluar yang **gagal**: gateway sengaja hanya simpan `payload_hash` (SEC-001) dan POS hanya menulis baris `messages` setelah kirim sukses, sehingga isi kiriman gagal tak bisa diaudit/dilihat. **DEC-L3: Opsi B (ringan)** → tambah pratinjau RINGAN (teks penuh / metadata media, BUKAN byte media) ke `message_send_audit` + 2 halaman admin read-only. — **SELESAI 2026-10-10**.
   - Migrasi additive (`2026-10-10-000001_AddPreviewToMessageSendAudit.php`): kolom `preview_text` (VARCHAR 1000), `media_type`, `media_file_name`, `media_size` — semua nullable, tidak mengubah kolom lama. **Sudah dijalankan di DB lokal DAN produksi (`aulia-server2`, 2026-10-10 via `/migrasi-manual`).**
