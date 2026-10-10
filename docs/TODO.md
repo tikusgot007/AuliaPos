@@ -85,7 +85,7 @@
 ## Selesai / Ditutup
 
 - [x] **TODO-L3** Low/Medium — Auditabilitas kiriman keluar yang **gagal**: gateway sengaja hanya simpan `payload_hash` (SEC-001) dan POS hanya menulis baris `messages` setelah kirim sukses, sehingga isi kiriman gagal tak bisa diaudit/dilihat. **DEC-L3: Opsi B (ringan)** → tambah pratinjau RINGAN (teks penuh / metadata media, BUKAN byte media) ke `message_send_audit` + 2 halaman admin read-only. — **SELESAI 2026-10-10**.
-  - Migrasi additive (`2026-10-10-000001_AddPreviewToMessageSendAudit.php`): kolom `preview_text` (VARCHAR 1000), `media_type`, `media_file_name`, `media_size` — semua nullable, tidak mengubah kolom lama. Sudah dijalankan di DB lokal; **belum dijalankan ke produksi**.
+  - Migrasi additive (`2026-10-10-000001_AddPreviewToMessageSendAudit.php`): kolom `preview_text` (VARCHAR 1000), `media_type`, `media_file_name`, `media_size` — semua nullable, tidak mengubah kolom lama. **Sudah dijalankan di DB lokal DAN produksi (`aulia-server2`, 2026-10-10 via `/migrasi-manual`).**
   - `Inbox.php::gatewayFailureResponse()` menerima parameter `$preview` opsional; diteruskan dari 3 titik panggil (kirim teks, kirim media, edit pesan). **Hapus pesan sengaja TIDAK mengisi preview** (yang gagal adalah aksi, bukan konten baru).
   - `MessageSendAuditModel::daftarUntukLog()`/`hitungUntukLog()`: query + JOIN `conversations` (DB `inbox` sama, aman di-JOIN SQL); `user_id` (nama kasir) di-resolve terpisah lewat `UserModel` (DB lain, logical reference saja).
   - `CashExpenseAuditModel::daftarUntukLog()`/`hitungUntukLog()` (temuan tambahan sesi ini — pola sama persis, tabel `cash_expense_audit` dari TODO-BL10 juga write-only tanpa viewer): JOIN langsung ke `users` (satu DB yang sama).
@@ -94,6 +94,7 @@
   - Test baru: 4 test preview (`InboxMessageSendAuditTest` AT8), 6 test `LogKirimGagalTest`, 6 test `LogAuditKasTest` — semua admin-only guard + isi data diverifikasi.
   - Regresi penuh lulus: unit 95, feature 162 (146→162), integration 26.
   - **Tidak ada perubahan di sisi Gateway** — seluruh data preview berasal dari input yang CI4 sudah punya SEBELUM memanggil Gateway, bukan diminta balik dari Gateway.
+  - **Deploy produksi 2026-10-10**: `git pull --ff-only` di `aulia-server2` (`78b6dfd`→`805ffee`) + migrasi via `/migrasi-manual`. Backup pra-deploy: `C:\xampp\backup-db-aulia-server2\aulia_inboxdb_20261010_190504.sql` & `aulia_kasirdb_20261010_190513.sql`. Smoke test produksi lulus: kedua halaman 200, kolom baru terverifikasi di DB, data endpoint menampilkan 3 baris nyata (baris lama tanpa preview = sesuai desain). Rollback: kembalikan kode (kolom tambahan aman dibiarkan).
   - Ref: `docs/sesi/2026-10-10-log-audit-kiriman-gagal-dan-kas-todo-l3.md`.
 
 - [x] **TODO-Q3** Medium — Kontrak cross-repo CI4 ↔ Gateway: repo gateway tersedia di `C:\Projects\evolution-gateway` (branch `evolution`); sisanya "belum ada test kontrak formal dua sisi" — **SELESAI 2026-10-10**.

@@ -1,8 +1,8 @@
 # Checkpoint Sesi
 
 - **Tanggal**: 2026-10-10
-- **Status**: selesai (kode + test + migrasi lokal terverifikasi; belum di-commit, migrasi belum dijalankan ke produksi)
-- **Repo / branch**: AuliaPos `v2.4` (uncommitted)
+- **Status**: selesai (kode + test + migrasi terverifikasi; **ter-commit & ter-push**; **ter-deploy ke produksi `aulia-server2`**)
+- **Repo / branch**: AuliaPos `v2.4` (commit `805ffee`, ter-push ke `origin/v2.4`)
 
 ## Selesai
 
@@ -95,25 +95,34 @@
 Lihat `docs/TODO.md` — TODO-L3 dipindahkan ke "Selesai/Ditutup". Tidak ada
 TODO baru dari pekerjaan ini.
 
+## Deploy produksi (2026-10-10)
+
+- **Kode**: `git pull --ff-only` di `W:\htdocs\aulia` (share `\\aulia-server2\xampp`)
+  — `78b6dfd` → `805ffee` (fast-forward, 3 commit: `ba3801e`, `b88599b`, `805ffee`).
+- **Backup pra-migrasi** (`docs/deploy.md` §3): `C:\xampp\backup-db-aulia-server2\`
+  — `aulia_inboxdb_20261010_190504.sql` (1.4 MB), `aulia_kasirdb_20261010_190513.sql` (7.7 MB).
+- **Migrasi**: dijalankan via `/migrasi-manual` (produksi tanpa CLI); hanya
+  1 migrasi pending (`AddPreviewToMessageSendAudit`), sisanya sudah jalan.
+  Terverifikasi: status jadi "Sudah dijalankan" + 4 kolom baru ada di
+  `aulia_inboxdb.message_send_audit`.
+- **Smoke test produksi**: `/log-kirim-gagal` & `/log-audit-kas` → 200 OK;
+  data endpoint menampilkan 3 baris nyata di Log Kiriman Gagal (baris
+  2026-10-09, `preview_text` NULL = benar untuk baris pra-migrasi); Log Audit Kas kosong.
+
 ## Belum diverifikasi / risiko
 
-- **Migrasi belum dijalankan ke database produksi** — hanya lokal.
-  `php spark migrate` perlu dijalankan di server produksi sebelum fitur
-  preview aktif di sana (kolom additive, aman tanpa downtime, tapi
-  belum dieksekusi).
-- Belum ada verifikasi UI manual di browser (uji otomatis saja).
-- Baris audit lama (sebelum migrasi ini diterapkan ke produksi) akan
-  selamanya tidak punya pratinjau — ini sudah diketahui dan diterima,
-  bukan bug.
-- Perubahan belum di-commit ke git.
+- Baris audit lama (sebelum migrasi diterapkan ke produksi) akan
+  selamanya tidak punya pratinjau (`preview_text`/`media_*` NULL) — ini
+  memang perilaku yang didokumentasikan, bukan bug.
+- Uji UI penuh di browser kasir (klik menu, filter tanggal) belum
+  dilakukan manual oleh manusia — hanya verifikasi HTTP programatik +
+  test otomatis.
 
 ## Titik masuk sesi berikutnya
 
 - **Baca**: `docs/TODO.md` TODO-L3 (entri lengkap); `app/Controllers/
-  LogKirimGagal.php`, `LogAuditKas.php`; migrasi `2026-10-10-000001_
-  AddPreviewToMessageSendAudit.php`.
-- **Jalankan**: `php vendor/bin/phpunit` (3 config) untuk verifikasi
-  ulang; uji manual browser (login admin → menu Administrasi → Log
-  Kiriman Gagal / Log Audit Kas). Setelah disetujui: commit, lalu
-  jalankan migrasi ke database produksi (`php spark migrate`) sebagai
-  langkah deploy terpisah.
+  LogKirimGagal.php`, `LogAuditKas.php`.
+- **Jalankan**: tidak ada aksi wajib — fitur sudah live di produksi
+  (commit `805ffee`, migrasi diterapkan). Opsional: uji UI penuh di
+  browser kasir; lihat item "Sedang dikerjakan" di `docs/TODO.md`
+  untuk pekerjaan berikutnya.
