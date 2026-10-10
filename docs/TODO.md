@@ -53,9 +53,7 @@
 
 - [ ] **TODO-S3** Route `/migrasi-manual` masih aktif di produksi AULIA-SERVER2 (dipakai deploy F8 2026-10-05); nonaktifkan/hapus 2 baris route setelah tidak diperlukan — `app/Config/Routes.php:100-101`; `app/Controllers/MigrasiManual.php` — sedang
 
-- [ ] **TODO-Q2** Test gap: belum ada test jalur kirim Gateway (`kirim`, `kirimMedia`, `callGatewaySend*`), `handoffPercakapan()` (290 baris), lifecycle percakapan, `GatewayTokenFilter` — sedang
-
-- [ ] **TODO-Q3** Kontrak cross-repo Gateway: repo gateway **tersedia** di `C:\Projects\evolution-gateway` (branch `evolution`) dan Evolution di `C:\Projects\evolution-api-server` (2 patch lokal: view-once, LID) — verifikasi dua sisi kini memungkinkan. Sisa: belum ada test kontrak formal dua sisi (CI4↔adapter) — sedang
+- [ ] **TODO-Q2** Test gap: belum ada test end-to-end jalur `kirim`/`kirimMedia` yang menembus sampai respons HTTP gateway asli (test existing pakai fake subclass, lihat TODO-Q3), `handoffPercakapan()` (290 baris), lifecycle percakapan — sedang. **`GatewayTokenFilter` sudah tertutup** (lihat TODO-Q3, `tests/feature/GatewayTokenFilterTest.php`, 2026-10-10).
 
 - [ ] **TODO-Q5** God-object & duplikasi render: `Inbox.php` 3721 baris, `Views/inbox/index.php` 3650 baris, daftar percakapan dirender 2× (PHP `index.php:778` vs JS `index.php:1474`) — sedang
 
@@ -86,6 +84,15 @@
 
 
 ## Selesai / Ditutup
+
+- [x] **TODO-Q3** Medium — Kontrak cross-repo CI4 ↔ Gateway: repo gateway tersedia di `C:\Projects\evolution-gateway` (branch `evolution`); sisanya "belum ada test kontrak formal dua sisi" — **SELESAI 2026-10-10**.
+  - Refactor extract-method behavior-preserving di `app/Controllers/Inbox.php`: payload builder (`buildSendPayload()`, `buildSendMediaPayload()`, `buildDeletePayload()`, `buildEditPayload()`, `buildMarkReadPayload()`) dipisah dari eksekusi cURL, supaya bentuk JSON bisa diverifikasi tanpa HTTP nyata.
+  - Test baru CI4: `tests/unit/InboxGatewayPayloadContractTest.php` (13 test) — bentuk payload `/send`, `/send-media`, `/delete`, `/edit`, `/read`.
+  - Test baru Gateway: `C:\Projects\evolution-gateway\test\test-contract-ci4.js` (ditambahkan ke `npm test`) — fixture identik dikirim ke `ci4Routes.js` nyata (arah CI4→Gateway) + verifikasi body `deliverOne()`/`deliverLifecycle()`/`deliverStatus()` (arah Gateway→CI4).
+  - Gap kecil tambahan: `tests/feature/GatewayTokenFilterTest.php` (5 test, auth Bearer token diuji langsung).
+  - Regresi penuh lulus: unit 95, feature 146, integration 26 (aulia); `npm test` gateway (30+ test existing + kontrak baru) semua lulus.
+  - Di luar scope (gap terdokumentasi, bukan tertutup): `/media/download` (respons binary); test end-to-end HTTP nyata lintas proses (kedua sisi masih pakai mock/stub di test masing-masing).
+  - Ref: `docs/sesi/2026-10-10-kontrak-dua-sisi-ci4-gateway-todo-q3.md`.
 
 - [x] **TODO-BL33** Low — penomoran invoice `random_int(1,999)` per hari; tanpa idempotency key — `Api.php:420-442` — **DEC-4: Opsi A** → sekuens per hari `INV-YYYYMMDD-NNN` via lock/transaksi — **SELESAI 2026-10-06**
 

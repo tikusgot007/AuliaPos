@@ -4216,6 +4216,21 @@ class Inbox extends BaseController
      */
     protected function callGatewayDelete(InboxConfig $config, string $chatId, string $waMessageId, ?string $operationId): array
     {
+        return $this->callGatewayPesanKeluar(
+            $config->gatewayBaseUrl . '/delete',
+            $this->buildDeletePayload($chatId, $waMessageId, $operationId)
+        );
+    }
+
+    /**
+     * Bentuk payload JSON POST /delete persis seperti yang dikirim ke
+     * Gateway. Diekstrak (TODO-Q3) supaya bentuk payload bisa diverifikasi
+     * lewat unit test tanpa HTTP nyata; perilaku identik dengan sebelumnya.
+     *
+     * @return array<string, mixed>
+     */
+    protected function buildDeletePayload(string $chatId, string $waMessageId, ?string $operationId): array
+    {
         $payloadData = [
             'chat_id'       => $chatId,
             'wa_message_id' => $waMessageId,
@@ -4224,7 +4239,7 @@ class Inbox extends BaseController
             $payloadData['operation_id'] = $operationId;
         }
 
-        return $this->callGatewayPesanKeluar($config->gatewayBaseUrl . '/delete', $payloadData);
+        return $payloadData;
     }
 
     /**
@@ -4234,12 +4249,28 @@ class Inbox extends BaseController
      */
     protected function callGatewayEdit(InboxConfig $config, string $chatId, string $waMessageId, string $newText, ?string $operationId): array
     {
-        return $this->callGatewayPesanKeluar($config->gatewayBaseUrl . '/edit', [
+        return $this->callGatewayPesanKeluar(
+            $config->gatewayBaseUrl . '/edit',
+            $this->buildEditPayload($chatId, $waMessageId, $newText, $operationId)
+        );
+    }
+
+    /**
+     * Bentuk payload JSON POST /edit persis seperti yang dikirim ke
+     * Gateway. Diekstrak (TODO-Q3), perilaku identik dengan sebelumnya
+     * (`operation_id` selalu ikut, termasuk saat null -- adapter mewajibkan
+     * field ini untuk /edit, lihat ci4Routes.js:592-599).
+     *
+     * @return array<string, mixed>
+     */
+    protected function buildEditPayload(string $chatId, string $waMessageId, string $newText, ?string $operationId): array
+    {
+        return [
             'chat_id'       => $chatId,
             'wa_message_id' => $waMessageId,
             'new_text'      => $newText,
             'operation_id'  => $operationId,
-        ]);
+        ];
     }
 
     /**
@@ -4301,20 +4332,16 @@ class Inbox extends BaseController
     }
 
     /**
-     * Panggil POST /send milik Gateway lewat cURL langsung -- tidak
-     * bergantung ke library HTTP client tambahan (Guzzle dkk) yang
-     * belum tentu ter-install di project ini.
+     * Bentuk payload JSON POST /send persis seperti yang dikirim ke Gateway.
+     * Diekstrak dari `callGatewaySend()` (TODO-Q3) supaya kontrak bentuk
+     * payload (key wajib vs opsional) bisa diverifikasi lewat unit test
+     * tanpa HTTP nyata -- perilaku identik dengan sebelumnya, tidak ada
+     * perubahan apa pun pada bentuk hasil.
      *
-     * PRN-303: menerima satu `InboxOutgoingRequest` (bukan daftar parameter
-     * flag). `quoted`/`forward` sudah dijamin saling-menolak oleh konstruktor
-     * value object itu (CON-001).
-     *
-     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, quote_applied?: bool, forward_marker_applied?: ?string, error?: string}
+     * @return array<string, mixed>
      */
-    protected function callGatewaySend(InboxConfig $config, InboxOutgoingRequest $request): array
+    protected function buildSendPayload(InboxOutgoingRequest $request): array
     {
-        $url = $config->gatewayBaseUrl . '/send';
-
         $payloadData = [
             'chat_id' => $request->chatId,
             'text'    => $request->text,
@@ -4340,7 +4367,26 @@ class Inbox extends BaseController
             $payloadData['forward'] = true;
         }
 
-        $payload = json_encode($payloadData);
+        return $payloadData;
+    }
+
+    /**
+     * Panggil POST /send milik Gateway lewat cURL langsung -- tidak
+     * bergantung ke library HTTP client tambahan (Guzzle dkk) yang
+     * belum tentu ter-install di project ini.
+     *
+     * PRN-303: menerima satu `InboxOutgoingRequest` (bukan daftar parameter
+     * flag). `quoted`/`forward` sudah dijamin saling-menolak oleh konstruktor
+     * value object itu (CON-001).
+     *
+     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, quote_applied?: bool, forward_marker_applied?: ?string, error?: string}
+     */
+    protected function callGatewaySend(InboxConfig $config, InboxOutgoingRequest $request): array
+    {
+        $url = $config->gatewayBaseUrl . '/send';
+
+        $payloadData = $this->buildSendPayload($request);
+        $payload     = json_encode($payloadData);
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -4411,14 +4457,23 @@ class Inbox extends BaseController
      * @param array<int, string> $waMessageIds
      * @return array{ok: bool, requested?: int, error?: ?string}
      */
+    protected function buildMarkReadPayload(string $chatId, array $waMessageIds): array
+    {
+        return [
+            'chat_id'        => $chatId,
+            'wa_message_ids' => array_values($waMessageIds),
+        ];
+    }
+
+    /**
+     * @param array<int, string> $waMessageIds
+     * @return array{ok: bool, requested?: int, error?: ?string}
+     */
     protected function callGatewayMarkRead(InboxConfig $config, string $chatId, array $waMessageIds): array
     {
         $url = $config->gatewayBaseUrl . '/read';
 
-        $payload = json_encode([
-            'chat_id'        => $chatId,
-            'wa_message_ids' => array_values($waMessageIds),
-        ]);
+        $payload = json_encode($this->buildMarkReadPayload($chatId, $waMessageIds));
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -4470,10 +4525,8 @@ class Inbox extends BaseController
      *
      * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, media_ref?: ?array, quote_applied?: bool, forward_marker_applied?: ?string, error?: string}
      */
-    protected function callGatewaySendMedia(InboxConfig $config, InboxOutgoingRequest $request): array
+    protected function buildSendMediaPayload(InboxOutgoingRequest $request): array
     {
-        $url = $config->gatewayBaseUrl . '/send-media';
-
         $payloadData = [
             'chat_id'      => $request->chatId,
             'media_type'   => $request->mediaType,
@@ -4510,7 +4563,29 @@ class Inbox extends BaseController
             $payloadData['forward'] = true;
         }
 
-        $payload = json_encode($payloadData);
+        return $payloadData;
+    }
+
+    /**
+     * Panggil POST /send-media milik Gateway -- versi media dari
+     * callGatewaySend(). Timeout lebih lama (30 detik, sama seperti
+     * callGatewayMediaDownload()) karena upload base64 + kirim ke
+     * Baileys butuh waktu lebih dibanding teks biasa.
+     *
+     * PRN-303: menerima satu `InboxOutgoingRequest` (bukan 10 parameter).
+     * Objek kutipan media IDENTIK bentuknya dengan jalur teks -- termasuk
+     * `fromMe` yang hanya diturunkan dari `direction`, dan `sender_jid` yang
+     * boleh null untuk sumber outgoing. `quoted`/`forward` sudah dijamin
+     * saling-menolak oleh konstruktor value object itu (CON-001).
+     *
+     * @return array{ok: bool, wa_message_id?: ?string, timestamp?: ?string, media_ref?: ?array, quote_applied?: bool, forward_marker_applied?: ?string, error?: string}
+     */
+    protected function callGatewaySendMedia(InboxConfig $config, InboxOutgoingRequest $request): array
+    {
+        $url = $config->gatewayBaseUrl . '/send-media';
+
+        $payloadData = $this->buildSendMediaPayload($request);
+        $payload     = json_encode($payloadData);
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
