@@ -35,10 +35,13 @@
                                 <a href="<?= base_url('/balasan-template/edit/' . $t['id']) ?>" class="btn btn-sm btn-warning">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="<?= base_url('/balasan-template/hapus/' . $t['id']) ?>" class="btn btn-sm btn-danger"
+                                <form action="<?= base_url('/balasan-template/hapus/' . $t['id']) ?>" method="post" class="d-inline"
                                     data-confirm-message="Yakin ingin menghapus template balasan ini?" data-confirm-ok-text="Ya, Hapus">
-                                    <i class="fas fa-trash"></i>
-                                </a>
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>

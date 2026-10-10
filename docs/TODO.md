@@ -17,8 +17,6 @@
 
 
 
-- [ ] **TODO-BL22** Medium — CSRF global mati; perubahan state lewat GET (`/transaksi/batal`) — `Filters.php:64-74`; `Routes.php:187`
-
 - [ ] **TODO-BL24** Medium — `parse_no_order()` memetakan dua format tampilan berbeda ke nomor internal sama — `order_helper.php:203-219`
 
 - [ ] **TODO-BL25** Medium — `grand_total=0` pada `piutang`/`draft` → status `belum_bayar` selamanya (invoice Rp 0 tak bisa lunas) — `Api.php:285-290`; `KalkulasiStatusPembayaran.php:39-43`; `Tagihan.php:252-259`
@@ -69,6 +67,12 @@
 
 
 ## Selesai / Ditutup
+
+- [x] **TODO-BL22b** Medium — CSRF global untuk seluruh POST/AJAX — **DITUTUP 2026-10-11, TIDAK DIKERJAKAN (keputusan user: effort dan risiko terlalu besar)**.
+  - Keputusan: filter `csrf` global **sengaja dibiarkan mati** (`Filters.php:64-74`). Bagian yang berbahaya dan murah sudah ditutup lewat TODO-BL22 (5 aksi hapus/batal dari GET menjadi POST).
+  - Alasan effort/risiko: menyalakan CSRF global memutus aplikasi bila ada satu pemanggil yang terlewat. Ada **71 route POST/PUT/DELETE** dan **33 file view** dengan `fetch`/`$.ajax`/form POST; baru 23 tempat memakai `csrf_field()` dan `layout/main.php` belum menyiapkan token untuk AJAX. Test otomatis tidak menjalankan JavaScript, sehingga verifikasi hanya bisa lewat uji manual di browser untuk kasir, laporan, cash, dan inbox.
+  - Risiko yang diterima: form POST lintas situs tidak diblok oleh token. Mitigasi yang sudah ada: cookie sesi `SameSite=Lax` (`Cookie.php:90`, browser modern tidak mengirim cookie pada POST lintas situs) dan aplikasi hanya diakses di LAN (DEC-S2). Catatan: perlindungan `Lax` bergantung pada browser kasir; browser yang sangat lama belum diperiksa.
+  - Bila suatu hari dibuka lagi (mis. SameSite diubah ke `None`, aplikasi diekspos ke luar LAN, atau ada insiden): (1) satu wrapper di layout yang menambah header `X-CSRF-TOKEN` ke semua `fetch`/`$.ajax`; (2) `csrf_field()` di semua form POST; (3) aktifkan bertahap per prefix route, bukan sekaligus; (4) kecualikan `api/inbox/gateway/*` (machine-to-machine, sudah Bearer token); (5) putuskan `regenerate = true` di `Security.php:74` karena token berganti tiap submit dan AJAX paralel bisa gagal; (6) uji manual per modul.
 
 - [x] **TODO-Q3a** Low — Gateway test `test/simulate-evolution-adapter.js` GAGAL di assertion "path webhook/set benar" — **SELESAI 2026-10-10**.
   - Root cause (bug di test, bukan kode produksi): `captured` tidak di-reset sebelum `realClient.setWebhook()`, sehingga `captured[0]` masih request `sendMedia` → assertion membandingkan URL yang salah; sebelumnya assertion di-**skip** (dikomentari) sehingga test "hijau" palsu. Pre-existing di HEAD gateway `b48c2e5`, bukan dari fitur read-receipt.

@@ -139,7 +139,7 @@ $routes->get('/auth/tambah-user', 'Auth::tambahUser', ['filter' => 'auth']);
 $routes->post('/auth/simpan-user', 'Auth::simpanUser', ['filter' => 'auth']);
 $routes->get('/auth/edit-user/(:num)', 'Auth::editUser/$1', ['filter' => 'auth']);
 $routes->post('/auth/update-user/(:num)', 'Auth::updateUser/$1', ['filter' => 'auth']);
-$routes->get('/auth/hapus-user/(:num)', 'Auth::hapusUser/$1', ['filter' => 'auth']);
+$routes->post('/auth/hapus-user/(:num)', 'Auth::hapusUser/$1', ['filter' => 'auth']);
 
 // ==========================================
 // ROUTE UNTUK APLIKASI KASIR AULIA - OTOMATIS KENA AUTH
@@ -167,7 +167,7 @@ $routes->get('/kategori/tambah', 'Kategori::tambah', ['filter' => 'auth']);
 $routes->post('/kategori/simpan', 'Kategori::simpan', ['filter' => 'auth']);
 $routes->get('/kategori/edit/(:num)', 'Kategori::edit/$1', ['filter' => 'auth']);
 $routes->post('/kategori/update/(:num)', 'Kategori::update/$1', ['filter' => 'auth']);
-$routes->get('/kategori/hapus/(:num)', 'Kategori::hapus/$1', ['filter' => 'auth']);
+$routes->post('/kategori/hapus/(:num)', 'Kategori::hapus/$1', ['filter' => 'auth']);
 
 // Route Template Balasan Cepat (CRUD, admin-only -- lihat AuthFilter.php
 // $adminRoutes; TODO-R1)
@@ -176,7 +176,7 @@ $routes->get('/balasan-template/tambah', 'BalasanTemplate::tambah', ['filter' =>
 $routes->post('/balasan-template/simpan', 'BalasanTemplate::simpan', ['filter' => 'auth']);
 $routes->get('/balasan-template/edit/(:num)', 'BalasanTemplate::edit/$1', ['filter' => 'auth']);
 $routes->post('/balasan-template/update/(:num)', 'BalasanTemplate::update/$1', ['filter' => 'auth']);
-$routes->get('/balasan-template/hapus/(:num)', 'BalasanTemplate::hapus/$1', ['filter' => 'auth']);
+$routes->post('/balasan-template/hapus/(:num)', 'BalasanTemplate::hapus/$1', ['filter' => 'auth']);
 
 // Gambar template: prefix TERPISAH ('foto-template', bukan 'balasan-template'),
 // pola sama dengan /foto-profil/ di atas -- sengaja TIDAK match prefix
@@ -201,13 +201,13 @@ $routes->get('/pelanggan/tambah', 'Pelanggan::tambah', ['filter' => 'auth']);
 $routes->post('/pelanggan/simpan', 'Pelanggan::simpan', ['filter' => 'auth']);
 $routes->get('/pelanggan/edit/(:num)', 'Pelanggan::edit/$1', ['filter' => 'auth']);
 $routes->post('/pelanggan/update/(:num)', 'Pelanggan::update/$1', ['filter' => 'auth']);
-$routes->get('/pelanggan/hapus/(:num)', 'Pelanggan::hapus/$1', ['filter' => 'auth']);
+$routes->post('/pelanggan/hapus/(:num)', 'Pelanggan::hapus/$1', ['filter' => 'auth']);
 
 // Route Transaksi (Riwayat)
 $routes->get('/transaksi', 'Transaksi::index', ['filter' => 'auth']);
 $routes->get('/transaksi/data', 'Transaksi::data', ['filter' => 'auth']);
 $routes->get('/transaksi/detail/(:num)', 'Transaksi::detail/$1', ['filter' => 'auth']);
-$routes->get('/transaksi/batal/(:num)', 'Transaksi::batal/$1', ['filter' => 'auth']);
+$routes->post('/transaksi/batal/(:num)', 'Transaksi::batal/$1', ['filter' => 'auth']);
 $routes->get('/transaksi/hari-ini', 'Transaksi::hariIni', ['filter' => 'auth']);
 
 // Route Edit Transaksi

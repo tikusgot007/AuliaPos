@@ -58,10 +58,13 @@
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <?php if ($u['id'] != session()->get('id_user')): ?>
-                                        <a href="<?= base_url('/auth/hapus-user/' . $u['id']) ?>" class="btn btn-sm btn-danger"
+                                        <form action="<?= base_url('/auth/hapus-user/' . $u['id']) ?>" method="post" class="d-inline"
                                             data-confirm-message="Yakin ingin menghapus user ini?" data-confirm-ok-text="Ya, Hapus">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                                            <?= csrf_field() ?>
+                                            <button type="submit" class="btn btn-sm btn-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
                                 </td>
                             </tr>

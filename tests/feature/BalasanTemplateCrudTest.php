@@ -121,7 +121,7 @@ final class BalasanTemplateCrudTest extends CIUnitTestCase
         $updated = $this->inbox->table('balasan_template')->where('id', $row['id'])->get()->getRowArray();
         $this->assertSame('Kami buka 08:00-21:00 setiap hari.', $updated['teks']);
 
-        $delete = $this->asAdmin()->get('/balasan-template/hapus/' . $row['id']);
+        $delete = $this->asAdmin()->post('/balasan-template/hapus/' . $row['id']);
         $delete->assertRedirectTo('/balasan-template');
 
         $gone = $this->inbox->table('balasan_template')->where('id', $row['id'])->get()->getRowArray();

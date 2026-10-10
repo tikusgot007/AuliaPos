@@ -48,10 +48,13 @@
                                 <a href="<?= base_url('/kategori/edit/' . $k['id']) ?>" class="btn btn-sm btn-warning">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="<?= base_url('/kategori/hapus/' . $k['id']) ?>" class="btn btn-sm btn-danger"
+                                <form action="<?= base_url('/kategori/hapus/' . $k['id']) ?>" method="post" class="d-inline"
                                     data-confirm-message="Yakin ingin menghapus kategori ini?" data-confirm-ok-text="Ya, Hapus">
-                                    <i class="fas fa-trash"></i>
-                                </a>
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>

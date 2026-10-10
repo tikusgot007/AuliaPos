@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2026-10-11 — Aksi hapus/batal tidak lagi bisa dipicu lewat link GET (TODO-BL22, sebagian)
+
+- **Masalah**: lima route yang mengubah/menghapus data terdaftar sebagai `GET`, jadi
+  satu klik link atau `<img src>` dari halaman lain (selama kasir/admin sedang login)
+  sudah cukup memicunya: `/auth/hapus-user/(:num)`, `/kategori/hapus/(:num)`,
+  `/pelanggan/hapus/(:num)`, `/balasan-template/hapus/(:num)`, `/transaksi/batal/(:num)`.
+  `Transaksi::batal()` tidak memeriksa peran di controller (aturan peran ada di
+  `TransaksiModel::ubahStatus()`), sehingga rentan dipicu dengan hak akses korban.
+- **Perbaikan**: kelima route diubah menjadi `POST` (URL sama). Tombol hapus di
+  `auth/user_management`, `kategori/index`, `pelanggan/index`, dan
+  `balasan_template/index` diganti dari `<a href>` menjadi
+  `<form method="post" data-confirm-message=...>` berisi `csrf_field()` — memakai
+  mekanisme dialog "Yakin ingin menghapus?" yang sudah ada (pola sama dengan
+  `produk/index.php`), jadi tampilan dan konfirmasi tidak berubah bagi pengguna.
+- **Tidak berubah / sengaja ditunda**: `GET /logout` tetap GET (dampak kecil, banyak
+  titik sentuh); filter `csrf` **global tetap mati** — **TODO-BL22b ditutup tanpa
+  dikerjakan atas keputusan user** (effort dan risiko terlalu besar: menyalakannya
+  akan memutus 71 route POST dan 33 view). Risiko yang diterima: form POST lintas
+  situs tidak diblok token; mitigasi: cookie sesi `SameSite=Lax` dan akses hanya di
+  LAN. `Transaksi::batal` tidak punya tombol di UI; hanya dijadikan POST, route
+  tidak dihapus. Tidak ada perubahan skema atau aturan bisnis.
+- **Dampak operasional**: link hapus lama yang tersimpan (bookmark/riwayat browser)
+  kini menghasilkan 404. Disarankan klik satu tombol hapus di browser setelah deploy
+  untuk memastikan dialog konfirmasi dan penghapusan berjalan.
+- **Verifikasi**: `tests/feature/HapusHanyaPostTest.php` (12: tiap route GET →
+  route tidak ditemukan, POST sampai ke controller, kasir/non-login ditolak);
+  `BalasanTemplateCrudTest` disesuaikan ke POST dan tetap lulus. Unit **98 OK**
+  (7 incomplete pra-ada), integration **48 OK**, feature **183 OK** (2 skipped).
+  Klik tombol di browser **belum** diverifikasi (test tidak menjalankan JavaScript).
+- Ref: `docs/TODO.md` **TODO-BL22** (bagian GET→POST) dan **TODO-BL22b** (ditutup
+  tanpa dikerjakan; alasan dan syarat membuka ulang ada di bagian Selesai / Ditutup).
+
 ## 2026-10-11 — Perketat "Terapkan master jadwal": lewati non-aktif, atomik, batas 12 minggu (TODO-BL21)
 
 - **Masalah** (`MasterJadwalModel::applyMaster()` / `Jadwal::masterApply()`):
