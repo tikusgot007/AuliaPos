@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-10-11 — Cegah silent data loss saat edit transaksi (TODO-BL26)
+
+- **Bug (data-integrity transaksi)**: `Transaksi::updateTransaksi()` mengabaikan
+  hasil `update()` header, `delete()` detail lama, dan setiap `insert()` detail
+  baru di dalam transaksi DB. Bila query gagal — khususnya dengan `DBDebug=false`
+  (kondisi produksi) kegagalan mengembalikan `false` tanpa exception — edit
+  **dianggap sukses lalu di-commit**, sehingga header berubah tetapi baris detail
+  hilang **tanpa pesan error**.
+- **Perbaikan**: hasil `update()` header, `delete()` detail lama, dan tiap
+  `insert()` detail baru kini **diperiksa**; kegagalan melempar exception sehingga
+  `catch` yang ada menjalankan `transRollback()` + melepas `GET_LOCK` (tidak ada
+  perubahan tersimpan sebagian). Blok hapus+insert detail dipindah ke method
+  privat `simpanDetailEdit()` agar teruji; pesan error DB dibungkus
+  `pesanErrorDb()` supaya pembuatan pesan tidak pernah gagal sendiri. Pola
+  cek-hasil disamakan dengan jalur buat `TransaksiModel::simpanTransaksi()`.
+- **Bukan perubahan aturan bisnis/kontrak**: bentuk request/response, kalkulasi
+  diskon/grand total, dan aturan kelebihan bayar tidak berubah. Tidak ada
+  perubahan skema.
+- **Verifikasi**: `tests/unit/TransaksiDetailEditGuardTest.php` (3 test) memakai
+  model double yang memaksa `delete()`/`insert()` mengembalikan `false` → pastikan
+  exception dilempar (test gagal bila guard dihapus). Unit **98 OK** (7 incomplete
+  pra-ada), integration **33 OK**. Feature suite tidak dijalankan di lingkungan ini
+  (butuh MySQL `aulia_inboxdb_test`).
+- Ref: `docs/TODO.md` **TODO-BL26**.
+
 ## 2026-10-11 — Perbaiki double-count laporan saat transaksi ter-archive tetapi gagal dihapus dari MySQL (TODO-BL20)
 
 - **Bug (data-integrity pelaporan)**: `TransaksiArchiveService::jalankan()`

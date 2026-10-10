@@ -1572,7 +1572,12 @@ class Transaksi extends BaseController
             // setelah grand_total baru ini tersimpan.
             // --------------------------------------
 
-            $transaksiModel->update($id, [
+            // Hasil update()/delete()/insert() di bawah WAJIB diperiksa:
+            // saat DBDebug=false (produksi) kegagalan query mengembalikan
+            // false tanpa exception. Mengabaikannya membuat edit "sukses"
+            // padahal header tak berubah / detail hilang (silent data loss,
+            // TODO-BL26). Melempar di sini memicu transRollback() di catch.
+            if ($transaksiModel->update($id, [
                 'no_order'                 => $noOrder,
                 'pelanggan_id'             => $finalPelangganId,
                 'subtotal'                 => $subtotal,
@@ -1581,24 +1586,11 @@ class Transaksi extends BaseController
                 'pajak'                    => 0,
                 'grand_total'              => $grandTotal,
                 'selisih_pembulatan'       => $selisihPembulatan,
-            ]);
-
-            // --------------------------------------
-            // Hapus detail lama
-            // --------------------------------------
-
-            $detailModel
-                ->where('transaksi_id', $id)
-                ->delete();
-
-            // --------------------------------------
-            // Simpan detail baru
-            // --------------------------------------
-
-            foreach ($detailItems as $item) {
-                $item['transaksi_id'] = (int) $id;
-                $detailModel->insert($item);
+            ]) === false) {
+                throw new \Exception('Gagal memperbarui header transaksi.');
             }
+
+            $this->simpanDetailEdit($detailModel, (int) $id, $detailItems);
 
             // --------------------------------------
             // 11. SINKRONKAN total_dibayar & status_pembayaran
@@ -1695,7 +1687,64 @@ class Transaksi extends BaseController
     }
 
     /**
-     * Terapkan aturan no_order pada edit sama seperti jalur buat baru:
+     * Ganti seluruh baris detail sebuah transaksi (hapus lama → simpan
+     * baru) dan PASTIKAN setiap operasi berhasil.
+     *
+     * Dipakai oleh updateTransaksi() di dalam transaksi DB: kegagalan
+     * apa pun dilempar supaya transaksi di-rollback, bukan tersimpan
+     * sebagian (header berubah tetapi detail hilang). Pola cek hasilnya
+     * sama dengan jalur buat di TransaksiModel::simpanTransaksi()
+     * (TODO-BL26).
+     *
+     * @param array<int, array<string, mixed>> $detailItems
+     */
+    private function simpanDetailEdit(
+        \App\Models\DetailTransaksiModel $detailModel,
+        int $id,
+        array $detailItems
+    ): void {
+        if ($detailModel->where('transaksi_id', $id)->delete() === false) {
+            throw new \Exception(
+                'Gagal menghapus detail transaksi lama. DB Error: '
+                    . $this->pesanErrorDb($detailModel->db)
+            );
+        }
+
+        foreach ($detailItems as $item) {
+            $item['transaksi_id'] = $id;
+
+            if ($detailModel->insert($item) === false) {
+                throw new \Exception(
+                    'Gagal menyimpan detail transaksi. DB Error: '
+                        . $this->pesanErrorDb($detailModel->db)
+                );
+            }
+        }
+    }
+
+    /**
+     * Pesan error DB terakhir, dibungkus aman: pembuatan pesan TIDAK
+     * boleh gagal hanya karena koneksi belum terbuka (mis. driver yang
+     * membaca handler di error() seperti SQLite3, atau saat diuji dengan
+     * model double).
+     */
+    private function pesanErrorDb(\CodeIgniter\Database\BaseConnection $db): string
+    {
+        try {
+            $err = $db->error();
+
+            if (is_array($err) && !empty($err['message'])) {
+                return (string) $err['message'];
+            }
+        } catch (\Throwable $e) {
+            // jatuh ke pesan default di bawah
+        }
+
+        return 'Unknown database error';
+    }
+
+    /**
+     * Terapkan aturan no_order pada edit sama seperti jalur buat:
      * - Studio/Foto (kategori 16 / is_cetak) -> no_order wajib.
      * - Non-Studio/Foto -> no_order harus kosong.
      *

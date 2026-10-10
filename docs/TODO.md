@@ -25,8 +25,6 @@
 
 - [ ] **TODO-BL25** Medium — `grand_total=0` pada `piutang`/`draft` → status `belum_bayar` selamanya (invoice Rp 0 tak bisa lunas) — `Api.php:285-290`; `KalkulasiStatusPembayaran.php:39-43`; `Tagihan.php:252-259`
 
-- [ ] **TODO-BL26** Medium — edit path abaikan hasil `insert()` baris detail → silent data loss — `Transaksi.php:1459-1470`
-
 - [ ] **TODO-BL27** Medium — race handler closing menangkap semua exception & retry buta; `$saved` null bisa fatal — `Cash.php:381-394`
 
 - [ ] **TODO-BL28** Medium — baris closing bisa diubah kapan saja tanpa riwayat revisi — `ClosingKasModel.php:86-109`
