@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## 2026-10-10 — Halaman Log Kiriman Gagal + Log Audit Kas (TODO-L3)
+
+- **Fitur baru (admin-only, read-only)**: dua halaman untuk membaca tabel audit
+  yang sebelumnya hanya ditulis tanpa cara melihatnya.
+  - **Log Kiriman Gagal** (`/log-kirim-gagal`, tabel `message_send_audit`):
+    daftar kiriman keluar Inbox (teks/media/edit) yang gagal diteruskan Gateway
+    WhatsApp, lengkap dengan **pratinjau isi** dan tautan ke percakapan terkait.
+  - **Log Audit Kas** (`/log-audit-kas`, tabel `cash_expense_audit`): riwayat
+    edit/hapus pengeluaran kas (dari TODO-BL10) — temuan tambahan sesi ini,
+    polanya identik (audit write-only tanpa viewer).
+- **Perubahan skema (additive)**: migrasi
+  `2026-10-10-000001_AddPreviewToMessageSendAudit.php` menambah kolom
+  `preview_text` (VARCHAR 1000), `media_type`, `media_file_name`, `media_size`
+  ke `message_send_audit` (semua nullable). Tidak mengubah kolom lama.
+- **Perilaku pratinjau**: `preview_text` diisi teks penuh untuk kirim teks/edit,
+  dan caption untuk media; untuk media hanya **metadata ringan** (nama file,
+  ukuran, tipe) yang disimpan — **bukan isi byte/base64**, demi menghindari
+  pembesaran DB dan menjaga semangat SEC-001 (gateway juga sengaja tidak
+  menyimpan isi media). Aksi **hapus pesan** tidak mengisi pratinjau (yang gagal
+  adalah aksi, bukan konten baru). Baris audit yang terjadi **sebelum** migrasi
+  ini akan selamanya tanpa pratinjau (bukan bug).
+- **Bukan perubahan aturan bisnis transaksional**: murni penambahan fitur
+  audit/visibilitas; tidak menyentuh alur transaksi, pembayaran, tagihan, atau
+  kas. Tidak ada perubahan kontrak POS↔Gateway.
+- **Deploy produksi**: `aulia-server2` — `git pull --ff-only` + migrasi via
+  `/migrasi-manual` (2026-10-10). Backup pra-migrasi: `aulia_inboxdb` &
+  `aulia_kasirdb` di `C:\xampp\backup-db-aulia-server2\`.
+- Ref: `docs/TODO.md` **TODO-L3**; `docs/sesi/2026-10-10-log-audit-kiriman-gagal-dan-kas-todo-l3.md`.
+
 ## 2026-10-10 — Perbaiki korupsi encoding patch Evolution (TODO-F3) di aulia7 + dev
 
 - **Perubahan operasional (bukan aturan bisnis)**: file
