@@ -269,15 +269,18 @@ The current test tree contains `feature/`, `integration/`, `unit/`, `js/`, and `
 - **Deployment ordering rule:** run a new Inbox migration **before** deploying code that reads/writes
   the new column. Example: `AddIsForwardedToMessages` must run before code that writes
   `messages.is_forwarded`, otherwise the write fails `Unknown column` → HTTP 500.
-- **Test-database setup (one-time, Inbox):** create `aulia_inboxdb_test` schema-only from
-  `aulia_inboxdb`. `php spark migrate` cannot build it (migration history lives in `default`). Re-run
-  the schema dump whenever a new Inbox migration is added, or tests fail with unknown column/table.
+- **Test-database setup (Inbox):** `aulia_inboxdb_test` is rebuilt from the Inbox migrations by
+  `php spark aulia:sync-inbox-test-db` — it empties the test tables, then runs every migration whose
+  `$DBGroup` is `inbox`, in timestamp order. `php spark migrate` cannot build it (migration history
+  lives in `default`). `composer test:feature` runs this command automatically before PHPUnit, so the
+  test schema never drifts from the migrations (TODO-Q3b). The command only ever touches
+  `aulia_inboxdb_test` and refuses any other database name.
 - **Test-DB row-size ceiling (`Row size too large ... 8126`, errno 1118):** `messages` carries many
   VARCHAR snapshot columns, so its computed maximum row size sits right at InnoDB's 8126-byte limit.
   Any `ADD COLUMN` / `DROP COLUMN` on it can then fail **even though `information_schema` reports
   `ROW_FORMAT=Dynamic`** — the physical tablespace can lag the metadata after an earlier manual
   `ALTER ... ROW_FORMAT`. Rebuild the shared test table in place:
-  `ALTER TABLE aulia_inboxdb_test.messages ROW_FORMAT=DYNAMIC, FORCE;` (or re-run the schema dump
+  `ALTER TABLE aulia_inboxdb_test.messages ROW_FORMAT=DYNAMIC, FORCE;` (or re-run the sync command
   above), then re-run `vendor/bin/phpunit --no-coverage`. Before assuming a schema change is unsafe
   on the live DB, probe it with a throwaway `ADD COLUMN` + `DROP COLUMN`; a healthy
   `aulia_inboxdb.messages` accepts both. Verified 2026-09-29 (suite `OK (701 tests, 2766 assertions)`).

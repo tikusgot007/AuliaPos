@@ -39,8 +39,6 @@
 
 ### Low
 
-- [ ] **TODO-Q3b** DB uji `aulia_inboxdb_test` harus disamakan skemanya setiap ada migrasi Inbox baru (mis. kolom `delivered_at`/`read_at` ditambahkan manual 2026-10-07) karena `php spark migrate` tidak membangun DB uji — lemahkan/otomatiskan alur setup agar feature suite tidak gagal `Unknown column` — rendah — ref `docs/ARCHITECTURE.md` §9.
-
 - [ ] **TODO-Q3e** Instance WhatsApp gateway WAJIB `readreceipts: all` (bila `none`, Evolution tetap balas 201 tetapi blue tick tidak pernah terkirim) — sudah dicatat di `docs/deploy.md` §2 & gateway `petunjuk-penggunaan.md` §4.1; usulkan **otomatiskan** saat setup instance (mis. di `scripts/setup-instance.js`) agar tak bergantung cek manual — rendah — ref temuan 2026-10-07.
 
 - [ ] **TODO-Q3i** Low — **Prosedur rollback cutover gateway `aulia7` → `aulia3`**: dokumentasikan langkah memulihkan gateway lama bila cutover dibatalkan — (1) aulia3: `schtasks /change /enable` + `/run` untuk `AuliaEvolution`/`AuliaAdapter`/`AuliaStackWatchdog` (+`AuliaMonitor`); (2) CI4 aulia-server2: kembalikan `inbox.gatewayBaseUrl` ke `http://AULIA3:3000`; (3) Apache aulia-server2: kembalikan `ProxyPass "/realtime-ws"` ke `ws://AULIA3:3000/realtime` + restart Apache; (4) aulia7: stop + disable service `AuliaPosGatewayEvolution`/`AuliaPosGatewayAdapter` agar tak dobel; (5) verifikasi port 3000/8080, status task, dan `gateway_status` CI4. — rendah — ref `docs/requirements/2026-10-09-cutover-gateway-aulia7.md`
@@ -86,6 +84,13 @@
   - Root cause (bug di test, bukan kode produksi): `captured` tidak di-reset sebelum `realClient.setWebhook()`, sehingga `captured[0]` masih request `sendMedia` → assertion membandingkan URL yang salah; sebelumnya assertion di-**skip** (dikomentari) sehingga test "hijau" palsu. Pre-existing di HEAD gateway `b48c2e5`, bukan dari fitur read-receipt.
   - Fix: tambah `captured.length = 0;` sebelum `setWebhook()`, buka kembali assertion `path webhook/set benar` (`endsWith('/webhook/set/inst-uji')`), hapus komentar workaround — `test/simulate-evolution-adapter.js:1086-1093` (repo `evolution-gateway`).
   - Verifikasi: `npm test` gateway (12 file test) lulus semua, exit bersih; assertion kini benar-benar ditegakkan. Murni test-hygiene; tidak menyentuh kode produksi gateway/CI4.
+
+- [x] **TODO-Q3b** Low — DB uji `aulia_inboxdb_test` harus disamakan manual setiap ada migrasi Inbox baru (karena `php spark migrate` tak membangun DB uji, riwayat migrasi ada di grup `default`) → feature suite bisa gagal `Unknown column` — **SELESAI 2026-10-10** (Opsi A).
+  - Command baru `aulia:sync-inbox-test-db` (`app/Commands/SyncInboxTestDb.php`): memaksa grup `inbox` → `aulia_inboxdb_test` (menolak DB lain, DSN/failover dikosongkan), mengosongkan tabel uji, lalu menjalankan **hanya** migrasi Inbox (`$DBGroup='inbox'`, dibaca via reflection tanpa meng-instansiasi migrasi POS agar tak menyentuh DB live/grup `default`) berurutan timestamp. Idempoten.
+  - `composer.json`: `test:feature` = `php spark aulia:sync-inbox-test-db && phpunit --configuration phpunit.feature.xml` → skema DB uji selalu sinkron sebelum suite.
+  - `docs/ARCHITECTURE.md` §9: prosedur setup DB uji diperbarui (dump manual → command); referensi row-size ceiling disesuaikan.
+  - Verifikasi: DB uji dibangun ulang dari 22 migrasi Inbox → `message_send_audit` (+ kolom preview) muncul, hanya 7 tabel Inbox (tanpa tabel POS); command diulang = idempoten. `composer test:feature` OK (162 tests, 527 assertions); unit 95 OK (7 incomplete pre-existing); integrasi 26 OK.
+  - Sisa (opsional): komentar workaround di `LogKirimGagalTest.php:12-15`/`InboxMessageSendAuditTest` kini usang (test masih benar) — dirapikan menyusul bila perlu.
 
 - [x] **TODO-L3** Low/Medium — Auditabilitas kiriman keluar yang **gagal**: gateway sengaja hanya simpan `payload_hash` (SEC-001) dan POS hanya menulis baris `messages` setelah kirim sukses, sehingga isi kiriman gagal tak bisa diaudit/dilihat. **DEC-L3: Opsi B (ringan)** → tambah pratinjau RINGAN (teks penuh / metadata media, BUKAN byte media) ke `message_send_audit` + 2 halaman admin read-only. — **SELESAI 2026-10-10**.
   - Migrasi additive (`2026-10-10-000001_AddPreviewToMessageSendAudit.php`): kolom `preview_text` (VARCHAR 1000), `media_type`, `media_file_name`, `media_size` — semua nullable, tidak mengubah kolom lama. **Sudah dijalankan di DB lokal DAN produksi (`aulia-server2`, 2026-10-10 via `/migrasi-manual`).**

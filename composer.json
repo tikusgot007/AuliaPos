@@ -41,7 +41,7 @@
     },
     "scripts": {
         "test": "phpunit",
-        "test:feature": "phpunit --configuration phpunit.feature.xml",
+        "test:feature": "php spark aulia:sync-inbox-test-db && phpunit --configuration phpunit.feature.xml",
         "test:js": "node --test tests/js/*.test.js"
     }
 }
