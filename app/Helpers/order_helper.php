@@ -175,16 +175,15 @@ if (!function_exists('tanggal_singkat')) {
 
 if (!function_exists('parse_no_order')) {
     /**
-     * Kebalikan dari format_no_order(): mengubah "B0001" kembali ke integer asli.
-     * Berguna kalau suatu saat perlu pencarian transaksi berdasarkan format tampilan.
-     *
-     * @param string $formatted Contoh: "B0001"
-     * @param int $siklus Harus sama dengan yang dipakai saat format_no_order()
-     * @return int|null null jika format tidak valid
-     */
-    /**
      * Kebalikan dari format_no_order(): mengubah "A0018" kembali ke integer asli.
      * Berguna kalau suatu saat perlu pencarian transaksi berdasarkan format tampilan.
+     *
+     * Hanya menerima nomor yang memang bisa dihasilkan format_no_order():
+     * nomor dalam siklus harus 1..$siklus (jadi "A0000" dan "A10000" ditolak --
+     * "A10000" sebelumnya bertabrakan dengan "B0001" ke nomor internal yang sama).
+     * Bentuk pendek tanpa nol di depan ("A1") tetap diterima sebagai "A0001".
+     * Huruf dibatasi 3 karakter dan angka polos 9 digit supaya hasil tidak
+     * melewati batas integer (sebelumnya bisa memicu TypeError / terpotong diam-diam).
      *
      * @param string $formatted Contoh: "A0018" atau angka polos "71103"
      * @param int $siklus Harus sama dengan yang dipakai saat format_no_order()
@@ -197,15 +196,21 @@ if (!function_exists('parse_no_order')) {
 
         // Kalau berupa angka polos saja (transaksi lama, tidak diformat), kembalikan langsung
         if (ctype_digit($formatted)) {
-            return (int) $formatted;
+            return strlen($formatted) <= 9 ? (int) $formatted : null;
         }
 
-        if (!preg_match('/^([A-Z]+)(\d+)$/', strtoupper($formatted), $m)) {
+        $maksDigit = strlen((string) $siklus);
+
+        if (!preg_match('/^([A-Z]{1,3})(\d{1,' . $maksDigit . '})$/', strtoupper($formatted), $m)) {
             return null;
         }
 
         [$full, $hurufStr, $angkaStr] = $m;
         $nomorDalamSiklus = (int) $angkaStr;
+
+        if ($nomorDalamSiklus < 1 || $nomorDalamSiklus > $siklus) {
+            return null;
+        }
 
         // Konversi huruf (basis 26) kembali ke index siklus (0-based)
         $indexSiklus = 0;

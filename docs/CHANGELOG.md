@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2026-10-11 — `parse_no_order()` hanya menerima nomor yang bisa dihasilkan `format_no_order()` (TODO-BL24)
+
+- **Masalah** (`app/Helpers/order_helper.php`): `parse_no_order()` hanya memakai regex
+  `^([A-Z]+)(\d+)$` tanpa memeriksa rentang. Akibatnya input manual `A10000` dan
+  `B0001` sama-sama menjadi nomor internal `110000` (dua format tampilan berbeda
+  bertabrakan; nota menampilkan `B0001` padahal kasir mengetik `A10000`), `A0000`
+  dipetakan ke `100000` (nomor lama polos), dan input sangat panjang
+  (`ZZZZZZZZZZZZZZZZZZZZ0001`, `A99999999999999999999`) memicu **`TypeError`
+  (HTTP 500)** karena hasil `float`, sedangkan angka polos 22 digit terpotong diam-diam.
+- **Dampak data**: tidak ada duplikat nomor di DB — `no_order` bukan kolom unik dan
+  duplikat dicegah aplikasi pada nomor internal (`TransaksiModel.php:380-408`); yang
+  salah adalah kesesuaian tampilan dengan input. Hanya jalur input manual
+  (checkbox mode manual) yang terpengaruh; dropdown mengirim angka mentah.
+- **Perbaikan** (satu fungsi, tiga pemanggil ikut benar: `Api::simpanTransaksi`,
+  `Transaksi::updateTransaksi`, pencarian `Transaksi::parseNoOrder`): nomor dalam
+  siklus harus `1..9999` (`A0000`, `A10000` ditolak), huruf maksimal 3 karakter,
+  angka setelah huruf maksimal 4 digit, angka polos maksimal 9 digit. Input yang
+  ditolak memakai pesan yang sudah ada ("Format No Order tidak valid."). Docblock
+  ganda di atas fungsi dibersihkan.
+- **Keputusan user (2026-10-11)**: bentuk pendek tanpa nol di depan (`A1`) **tetap
+  diterima** sebagai `A0001`.
+- **Tidak berubah**: aturan penomoran (`siklus=9999`, `ambang=100000`),
+  `format_no_order()`, nomor lama (angka polos dan seluruh keluaran
+  `format_no_order()` memberi hasil identik — dibuktikan test round trip), skema.
+  Belum terverifikasi: apakah ada nomor sah di produksi di luar batas yang dipilih
+  (`ZZZ9999` ≈ 182 juta, jauh di atas pemakaian toko).
+- **Verifikasi**: `tests/unit/OrderHelperTest.php` (30 test: round trip di batas
+  siklus A/B/Z/AA/ZZ/AAA, `A1` tetap valid, huruf kecil/spasi, input tidak valid
+  ditolak tanpa error). Dijalankan terhadap helper lama: 7 test gagal (2 di
+  antaranya `TypeError`); terhadap helper baru: lulus. Unit **128 OK** (7 incomplete
+  pra-ada), integration **48 OK**, feature **183 OK** (2 skipped).
+- Ref: `docs/TODO.md` **TODO-BL24**.
+
 ## 2026-10-11 — Aksi hapus/batal tidak lagi bisa dipicu lewat link GET (TODO-BL22, sebagian)
 
 - **Masalah**: lima route yang mengubah/menghapus data terdaftar sebagai `GET`, jadi

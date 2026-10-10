@@ -17,8 +17,6 @@
 
 
 
-- [ ] **TODO-BL24** Medium — `parse_no_order()` memetakan dua format tampilan berbeda ke nomor internal sama — `order_helper.php:203-219`
-
 - [ ] **TODO-BL25** Medium — `grand_total=0` pada `piutang`/`draft` → status `belum_bayar` selamanya (invoice Rp 0 tak bisa lunas) — `Api.php:285-290`; `KalkulasiStatusPembayaran.php:39-43`; `Tagihan.php:252-259`
 
 - [ ] **TODO-BL29** Medium — arti "Pemasukan" beda: net di dashboard, gross di opname — `Views/cash/index.php:110-128` vs `Views/cash/opname.php:16-20`
