@@ -244,7 +244,11 @@ class Tagihan extends BaseController
             return redirect()->to('/tagihan')->with('error', 'Transaksi tidak ditemukan.');
         }
 
-        if ($transaksi['status_pembayaran'] === 'lunas' || in_array($transaksi['status'], ['batal', 'mangkrak'])) {
+        if (in_array($transaksi['status'], ['batal', 'mangkrak'])) {
+            return redirect()->to('/tagihan');
+        }
+
+        if ($transaksi['status_pembayaran'] === 'lunas') {
             return redirect()->to('/tagihan')->with('error', 'Transaksi tidak bisa dilunasi.');
         }
 
