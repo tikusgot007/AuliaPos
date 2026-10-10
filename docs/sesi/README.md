@@ -5,14 +5,23 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-10 | [Perbaikan encoding patch Evolution (TODO-F3) + aktivasi fitur edit/hapus pesan (TODO-F7/F8) di aulia7](2026-10-10-perbaikan-encoding-patch-dan-aktivasi-fitur-edit-hapus-gateway.md) | selesai (3 perubahan produksi diverifikasi; dokumentasi di-commit sesi berikutnya) |
+| 2026-10-09 | [Nudge "Ambil" untuk percakapan belum_diambil (TODO-F9)](2026-10-09-nudge-ambil-inbox-todo-f9.md) | selesai (kode + test + uji browser; ternyata sudah live di produksi sejak deploy `a55d86e`, dikonfirmasi 2026-10-10) |
 | 2026-10-08 | [Installer gateway: ambil source via Git, ganti ZIP (TODO-Q3g)](2026-10-08-installer-git-based-source.md) | selesai (kode + 9/9 cek lokal lulus; commit `1336aee` aulia-app, `82d1b9b` WA-Gateway; E2E PC/VM bersih belum) |
+| 2026-10-08 | [BL40 — Tagihan detail guard status](2026-10-08-bl40-tagihan-detail-guard.md) | selesai (commit `7ced36b`) |
+| 2026-10-08 | [BL40 + BL39 — Guard status & validasi detail](2026-10-08-bl40-bl39-fixes.md) | selesai (commit `7ced36b`, `c500a32`) |
 | 2026-10-08 | [Audit trail + validasi tanggal Kas Keluar (TODO-BL10) + rencana cutover gateway (TODO-Q3f)](2026-10-08-audit-validasi-kas-keluar-todo-bl10.md) | sebagian (BL10 kode+migrasi lokal selesai, commit `6e9e39a`/`747c0fb` ter-push; migrasi staging/produksi belum) |
 | 2026-10-07 | [WhatsApp read receipt dua arah — implementasi + deploy produksi](2026-10-07-whatsapp-read-receipt-deploy.md) | sebagian (fitur ter-deploy & terverifikasi lokal/API; uji HP produksi belum; auto-start gateway belum andal) |
+| 2026-10-07 | [Toggle admin expand isi pesan dihapus (teks saja)](2026-10-07-toggle-expand-pesan-dihapus.md) | lihat isi file |
+| 2026-10-07 | [Edit/Hapus pesan keluar + tampilan "Pesan dihapus" (Inbox)](2026-10-07-edit-hapus-pesan-keluar-inbox.md) | lihat isi file |
+| 2026-10-07 | [Batch fix Cash/Tagihan/Laporan (BL09–BL17)](2026-10-07-fix-cash-tagihan-batch.md) | selesai (5 item; commit `08f32e1`) |
 | 2026-10-06 | [Analisa log gateway aulia3 (bug balas-gambar + hasil F10)](2026-10-06-analisa-log-gateway-aulia3.md) | selesai (analisa read-only; bug quoted-image sudah diperbaiki `b48c2e5`; F10 bersih) |
 | 2026-10-05 | [HTTPS self-signed AULIA-SERVER2 (secure context notifikasi Windows)](2026-10-05-https-self-signed-aulia-server2.md) | sebagian (cert + https + `80df50f` ter-deploy; trust PC kasir lain & uji E2E notifikasi belum) |
 | 2026-10-05 | [Notifikasi Windows Inbox (ganti utama dari toast)](2026-10-05-notifikasi-windows-inbox.md) | sebagian (kode + test 25/25; uji browser & infra HTTPS produksi belum; belum di-commit) |
 | 2026-10-05 | [Deploy produksi TODO-F8 (teks pesan diedit)](2026-10-05-deploy-produksi-f8.md) | selesai (aulia3 gateway + AULIA-SERVER2 POS; F7 & F8 terverifikasi; soak realtime berjalan) |
+| 2026-10-05 | [Rollout Inbox Realtime + handoff gate TODO-F8](2026-10-05-realtime-rollout-f8-handoff.md) | sebagian (realtime merge/deploy `3401ea7`/`ba4bcf3`; F8 belum resmi — gate belum clear saat itu) |
 | 2026-10-05 | [Penutupan gate TODO-F8 (teks pesan diedit)](2026-10-05-penutupan-gate-f8.md) | selesai (gate clear; PR #5 & #49 merged; WA-Gateway `evolution` = `e653de5`) |
+| 2026-10-04 | [Promosi folder POS ke repo mandiri + perbaikan `.htaccess` + verifikasi E2E TODO-F8](2026-10-04-promosi-aulia-htaccess-todo-f8-e2e.md) | berhenti sementara (promosi + fix `.htaccess` selesai; E2E F8 edit/hapus berhasil via gateway-test) |
 | 2026-10-04 | [Arsip piutang (TODO-BL06)](2026-10-04-arsip-piutang-todo-bl06.md) | selesai (kode + test; belum di-commit) |
 | 2026-10-04 | [Login user non-aktif ditolak (TODO-BL05)](2026-10-04-login-user-nonaktif-todo-bl05.md) | selesai (kode + test; commit `3f0294e`) |
 | 2026-10-04 | [Pembayaran ditolak pada transaksi batal (TODO-BL04)](2026-10-04-pembayaran-transaksi-batal-todo-bl04.md) | selesai (kode + test; commit `bb5e5da`) |
@@ -30,6 +39,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 | 2026-10-02 | [Server-side DataTables tab Periode Laporan (S4)](2026-10-02-server-side-periode-laporan.md) | selesai (kode + verifikasi; belum di-commit) |
 | 2026-10-02 | [Server-side DataTables laporan/daftar (S1–S3b)](2026-10-02-server-side-datatables.md) | sebagian (S1–S3b selesai & terverifikasi; S4 `laporan` = tab Periode saja, lihat checkpoint S4) |
 | 2026-10-02 | [Standardisasi pemilih tanggal/rentang/periode](2026-10-02-standardisasi-pemilih-tanggal.md) | selesai (kode; verifikasi browser di `…-verifikasi.md`) |
+| 2026-10-02 | [Verifikasi manual — Standardisasi pemilih tanggal](2026-10-02-standardisasi-pemilih-tanggal-verifikasi.md) | lihat isi file |
 | 2026-10-01 | [Produksi aulia3: tipe pesan Inbox, dead-letter, berkas besar, view-once, media ondemand](2026-10-01-produksi-aulia3-inbox-tipe-pesan.md) | sebagian (kode selesai; uji backlog semalam menunggu) |
 | 2026-10-01 | [Adapter Evolution API (`evolution-gateway`): uji end-to-end + perbaikan bug + dukungan grup](2026-10-01-evolution-gateway-adapter.md) | selesai (uji via UI Inbox POS) |
 | 2026-09-30 | [Riset pengganti Baileys + spike adapter Fonnte (uji nyata end-to-end)](2026-09-30-riset-pengganti-baileys-dan-spike-fonnte.md) | sebagian (riset + spike Fonnte terbukti; keputusan solusi final ditahan) |

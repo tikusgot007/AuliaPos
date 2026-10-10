@@ -1,5 +1,77 @@
 # CHANGELOG
 
+## 2026-10-10 — Perbaiki korupsi encoding patch Evolution (TODO-F3) di aulia7 + dev
+
+- **Perubahan operasional (bukan aturan bisnis)**: file
+  `whatsapp.baileys.service.ts` di aulia7 (`C:\AuliaPosGateway\evolution-api-server`)
+  ternyata punya korupsi encoding (mojibake) di ~15 baris komentar upstream berbahasa
+  Portugis (mis. `função` → `funÃƒÆ'Ã‚Â§Ã£o`) — hasil double-encoding saat patch
+  `PATCH-ADAPTER`/`PATCH-ADAPTER-LID` diterapkan manual sebelumnya. Tidak fungsional
+  (hanya komentar), tapi membuat file tidak bisa dipakai sebagai referensi bersih.
+- **Ditemukan saat**: membandingkan repo dev `C:\Projects\evolution-api-server`
+  (working tree bersih, TANPA patch) dengan aulia7 (working tree ada 2 modifikasi
+  lokal tidak ter-commit) atas permintaan user.
+- **Perbaikan**: kedua patch (`PATCH-ADAPTER` view-once 2026-10-01,
+  `PATCH-ADAPTER-LID` 2026-10-04) diterapkan ulang secara bersih di atas file
+  upstream asli di **dev**, lalu file hasil (SHA256 `004E1D6B...`) disalin
+  menggantikan file korup di **aulia7**. Diff berkurang dari `+33/-23` menjadi
+  `+12/-3` (noise encoding hilang, logic patch identik). Backup file lama:
+  `whatsapp.baileys.service.ts.bak-encoding-20261010121735` (aulia7).
+- **Restart**: service `AuliaPosGatewayEvolution` di-restart agar source baru
+  termuat (dijalankan via `tsx` langsung dari source, tanpa build step).
+  Instance `aulia-toko` kembali `connected` ~2 detik pasca-restart; alur pesan
+  masuk/keluar terverifikasi normal sebelum & sesudah.
+- **Hasil**: dev (`C:\Projects\evolution-api-server`) dan aulia7 kini punya
+  patch **identik** (hash sama) — dev dapat dipakai sebagai source of truth
+  untuk menerapkan ulang patch saat Evolution di-upgrade.
+- Ref: `docs/TODO.md` **TODO-F3**.
+
+## 2026-10-10 — Aktifkan dekripsi teks pesan diedit (TODO-F8) di aulia7
+
+- **Perubahan operasional (bukan aturan bisnis)**: `EVOLUTION_DECRYPT_MESSAGE_EDIT=1`
+  ditambahkan ke `.env` adapter di `aulia7` (`C:\AuliaPosGateway\evolution-gateway\.env`).
+  Sebelum ini, flag kosong/off menyebabkan adapter hanya mengirim marker lifecycle
+  `event:'edited'` tanpa `edited_text` ke CI4 — `InboxGatewayApi::messageEvent()` jatuh
+  ke `MessageModel::markLifecycle()` yang hanya mengisi `edited_at`, sehingga Inbox tetap
+  menampilkan teks pesan **sebelum** diedit (badge "diedit" muncul, isi tidak berubah).
+  Resolver dekripsi (`src/evolution/messageEditResolver.js`,
+  `src/evolution/messageEditCrypto.js`) sudah terimplementasi dari spike TODO-F8
+  (2026-10-04) tapi belum pernah diaktifkan di konfigurasi produksi manapun.
+- **Ditemukan saat**: investigasi laporan user atas percakapan Inbox nomor
+  `6281937281996` (kontak "Hamet") — pesan masuk 2026-10-10 10:30 WIB tampil
+  "Ok siao" padahal pelanggan sudah mengedit jadi "oke siap"; `messages.edited_at`
+  terisi tapi `messages.edited_text_resolved_at` tetap NULL.
+- **Perubahan**: backup `.env` lama disimpan sebagai
+  `.env.bak-20261010110856` pada folder yang sama; service Windows
+  `AuliaPosGatewayAdapter` di-restart agar flag terbaca. Startup terverifikasi
+  bersih (tidak ada error baru), koneksi realtime kasir otomatis reconnect.
+- **Catatan**: hanya berlaku untuk event edit yang terjadi **setelah** flag aktif;
+  pesan "Ok siao" milik Hamet yang sudah lewat tidak otomatis terkoreksi karena
+  payload dekripsi hanya tersedia sesaat event diterima (bukan disimpan ulang).
+- Ref: `docs/TODO.md` **TODO-F7**/**TODO-F8**.
+
+## 2026-10-10 — Aktifkan webhook `MESSAGES_DELETE` (TODO-F7) di aulia7
+
+- **Perubahan operasional**: `POST /webhook/set/aulia-toko` ke Evolution API aulia7
+  menambahkan event `MESSAGES_DELETE` ke daftar subscription (sebelumnya hanya
+  `MESSAGES_UPSERT`, `MESSAGES_UPDATE`, `CONNECTION_UPDATE`, `QRCODE_UPDATED`).
+  Tanpa event ini, webhook hapus pesan **tidak pernah terkirim** ke adapter sama
+  sekali (beda dari kasus edit: bukan payload kosong, event-nya memang tak lewat),
+  sehingga `messages.revoked_at` tidak pernah terisi dan Inbox/POS tetap
+  menampilkan pesan yang sudah dihapus pelanggan di WhatsApp.
+- **Ditemukan saat**: audit lanjutan pasca-temuan TODO-F8 (lihat entri di atas),
+  dipicu laporan user mencoba hapus pesan tapi masih tampil di POS.
+- **Verifikasi**: `GET /webhook/find/aulia-toko` mengonfirmasi `MESSAGES_DELETE`
+  masuk daftar `events`. **Diuji end-to-end oleh user (2026-10-10 ~11:54 WIB)**:
+  badge "dihapus" muncul di Inbox; dikonfirmasi di database —
+  `messages.id=3127` & `id=3390` (`revoked_at` terisi pasca-perubahan).
+- **Audit tambahan** (fitur lain yang sudah diimplementasikan, dicek statusnya):
+  `readreceipts: all` sudah aktif (TODO-Q3e, tidak ada masalah); patch Evolution
+  view-once + LID preservation sudah terpasang (TODO-F3); Nudge 1/2 (TODO-F9)
+  ternyata **sudah live** sejak deploy `a55d86e` — catatan "belum commit/deploy"
+  di `docs/TODO.md` sudah dikoreksi.
+- Ref: `docs/TODO.md` **TODO-F7**.
+
 ## 2026-10-09 — Cutover gateway produksi `aulia3` → `aulia7` + deploy POS ke production
 
 - **Perubahan operasional (bukan aturan bisnis)**: gateway WhatsApp produksi

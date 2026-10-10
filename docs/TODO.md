@@ -122,7 +122,7 @@
   - **Nudge 2 (modal unduh)** — `app/Views/inbox/index.php`, `public/assets/js/inbox-thread.js`: konfirmasi sebelum unduh media pada percakapan `belum_diambil`/dipegang orang lain; tombol `[Ambil & Unduh]`/`[Unduh saja]`/`[Batal]` + cabang ambil-alih bila grace lewat; `[Unduh saja]` mencatat note internal `[auto]` (best-effort).
   - **Backend** — `app/Controllers/Inbox.php` (`Inbox::catatNudgeUnduh()`), `app/Config/Routes.php`: `POST /inbox/percakapan/(:num)/nudge-unduh`; note `[auto]` server-side, coalesce 30 mnt per (conversation, user), tolak 409 `{ok:false, reason:'already_assigned'}` bila percakapan sudah punya pemilik. `catatanInternal()` tidak diubah.
   - **Verifikasi**: `tests/feature/InboxNudgeUnduhTest.php` (8 test) lulus; JS `tests/js/inbox-thread.test.js` 60/60; suite unit 82 / integration 26 / feature 133 lulus. Uji browser manual (11+ skenario interaksi) oleh user: **PASS (2026-10-09)**.
-  - **Status**: kode & test selesai; **belum commit/deploy**.
+  - **Status**: **SELESAI & LIVE di produksi** (koreksi 2026-10-10 — catatan "belum commit/deploy" sudah basi). Commit `8172043` ter-include di deploy `a55d86e` (2026-10-09); terverifikasi 1 baris catatan `[auto]` di `aulia_inboxdb.messages` tercatat 2026-10-10 08:28:33.
   - Ref prior: `docs/requirements/2026-10-03-unduh-media-inbox.md`.
 
 - [x] **TODO-BL10** High — mutasi kas tak admin-gated; pengeluaran terima tanggal sembarang (termasuk lampau/depan) — `AuthFilter.php:70`; `Routes.php:231-246`; `Cash.php:439,547` — **DEC-1: Opsi B** → bukan admin-gating; dikerjakan = rekam audit + validasi tanggal pengeluaran
@@ -205,7 +205,7 @@
   - Status: Mathematically sound, consistent behavior, intentional design. No fix needed.
 
 - [x] **TODO-BL14** Medium — dua sumber `total_dibayar` (kolom cache vs jumlah pembayaran aktif) bisa berbeda — `Tagihan.php:94-96` vs `:180-181`; `Laporan.php:1076`
-   - **DONE — code fix deployed to production 2026-10-09 (`git pull` ke `a55d86e`); data repair (`aulia:repair-total-dibayar --fix`) masih pending.**
+   - **DONE — code fix deployed to production 2026-10-09 (`git pull` ke `a55d86e`); data repair TIDAK PERLU DIJALANKAN (lihat verifikasi 2026-10-10).**
    - Commit final: `720d800`
    - Root cause: nested transactions dalam `Api::koreksiPembayaran()` menyebabkan `sinkronkanPembayaran()` membaca interim state (pembayaran lama aktif + pembayaran baru aktif = 2× cache).
    - Fix: removed nested transaction, single atomic boundary via `transBegin()` → UPDATE reversed → INSERT aktif → sync → `transComplete()`.
@@ -215,10 +215,16 @@
      - `TransaksiPembayaranStatusTest`: 3 tests, 16 assertions ✓
      - `TransaksiSimpanAtomikTest`: 9 tests, 26 assertions ✓
      - Full phpunit.integration.xml: 17 tests, 69 assertions ✓
+   - **Verifikasi data produksi 2026-10-10**: query pemeriksaan `aulia:repair-total-dibayar`
+     (mode cek, tanpa `--fix`) direplikasi langsung ke `aulia_kasirdb` produksi via MySQL
+     client (15.717 transaksi total, 4.840 di rentang Sep–Okt 2026) — hasil **0 baris
+     inkonsisten**. 12 transaksi yang sebelumnya teridentifikasi tidak lagi ditemukan;
+     kemungkinan sudah terkoreksi lewat jalur lain sebelum verifikasi ini, atau catatan
+     "12" berasal dari snapshot analisis pra-deploy yang sudah tidak merepresentasikan
+     state sekarang. **Tidak ada tindakan repair yang diperlukan.**
    - Database safety:
-     - Production DB untouched
-     - `aulia:repair-total-dibayar --fix` not executed
-     - 12 affected transactions (Sept-Oct 2026) identified; repair pending user approval
+     - Production DB untouched (query read-only saja)
+     - `aulia:repair-total-dibayar --fix` tidak dijalankan — tidak ada data untuk diperbaiki
      - Overpayment cases (3) remain out of scope (TODO-BL18 separate issue)
 
 ## Catatan struktur
