@@ -10,18 +10,23 @@
             pengeluaran pada saat kejadian. Halaman ini murni <strong>read-only</strong>.
         </div>
 
-        <div class="row g-2 mb-3">
-            <div class="col-auto">
-                <label class="form-label small mb-0">Dari tanggal</label>
-                <input type="date" class="form-control form-control-sm" id="filterTanggalMulai">
+        <div class="row g-3 align-items-end mb-3">
+            <div class="col-md-5">
+                <label class="form-label fw-semibold">Rentang Tanggal</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                    <input type="text" id="filterLogAuditKas" class="form-control"
+                        placeholder="Pilih rentang tanggal" readonly autocomplete="off">
+                </div>
+                <input type="hidden" name="tanggal_awal" id="tanggal_awal" value="">
+                <input type="hidden" name="tanggal_akhir" id="tanggal_akhir" value="">
             </div>
             <div class="col-auto">
-                <label class="form-label small mb-0">Sampai tanggal</label>
-                <input type="date" class="form-control form-control-sm" id="filterTanggalSampai">
-            </div>
-            <div class="col-auto d-flex align-items-end">
-                <button type="button" class="btn btn-sm btn-outline-primary" id="btnFilterLogAuditKas">
+                <button type="button" class="btn btn-primary" id="btnFilterLogAuditKas">
                     <i class="fas fa-filter"></i> Filter
+                </button>
+                <button type="button" class="btn btn-secondary ms-1" id="btnResetLogAuditKas">
+                    <i class="fas fa-rotate-left"></i> Reset
                 </button>
             </div>
         </div>
@@ -128,10 +133,10 @@
         tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Memuat...</td></tr>';
 
         const params = new URLSearchParams({ halaman: halamanAktif });
-        const tanggalMulai = el('filterTanggalMulai').value;
-        const tanggalSampai = el('filterTanggalSampai').value;
-        if (tanggalMulai) params.set('tanggal_mulai', tanggalMulai);
-        if (tanggalSampai) params.set('tanggal_sampai', tanggalSampai);
+        const tanggalAwal = el('tanggal_awal').value;
+        const tanggalAkhir = el('tanggal_akhir').value;
+        if (tanggalAwal) params.set('tanggal_awal', tanggalAwal);
+        if (tanggalAkhir) params.set('tanggal_akhir', tanggalAkhir);
 
         try {
             const res = await fetch('<?= base_url('/log-audit-kas/data') ?>?' + params.toString());
@@ -147,7 +152,55 @@
         }
     }
 
+    // Pemilih rentang tanggal standar proyek (App\Config\DatePicker +
+    // public/assets/js/date-range.js, dimuat global oleh layout) -- sama
+    // dengan halaman laporan/cash/tagihan/transaksi.
+    (function initPicker() {
+        const $input = $('#filterLogAuditKas');
+        const $awal = $('#tanggal_awal');
+        const $akhir = $('#tanggal_akhir');
+        if (!$input.length) return;
+
+        $input.daterangepicker({
+            startDate: $awal.val() ? moment($awal.val(), 'YYYY-MM-DD') : moment(),
+            endDate: $akhir.val() ? moment($akhir.val(), 'YYYY-MM-DD') : moment(),
+            locale: AuliaDateRange.locale(),
+            ranges: AuliaDateRange.ranges(),
+            showDropdowns: true,
+            opens: 'left'
+        });
+
+        $input.on('apply.daterangepicker', function (ev, picker) {
+            $awal.val(picker.startDate.format('YYYY-MM-DD'));
+            $akhir.val(picker.endDate.format('YYYY-MM-DD'));
+            $input.val(
+                picker.startDate.format('DD/MM/YYYY') + ' - ' + picker.endDate.format('DD/MM/YYYY')
+            );
+        });
+
+        if ($awal.val() && $akhir.val()) {
+            $input.val(
+                $awal.val().split('-').reverse().join('/') + ' - ' +
+                $akhir.val().split('-').reverse().join('/')
+            );
+        }
+    })();
+
     el('btnFilterLogAuditKas').addEventListener('click', function () {
+        halamanAktif = 1;
+        muatData();
+    });
+
+    el('btnResetLogAuditKas').addEventListener('click', function () {
+        const $input = $('#filterLogAuditKas');
+        $('#tanggal_awal').val('');
+        $('#tanggal_akhir').val('');
+        const drp = $input.data('daterangepicker');
+        if (drp) {
+            drp.setStartDate(moment());
+            drp.setEndDate(moment());
+        }
+        $input.val('');
         halamanAktif = 1;
         muatData();
     });

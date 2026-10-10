@@ -64,6 +64,14 @@
     seperti `archive-transaksi`/`migrasi-manual` juga tidak terdaftar di
     sana, cukup filter per-route + `AuthFilter`).
   - Menu navigasi baru di grup "Administrasi" (`app/Views/layout/main.php`).
+  - **Pemilih tanggal diseragamkan** dengan standar proyek
+    (sesi 2026-10-02: `App\Config\DatePicker` + `public/assets/js/date-range.js`,
+    dimuat global oleh layout) — input text readonly + ikon kalender +
+    `daterangepicker` (locale & 6 preset standar) + hidden
+    `tanggal_awal`/`tanggal_akhir`; controller membaca nama param standar
+    `tanggal_awal`/`tanggal_akhir` (bukan `tanggal_mulai`/`tanggal_sampai`).
+    Ditambahkan tombol Reset. (Koreksi sesi ini: versi awal memakai
+    `<input type="date">` native yang tidak konsisten.)
   - Test baru: 4 test `InboxMessageSendAuditTest` (AT8, preview teks/media/
     edit/hapus), 6 test `LogKirimGagalTest`, 6 test `LogAuditKasTest`
     (semua: guard admin-only + isi data + filter tanggal).

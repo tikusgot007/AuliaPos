@@ -48,8 +48,11 @@ class LogAuditKas extends BaseController
             return $redirect;
         }
 
-        $tanggalMulai = $this->validasiTanggal($this->request->getGet('tanggal_mulai'));
-        $tanggalSampai = $this->validasiTanggal($this->request->getGet('tanggal_sampai'));
+        // Nama parameter standar proyek (lihat App\Config\DatePicker /
+        // date-range.js, dan AC-5 di docs/design/2026-10-02-standardisasi-
+        // pemilih-tanggal.md).
+        $tanggalMulai = $this->validasiTanggal($this->request->getGet('tanggal_awal'));
+        $tanggalSampai = $this->validasiTanggal($this->request->getGet('tanggal_akhir'));
         $halaman = max(1, (int) ($this->request->getGet('halaman') ?? 1));
         $perHalaman = 25;
         $offset = ($halaman - 1) * $perHalaman;

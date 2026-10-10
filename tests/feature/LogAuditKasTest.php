@@ -153,7 +153,7 @@ final class LogAuditKasTest extends CIUnitTestCase
         $this->seedAuditRow(['created_at' => date('Y-m-d H:i:s')]);
 
         $response = $this->withSession(['isLoggedIn' => true, 'id_user' => 1, 'role' => 'admin'])
-            ->get('/log-audit-kas/data?tanggal_mulai=' . date('Y-m-d') . '&tanggal_sampai=' . date('Y-m-d'));
+            ->get('/log-audit-kas/data?tanggal_awal=' . date('Y-m-d') . '&tanggal_akhir=' . date('Y-m-d'));
         $response->assertStatus(200);
 
         $json = json_decode($response->getJSON(), true);
