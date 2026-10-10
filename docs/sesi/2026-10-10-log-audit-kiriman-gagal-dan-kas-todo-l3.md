@@ -122,9 +122,9 @@ TODO baru dari pekerjaan ini.
 - Baris audit lama (sebelum migrasi diterapkan ke produksi) akan
   selamanya tidak punya pratinjau (`preview_text`/`media_*` NULL) — ini
   memang perilaku yang didokumentasikan, bukan bug.
-- Uji UI penuh di browser kasir (klik menu, filter tanggal) belum
-  dilakukan manual oleh manusia — hanya verifikasi HTTP programatik +
-  test otomatis.
+- Uji UI penuh di browser (klik menu Administrasi, buka kedua halaman,
+  pakai pemilih rentang tanggal, filter) **sudah dilakukan manual oleh
+  user dan PASS** (2026-10-10).
 
 ## Titik masuk sesi berikutnya
 
