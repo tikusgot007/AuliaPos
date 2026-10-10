@@ -117,9 +117,9 @@
                                     <span class="h6">Rp <?= number_format($kas_awal, 0, ',', '.') ?></span>
                                 </div>
                                 <div class="col-md-4">
-                                    <small>Penjualan / Pemasukan</small>
+                                    <small>Penjualan tunai</small>
                                     <br>
-                                    <span class="h6">Rp <?= number_format($saldo_sistem - $kas_awal, 0, ',', '.') ?></span>
+                                    <span class="h6">Rp <?= number_format($penjualan_tunai, 0, ',', '.') ?></span>
                                 </div>
                                 <div class="col-md-4">
                                     <small>Pengeluaran</small>
@@ -229,7 +229,7 @@
                             <span>Saldo Sistem: <strong>Rp <span id="saldoSistemDisplay">0</span></strong></span>
                             <span class="text-muted">
                                 Awal: Rp <span id="kasAwalDisplay">0</span> ·
-                                Masuk: Rp <span id="pemasukanDisplay">0</span> ·
+                                Kas awal + penjualan: Rp <span id="pemasukanDisplay">0</span> ·
                                 Keluar: Rp <span id="pengeluaranDisplay">0</span>
                             </span>
                         </div>

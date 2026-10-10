@@ -15,7 +15,7 @@
                     <h2 class="display-4">Rp <?= number_format($saldo_sistem, 0, ',', '.') ?></h2>
                     <small>
                         Kas Awal: Rp <?= number_format($kas_awal, 0, ',', '.') ?> |
-                        Pemasukan: Rp <?= number_format($pemasukan, 0, ',', '.') ?> |
+                        Penjualan tunai: Rp <?= number_format($penjualan_tunai, 0, ',', '.') ?> |
                         Pengeluaran: Rp <?= number_format($pengeluaran, 0, ',', '.') ?>
                     </small>
                 </div>

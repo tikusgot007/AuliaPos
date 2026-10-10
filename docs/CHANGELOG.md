@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## 2026-10-11 — Istilah "Pemasukan" di layar Kas diseragamkan (TODO-BL29)
+
+- **Masalah**: kata "Pemasukan" berarti dua hal berbeda pada hari yang sama. Kartu biru
+  di **Dashboard Kas** (`/cash`, menu Kas) menampilkan kotak "Penjualan / Pemasukan" =
+  `saldo - kas awal` (sudah dikurangi pengeluaran dan refund; **net**), sedangkan
+  pop-up **Opname Kas** ("Masuk"), halaman `/cash/opname` ("Pemasukan") dan nilai
+  tersimpan `cash_opname.pemasukan_tunai` = `kas awal + penjualan tunai` (**gross**).
+  Contoh (kas awal 100.000, penjualan tunai 500.000, pengeluaran 30.000, refund
+  20.000): kartu menampilkan 450.000, opname 600.000. Kotak "Pengeluaran" di kartu
+  juga diambil dari sumber lain (`CashExpenseModel::getTotalPengeluaranHariIni()`,
+  batas waktu berbeda, tanpa memisahkan refund) daripada yang dipakai menghitung saldo.
+- **Perbaikan (hanya label dan sumber angka; rumus saldo dan data tersimpan tidak
+  berubah)**:
+  - kartu `/cash`: kotak menjadi **"Penjualan tunai"** berisi penjualan tunai
+    sebenarnya (500.000); kotak Pengeluaran kini dari `CashBalanceService` (sudah
+    termasuk refund), sehingga `kas awal + penjualan tunai - pengeluaran = saldo`
+    selalu cocok (100.000 + 500.000 - 50.000 = 550.000);
+  - pop-up Opname: "Masuk" menjadi **"Kas awal + penjualan"** (angka tetap);
+  - halaman `/cash/opname`: "Pemasukan" menjadi **"Penjualan tunai"** (500.000) di
+    samping Kas Awal dan Pengeluaran;
+  - halaman detail opname (`/cash/detail/(:num)`): "Pemasukan Tunai" menjadi
+    **"Penjualan Tunai"** = `pemasukan_tunai - saldo_awal_hari`, karena nilai tersimpan
+    sudah memuat kas awal yang tampil di baris atasnya (sebelumnya terbaca dua kali).
+- **Keputusan user (2026-10-11)**: opsi A (pisahkan istilah, tanpa mengubah angka
+  tersimpan) dan kotak Pengeluaran disamakan dengan perhitungan saldo.
+- **Tidak berubah**: `CashBalanceService`, saldo sistem, nilai `cash_opname`
+  (`pemasukan_tunai` tetap berisi kas awal + penjualan), closing kas, laporan, API
+  `/cash/get-saldo-sistem` (field sama, termasuk `pemasukan`), skema, route. Tidak ada
+  aturan bisnis yang berubah.
+- **Dampak**: dua angka di kartu `/cash` berubah tampil: kotak penjualan (net menjadi
+  penjualan murni) dan kotak Pengeluaran (kini termasuk refund bila ada).
+- **Belum terverifikasi**: (1) tampilan visual di browser (test tidak menjalankan
+  JavaScript; yang diuji adalah HTML yang dirender); (2) asumsi bahwa
+  `pemasukan_tunai` pada opname lama di produksi selalu berisi kas awal + penjualan —
+  benar untuk kode saat ini (`Cash::simpanOpname()`), tetapi opname yang dibuat oleh
+  versi kode lebih lama tidak bisa diperiksa dari sini (data lokal: 0 opname).
+- **Verifikasi**: `tests/integration/CashPemasukanLabelTest.php` (5 test, halaman
+  sungguhan pada SQLite uji: angka kartu cocok dengan saldo, kata ambigu hilang,
+  halaman opname, detail opname tanpa hitung ganda kas awal dan nilai DB utuh,
+  endpoint `get-saldo-sistem` tetap). Terhadap kode lama 4 test gagal; terhadap kode
+  baru lulus. Unit **128 OK** (7 incomplete pra-ada), integration **59 OK**, feature
+  **183 OK** (2 skipped).
+- Ref: `docs/TODO.md` **TODO-BL29**.
+
 ## 2026-10-11 — Transaksi bertotal Rp 0 mendapat status pembayaran sesuai rumus resmi (TODO-BL25)
 
 - **Masalah** (`Api::simpanTransaksi()`): cabang `piutang` dan `draft` menulis

@@ -17,8 +17,6 @@
 
 
 
-- [ ] **TODO-BL29** Medium — arti "Pemasukan" beda: net di dashboard, gross di opname — `Views/cash/index.php:110-128` vs `Views/cash/opname.php:16-20`
-
 - [ ] **TODO-BL30** Medium — saldo sistem negatif tak dideteksi/diperingatkan sebelum opname/closing — `CashBalanceService.php:31`; `Cash.php:180-185`
 
 ### Low

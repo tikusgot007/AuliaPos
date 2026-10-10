@@ -20,17 +20,22 @@ class Cash extends BaseController
         $saldo = getSaldoKasHariIni();
         $saldoSistem = $saldo['saldo'];
 
-        $kasAwal = getKasAwalHari();
-        $expenseModel = new CashExpenseModel();
-        $totalPengeluaran = $expenseModel->getTotalPengeluaranHariIni();
+        // Semua angka kartu (kas awal, penjualan tunai, pengeluaran) diambil
+        // dari SATU hasil CashBalanceService supaya
+        // kas_awal + penjualan - pengeluaran selalu sama dengan saldo
+        // (TODO-BL29). Pengeluaran sudah termasuk refund; sebelumnya kotak
+        // ini memakai CashExpenseModel::getTotalPengeluaranHariIni() yang
+        // dihitung terpisah dengan batas waktu berbeda.
+        $kasAwal = $saldo['kas_awal'];
 
         $data = [
             'title' => 'Kas | AULIA',
             'content' => 'cash/index',
             'saldo_sistem' => $saldoSistem,
             'kas_awal' => $kasAwal,
+            'penjualan_tunai' => $saldo['penjualan'],
             'opname_terakhir' => $opnameTerakhir,
-            'total_pengeluaran' => $totalPengeluaran,
+            'total_pengeluaran' => $saldo['pengeluaran'],
             'riwayat' => $opnameModel->getRiwayat(10),
         ];
 
@@ -57,7 +62,7 @@ class Cash extends BaseController
             'content' => 'cash/opname',
             'saldo_sistem' => $saldo['saldo'],
             'kas_awal' => $kasAwal,
-            'pemasukan' => $saldo['pemasukan'],
+            'penjualan_tunai' => $saldo['penjualan'],
             'pengeluaran' => $saldo['pengeluaran'],
             'opname_terakhir' => $opnameTerakhir,
             'is_edit' => false,

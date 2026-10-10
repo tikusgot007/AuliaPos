@@ -45,8 +45,15 @@
                             <td>Rp <?= number_format($opname['saldo_awal_hari'] ?? 0, 0, ',', '.') ?></td>
                         </tr>
                         <tr>
-                            <th>Pemasukan Tunai</th>
-                            <td>Rp <?= number_format($opname['pemasukan_tunai'] ?? 0, 0, ',', '.') ?></td>
+                            <th>Penjualan Tunai</th>
+                            <?php
+                            // cash_opname.pemasukan_tunai menyimpan kas awal + penjualan
+                            // tunai (lihat Cash::simpanOpname()). Kas awal sudah tampil di
+                            // baris atas, jadi hanya bagian penjualannya yang ditampilkan di
+                            // sini agar tidak terbaca dua kali. Nilai di DB tidak diubah.
+                            $penjualanTunaiOpname = (float) ($opname['pemasukan_tunai'] ?? 0) - (float) ($opname['saldo_awal_hari'] ?? 0);
+                            ?>
+                            <td>Rp <?= number_format($penjualanTunaiOpname, 0, ',', '.') ?></td>
                         </tr>
                         <tr>
                             <th>Pengeluaran Tunai</th>
