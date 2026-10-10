@@ -89,8 +89,6 @@ class ClosingKasModel extends Model
      */
     public function simpanClosing(string $tanggal, float $saldoSistem, float $saldoFisik, int $userId): int|bool
     {
-        $existing = $this->getByTanggal($tanggal);
-
         $data = [
             'tanggal'      => $tanggal . ' 23:59:59',
             'saldo_sistem' => $saldoSistem,
@@ -100,11 +98,43 @@ class ClosingKasModel extends Model
             'updated_by'   => $userId,
         ];
 
+        $existing = $this->getByTanggal($tanggal);
+
         if ($existing) {
             $this->update($existing['id'], $data);
             return $existing['id'];
         }
 
-        return $this->insert($data);
+        $insertError = null;
+
+        try {
+            $result = $this->insert($data);
+        } catch (\Throwable $e) {
+            // Bisa jadi race unique index `tanggal` (proses lain menyisipkan
+            // baris yang sama lebih dulu) -- diputuskan di bawah, bukan
+            // di-retry buta oleh pemanggil.
+            $result = false;
+            $insertError = $e;
+        }
+
+        if ($result !== false) {
+            return $result;
+        }
+
+        // Insert gagal: bila baris tanggal ini sekarang ADA (proses lain
+        // menang race), timpa sebagai update; bila tidak ada, ini error asli
+        // sehingga exception diteruskan apa adanya.
+        $existing = $this->getByTanggal($tanggal);
+
+        if ($existing) {
+            $this->update($existing['id'], $data);
+            return $existing['id'];
+        }
+
+        if ($insertError !== null) {
+            throw $insertError;
+        }
+
+        return false;
     }
 }

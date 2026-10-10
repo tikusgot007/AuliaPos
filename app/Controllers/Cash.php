@@ -387,14 +387,32 @@ class Cash extends BaseController
             static fn(): float => getSaldoKasHistoris($cutoff)['saldo']
         );
 
+        // Penanganan race unique-index `tanggal` ada di
+        // ClosingKasModel::simpanClosing() (bukan retry buta di sini).
+        // Error yang benar-benar gagal tidak ditelan -- dilaporkan sebagai error.
         try {
             $closingModel->simpanClosing($tanggal, $saldoSistem, $saldoFisik, $userId);
-        } catch (\Exception $e) {
-            // Race condition pada unique index tanggal: coba sekali lagi sebagai update.
-            $closingModel->simpanClosing($tanggal, $saldoSistem, $saldoFisik, $userId);
+        } catch (\Throwable $e) {
+            log_message('error', 'Gagal menyimpan closing kas: ' . $e->getMessage());
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan closing kas.',
+            ]);
         }
 
         $saved = $closingModel->getByTanggal($tanggal);
+
+        // Tanpa ini, respons tetap "success" padahal nilai saldo dibaca dari
+        // baris yang tidak ada (akses offset pada null) -- menyesatkan.
+        if ($saved === null) {
+            log_message('error', 'Closing kas tidak ditemukan setelah disimpan (tanggal=' . $tanggal . ').');
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan closing kas.',
+            ]);
+        }
 
         return $this->response->setJSON([
             'status' => 'success',

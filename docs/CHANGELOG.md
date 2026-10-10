@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-10-11 — Tangani race closing kas secara presisi (TODO-BL27)
+
+- **Bug (keandalan kas)**: `Cash::simpanClosing()` memakai `catch (\Exception)`
+  yang menangkap **semua** exception lalu mengulang operasi yang sama ("retry
+  buta") — error asli (mis. DB down) ikut diulang dan tertutupi. Selain itu
+  `$saved = getByTanggal()` tidak diperiksa `null`, padahal respons tetap
+  `status: success` sambil membaca nilai dari baris yang tak ada.
+- **Perbaikan**: penanganan race unique-index `closing_kas.tanggal` dipindah ke
+  `ClosingKasModel::simpanClosing()` — bila `insert()` gagal (exception **atau**
+  `false` saat `DBDebug=false`), cek ulang baris tanggal; bila ada (proses lain
+  menang race) → `update()`; bila tidak ada → **error asli diteruskan**. Controller
+  memanggil sekali di dalam `try/catch (\Throwable)` yang mencatat log dan
+  mengembalikan respons error (tidak ditelan), lalu memeriksa `$saved === null`
+  → respons error 500, bukan akses `$saved[...]` pada null.
+- **Bukan perubahan aturan bisnis**: snapshot `saldo_sistem` tetap imutabel
+  (TODO-BL02), validasi tanggal/saldo fisik dan skema tidak berubah.
+- **Verifikasi**: `tests/integration/ClosingKasSimpanRaceTest.php` (5 test:
+  insert, update, race → fallback update, error asli rethrow, insert `false`
+  non-race). Unit **98 OK** (7 incomplete pra-ada), integration **38 OK**.
+  Feature suite tidak dijalankan di lingkungan ini.
+- Ref: `docs/TODO.md` **TODO-BL27**.
+
 ## 2026-10-11 — Cegah silent data loss saat edit transaksi (TODO-BL26)
 
 - **Bug (data-integrity transaksi)**: `Transaksi::updateTransaksi()` mengabaikan
