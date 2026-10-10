@@ -109,6 +109,13 @@
                             <h5 class="card-title">Penerimaan sampai saat ini</h5>
                             <h2 class="display-4">Rp <?= number_format($saldo_sistem, 0, ',', '.') ?></h2>
 
+                            <?php if ($saldo_sistem < 0): ?>
+                                <div class="alert alert-danger my-2 py-2">
+                                    <i class="fas fa-triangle-exclamation"></i>
+                                    Saldo sistem negatif. Periksa kas awal, pengeluaran, dan refund hari ini.
+                                </div>
+                            <?php endif; ?>
+
                             <!-- RINCIAN KOMPONEN -->
                             <div class="row mt-3">
                                 <div class="col-md-4">
@@ -279,6 +286,17 @@
                                     </div>
                                 </div>
 
+                                <div class="alert alert-danger py-2 small" id="peringatanSaldoNegatifOpname" style="display:none;">
+                                    <i class="fas fa-triangle-exclamation"></i>
+                                    <span id="pesanSaldoNegatifOpname">Saldo sistem negatif.</span>
+                                    <div class="form-check mt-1">
+                                        <input type="checkbox" class="form-check-input" id="konfirmasiSaldoNegatifOpname">
+                                        <label class="form-check-label" for="konfirmasiSaldoNegatifOpname">
+                                            Saya sudah memeriksa kas awal, pengeluaran, dan refund hari ini.
+                                        </label>
+                                    </div>
+                                </div>
+
                                 <div id="formAlasan" style="display:none;">
                                     <div class="form-group mb-2">
                                         <label for="alasanSelisih" class="small mb-1">Alasan Selisih <span class="text-danger" id="alasanRequired">*</span></label>
@@ -338,6 +356,19 @@
                             $('#kasAwalDisplay').text(formatRupiah(response.kas_awal));
                             $('#pemasukanDisplay').text(formatRupiah(response.pemasukan));
                             $('#pengeluaranDisplay').text(formatRupiah(response.pengeluaran));
+
+                            // Saldo sistem negatif: tampilkan peringatan dan minta
+                            // konfirmasi eksplisit (TODO-BL30). Tanpa centang, tombol
+                            // simpan tetap nonaktif.
+                            if (saldoSistem < 0) {
+                                $('#pesanSaldoNegatifOpname').text(
+                                    'Saldo sistem negatif (Rp -' + formatRupiah(Math.abs(saldoSistem)) + ').'
+                                );
+                                $('#peringatanSaldoNegatifOpname').show();
+                                $('#konfirmasiSaldoNegatifOpname').prop('checked', false);
+                            } else {
+                                $('#peringatanSaldoNegatifOpname').hide();
+                            }
 
                             $('#opnameLoading').hide();
                             $('#formOpname').show();
@@ -816,9 +847,14 @@
                 $('#btnSimpanOpname')
                     .prop(
                         'disabled',
-                        totalFisik <= 0
+                        totalFisik <= 0 || (saldoSistem < 0 && !$('#konfirmasiSaldoNegatifOpname').is(':checked'))
                     );
             }
+
+            $('#konfirmasiSaldoNegatifOpname').on('change', function() {
+                var nonaktif = (saldoSistem < 0 && !this.checked);
+                $('#btnSimpanOpname').prop('disabled', nonaktif);
+            });
 
             // ==========================================
             // SIMPAN OPNAME
@@ -838,7 +874,8 @@
                     saldo_fisik: saldoFisik,
                     alasan_selisih: $('#alasanSelisih').val().trim(),
                     catatan: $('#catatanOpname').val().trim(),
-                    tanggal: $('#tanggalOpname').val()
+                    tanggal: $('#tanggalOpname').val(),
+                    konfirmasi_saldo_negatif: $('#konfirmasiSaldoNegatifOpname').is(':checked')
                 };
 
                 $('#btnSimpanOpname').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');

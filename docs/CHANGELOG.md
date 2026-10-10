@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2026-10-11 — Saldo sistem negatif diperingatkan dan butuh konfirmasi sebelum opname/closing (TODO-BL30)
+
+- **Masalah**: `CashBalanceService::getBalance()` menghitung `pemasukan - pengeluaran`
+  tanpa batas bawah. Saldo kas fisik tidak mungkin negatif, jadi nilai negatif hampir
+  pasti menandakan data salah (kas awal belum diisi, pengeluaran/refund salah nominal,
+  atau penjualan tunai salah catat). Sebelumnya nilai itu dipakai diam-diam oleh
+  Opname (`Cash::simpanOpname`) dan Closing (`Cash::simpanClosing`), dan closing
+  menyimpannya sebagai snapshot imutabel (TODO-BL02), sehingga kesalahan menempel
+  permanen. Terbukti bisa terjadi lewat input yang ada (mis. pengeluaran tanpa kas
+  awal, atau refund besar): saldo jadi negatif tanpa peringatan apa pun.
+- **Perbaikan (opsi B, keputusan user 2026-10-11)**:
+  - Saat saldo sistem < 0, **server menolak** penyimpanan opname dan closing dengan
+    HTTP 422 + pesan berisi nominal, sampai request membawa
+    `konfirmasi_saldo_negatif = true`. Penegakan di server (bukan cuma tombol di
+    browser) supaya request langsung ke endpoint tidak bisa melewatinya.
+  - Opname yang dikonfirmasi mencatat jejak permanen di `alasan_selisih` dengan awalan
+    `[SALDO SISTEM NEGATIF Rp -X - dikonfirmasi kasir]` (terpotong aman di 255).
+  - `Cash::closingDetail()` menambahkan field `saldo_negatif`; kartu "Penerimaan
+    sampai saat ini" (`/cash`) menampilkan banner merah; pop-up Opname dan modal
+    Closing menampilkan peringatan + kotak centang wajib.
+- **Batasan yang disengaja**: tabel `closing_kas` tidak punya kolom catatan, jadi
+  konfirmasi closing tidak tersimpan sebagai teks; jejaknya hanya berupa lolosnya
+  penyimpanan dari pemeriksaan server (menambah kolom = perubahan skema, diluar cakupan
+  ini). Snapshot closing yang SUDAH ada tetap imutabel dan tidak diperiksa ulang.
+- **Tidak berubah**: rumus saldo, nilai yang disimpan, skema, route, API
+  `/cash/get-saldo-sistem`. Kasus sah tetap bisa lolos (kasir cukup mencentang).
+- **Belum terverifikasi**: perilaku kotak centang/tombol di browser (test tidak
+  menjalankan JavaScript). Mohon uji sekali dengan saldo negatif (pengeluaran tanpa
+  kas awal) di data uji.
+- **Verifikasi**: `tests/integration/CashSaldoNegatifTest.php` (6 test, endpoint
+  sungguhan: opname/closing negatif ditolak tanpa konfirmasi, diterima dengan
+  konfirmasi, awalan tercatat, saldo normal tak berubah, banner di `/cash`). Terhadap
+  kode lama 4 test gagal; terhadap kode baru lulus. Unit **128 OK** (7 incomplete
+  pra-ada), integration **65 OK**, feature **183 OK** (2 skipped).
+- Ref: `docs/TODO.md` **TODO-BL30**.
+
 ## 2026-10-11 — Istilah "Pemasukan" di layar Kas diseragamkan (TODO-BL29)
 
 - **Masalah**: kata "Pemasukan" berarti dua hal berbeda pada hari yang sama. Kartu biru

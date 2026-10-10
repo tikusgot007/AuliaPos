@@ -172,6 +172,30 @@ class Cash extends BaseController
         ]);
     }
     /**
+     * True hanya bila request membawa konfirmasi saldo negatif yang eksplisit
+     * (boolean true / "1" / "true"). Nilai lain, termasuk tidak ada, = belum.
+     */
+    private function konfirmasiSaldoNegatif($request): bool
+    {
+        $nilai = is_array($request) ? ($request['konfirmasi_saldo_negatif'] ?? false) : false;
+
+        return $nilai === true || $nilai === 1 || $nilai === '1' || $nilai === 'true';
+    }
+
+    private function pesanSaldoNegatif(float $saldoSistem): string
+    {
+        return 'Saldo sistem negatif (Rp -' . number_format(abs($saldoSistem), 0, ',', '.') . '). '
+            . 'Periksa kas awal, pengeluaran, dan refund hari ini. '
+            . 'Centang konfirmasi untuk tetap melanjutkan.';
+    }
+
+    private function awalanSaldoNegatif(float $saldoSistem): string
+    {
+        return '[SALDO SISTEM NEGATIF Rp -' . number_format(abs($saldoSistem), 0, ',', '.')
+            . ' - dikonfirmasi kasir]';
+    }
+
+    /**
      * API: Simpan opname (via AJAX POST)
      */
     public function simpanOpname()
@@ -196,6 +220,24 @@ class Cash extends BaseController
         $waktuTarget = date('Y-m-d H:i:s');
         $saldo = getSaldoKasHariIni($waktuTarget);
         $saldoSistem = $saldo['saldo'];
+
+        // Saldo kas tidak mungkin negatif: hampir pasti kas awal belum
+        // diisi atau pengeluaran/refund salah nominal (TODO-BL30). Server
+        // menolak sampai kasir mengonfirmasi eksplisit; konfirmasi dicatat
+        // di alasan_selisih agar jejaknya permanen.
+        if ($saldoSistem < 0) {
+            if (!$this->konfirmasiSaldoNegatif($request)) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'status'          => 'error',
+                    'message'         => $this->pesanSaldoNegatif($saldoSistem),
+                    'saldo_negatif'   => true,
+                    'saldo_sistem'    => $saldoSistem,
+                ]);
+            }
+
+            $alasan = $this->awalanSaldoNegatif($saldoSistem) . ($alasan !== '' ? ' ' . $alasan : '');
+            $alasan = mb_substr($alasan, 0, 255);
+        }
 
         // Hitung selisih
         $selisih = $saldoFisik - $saldoSistem;
@@ -346,6 +388,7 @@ class Cash extends BaseController
             'status' => 'success',
             'tanggal' => $tanggal,
             'saldo_sistem' => $saldoSistem,
+            'saldo_negatif' => $saldoSistem < 0,
             'opname_terakhir' => $opnameTerakhir ? [
                 'saldo_fisik' => (float) $opnameTerakhir['saldo_fisik'],
                 'tanggal' => $opnameTerakhir['tanggal'],
@@ -391,6 +434,18 @@ class Cash extends BaseController
             $existing ? (float) $existing['saldo_sistem'] : null,
             static fn(): float => getSaldoKasHistoris($cutoff)['saldo']
         );
+
+        // Saldo negatif hampir pasti kesalahan data (kas awal/pengeluaran/
+        // refund). Snapshot yang SUDAH ada dibiarkan imutabel; hanya closing
+        // baru yang dicek. Server menolak sampai kasir mengonfirmasi.
+        if ($saldoSistem < 0 && !$this->konfirmasiSaldoNegatif($request)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'status'        => 'error',
+                'message'       => $this->pesanSaldoNegatif($saldoSistem),
+                'saldo_negatif' => true,
+                'saldo_sistem'  => $saldoSistem,
+            ]);
+        }
 
         // Penanganan race unique-index `tanggal` ada di
         // ClosingKasModel::simpanClosing() (bukan retry buta di sini).

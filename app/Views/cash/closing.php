@@ -75,6 +75,17 @@
                         <span class="text-muted">Selisih thd Opname: <strong id="closingSelisihOpnameDisplay">&mdash;</strong></span>
                     </div>
 
+                    <div class="alert alert-danger py-2 small" id="peringatanSaldoNegatifClosing" style="display:none;">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <span id="pesanSaldoNegatifClosing">Saldo sistem negatif.</span>
+                        <div class="form-check mt-1">
+                            <input type="checkbox" class="form-check-input" id="konfirmasiSaldoNegatifClosing">
+                            <label class="form-check-label" for="konfirmasiSaldoNegatifClosing">
+                                Saya sudah memeriksa kas awal, pengeluaran, dan refund hari ini.
+                            </label>
+                        </div>
+                    </div>
+
                     <div class="row">
                         <!-- KIRI: input pecahan -->
                         <div class="col-md-7">
@@ -402,6 +413,16 @@
                     $('#closingSaldoSistemDisplay').text(formatRupiah(response.saldo_sistem)).data('raw', response.saldo_sistem);
                     $('#ringkasanClosingSaldoSistem').text('Rp ' + formatRupiah(response.saldo_sistem));
 
+                    if (response.saldo_negatif) {
+                        $('#pesanSaldoNegatifClosing').text(
+                            'Saldo sistem negatif (Rp -' + formatRupiah(Math.abs(response.saldo_sistem)) + ').'
+                        );
+                        $('#peringatanSaldoNegatifClosing').show();
+                        $('#konfirmasiSaldoNegatifClosing').prop('checked', false);
+                    } else {
+                        $('#peringatanSaldoNegatifClosing').hide();
+                    }
+
                     if (response.opname_terakhir) {
                         $('#closingOpnameDisplay')
                             .text('Rp ' + formatRupiah(response.opname_terakhir.saldo_fisik) + ' (' + response.opname_terakhir.tanggal + ')')
@@ -411,7 +432,7 @@
                         $('#closingSelisihOpnameDisplay').text('—');
                     }
 
-                    $('#btnSimpanClosing').prop('disabled', false);
+                    $('#btnSimpanClosing').prop('disabled', response.saldo_negatif === true);
                     hitungUangFisikClosing();
 
                     dataSudahSiap = true;
@@ -436,6 +457,13 @@
             openModalClosing($(this).data('tanggal').toString());
         });
 
+        $('#konfirmasiSaldoNegatifClosing').on('change', function() {
+            var saldoNegatif = $('#closingSaldoSistemDisplay').data('raw') < 0;
+            if (saldoNegatif) {
+                $('#btnSimpanClosing').prop('disabled', !this.checked);
+            }
+        });
+
         $('#btnSimpanClosing').on('click', function() {
             // Ambil nilai Kas Fisik apa adanya -- bisa hasil sum pecahan,
             // bisa juga diketik manual langsung, keduanya sah.
@@ -446,7 +474,11 @@
             $.ajax({
                 url: baseUrl + '/cash/closing/simpan',
                 type: 'POST',
-                data: JSON.stringify({ tanggal: currentTanggal, saldo_fisik: saldoFisik }),
+                data: JSON.stringify({
+                    tanggal: currentTanggal,
+                    saldo_fisik: saldoFisik,
+                    konfirmasi_saldo_negatif: $('#konfirmasiSaldoNegatifClosing').is(':checked')
+                }),
                 contentType: 'application/json',
                 dataType: 'json',
                 success: function(response) {
