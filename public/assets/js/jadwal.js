@@ -852,6 +852,11 @@
 
         let html = '<div class="alert alert-info">Diisi: ' + res.diisi + ' · Dilewati (conflict): ' + res.dilewati + ' · Ditimpa: ' + res.ditimpa + '</div>';
 
+        if (res.nonaktif && res.nonaktif.length) {
+            html += '<div class="alert alert-warning">Dilewati karena karyawan non-aktif (' + res.dilewati_nonaktif + ' sel): '
+                + res.nonaktif.map(function (k) { return escapeHtml(k.nama); }).join(', ') + '</div>';
+        }
+
         if (res.conflict && res.conflict.length) {
             html += '<table class="table table-sm table-bordered"><thead><tr><th>Tanggal</th><th>Karyawan</th><th>Master</th><th>Existing</th></tr></thead><tbody>';
             res.conflict.forEach(function (c) {

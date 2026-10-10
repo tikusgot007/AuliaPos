@@ -117,7 +117,17 @@ class MasterJadwalModel extends Model
      * ada boleh ditimpa. Ini harus berupa aksi eksplisit dari
      * controller (misal checkbox terpisah), tidak pernah default.
      *
-     * @return array{diisi:int, dilewati:int, ditimpa:int, conflict:array}
+     * Karyawan NON-AKTIF (users.is_active = 0) tidak dijadwalkan: sel-selnya
+     * dilewati dan dilaporkan terpisah dari conflict (TODO-BL21), sama
+     * seperti picker jadwal manual yang hanya menawarkan karyawan aktif.
+     *
+     * Seluruh apply berjalan dalam SATU transaksi DB: gagal di tengah
+     * berarti tidak ada jadwal yang tersimpan (rollback) dan exception
+     * dilempar -- tidak pernah hasil sebagian.
+     *
+     * @return array{diisi:int, dilewati:int, ditimpa:int, conflict:array, dilewati_nonaktif:int, nonaktif:array}
+     *
+     * @throws \Throwable bila penyimpanan salah satu sel gagal (semua dibatalkan).
      */
     public function applyMaster(
         int $masterId,
@@ -129,57 +139,134 @@ class MasterJadwalModel extends Model
 
         [, $detail] = array_values($this->getDetailMaster($masterId));
 
-        $hasil = ['diisi' => 0, 'dilewati' => 0, 'ditimpa' => 0, 'conflict' => []];
+        $hasil = [
+            'diisi'             => 0,
+            'dilewati'          => 0,
+            'ditimpa'           => 0,
+            'conflict'          => [],
+            'dilewati_nonaktif' => 0,
+            'nonaktif'          => [],
+        ];
 
         if (empty($detail)) {
             return $hasil;
         }
 
+        $nonaktifIds = $this->idKaryawanNonaktif(array_keys($detail));
         $startTimestamp = strtotime($startMinggu);
 
-        for ($minggu = 0; $minggu < $jumlahMinggu; $minggu++) {
-            foreach ($detail as $karyawanId => $data) {
-                foreach ($data['hari'] as $hari => $shift) {
-                    // hari 1 (Senin) = offset 0 dari startMinggu.
-                    $offsetHari = ($minggu * 7) + ($hari - 1);
-                    $tanggal = date('Y-m-d', strtotime("+{$offsetHari} days", $startTimestamp));
+        $this->db->transStart();
 
-                    $existing = $jadwalModel
-                        ->where('karyawan_id', $karyawanId)
-                        ->where('tanggal', $tanggal)
-                        ->first();
+        try {
+            for ($minggu = 0; $minggu < $jumlahMinggu; $minggu++) {
+                foreach ($detail as $karyawanId => $data) {
+                    if (isset($nonaktifIds[(int) $karyawanId])) {
+                        $hasil['dilewati_nonaktif'] += count($data['hari']);
 
-                    if (!$existing) {
-                        $jadwalModel->simpanJadwal((int) $karyawanId, $tanggal, $shift);
-                        $hasil['diisi']++;
-
-                        continue;
-                    }
-
-                    if ($existing['shift'] === $shift) {
-                        // Sudah sama persis, tidak perlu dianggap conflict.
-                        continue;
-                    }
-
-                    if ($overwrite) {
-                        $jadwalModel->simpanJadwal((int) $karyawanId, $tanggal, $shift);
-                        $hasil['ditimpa']++;
+                        if ($minggu === 0) {
+                            $hasil['nonaktif'][] = [
+                                'karyawan_id' => (int) $karyawanId,
+                                'nama'        => $data['info']['nama'],
+                            ];
+                        }
 
                         continue;
                     }
 
-                    $hasil['dilewati']++;
-                    $hasil['conflict'][] = [
-                        'karyawan_id'    => (int) $karyawanId,
-                        'nama'           => $data['info']['nama'],
-                        'tanggal'        => $tanggal,
-                        'master_shift'   => $shift,
-                        'existing_shift' => $existing['shift'],
-                    ];
+                    foreach ($data['hari'] as $hari => $shift) {
+                        // hari 1 (Senin) = offset 0 dari startMinggu.
+                        $offsetHari = ($minggu * 7) + ($hari - 1);
+                        $tanggal = date('Y-m-d', strtotime("+{$offsetHari} days", $startTimestamp));
+
+                        $existing = $jadwalModel
+                            ->where('karyawan_id', $karyawanId)
+                            ->where('tanggal', $tanggal)
+                            ->first();
+
+                        if (!$existing) {
+                            $this->simpanAtauGagal($jadwalModel, (int) $karyawanId, $tanggal, $shift);
+                            $hasil['diisi']++;
+
+                            continue;
+                        }
+
+                        if ($existing['shift'] === $shift) {
+                            // Sudah sama persis, tidak perlu dianggap conflict.
+                            continue;
+                        }
+
+                        if ($overwrite) {
+                            $this->simpanAtauGagal($jadwalModel, (int) $karyawanId, $tanggal, $shift);
+                            $hasil['ditimpa']++;
+
+                            continue;
+                        }
+
+                        $hasil['dilewati']++;
+                        $hasil['conflict'][] = [
+                            'karyawan_id'    => (int) $karyawanId,
+                            'nama'           => $data['info']['nama'],
+                            'tanggal'        => $tanggal,
+                            'master_shift'   => $shift,
+                            'existing_shift' => $existing['shift'],
+                        ];
+                    }
                 }
             }
+        } catch (\Throwable $e) {
+            $this->db->transRollback();
+
+            throw $e;
+        }
+
+        $this->db->transComplete();
+
+        if (!$this->db->transStatus()) {
+            throw new \RuntimeException('Gagal menerapkan master jadwal.');
         }
 
         return $hasil;
+    }
+
+    /**
+     * Simpan satu sel jadwal dan pastikan benar-benar tersimpan. Dengan
+     * DBDebug=false (produksi) insert yang gagal mengembalikan id 0 tanpa
+     * exception -- tanpa cek ini hitungan `diisi` salah dan transaksi
+     * tetap ter-commit sebagian.
+     */
+    private function simpanAtauGagal(JadwalModel $jadwalModel, int $karyawanId, string $tanggal, string $shift): void
+    {
+        if ($jadwalModel->simpanJadwal($karyawanId, $tanggal, $shift) <= 0) {
+            throw new \RuntimeException('Gagal menyimpan jadwal ' . $tanggal . ' (karyawan #' . $karyawanId . ').');
+        }
+    }
+
+    /**
+     * Set karyawan_id (kunci array) yang NON-AKTIF dari daftar yang diberikan.
+     *
+     * @param array<int, int|string> $karyawanIds
+     *
+     * @return array<int, true>
+     */
+    private function idKaryawanNonaktif(array $karyawanIds): array
+    {
+        if ($karyawanIds === []) {
+            return [];
+        }
+
+        $rows = $this->db->table('users')
+            ->select('id')
+            ->whereIn('id', $karyawanIds)
+            ->where('is_active', 0)
+            ->get()
+            ->getResultArray();
+
+        $set = [];
+
+        foreach ($rows as $r) {
+            $set[(int) $r['id']] = true;
+        }
+
+        return $set;
     }
 }

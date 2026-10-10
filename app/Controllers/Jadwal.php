@@ -21,6 +21,9 @@ use App\Models\UserModel;
  */
 class Jadwal extends BaseController
 {
+    /** Batas jumlah minggu sekali apply master; sama dengan max di input UI. */
+    private const MAX_MINGGU_APPLY = 12;
+
     protected JadwalModel $jadwalModel;
     protected MasterJadwalModel $masterModel;
     protected UserModel $userModel;
@@ -723,12 +726,30 @@ class Jadwal extends BaseController
             ]);
         }
 
-        $hasil = $this->masterModel->applyMaster(
-            (int) $masterId,
-            $startMinggu,
-            $jumlahMinggu,
-            $overwrite
-        );
+        // Batas atas ditegakkan di server (bukan hanya atribut max di input
+        // HTML) supaya request langsung tidak bisa memicu loop sangat besar.
+        if ($jumlahMinggu > self::MAX_MINGGU_APPLY) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Jumlah minggu maksimal ' . self::MAX_MINGGU_APPLY . '.',
+            ]);
+        }
+
+        try {
+            $hasil = $this->masterModel->applyMaster(
+                (int) $masterId,
+                $startMinggu,
+                $jumlahMinggu,
+                $overwrite
+            );
+        } catch (\Throwable $e) {
+            log_message('error', 'Jadwal::masterApply gagal: ' . $e->getMessage());
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => 'error',
+                'message' => 'Gagal menerapkan master. Tidak ada jadwal yang diubah.',
+            ]);
+        }
 
         return $this->response->setJSON(array_merge(['status' => 'success'], $hasil));
     }

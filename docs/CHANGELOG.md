@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2026-10-11 — Perketat "Terapkan master jadwal": lewati non-aktif, atomik, batas 12 minggu (TODO-BL21)
+
+- **Masalah** (`MasterJadwalModel::applyMaster()` / `Jadwal::masterApply()`):
+  1. karyawan **non-aktif** tetap dijadwalkan (query detail master tanpa filter
+     `is_active`), sehingga muncul di Matrix/Calendar/roster/statistik;
+  2. **tidak transaksional**: gagal di tengah meninggalkan jadwal sebagian, dan
+     hasil `simpanJadwal()` tidak diperiksa (insert gagal tanpa exception pada
+     `DBDebug=false` tetap dihitung `diisi`);
+  3. **tanpa batas atas** `jumlah_minggu` di server (batas `max="12"` hanya di
+     atribut input HTML).
+- **Perbaikan**:
+  1. karyawan non-aktif **dilewati dan dilaporkan** di field terpisah
+     `dilewati_nonaktif` (jumlah sel) + `nonaktif` (daftar karyawan), tidak
+     dicampur dengan `dilewati`/`conflict`; UI menampilkannya sebagai peringatan;
+  2. seluruh apply berjalan dalam **satu transaksi DB** dan hasil simpan tiap sel
+     diperiksa — gagal berarti rollback total (tidak ada jadwal yang berubah) dan
+     controller membalas error generik (detail hanya di log);
+  3. server menolak `jumlah_minggu` **> 12** (`Jadwal::MAX_MINGGU_APPLY`).
+- **Keputusan user (2026-10-11)**: non-aktif dilewati + dilaporkan; batas 12 minggu;
+  apply semua-atau-tidak-sama-sekali.
+- **Tidak berubah**: aturan isi slot kosong / lewati conflict / `overwrite`
+  eksplisit (Section 24-25), `getDetailMaster()` (tampilan master tetap
+  menampilkan semua karyawan), skema DB, route. Respons hanya **bertambah** dua
+  field opsional. Jadwal non-aktif yang sudah terlanjur dibuat sebelumnya tidak
+  dibersihkan.
+- **Verifikasi**: `tests/integration/MasterJadwalApplyTest.php` (5: non-aktif
+  dilewati & terlapor, conflict/overwrite tak berubah, semua non-aktif, rollback
+  saat gagal di tengah, simpan gagal-diam dibatalkan) dan
+  `tests/feature/JadwalMasterApplyBatasTest.php` (4: 13 & 100000 minggu ditolak,
+  12 lolos batas, kasir ditolak). Unit **98 OK** (7 incomplete pra-ada),
+  integration **48 OK**, feature **171 OK** (2 skipped).
+- Ref: `docs/TODO.md` **TODO-BL21**.
+
 ## 2026-10-11 — Riwayat revisi closing kas + halaman Log Revisi (TODO-BL28)
 
 - **Masalah**: baris `closing_kas` boleh diubah kapan saja (sesuai desain), tetapi
