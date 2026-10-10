@@ -294,10 +294,13 @@ class Api extends BaseController
             $statusPembayaran = 'dp';
         } elseif ($metode === 'piutang') {
             $jumlahBayar = 0;
-            $statusPembayaran = 'belum_bayar';
+            // Lewat rumus resmi, bukan 'belum_bayar' hard-coded: total Rp 0
+            // tidak punya sisa untuk dibayar sehingga 'lunas' (sama dengan
+            // TransaksiModel::sinkronkanPembayaran); total > 0 tetap belum_bayar.
+            $statusPembayaran = \App\Services\KalkulasiStatusPembayaran::hitung($jumlahBayar, $grandTotal);
         } elseif ($metode === 'draft') {
             $jumlahBayar = 0;
-            $statusPembayaran = 'belum_bayar';
+            $statusPembayaran = \App\Services\KalkulasiStatusPembayaran::hitung($jumlahBayar, $grandTotal);
         } elseif (in_array($metode, \App\Models\PembayaranModel::METODE, true)) {
             $jumlahBayar = $grandTotal;
             $statusPembayaran = 'lunas';

@@ -1,5 +1,44 @@
 # CHANGELOG
 
+## 2026-10-11 — Transaksi bertotal Rp 0 mendapat status pembayaran sesuai rumus resmi (TODO-BL25)
+
+- **Masalah** (`Api::simpanTransaksi()`): cabang `piutang` dan `draft` menulis
+  `status_pembayaran = 'belum_bayar'` secara hard-coded, sedangkan rumus resmi
+  `KalkulasiStatusPembayaran::hitung()` menyatakan total Rp 0 = `lunas` (tidak ada
+  sisa untuk dibayar; aturan ini sudah ada dan diuji). Akibatnya transaksi Rp 0
+  tersimpan `belum_bayar`: daftar tagihan (yang menghitung ulang dari angka)
+  menampilkan **LUNAS**, tetapi filter "belum lunas", badge tagihan terbuka
+  (`status_pembayaran != 'lunas'`) dan laporan yang membaca kolom DB melihat
+  `belum_bayar`. Tagihan itu tidak bisa dilunasi (`Tagihan::lunasi` menolak karena
+  sisa Rp 0) dan tidak bisa dibayar (`tambahPembayaran` menolak jumlah di atas sisa).
+- **Perbaikan**: cabang `piutang` dan `draft` kini memakai
+  `KalkulasiStatusPembayaran::hitung($jumlahBayar, $grandTotal)`. Total > 0 tetap
+  `belum_bayar` (identik dengan sebelumnya); total tepat Rp 0 menjadi `lunas`.
+  Tidak ada baris pembayaran yang dibuat untuk total Rp 0. Cabang `dp` dan metode
+  bayar biasa tidak disentuh.
+- **Keputusan user (2026-10-11)**: opsi A — ikuti rumus yang ada (bukan menolak
+  transaksi Rp 0, yang akan mengubah aturan bisnis dan dialog "Total belanja Rp 0.
+  Lanjutkan transaksi?" di `kasir/index.php`). Draft Rp 0 ikut `lunas`; ini hanya
+  berarti "tidak ada yang harus dibayar", status pekerjaan tetap `proses`.
+- **Catatan koreksi deskripsi TODO**: transaksi Rp 0 **tidak** terjebak selamanya —
+  `ubahStatus('selesai')` memanggil `sinkronkanPembayaran()` dulu sehingga syarat
+  lunas terpenuhi. Dampak nyatanya adalah ketidakkonsistenan tampilan/filter/laporan.
+- **Tidak berubah**: aturan bisnis, `KalkulasiStatusPembayaran`, `Tagihan`,
+  `TransaksiModel`, skema, kontrak respons. Data lama tidak disentuh.
+- **Belum terverifikasi**: apakah ada transaksi Rp 0 di produksi. Data uji lokal
+  (`aulia_kasirdb`: 2 transaksi, `aulia_kasirdb_clone`: kosong) tidak memilikinya,
+  tetapi itu bukan data toko. Cek read-only di server:
+  `SELECT id, kode_invoice, tanggal, status, status_pembayaran FROM transaksi WHERE grand_total = 0;`
+  Bila ada yang berstatus `belum_bayar`, perintah `RepairTotalDibayar` dapat
+  merapikannya — hanya dengan persetujuan terpisah.
+- **Verifikasi**: `tests/integration/TransaksiTotalNolStatusTest.php` (6 test, lewat
+  endpoint `Api::simpanTransaksi` sungguhan: piutang/draft Rp 0 → lunas,
+  piutang/draft > 0 → belum_bayar, tanpa baris pembayaran, DP dan tunai tak
+  berubah). Terhadap `Api.php` lama 2 test gagal; terhadap yang baru lulus. Unit
+  **128 OK** (7 incomplete pra-ada), integration **54 OK**, feature **183 OK**
+  (2 skipped).
+- Ref: `docs/TODO.md` **TODO-BL25**.
+
 ## 2026-10-11 — `parse_no_order()` hanya menerima nomor yang bisa dihasilkan `format_no_order()` (TODO-BL24)
 
 - **Masalah** (`app/Helpers/order_helper.php`): `parse_no_order()` hanya memakai regex
