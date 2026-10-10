@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-10 | [Halaman Log Kiriman Gagal + Log Audit Kas (TODO-L3)](2026-10-10-log-audit-kiriman-gagal-dan-kas-todo-l3.md) | selesai (kode + test + migrasi lokal terverifikasi; belum di-commit; migrasi produksi belum) |
 | 2026-10-10 | [Kontrak dua sisi CI4 ↔ Gateway + test formal (TODO-Q3)](2026-10-10-kontrak-dua-sisi-ci4-gateway-todo-q3.md) | selesai (kode + test di kedua repo terverifikasi; belum di-commit) |
 | 2026-10-10 | [Perbaikan encoding patch Evolution (TODO-F3) + aktivasi fitur edit/hapus pesan (TODO-F7/F8) di aulia7](2026-10-10-perbaikan-encoding-patch-dan-aktivasi-fitur-edit-hapus-gateway.md) | selesai (3 perubahan produksi diverifikasi; dokumentasi di-commit sesi berikutnya) |
 | 2026-10-09 | [Nudge "Ambil" untuk percakapan belum_diambil (TODO-F9)](2026-10-09-nudge-ambil-inbox-todo-f9.md) | selesai (kode + test + uji browser; ternyata sudah live di produksi sejak deploy `a55d86e`, dikonfirmasi 2026-10-10) |

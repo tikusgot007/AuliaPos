@@ -1887,7 +1887,12 @@ class Inbox extends BaseController
         );
 
         if (!$result['ok']) {
-            return $this->gatewayFailureResponse($result, $conversationId, 'kirimMedia', 'Gagal mengirim media: ', $operationId);
+            return $this->gatewayFailureResponse($result, $conversationId, 'kirimMedia', 'Gagal mengirim media: ', $operationId, null, [
+                'text'            => $captionUntukGateway !== '' ? $captionUntukGateway : null,
+                'media_type'      => $mediaType,
+                'media_file_name' => $fileName,
+                'media_size'      => $fileSize,
+            ]);
         }
 
         // M1 Wave 2 (TASK-017 perluasan / F-03): sama seperti jalur teks,
@@ -3466,7 +3471,7 @@ class Inbox extends BaseController
         );
 
         if (!$result['ok']) {
-            return $this->gatewayFailureResponse($result, $conversationId, $konteks, 'Gagal mengirim pesan: ', $operationId);
+            return $this->gatewayFailureResponse($result, $conversationId, $konteks, 'Gagal mengirim pesan: ', $operationId, null, ['text' => $text]);
         }
 
         // --- Sukses: BARU sekarang simpan sebagai outgoing 'sent' ----------
@@ -4161,12 +4166,17 @@ class Inbox extends BaseController
             : $this->callGatewayDelete($config, $chatId, $waMessageId, $operationId);
 
         if (! $result['ok']) {
+            // Hapus TIDAK membawa preview (tidak ada "konten baru" yang
+            // gagal -- yang gagal adalah aksi hapus pesan LAMA; isi pesan
+            // lama itu sudah ada sebagai baris `messages` tersendiri).
             return $this->gatewayFailureResponse(
                 $result,
                 (int) $conversation['id'],
                 $konteks,
                 $aksi === 'edit' ? 'Gagal mengedit pesan: ' : 'Gagal menghapus pesan: ',
-                $operationId
+                $operationId,
+                null,
+                $aksi === 'edit' ? ['text' => $newText] : null
             );
         }
 
@@ -4658,7 +4668,16 @@ class Inbox extends BaseController
         ];
     }
 
-    private function gatewayFailureResponse(array $result, int $conversationId, string $context, string $prefix, ?string $operationId = null, ?int $userId = null)
+    /**
+     * @param array{text?: ?string, media_type?: ?string, media_file_name?: ?string, media_size?: ?int}|null $preview
+     *        TODO-L3: pratinjau RINGAN isi yang gagal dikirim (teks penuh
+     *        pemanggil ATAU metadata media, bukan byte-nya) -- diambil dari
+     *        data yang pemanggil SUDAH punya sebelum memanggil Gateway,
+     *        BUKAN diminta balik dari Gateway. `null` berarti pemanggil
+     *        tidak punya konten baru untuk di-preview (mis. hapus pesan --
+     *        yang gagal adalah AKSI-nya, bukan konten pesan baru).
+     */
+    private function gatewayFailureResponse(array $result, int $conversationId, string $context, string $prefix, ?string $operationId = null, ?int $userId = null, ?array $preview = null)
     {
         $errorCode = $result['error_code'] ?? null;
 
@@ -4690,6 +4709,10 @@ class Inbox extends BaseController
             'http_code'       => $result['http_code'] ?? null,
             'context'         => $context,
             'user_id'         => $userId,
+            'preview_text'     => $preview['text'] ?? null,
+            'media_type'       => $preview['media_type'] ?? null,
+            'media_file_name'  => $preview['media_file_name'] ?? null,
+            'media_size'       => $preview['media_size'] ?? null,
             'created_at'      => date('Y-m-d H:i:s'),
         ]);
 

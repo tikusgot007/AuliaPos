@@ -57,4 +57,47 @@ class CashExpenseAuditModel extends Model
             'created_at'   => date('Y-m-d H:i:s'),
         ]);
     }
+
+    /**
+     * TODO-L3 (paket halaman log): daftar audit untuk halaman "Log Audit
+     * Kas" (read-only, admin), dengan filter opsional rentang tanggal.
+     * `user_id` ada di database DEFAULT yang sama dengan `users`, jadi
+     * boleh di-JOIN SQL langsung (beda dengan `message_send_audit` yang
+     * ada di DB `inbox` terpisah dari `users`).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function daftarUntukLog(?string $tanggalMulai, ?string $tanggalSampai, int $limit, int $offset): array
+    {
+        $builder = $this->select('cash_expense_audit.*, users.username, users.nama')
+            ->join('users', 'users.id = cash_expense_audit.user_id', 'left');
+
+        if ($tanggalMulai !== null) {
+            $builder->where('cash_expense_audit.created_at >=', $tanggalMulai . ' 00:00:00');
+        }
+        if ($tanggalSampai !== null) {
+            $builder->where('cash_expense_audit.created_at <=', $tanggalSampai . ' 23:59:59');
+        }
+
+        return $builder->orderBy('cash_expense_audit.created_at', 'DESC')
+            ->findAll($limit, $offset);
+    }
+
+    /**
+     * Hitung total baris untuk pagination, dengan filter rentang tanggal
+     * yang SAMA dengan {@see daftarUntukLog()}.
+     */
+    public function hitungUntukLog(?string $tanggalMulai, ?string $tanggalSampai): int
+    {
+        $builder = $this->builder();
+
+        if ($tanggalMulai !== null) {
+            $builder->where('created_at >=', $tanggalMulai . ' 00:00:00');
+        }
+        if ($tanggalSampai !== null) {
+            $builder->where('created_at <=', $tanggalSampai . ' 23:59:59');
+        }
+
+        return (int) $builder->countAllResults();
+    }
 }

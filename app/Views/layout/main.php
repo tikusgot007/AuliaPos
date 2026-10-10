@@ -649,7 +649,7 @@
                 // 'laporan-pembayaran' TIDAK cocok dengan segmen 'laporan'
                 // (butuh 'laporan/'), jadi otomatis tidak ikut aktif.
                 $isLaporanMenu   = $__seg('laporan');
-                $isAdminMenu     = $__seg('user-management', 'ganti-password', 'migrasi-manual', 'archive-transaksi', 'kategori', 'balasan-template');
+                $isAdminMenu     = $__seg('user-management', 'ganti-password', 'migrasi-manual', 'archive-transaksi', 'kategori', 'balasan-template', 'log-kirim-gagal', 'log-audit-kas');
 
                 // Boolean submenu yang dipakai di dalam closure di bawah.
                 $isKasActive       = ($__path === 'cash');
@@ -975,6 +975,20 @@
                                             href="<?= base_url('/archive-transaksi') ?>">
                                             <i class="fas fa-box-archive"></i>
                                             Arsip Transaksi
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?= $__seg('log-kirim-gagal') ? 'active' : '' ?>"
+                                            href="<?= base_url('/log-kirim-gagal') ?>">
+                                            <i class="fas fa-triangle-exclamation"></i>
+                                            Log Kiriman Gagal
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?= $__seg('log-audit-kas') ? 'active' : '' ?>"
+                                            href="<?= base_url('/log-audit-kas') ?>">
+                                            <i class="fas fa-clock-rotate-left"></i>
+                                            Log Audit Kas
                                         </a>
                                     </li>
                                 </ul>

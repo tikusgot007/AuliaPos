@@ -6,12 +6,18 @@ use Tests\Support\GatewayApiTestTrait;
 use App\Controllers\Inbox as InboxController;
 use App\Libraries\InboxOutgoingRequest;
 use App\Database\Migrations\CreateMessageSendAudit;
+use App\Database\Migrations\AddPreviewToMessageSendAudit;
 use Config\Inbox as InboxConfig;
 
 // Migrasi CI4 diberi nama berkas ber-timestamp, jadi tidak PSR-4 autoloadable
 // lewat nama kelas. Muat eksplisit supaya test bisa menjalankan migrasi asli
 // (bukan menyalin skema) di DB uji.
 require_once __DIR__ . '/../../app/Database/Migrations/2026-10-09-000001_CreateMessageSendAudit.php';
+// TODO-L3: kolom preview_text/media_* (additive) -- tanpa ini, skema DB uji
+// hanya punya kolom lama dan insertAudit() yang menulis kolom baru gagal
+// diam-diam (ditangkap try/catch), membuat SEMUA assertion "1 baris audit"
+// gagal dengan size 0.
+require_once __DIR__ . '/../../app/Database/Migrations/2026-10-10-000001_AddPreviewToMessageSendAudit.php';
 
 /**
  * Test double: menjalankan alur kirim/edit POS yang ASLI (validasi,
@@ -98,6 +104,7 @@ final class InboxMessageSendAuditTest extends CIUnitTestCase
         $migration = new CreateMessageSendAudit();
         $migration->down();
         $migration->up();
+        (new AddPreviewToMessageSendAudit())->up();
         $this->inbox->table('message_send_audit')->emptyTable();
 
         $forge = \Config\Database::forge();
@@ -376,5 +383,116 @@ final class InboxMessageSendAuditTest extends CIUnitTestCase
         $this->assertCount(1, $rows);
         $this->assertSame('editPesan', $rows[0]['context']);
         $this->assertSame('op-at7-edit', $rows[0]['operation_id']);
+    }
+
+    // ---------------- AT8 (TODO-L3: pratinjau isi yang gagal) ----------------
+
+    public function testAT8KirimTeksMencatatPreviewTextUtuh(): void
+    {
+        $conv = $this->seedConv();
+        InboxAuditStub::$antrian = [[
+            'ok' => false, 'error_code' => 'INVALID_CHAT_ID',
+            'error' => 'chat_id tidak valid', 'http_code' => 400,
+        ]];
+        $this->ruteStub();
+
+        $res = $this->postKirim($conv, 'op-at8-text', 'Halo, ini pesan yang gagal terkirim');
+        $res->assertStatus(400);
+
+        $rows = $this->auditRows($conv);
+        $this->assertCount(1, $rows);
+        $this->assertSame('Halo, ini pesan yang gagal terkirim', $rows[0]['preview_text']);
+        $this->assertNull($rows[0]['media_type'], 'kirim teks tidak boleh mengisi kolom media');
+    }
+
+    public function testAT8KirimTeksMemotongPreviewTextKePanjangMaksimum(): void
+    {
+        $conv = $this->seedConv();
+        InboxAuditStub::$antrian = [[
+            'ok' => false, 'error_code' => 'INVALID_CHAT_ID',
+            'error' => 'chat_id tidak valid', 'http_code' => 400,
+        ]];
+        $this->ruteStub();
+
+        $teksPanjang = str_repeat('a', 1500);
+        $res = $this->postKirim($conv, 'op-at8-panjang', $teksPanjang);
+        $res->assertStatus(400);
+
+        $rows = $this->auditRows($conv);
+        $this->assertCount(1, $rows);
+        $this->assertSame(
+            \App\Models\MessageSendAuditModel::PREVIEW_TEXT_MAX_LENGTH,
+            mb_strlen((string) $rows[0]['preview_text']),
+            'preview_text harus dipotong ke batas maksimum, bukan disimpan utuh'
+        );
+    }
+
+    public function testAT8EditPesanMencatatPreviewTextBaru(): void
+    {
+        $conv = $this->seedConv();
+        $now  = date('Y-m-d H:i:s');
+        $this->inbox->table('messages')->insert([
+            'conversation_id'   => $conv,
+            'wa_message_id'     => 'WAMSG-AT8-' . random_int(10000, 99999),
+            'direction'         => 'outgoing',
+            'message_type'      => 'text',
+            'text'              => 'pesan keluar lama',
+            'send_status'       => 'sent',
+            'message_timestamp' => $now,
+            'created_at'        => $now,
+            'is_internal'       => 0,
+            'is_forwarded'      => 0,
+        ]);
+        $msgId = (int) $this->inbox->insertID();
+
+        InboxAuditStub::$antrian = [[
+            'ok' => false, 'error_code' => 'INVALID_CHAT_ID',
+            'error' => 'chat_id tidak valid', 'http_code' => 400,
+        ]];
+        $this->ruteStub();
+
+        $res = $this->withSession(['isLoggedIn' => true, 'id_user' => 21, 'role' => 'kasir'])
+            ->post('/inbox/pesan/' . $msgId . '/edit', ['new_text' => 'teks hasil edit yang gagal', 'operation_id' => 'op-at8-edit']);
+        $res->assertStatus(400);
+
+        $rows = $this->auditRows($conv);
+        $this->assertCount(1, $rows);
+        $this->assertSame('teks hasil edit yang gagal', $rows[0]['preview_text'], 'preview harus teks HASIL EDIT (baru), bukan teks lama');
+    }
+
+    public function testAT8HapusPesanTidakMencatatPreview(): void
+    {
+        $conv = $this->seedConv();
+        $now  = date('Y-m-d H:i:s');
+        $this->inbox->table('messages')->insert([
+            'conversation_id'   => $conv,
+            'wa_message_id'     => 'WAMSG-AT8-HAPUS-' . random_int(10000, 99999),
+            'direction'         => 'outgoing',
+            'message_type'      => 'text',
+            'text'              => 'pesan yang mau dihapus',
+            'send_status'       => 'sent',
+            'message_timestamp' => $now,
+            'created_at'        => $now,
+            'is_internal'       => 0,
+            'is_forwarded'      => 0,
+        ]);
+        $msgId = (int) $this->inbox->insertID();
+
+        InboxAuditStub::$antrian = [[
+            'ok' => false, 'error_code' => 'INVALID_CHAT_ID',
+            'error' => 'chat_id tidak valid', 'http_code' => 400,
+        ]];
+        $this->withRoutes([
+            ['POST', 'inbox/pesan/(:num)/hapus', '\InboxAuditStub::hapusPesan/$1', ['filter' => 'auth']],
+        ]);
+
+        $res = $this->withSession(['isLoggedIn' => true, 'id_user' => 21, 'role' => 'kasir'])
+            ->post('/inbox/pesan/' . $msgId . '/hapus', ['operation_id' => 'op-at8-hapus']);
+        $res->assertStatus(400);
+
+        $rows = $this->auditRows($conv);
+        $this->assertCount(1, $rows);
+        $this->assertNull($rows[0]['preview_text'], 'hapus pesan tidak mencatat preview (yang gagal adalah AKSI, bukan konten baru)');
+        $this->assertNull($rows[0]['media_type']);
     }
 }

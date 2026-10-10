@@ -80,10 +80,21 @@
   - **Monitor aulia7**: **SELESAI 2026-10-09** — dipasang & terverifikasi (lihat bullet "Monitor aulia7 — SELESAI 2026-10-09" di atas).
 
 - [ ] **TODO-L2** Tutup/terminalize baris `outgoing_operations` berstatus `in_flight` yang basi saat adapter start (saat ini hanya **dicatat**, `outgoingOperationService.js:396`), supaya tidak mengendap & muncul terus di ringkasan startup — perubahan gateway (`src/store/outgoingOperations.js` / `src/delivery/outgoingOperationService.js`) — higiene; perlu persetujuan — ref `docs/sesi/2026-10-06-analisa-log-gateway-aulia3.md`
-- [ ] **TODO-L3** Auditabilitas kiriman keluar yang **gagal**: gateway sengaja hanya simpan `payload_hash` (SEC-001) dan POS hanya menulis baris `messages` setelah kirim sukses (`Inbox.php:1594→1642`), sehingga isi kiriman gagal tak bisa diaudit/dilihat. **Perlu keputusan**: perlukah POS mencatat baris `messages`/status `failed` saat kirim gagal (agar kasir & investigasi punya jejak), atau diterima by-design. — rendah/sedang — ref `docs/sesi/2026-10-06-analisa-log-gateway-aulia3.md`
 
 
 ## Selesai / Ditutup
+
+- [x] **TODO-L3** Low/Medium — Auditabilitas kiriman keluar yang **gagal**: gateway sengaja hanya simpan `payload_hash` (SEC-001) dan POS hanya menulis baris `messages` setelah kirim sukses, sehingga isi kiriman gagal tak bisa diaudit/dilihat. **DEC-L3: Opsi B (ringan)** → tambah pratinjau RINGAN (teks penuh / metadata media, BUKAN byte media) ke `message_send_audit` + 2 halaman admin read-only. — **SELESAI 2026-10-10**.
+  - Migrasi additive (`2026-10-10-000001_AddPreviewToMessageSendAudit.php`): kolom `preview_text` (VARCHAR 1000), `media_type`, `media_file_name`, `media_size` — semua nullable, tidak mengubah kolom lama. Sudah dijalankan di DB lokal; **belum dijalankan ke produksi**.
+  - `Inbox.php::gatewayFailureResponse()` menerima parameter `$preview` opsional; diteruskan dari 3 titik panggil (kirim teks, kirim media, edit pesan). **Hapus pesan sengaja TIDAK mengisi preview** (yang gagal adalah aksi, bukan konten baru).
+  - `MessageSendAuditModel::daftarUntukLog()`/`hitungUntukLog()`: query + JOIN `conversations` (DB `inbox` sama, aman di-JOIN SQL); `user_id` (nama kasir) di-resolve terpisah lewat `UserModel` (DB lain, logical reference saja).
+  - `CashExpenseAuditModel::daftarUntukLog()`/`hitungUntukLog()` (temuan tambahan sesi ini — pola sama persis, tabel `cash_expense_audit` dari TODO-BL10 juga write-only tanpa viewer): JOIN langsung ke `users` (satu DB yang sama).
+  - Halaman baru admin-only (pola proteksi sama dengan ArchiveTransaksi/MigrasiManual — prefix di `AuthFilter::$adminRoutes` + cek inline): `/log-kirim-gagal` (`LogKirimGagal.php`) dan `/log-audit-kas` (`LogAuditKas.php`); keduanya tautan filter tanggal + pagination + link balik ke percakapan Inbox terkait (`?conversation_id=`).
+  - Menu navigasi baru di grup "Administrasi" (`layout/main.php`).
+  - Test baru: 4 test preview (`InboxMessageSendAuditTest` AT8), 6 test `LogKirimGagalTest`, 6 test `LogAuditKasTest` — semua admin-only guard + isi data diverifikasi.
+  - Regresi penuh lulus: unit 95, feature 162 (146→162), integration 26.
+  - **Tidak ada perubahan di sisi Gateway** — seluruh data preview berasal dari input yang CI4 sudah punya SEBELUM memanggil Gateway, bukan diminta balik dari Gateway.
+  - Ref: `docs/sesi/2026-10-10-log-audit-kiriman-gagal-dan-kas-todo-l3.md`.
 
 - [x] **TODO-Q3** Medium — Kontrak cross-repo CI4 ↔ Gateway: repo gateway tersedia di `C:\Projects\evolution-gateway` (branch `evolution`); sisanya "belum ada test kontrak formal dua sisi" — **SELESAI 2026-10-10**.
   - Refactor extract-method behavior-preserving di `app/Controllers/Inbox.php`: payload builder (`buildSendPayload()`, `buildSendMediaPayload()`, `buildDeletePayload()`, `buildEditPayload()`, `buildMarkReadPayload()`) dipisah dari eksekusi cURL, supaya bentuk JSON bisa diverifikasi tanpa HTTP nyata.
