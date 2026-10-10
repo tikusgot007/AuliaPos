@@ -8,9 +8,10 @@ use App\Database\Migrations\AddPreviewToMessageSendAudit;
 
 // Migrasi CI4 diberi nama berkas ber-timestamp, jadi tidak PSR-4 autoloadable
 // lewat nama kelas (pola sama dengan InboxMessageSendAuditTest.php). Muat
-// eksplisit supaya test bisa menjalankan migrasi asli (bukan menyalin
-// skema) di DB uji -- lihat TODO-Q3b: `php spark migrate` tidak membangun
-// `aulia_inboxdb_test`, jadi tabel ini TIDAK otomatis ada di DB uji.
+// eksplisit supaya test bisa menjalankan migrasi asli (bukan menyalin skema)
+// di DB uji. Test tetap menegakkan skemanya sendiri lewat up()/down() di
+// setUp()/tearDown() agar mandiri, terlepas dari apakah
+// `aulia:sync-inbox-test-db` (TODO-Q3b) sudah menyiapkan tabelnya.
 require_once __DIR__ . '/../../app/Database/Migrations/2026-10-09-000001_CreateMessageSendAudit.php';
 require_once __DIR__ . '/../../app/Database/Migrations/2026-10-10-000001_AddPreviewToMessageSendAudit.php';
 
