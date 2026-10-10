@@ -921,6 +921,113 @@ SQL);
      * Baris detail_transaksi mentah dari archive untuk sekumpulan
      * transaksi_id -- kolom sama seperti tabel `detail_transaksi`.
      */
+    /**
+     * ID transaksi yang punya baris di archive PADA rentang transaksi
+     * tertentu TETAPI baris live-nya MASIH ada di MySQL.
+     *
+     * Keadaan ini hanya muncul kalau `hapusDariUtama()` gagal setelah
+     * salin+validasi sukses (lihat jalankan()): transaksi jadi ada di
+     * KEDUA sumber. Karena MySQL adalah sumber kebenaran sampai
+     * penghapusan benar-benar commit, laporan harus MEMBUANG baris
+     * archive untuk ID ini supaya transaksi tidak dihitung dua kali --
+     * dan konsisten dengan query live/count/paging yang tak menyentuh
+     * yang sudah hilang dari MySQL.
+     *
+     * Read-only, tanpa efek samping.
+     *
+     * @return int[]
+     */
+    public function idTransaksiGandaDiAktif(string $tglAwal, string $tglAkhir): array
+    {
+        $rows = $this->archive->table('transaksi_archive')
+            ->select('id')
+            ->where('tanggal >=', $tglAwal)
+            ->where('tanggal <=', $tglAkhir)
+            ->get()->getResultArray();
+
+        return $this->saringIdYangAdaDiLive(
+            array_column($rows, 'id'),
+            $tglAwal,
+            $tglAkhir
+        );
+    }
+
+    /**
+     * Seperti idTransaksiGandaDiAktif(), tetapi memakai kriteria tab
+     * Periode (status != batal + wajib punya detail + filter keyword).
+     * Dipakai supaya total/paging Periode tetap konsisten saat ada
+     * transaksi yang ada di kedua sumber.
+     *
+     * @return int[]
+     */
+    public function idTransaksiGandaPeriodeDiAktif(string $tglAwal, string $tglAkhir, string $keyword = ''): array
+    {
+        $builder = $this->archive->table('transaksi_archive')
+            ->select('transaksi_archive.id')
+            ->where('transaksi_archive.tanggal >=', $tglAwal)
+            ->where('transaksi_archive.tanggal <=', $tglAkhir)
+            ->where('transaksi_archive.status !=', 'batal')
+            ->where('EXISTS (SELECT 1 FROM detail_transaksi_archive d WHERE d.transaksi_id = transaksi_archive.id)', null, false);
+
+        if ($keyword !== '') {
+            $builder->groupStart()
+                ->like('transaksi_archive.kode_invoice', $keyword)
+                ->orLike('transaksi_archive.no_order', $keyword)
+                ->orLike('transaksi_archive.pelanggan_nama', $keyword)
+                ->groupEnd();
+        }
+
+        return $this->saringIdYangAdaDiLive(
+            array_column($builder->get()->getResultArray(), 'id'),
+            $tglAwal,
+            $tglAkhir
+        );
+    }
+
+    /**
+     * Dari sekumpulan ID, kembalikan yang MASIH ada di tabel transaksi
+     * MySQL (dibaca per-batch agar IN() tidak membengkak). Mencatat satu
+     * warning bila ada temuan. Read-only.
+     *
+     * @param array<int, mixed> $ids
+     *
+     * @return int[]
+     */
+    private function saringIdYangAdaDiLive(array $ids, string $tglAwal, string $tglAkhir): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $ganda = [];
+
+        foreach (array_chunk($ids, 500) as $chunk) {
+            $live = $this->db->table('transaksi')
+                ->select('id')
+                ->whereIn('id', $chunk)
+                ->get()->getResultArray();
+
+            foreach ($live as $row) {
+                $ganda[] = (int) $row['id'];
+            }
+        }
+
+        $ganda = array_values(array_unique($ganda));
+
+        if ($ganda !== []) {
+            log_message(
+                'warning',
+                'Archive: ' . count($ganda) . ' transaksi (' . $tglAwal . ' s/d ' . $tglAkhir
+                    . ') masih ada di MySQL dan archive (penghapusan utama gagal?) -- '
+                    . 'laporan membuang baris archive untuk ID ini demi mencegah double-count.'
+            );
+        }
+
+        return $ganda;
+    }
+
     public function getDetailTransaksiMentah(array $transaksiIds): array
     {
         if (empty($transaksiIds)) {

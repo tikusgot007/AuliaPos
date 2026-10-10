@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 2026-10-11 — Perbaiki double-count laporan saat transaksi ter-archive tetapi gagal dihapus dari MySQL (TODO-BL20)
+
+- **Bug (data-integrity pelaporan)**: `TransaksiArchiveService::jalankan()`
+  menyalin transaksi ke archive lalu menghapusnya dari MySQL. Bila langkah hapus
+  (`hapusDariUtama()`) gagal setelah salin+validasi sukses, transaksi **tertinggal
+  di kedua sumber**. Laporan (`Laporan.php`) menggabungkan live + archive dengan
+  `array_merge` **tanpa dedup** → transaksi/detail/pembayaran dihitung **dua kali**
+  (nilai & total laporan membengkak).
+- **Perbaikan (MySQL menang)**: baris archive yang ID-nya masih ada di MySQL
+  dibuang saat merge, di **seluruh** jalur laporan: Per Periode (`getData()`),
+  Per Kategori, Pemasukan Harian, Bulanan, Item Harian, Daftar Pembayaran, serta
+  ekspor Excel/CSV. `recordsTotal`/paging ikut disesuaikan (Item Harian,
+  Pembayaran, Periode) agar konsisten dengan baris yang ditampilkan.
+- **Helper baru**: `Laporan::buangArsipKembar()` (kunci tunggal `id`/`pembayaran_id`
+  maupun kunci gabungan untuk Item Harian), `Laporan::saringArsipById()`, plus
+  deteksi read-only `TransaksiArchiveService::idTransaksiGandaDiAktif()` /
+  `idTransaksiGandaPeriodeDiAktif()` (mencatat **satu** warning bila menemukan
+  duplikat; tidak ada tulisan DB).
+- **Bukan perubahan aturan bisnis**: nilai transaksi tidak diubah; hanya mencegah
+  penghitungan ganda pada keadaan langka (penghapusan pasca-archive gagal). Tidak
+  ada perubahan skema/migrasi.
+- **Verifikasi**: `tests/integration/LaporanDedupArsipTest.php` (7 test) — deteksi
+  duplikat live+archive, kunci tunggal & gabungan, filter paging; regresi
+  `phpunit.integration.xml` **33 OK**, `phpunit.xml` (unit) **95 OK** (7 incomplete
+  pra-ada). Feature suite tidak dijalankan di lingkungan ini (butuh MySQL
+  `aulia_inboxdb_test`, tidak tersedia).
+- Ref: `docs/TODO.md` **TODO-BL20**.
+
 ## 2026-10-10 — Halaman Log Kiriman Gagal + Log Audit Kas (TODO-L3)
 
 - **Fitur baru (admin-only, read-only)**: dua halaman untuk membaca tabel audit

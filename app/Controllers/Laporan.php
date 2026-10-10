@@ -119,6 +119,15 @@ class Laporan extends BaseController
         $transaksiModel = new TransaksiModel();
         $detailModel = new DetailTransaksiModel();
 
+        // Transaksi yang tertinggal di MySQL padahal sudah ada di archive
+        // (penghapusan utama gagal) -- lihat idTransaksiGanda(). MySQL
+        // menang: baris archive kembar dibuang, baris live tetap dipakai
+        // supaya tidak dihitung dua kali.
+        $idGanda = $this->idTransaksiGanda(
+            $tanggal_awal . ' 00:00:00',
+            $tanggal_akhir . ' 23:59:59'
+        );
+
         // 🔥 Cek jumlah transaksi dulu
         $count = $transaksiModel
             ->where('DATE(tanggal) >=', $tanggal_awal)
@@ -136,8 +145,13 @@ class Laporan extends BaseController
             ->where('DATE(tanggal) >=', $tanggal_awal)
             ->where('DATE(tanggal) <=', $tanggal_akhir)
             ->where('transaksi.status !=', 'batal')
-            ->where('transaksi.status !=', 'mangkrak')
-            ->orderBy('transaksi.tanggal', 'ASC')
+            ->where('transaksi.status !=', 'mangkrak');
+
+        if (!empty($idGanda)) {
+            $transaksi->whereNotIn('transaksi.id', $idGanda);
+        }
+
+        $transaksi = $transaksi->orderBy('transaksi.tanggal', 'ASC')
             ->findAll();
 
         // 🔥 LOG query
@@ -159,6 +173,16 @@ class Laporan extends BaseController
             $awalDt = $tanggal_awal . ' 00:00:00';
             $akhirDt = $tanggal_akhir . ' 23:59:59';
             $transaksiArchive = $archiveService->getTransaksiMentah($awalDt, $akhirDt);
+
+            // Buang baris archive yang transaksinya masih ada di MySQL
+            // (idGanda) -- baris live-nya sudah dipakai di atas, jadi
+            // tanpa ini transaksi tsb akan dihitung dua kali.
+            if (!empty($idGanda)) {
+                $transaksiArchive = array_values(array_filter(
+                    $transaksiArchive,
+                    static fn ($r) => !in_array((int) ($r['id'] ?? 0), $idGanda, true)
+                ));
+            }
 
             if (!empty($transaksiArchive)) {
                 $transaksi = array_merge($transaksi, $transaksiArchive);
@@ -304,6 +328,10 @@ class Laporan extends BaseController
                 $tanggalAkhir . ' 23:59:59'
             );
 
+            // Baris archive yang pembayarannya masih ada di MySQL
+            // dibuang (MySQL menang) supaya tidak dobel.
+            $pembayaranArchive = $this->buangArsipKembar($pembayaranRows, $pembayaranArchive);
+
             if (!empty($pembayaranArchive)) {
                 $pembayaranRows = array_merge($pembayaranRows, $pembayaranArchive);
             }
@@ -434,6 +462,10 @@ class Laporan extends BaseController
             // otomatis tidak menghasilkan baris tambahan (bukan error).
             try {
                 $detailArchive = $archiveService ? $archiveService->getDetailTransaksiMentah(array_keys($transaksiIds)) : [];
+                // Detail archive yang barisnya masih ada di MySQL dibuang
+                // (MySQL menang) supaya tidak dihitung dua kali.
+                $detailArchive = $this->buangArsipKembar($detailRows, $detailArchive);
+
                 if (!empty($detailArchive)) {
                     $detailRows = array_merge($detailRows, $detailArchive);
                 }
@@ -774,6 +806,10 @@ class Laporan extends BaseController
                 $tanggalAkhir . ' 23:59:59'
             );
 
+            // Baris archive yang pembayarannya masih ada di MySQL
+            // dibuang (MySQL menang) supaya tidak dobel.
+            $pembayaranArchive = $this->buangArsipKembar($pembayaranRows, $pembayaranArchive);
+
             if (!empty($pembayaranArchive)) {
                 $pembayaranRows = array_merge($pembayaranRows, $pembayaranArchive);
             }
@@ -829,6 +865,10 @@ class Laporan extends BaseController
 
             try {
                 $detailArchive = $archiveService ? $archiveService->getDetailTransaksiMentah(array_keys($transaksiIds)) : [];
+                // Detail archive yang barisnya masih ada di MySQL dibuang
+                // (MySQL menang) supaya tidak dihitung dua kali.
+                $detailArchive = $this->buangArsipKembar($rows, $detailArchive);
+
                 if (!empty($detailArchive)) {
                     $rows = array_merge($rows, $detailArchive);
                 }
@@ -1403,6 +1443,156 @@ class Laporan extends BaseController
         ];
     }
 
+    /** @var array<string, int[]> Cache ID transaksi yang ada di MySQL & archive. */
+    private array $gandaCache = [];
+
+    /**
+     * ID transaksi yang baris live-nya MASIH ADA di MySQL padahal juga
+     * ada di archive pada rentang itu (penghapusan utama gagal setelah
+     * salin+validasi -- lihat TransaksiArchiveService::hapusDariUtama()).
+     *
+     * MySQL menang: laporan mengecualikan ID ini dari query live supaya
+     * baris (dan count/total/paging) hanya dihitung dari satu sumber,
+     * sekaligus membuang baris archive kembar agar tidak double-count.
+     * Hasil di-cache per rentang agar tiap tab tidak mengulang query.
+     *
+     * @return int[]
+     */
+    private function idTransaksiGanda(string $tglAwal, string $tglAkhir): array
+    {
+        $key = $tglAwal . '|' . $tglAkhir;
+
+        if (!array_key_exists($key, $this->gandaCache)) {
+            try {
+                $svc = new \App\Services\TransaksiArchiveService();
+                $this->gandaCache[$key] = $svc->idTransaksiGandaDiAktif($tglAwal, $tglAkhir);
+            } catch (\Throwable $e) {
+                log_message('error', 'Laporan gagal cek transaksi ganda live/archive: ' . $e->getMessage());
+                $this->gandaCache[$key] = [];
+            }
+        }
+
+        return $this->gandaCache[$key];
+    }
+
+    /**
+     * Buang dari $archive baris yang kuncinya sudah ada di $live
+     * (MySQL menang) supaya baris yang tertinggal di MySQL padahal juga
+     * ada di archive tidak dihitung dua kali.
+     *
+     * Dipakai untuk baris yang id-nya dipertahankan saat salin ke
+     * archive (transaksi/detail/pembayaran: id sama di kedua sumber),
+     * termasuk baris agregat Item Harian (kunci gabungan) & pembayaran
+     * (pembayaran_id). Pada keadaan normal (tiap baris hanya ada di
+     * satu sumber) fungsi ini tidak mengubah apa pun.
+     *
+     * @param array<int, array<string, mixed>> $live
+     * @param array<int, array<string, mixed>> $archive
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buangArsipKembar(array $live, array $archive, $key = 'id'): array
+    {
+        if (empty($archive) || empty($live)) {
+            return $archive;
+        }
+
+        $keys = (array) $key;
+        $adaDiLive = [];
+
+        foreach ($live as $row) {
+            $kunci = $this->kunciBaris($row, $keys);
+
+            if ($kunci !== null) {
+                $adaDiLive[$kunci] = true;
+            }
+        }
+
+        return array_values(array_filter(
+            $archive,
+            function ($row) use ($adaDiLive, $keys) {
+                $kunci = $this->kunciBaris($row, $keys);
+
+                // Baris tanpa kunci lengkap tidak dianggap kembar (aman).
+                return $kunci === null || !isset($adaDiLive[$kunci]);
+            }
+        ));
+    }
+
+    /**
+     * Buang baris archive yang kolom `id`-nya ada di himpunan $ids
+     * (dipakai tab Periode yang baris archive-nya sudah dibatasi paging).
+     *
+     * @param array<int, array<string, mixed>> $archive
+     * @param int[]                            $ids
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function saringArsipById(array $archive, array $ids): array
+    {
+        if (empty($archive) || empty($ids)) {
+            return $archive;
+        }
+
+        $buang = array_flip(array_map('intval', $ids));
+
+        return array_values(array_filter(
+            $archive,
+            static fn ($row) => !isset($buang[(int) ($row['id'] ?? 0)])
+        ));
+    }
+
+    /**
+     * Kunci dedup satu baris dari beberapa kolom; null bila ada kolom
+     * kunci yang kosong/hilang (baris seperti itu tidak pernah dianggap
+     * duplikat). Pemisah 0x1F agar nilai kolom tidak saling menempel.
+     */
+    private function kunciBaris(array $row, array $keys): ?string
+    {
+        $parts = [];
+
+        foreach ($keys as $k) {
+            if (!isset($row[$k])) {
+                return null;
+            }
+
+            $parts[] = (string) $row[$k];
+        }
+
+        return implode("\x1F", $parts);
+    }
+
+    /** @var array<string, int[]> Cache ID transaksi ganda (tab Periode). */
+    private array $gandaPeriodeCache = [];
+
+    /**
+     * ID transaksi yang muncul di baris tab Periode (archived) sekaligus
+     * masih ada di MySQL. Dipakai untuk menyaring baris archive kembar
+     * dan menyesuaikan recordsTotal agar konsisten. Cached per filter.
+     *
+     * @return int[]
+     */
+    private function idTransaksiGandaPeriode(array $f): array
+    {
+        $key = $f['tanggal_awal'] . '|' . $f['tanggal_akhir'] . '|' . $f['search'];
+
+        if (!array_key_exists($key, $this->gandaPeriodeCache)) {
+            try {
+                $svc = new \App\Services\TransaksiArchiveService();
+                $this->gandaPeriodeCache[$key] = $svc->idTransaksiGandaPeriodeDiAktif(
+                    $f['tanggal_awal'] . ' 00:00:00',
+                    $f['tanggal_akhir'] . ' 23:59:59',
+                    $f['search']
+                );
+            } catch (\Throwable $e) {
+                log_message('error', 'Laporan gagal cek transaksi ganda periode: ' . $e->getMessage());
+                $this->gandaPeriodeCache[$key] = [];
+            }
+        }
+
+        return $this->gandaPeriodeCache[$key];
+    }
+
     /**
      * Export ke Excel
      */
@@ -1486,14 +1676,25 @@ class Laporan extends BaseController
         $transaksiModel = new TransaksiModel();
         $detailModel = new DetailTransaksiModel();
 
-        $transaksi = $transaksiModel
+        // Transaksi yang tertinggal di MySQL padahal sudah ada di archive
+        // (penghapusan utama gagal) -- MySQL menang, lihat getData().
+        $idGanda = $this->idTransaksiGanda(
+            $tanggal_awal . ' 00:00:00',
+            $tanggal_akhir . ' 23:59:59'
+        );
+
+        $transaksiBuilder = $transaksiModel
             ->select('transaksi.*, pelanggan.nama as pelanggan_nama')
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
             ->where('DATE(tanggal) >=', $tanggal_awal)
             ->where('DATE(tanggal) <=', $tanggal_akhir)
-            ->where('transaksi.status !=', 'batal')
-            ->orderBy('transaksi.tanggal', 'ASC')
-            ->findAll();
+            ->where('transaksi.status !=', 'batal');
+
+        if (!empty($idGanda)) {
+            $transaksiBuilder->whereNotIn('transaksi.id', $idGanda);
+        }
+
+        $transaksi = $transaksiBuilder->orderBy('transaksi.tanggal', 'ASC')->findAll();
 
         // Lengkapi dengan archive -- sama seperti getData(), supaya
         // export Excel/CSV tidak "bolong" untuk periode yang sudah
@@ -1504,6 +1705,13 @@ class Laporan extends BaseController
             $awalDt = $tanggal_awal . ' 00:00:00';
             $akhirDt = $tanggal_akhir . ' 23:59:59';
             $transaksiArchive = $archiveService->getTransaksiMentah($awalDt, $akhirDt);
+
+            if (!empty($idGanda)) {
+                $transaksiArchive = array_values(array_filter(
+                    $transaksiArchive,
+                    static fn ($r) => !in_array((int) ($r['id'] ?? 0), $idGanda, true)
+                ));
+            }
 
             if (!empty($transaksiArchive)) {
                 $transaksi = array_merge($transaksi, $transaksiArchive);
@@ -1934,6 +2142,20 @@ class Laporan extends BaseController
         $db = db_connect();
         $liveCount = $this->itemHarianLiveCount($db, $f);
         $archiveRows = $this->itemHarianArchiveRows($f);
+        $liveRows = [];
+
+        if ($archiveRows !== []) {
+            // Seluruh live untuk rentang (dipakai untuk merge-sort) -- lalu
+            // buang baris archive kembar (transaksi yang masih ada di MySQL)
+            // supaya baris & total tidak dihitung dua kali.
+            $liveRows = $this->itemHarianLiveRows($db, $f, $order);
+            $archiveRows = $this->buangArsipKembar(
+                $liveRows,
+                $archiveRows,
+                ['tanggal_pembayaran', 'transaksi_id', 'kategori_id', 'nama_produk']
+            );
+        }
+
         $archiveCount = count($archiveRows);
 
         if ($archiveCount === 0) {
@@ -1944,7 +2166,7 @@ class Laporan extends BaseController
             // menarik seluruh live untuk range lalu merge-sort penuh. Upgrade ke paging
             // lintas sumber bila arsip membesar.
             $rows = $this->itemHarianSortRows(
-                array_merge($this->itemHarianLiveRows($db, $f, $order), $archiveRows),
+                array_merge($liveRows, $archiveRows),
                 $order
             );
             $rows = array_slice($rows, $start, $length);
@@ -2007,10 +2229,14 @@ class Laporan extends BaseController
         $db = db_connect();
         $order = [['tanggal_pembayaran', 'ASC'], ['total_teralokasi', 'DESC']];
 
-        $rows = $this->itemHarianSortRows(
-            array_merge($this->itemHarianLiveRows($db, $f, $order), $this->itemHarianArchiveRows($f)),
-            $order
+        $liveRows = $this->itemHarianLiveRows($db, $f, $order);
+        $archiveRows = $this->buangArsipKembar(
+            $liveRows,
+            $this->itemHarianArchiveRows($f),
+            ['tanggal_pembayaran', 'transaksi_id', 'kategori_id', 'nama_produk']
         );
+
+        $rows = $this->itemHarianSortRows(array_merge($liveRows, $archiveRows), $order);
         $kategoriMap = $this->itemHarianKategoriMap($db);
 
         $out = [];
@@ -2244,6 +2470,16 @@ class Laporan extends BaseController
         $db = db_connect();
         $liveCount = $this->pembayaranLiveCount($db, $f);
         $archiveRows = $this->pembayaranArchiveRows($f);
+        $liveRows = [];
+
+        if ($archiveRows !== []) {
+            // Seluruh live untuk rentang (dipakai merge-sort), lalu buang
+            // baris archive kembar (pembayaran yang masih ada di MySQL)
+            // supaya baris & total tidak dobel.
+            $liveRows = $this->pembayaranLiveRows($db, $f, $order);
+            $archiveRows = $this->buangArsipKembar($liveRows, $archiveRows, 'pembayaran_id');
+        }
+
         $archiveCount = count($archiveRows);
 
         if ($archiveCount === 0) {
@@ -2253,10 +2489,7 @@ class Laporan extends BaseController
             // ponytail: arsip diharapkan kecil & lebih lama dari live; jalur ini
             // menarik seluruh live untuk range lalu merge-sort penuh. Upgrade ke
             // paging lintas sumber bila arsip membesar.
-            $rows = $this->pembayaranSortRows(
-                array_merge($this->pembayaranLiveRows($db, $f, $order), $archiveRows),
-                $order
-            );
+            $rows = $this->pembayaranSortRows(array_merge($liveRows, $archiveRows), $order);
             $rows = array_slice($rows, $start, $length);
             $total = $liveCount + $archiveCount;
         }
@@ -2295,10 +2528,10 @@ class Laporan extends BaseController
         $db = db_connect();
         $order = [['tanggal_pembayaran', 'DESC'], ['pembayaran_id', 'DESC']];
 
-        $rows = $this->pembayaranSortRows(
-            array_merge($this->pembayaranLiveRows($db, $f, $order), $this->pembayaranArchiveRows($f)),
-            $order
-        );
+        $liveRows = $this->pembayaranLiveRows($db, $f, $order);
+        $archiveRows = $this->buangArsipKembar($liveRows, $this->pembayaranArchiveRows($f), 'pembayaran_id');
+
+        $rows = $this->pembayaranSortRows(array_merge($liveRows, $archiveRows), $order);
 
         $out = [];
         foreach ($rows as $row) {
@@ -2624,7 +2857,11 @@ class Laporan extends BaseController
 
         $db = db_connect();
         $liveCount = $this->periodeLiveCount($db, $f);
-        $archiveCount = $this->periodeArchiveCount($f);
+        $gandaPeriode = $this->idTransaksiGandaPeriode($f);
+        // Baris archive yang transaksinya masih ada di MySQL dibuang
+        // (MySQL menang) -- kurangi juga dari total agar recordsTotal
+        // konsisten dengan baris yang benar-benar ditampilkan.
+        $archiveCount = $this->periodeArchiveCount($f) - count($gandaPeriode);
 
         if ($archiveCount === 0) {
             $rows = $this->periodeLiveRows($db, $f, $order, $length, $start);
@@ -2635,10 +2872,15 @@ class Laporan extends BaseController
             // masing-masing sumber (urut kolom yang sama) -- cukup untuk
             // mengisi halaman, tanpa menarik seluruh arsip/histori.
             // Upgrade ke paging lintas sumber sejati bila arsip membesar.
+            $archiveRows = $this->saringArsipById(
+                $this->periodeArchiveRows($f, $order, $start + $length),
+                $gandaPeriode
+            );
+
             $rows = $this->periodeSortRows(
                 array_merge(
                     $this->periodeLiveRows($db, $f, $order, $start + $length),
-                    $this->periodeArchiveRows($f, $order, $start + $length)
+                    $archiveRows
                 ),
                 $order
             );
@@ -2669,10 +2911,15 @@ class Laporan extends BaseController
         $order = [['transaksi.tanggal', 'ASC'], ['transaksi.id', 'ASC']];
 
         $db = db_connect();
+        $archiveRows = $this->saringArsipById(
+            $this->periodeArchiveRows($f, $order),
+            $this->idTransaksiGandaPeriode($f)
+        );
+
         $rows = $this->periodeSortRows(
             array_merge(
                 $this->periodeLiveRows($db, $f, $order),
-                $this->periodeArchiveRows($f, $order)
+                $archiveRows
             ),
             $order
         );
