@@ -38,6 +38,13 @@
     min-height: 0;
 }
 
+/* Inbox palette (2026-10-11): navy header, blue for selection/filters,
+   cool grey-blue chat area, light green outgoing bubbles, green send. */
+.inbox-header {
+    background: #1f3b5c;
+    color: #fff;
+}
+
 .inbox-list-filter .btn.active {
     background: #0d6efd;
     color: #fff;
@@ -47,14 +54,16 @@
 .inbox-list-panel {
     flex: 1;
     overflow-y: auto;
-    background: #f8f9fa;
+    background: #fff;
     min-height: 0;
 }
 
 .inbox-list-item {
-    display: block;
-    padding: 12px 14px;
-    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f2f5;
     border-left: 3px solid transparent;
     cursor: pointer;
     text-decoration: none;
@@ -62,12 +71,31 @@
 }
 
 .inbox-list-item:hover {
-    background: #eef2f7;
+    background: #f1f5fa;
 }
 
 .inbox-list-item.active {
-    background: #d7e6fb;
+    background: #dbe7f6;
     border-left-color: #0d6efd;
+}
+
+.inbox-list-item .list-avatar {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    user-select: none;
+}
+
+.inbox-list-item .list-body {
+    flex: 1;
+    min-width: 0;
 }
 
 .inbox-list-item .list-name {
@@ -76,6 +104,27 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+}
+
+/* Row actions (edit/hapus) stay out of the way until the row is hovered
+   or keyboard-focused; they keep their space so the time does not jump. */
+.inbox-list-item .list-aksi {
+    display: inline-flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.12s ease-in-out;
+}
+
+.inbox-list-item:hover .list-aksi,
+.inbox-list-item:focus-within .list-aksi {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .inbox-list-item .list-aksi {
+        opacity: 1;
+    }
 }
 
 /* SLA Timer dot (TASK-016), color class comes from Bootstrap bg-* */
@@ -151,8 +200,9 @@
 
 .inbox-thread-header {
     padding: 10px 16px;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid #e3e8ee;
     background: #fff;
+    min-height: 56px;
 }
 
 /* Pembungkus thread: tempat tombol "gulung ke pesan terbaru" melayang. */
@@ -258,48 +308,56 @@
     white-space: pre-wrap;
 }
 
+/* Bubbles are direct children (inbox-thread.js reconciles them by data-id),
+   so the message column itself is the flex container: align-self plays the
+   role of a per-row justify-content without an extra wrapper element. */
 .inbox-thread-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
-    background: #e5ddd5;
-    /* nuansa hijau muda WA */
+    padding: 16px 6%;
+    background: #e8edf3;
+    display: flex;
+    flex-direction: column;
 }
 
 .inbox-thread-empty {
     display: flex;
+    flex: 1;
     align-items: center;
     justify-content: center;
-    height: 100%;
     color: #6c757d;
 }
 
 .inbox-bubble {
-    max-width: 70%;
-    padding: 8px 12px;
+    width: fit-content;
+    min-width: 80px;
+    max-width: 65%;
+    padding: 6px 10px 4px;
     border-radius: 10px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-size: 0.88rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
     word-wrap: break-word;
     white-space: pre-wrap;
+    box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
 }
 
 .inbox-bubble.incoming {
     background: #fff;
-    margin-right: auto;
+    align-self: flex-start;
     border-top-left-radius: 2px;
 }
 
 .inbox-bubble.outgoing {
-    background: #d9fdd3;
-    margin-left: auto;
+    background: #dcf8c6;
+    align-self: flex-end;
     border-top-right-radius: 2px;
 }
 
 .inbox-bubble.internal-note {
     background: #fff3cd;
-    margin-left: auto;
-    margin-right: auto;
+    align-self: center;
     border: 1px dashed #d39e00;
     max-width: 78%;
 }
@@ -809,9 +867,83 @@
 }
 
 .inbox-thread-form {
-    padding: 10px 16px;
-    border-top: 1px solid #dee2e6;
+    padding: 8px 16px 12px;
+    background: #e8edf3;
+}
+
+/* Floating composer: attach, template, text and send share one rounded
+   pill. Buttons keep their ids/onclick; only the visual wrapper changed. */
+.inbox-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 5px 6px 5px 8px;
     background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 1px 3px rgba(11, 20, 26, 0.16);
+}
+
+.inbox-composer:focus-within {
+    box-shadow: 0 1px 3px rgba(11, 20, 26, 0.16), 0 0 0 2px rgba(13, 110, 253, 0.3);
+}
+
+.inbox-composer-ikon,
+.inbox-composer-kirim {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.inbox-composer-ikon {
+    background: transparent;
+    color: #54656f;
+}
+
+.inbox-composer-ikon:hover:not(:disabled) {
+    background: #f0f2f5;
+}
+
+.inbox-composer-kirim {
+    background: #198754;
+    color: #fff;
+}
+
+.inbox-composer-kirim:hover:not(:disabled) {
+    background: #157347;
+}
+
+.inbox-composer-ikon:disabled,
+.inbox-composer-kirim:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.inbox-composer-ikon:focus-visible,
+.inbox-composer-kirim:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+.inbox-composer-teks {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    padding: 7px 6px;
+    font-size: 0.92rem;
+    line-height: 1.4;
+}
+
+.inbox-composer-teks:disabled {
+    background: transparent;
+    color: #8696a0;
 }
 
 /* Auto-resize #teksBalasan (perbaikan UI composer): tinggi mengikuti

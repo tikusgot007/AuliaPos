@@ -1,7 +1,7 @@
 <link rel="stylesheet" href="<?= base_url('assets/css/inbox.css') ?>">
 
 <div class="card">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="card-header inbox-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0"><i class="fab fa-whatsapp"></i> Inbox WhatsApp</h5>
         <span class="d-flex align-items-center gap-2">
             <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalChatBaru">
@@ -43,6 +43,7 @@
                 </div>
                 <!-- Filled only by renderDaftarConversation() (TODO-Q5): one renderer, no PHP duplicate. -->
                 <div class="inbox-list-panel" id="inboxListPanel"></div>
+            </div>
 
             <!-- ============================================ -->
             <!-- PANEL KANAN: RIWAYAT PESAN + FORM KIRIM        -->
@@ -116,16 +117,16 @@
                          setelah gagal/timeout (REQ-039). Kosong = kunci
                          akan dibuat saat kirim pertama. -->
                     <form id="formBalas" data-operation-id="" onsubmit="return kirimBalasan(event)">
-                        <div class="input-group">
-                            <button class="btn btn-outline-secondary" type="button" id="btnLampirkanMedia" disabled onclick="document.getElementById('inputMediaBalasan').click()">
+                        <div class="inbox-composer">
+                            <button class="inbox-composer-ikon" type="button" id="btnLampirkanMedia" disabled onclick="document.getElementById('inputMediaBalasan').click()" title="Lampirkan file" aria-label="Lampirkan file">
                                 <i class="fas fa-paperclip"></i>
                             </button>
                             <input type="file" id="inputMediaBalasan" multiple style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="pilihMediaBalasan(event)">
-                            <button class="btn btn-outline-secondary" type="button" id="btnTemplateBalasan" disabled onclick="bukaModalTemplate()" title="Template Balasan">
+                            <button class="inbox-composer-ikon" type="button" id="btnTemplateBalasan" disabled onclick="bukaModalTemplate()" title="Template Balasan" aria-label="Template Balasan">
                                 <i class="fas fa-comment-dots"></i>
                             </button>
-                            <textarea class="form-control" id="teksBalasan" rows="1" placeholder="Pilih percakapan dulu..." disabled></textarea>
-                            <button class="btn btn-success" type="submit" id="btnKirimBalasan" disabled>
+                            <textarea class="inbox-composer-teks" id="teksBalasan" rows="1" placeholder="Pilih percakapan dulu..." disabled aria-label="Tulis balasan"></textarea>
+                            <button class="inbox-composer-kirim" type="submit" id="btnKirimBalasan" disabled title="Kirim" aria-label="Kirim">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
                         </div>
@@ -791,6 +792,31 @@
         return '<div class="list-snippet">' + labelInternal + escapeHtmlInbox(snippet.text) + '</div>';
     }
 
+    const AVATAR_WARNA = ['#0d6efd', '#1f3b5c', '#8b5cf6', '#d63384', '#fd7e14', '#dc3545', '#198754', '#6f42c1'];
+
+    // Decorative only: initials from the display name, or an icon for
+    // groups and number-only names (a phone number has no initials).
+    function renderAvatarConversation(nama, isGrup) {
+        const teks = String(nama || '').trim();
+        let hash = 0;
+        for (let i = 0; i < teks.length; i++) hash = (hash * 31 + teks.charCodeAt(i)) >>> 0;
+        const warna = AVATAR_WARNA[hash % AVATAR_WARNA.length];
+
+        const kata = teks.split(/\s+/).filter(function(k) {
+            return /^\p{L}/u.test(k);
+        });
+        let isi;
+        if (isGrup) {
+            isi = '<i class="fas fa-users"></i>';
+        } else if (kata.length) {
+            isi = escapeHtmlInbox((Array.from(kata[0])[0] + (kata.length > 1 ? Array.from(kata[kata.length - 1])[0] : '')).toUpperCase());
+        } else {
+            isi = '<i class="fas fa-user"></i>';
+        }
+
+        return '<span class="list-avatar" style="background:' + warna + ';" aria-hidden="true">' + isi + '</span>';
+    }
+
     function renderDaftarConversation() {
         renderFilterButtons();
         renderTabCounts();
@@ -848,16 +874,21 @@
                 '<button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(' + c.id + ')"><i class="fas fa-pen"></i></button>';
 
             return '<a href="#" class="inbox-list-item' + activeClass + '" onclick="return pilihConversation(' + c.id + ')">' +
-                '<div class="d-flex justify-content-between align-items-start">' +
+                renderAvatarConversation(nama, isGrup) +
+                '<div class="list-body">' +
+                '<div class="d-flex justify-content-between align-items-start gap-1">' +
                 '<span class="list-name">' + renderTitikSla(isGrup ? null : c.sla_color) + escapeHtmlInbox(nama) + '</span>' +
-                '<span class="d-flex align-items-center gap-1">' +
+                '<span class="d-flex align-items-center gap-1 flex-shrink-0">' +
                 '<span class="list-time">' + escapeHtmlInbox(waktu) + '</span>' +
+                '<span class="list-aksi">' +
                 tombolEditProfil +
                 '<button type="button" class="btn btn-sm btn-link p-0 text-danger" style="font-size:0.75rem;" title="Hapus percakapan" onclick="event.stopPropagation(); hapusPercakapanDariList(' + c.id + ')"><i class="fas fa-trash-alt"></i></button>' +
+                '</span>' +
                 '</span>' +
                 '</div>' +
                 '<div class="list-preview">' + panah + escapeHtmlInbox(nomorAtauLid) + ' ' + grupBadge + ' ' + closedBadge + ' ' + responseStateBadge + ' ' + assignBadge + '</div>' +
                 barisSnippet +
+                '</div>' +
                 '</a>';
         }).join('');
     }

@@ -25,7 +25,11 @@
 
 ### Medium
 
-- [ ] **TODO-Q5** God-object & duplikasi render: `Inbox.php` 3721 baris, `Views/inbox/index.php` 3650 baris, daftar percakapan dirender 2× (PHP `index.php:778` vs JS `index.php:1474`) — sedang
+- [ ] **TODO-Q5** God-object & duplikasi render Inbox — sedang
+  - **Q5a SELESAI 2026-10-11** (`e97e96d`): render PHP daftar percakapan dihapus; satu-satunya renderer = `renderDaftarConversation()` di `Views/inbox/index.php`. Guard: `tests/unit/InboxViewStructureTest.php`.
+  - **Q5b SELESAI 2026-10-11** (`e97e96d`): CSS inline (±870 baris) dipindah ke `public/assets/css/inbox.css`. View 4353 → 3490 baris.
+  - **Restyle UI ala WhatsApp Web (2026-10-11)**: bubble `fit-content` (min 80px, max 65%) + flex column; filter status TETAP grid tombol lama (pill scroll horizontal dicoba lalu dibatalkan atas keputusan user); avatar inisial (dekoratif) di daftar; tombol edit/hapus baris hanya muncul saat hover/focus (selalu tampil di perangkat sentuh); composer melayang dalam satu wadah bulat; palet header navy / biru (pilihan) / area chat abu kebiruan / bubble keluar hijau muda / tombol kirim hijau. Seluruh id/onclick tetap. Uji visual di browser: **dikonfirmasi user 2026-10-11**. **Belum di-deploy ke produksi.** Tombol emoji tidak ditambahkan karena belum ada fitur emoji (picker emoji = fitur baru, belum diminta).
+  - **Q5c (sisa)**: JS inline `index.php` (±2.000+ baris, 31 tag PHP) → `public/assets/js/` via config object; ekstraksi klaster gateway client `Inbox.php:4227-4756` (`callGateway*`/`build*Payload`) ke service. Perlu migrasi seam test (`InboxMessageSendAuditTest`, `InboxPesanKeluarEditHapusTest`, `InboxReopenFromPosTest`, `InboxGatewayPayloadContractTest`). `Inbox.php` kini 4756 baris.
 
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
 
