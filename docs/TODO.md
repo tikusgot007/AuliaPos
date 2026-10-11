@@ -25,6 +25,8 @@
 
 ### Medium
 
+- [ ] **TODO-G1** Pesan grup masuk hilang diam-diam di Gateway — tinggi — bug ditemukan 2026-10-12 (dev, grup `120363431232595303@g.us`). Akar: `evolution-gateway/src/evolution/normalize.js` memasukkan `senderKeyDistributionMessage` ke `NOISE_NODES`, padahal WhatsApp menempelkannya ke pesan grup asli (pesan pertama anggota setelah ganti kunci) → seluruh pesan di-skip (log debug), tidak pernah sampai CI4. Fix: node itu hanya dianggap noise bila tidak ada konten lain (`NON_CONTENT_KEYS`); regression test di `test/test-lifecycle.js` (gagal tanpa fix, `npm test` lulus). Repo `C:\Projects\evolution-gateway` (belum di-commit). E2E dev **lulus** 2026-10-12 (pesan grup masuk id 574, `sender_jid` terpetakan ke nomor, `group_name` terisi). Sisa: commit + deploy `aulia7`, direncanakan 2026-10-13 (dev saat ini terpisah jaringan dari produksi). Langkah deploy: salin `src/evolution/normalize.js` ke `C:\AuliaPosGateway\evolution-gateway\src\evolution\`, restart `AuliaPosGatewayAdapter` (admin), lalu kirim pesan uji ke grup. Dampak produksi (pesan grup yang hilang sebelumnya) belum diverifikasi.
+
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
 
 - [ ] **TODO-F3** Terapkan ulang patch Evolution (`PATCH-ADAPTER (2026-10-01)` di `whatsapp.baileys.service.ts`) setiap kali Evolution di-upgrade; prosedur `C:\\Projects\\evolution-gateway\\docs\\evolution-viewonce-patch.md` — sedang
