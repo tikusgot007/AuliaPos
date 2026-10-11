@@ -8,6 +8,7 @@ use App\Models\GatewayStatusModel;
 use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
 use App\Libraries\InboxMediaBound;
+use App\Libraries\InboxGatewayClient;
 use App\Services\SenderIdentityFormatter;
 use App\Services\InboxQuoteSnapshotService;
 use Config\Database;
@@ -512,8 +513,7 @@ class InboxGatewayApi extends BaseController
                 // (`maxMediaPrefetchMb`, jalur tak terpercaya), BUKAN default
                 // batas unduh/tampilan 100MB -- mencegah peak buffer+disk
                 // ~6,7x lipat per pesan masuk.
-                $result = (new Inbox())->callGatewayMediaDownload(
-                    $config,
+                $result = (new InboxGatewayClient($config))->mediaDownload(
                     $mediaRefUntukPrefetch,
                     $mediaRefUntukPrefetch['mimetype'],
                     8,

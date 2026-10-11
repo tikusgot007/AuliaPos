@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Controllers\Inbox as InboxController;
+use App\Libraries\InboxGatewayClient;
 use App\Libraries\InboxOutgoingRequest;
+use Config\Inbox as InboxConfig;
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
 
 /**
  * TODO-Q3: kontrak bentuk payload JSON yang dikirim CI4 -> Gateway
@@ -14,9 +14,9 @@ use ReflectionMethod;
  * Diverifikasi di sini: key wajib SELALU ada, key opsional HANYA ada saat
  * diminta (operation_id/quoted/forward), dan nama+tipe key sesuai yang
  * diterima `ci4Routes.js` (lihat docs riset sesi TODO-Q3). Test ini
- * memanggil method `protected` builder (`buildSendPayload()` dkk, lihat
- * `Inbox.php`) langsung lewat Reflection -- method itu sendiri murni
- * (tidak menyentuh DB/HTTP/session), jadi tidak perlu bootstrap CodeIgniter.
+ * memanggil builder publik (`buildSendPayload()` dkk) di
+ * `App\Libraries\InboxGatewayClient` (dipindah dari controller, TODO-Q5c) --
+ * method itu murni (tidak menyentuh DB/HTTP/session).
  *
  * TIDAK menguji `/media/download` (respons binary, bukan JSON) dan TIDAK
  * menguji HTTP asli (timeout/cURL) -- itu tetap jadi gap yang didokumentasikan
@@ -26,11 +26,7 @@ final class InboxGatewayPayloadContractTest extends TestCase
 {
     private function invoke(string $method, array $args)
     {
-        $controller = new InboxController();
-        $ref        = new ReflectionMethod($controller, $method);
-        $ref->setAccessible(true);
-
-        return $ref->invokeArgs($controller, $args);
+        return (new InboxGatewayClient(new InboxConfig()))->{$method}(...$args);
     }
 
     // --- POST /send ------------------------------------------------------
