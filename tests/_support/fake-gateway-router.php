@@ -68,8 +68,23 @@ if ($endpoint === 'send-media') {
     ];
 }
 
+if ($endpoint === 'media/download') {
+    if ($skenario === 'media_hilang') {
+        // Same answer as the real adapter once a media ref is past retention.
+        return $kirim(410, ['success' => false, 'error_code' => 'MEDIA_UNAVAILABLE', 'message' => 'Media sudah tidak tersedia']);
+    }
+
+    // Deterministic bytes so tests can assert they were forwarded intact.
+    http_response_code(200);
+    header('Content-Type: ' . ($body['mimetype'] ?? 'application/octet-stream'));
+    echo 'FAKE-MEDIA-BYTES:' . ($body['direct_path'] ?? '');
+
+    return true;
+}
+
 switch ($skenario) {
     case 'ok':
+    case 'media_hilang':
         return $kirim(200, $sukses);
 
     case 'lama':
