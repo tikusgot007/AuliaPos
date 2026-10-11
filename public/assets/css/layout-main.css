@@ -38,7 +38,7 @@
 
 .no-order-option.recommended {
     background: var(--color-highlight);
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
 }
 
 /* ========================================== */
@@ -254,7 +254,7 @@
 
 #previewPembulatan {
     color: var(--color-danger);
-    font-weight: bold;
+    font-weight: var(--fw-bold);
 }
 
 /* Toast notifikasi Inbox: hijau WhatsApp, bukan warna generik
@@ -281,7 +281,7 @@
 
 .sidebar .brand {
     font-size: var(--fs-title);
-    font-weight: bold;
+    font-weight: var(--fw-bold);
     color: var(--shell-text);
     padding: 20px;
     border-bottom: 0px solid var(--shell-border);
@@ -292,7 +292,7 @@
     display: block;
     font-size: var(--fs-caption);
     color: var(--shell-text-muted);
-    font-weight: normal;
+    font-weight: var(--fw-normal);
 }
 
 .sidebar .nav-link {

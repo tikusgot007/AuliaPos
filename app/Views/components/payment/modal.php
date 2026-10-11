@@ -14,7 +14,7 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label" id="paymentTotalLabel">Total Belanja</label>
-                        <h3 id="paymentTotal" class="text-primary">Rp 0</h3>
+                        <div class="fs-3 fw-bold text-primary" id="paymentTotal">Rp 0</div>
                     </div>
                     <!--
                         Backdate / pembayaran diterima sebelumnya. Hanya
@@ -70,7 +70,7 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-bold" id="paymentCashTotalLabel">Total Belanja</label>
-                        <h4 id="paymentCashTotal" class="text-primary">Rp 0</h4>
+                        <div class="fs-4 fw-bold text-primary" id="paymentCashTotal">Rp 0</div>
                     </div>
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center">
@@ -100,7 +100,7 @@
                     </div>
                     <div class="mb-3" id="paymentChangeContainer" style="display: none;">
                         <label class="form-label fw-bold">Kembalian</label>
-                        <h3 id="paymentChange" class="text-success">Rp 0</h3>
+                        <div class="fs-3 fw-bold text-success" id="paymentChange">Rp 0</div>
                     </div>
                     <div class="alert alert-danger small" id="paymentCashWarning" style="display: none;">
                         <i class="fas fa-exclamation-triangle"></i> Uang yang diterima kurang dari total belanja!

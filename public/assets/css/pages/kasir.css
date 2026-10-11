@@ -86,7 +86,7 @@
    ========================================= */
 .produk-card-wrap .card-title {
     font-size: var(--fs-medium);
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
     line-height: 1.25;
 
     margin-bottom: 4px !important;

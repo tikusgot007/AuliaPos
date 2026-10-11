@@ -3,7 +3,7 @@
     cursor: pointer;
     text-align: center;
     min-width: 64px;
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
     border-radius: 4px;
     padding: 6px 4px;
 }
@@ -109,21 +109,21 @@
 }
 
 .matrix-date-header small {
-    font-weight: 400;
+    font-weight: var(--fw-normal);
     color: var(--color-muted);
 }
 
 .matrix-availability-header th {
     font-size: var(--fs-caption);
     line-height: 1.35;
-    font-weight: 400;
+    font-weight: var(--fw-normal);
     padding-top: 4px;
     padding-bottom: 4px;
     border-top: 0;
 }
 
 .matrix-availability-header th:first-child {
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
     font-size: var(--fs-small);
 }
 

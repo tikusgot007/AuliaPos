@@ -2,7 +2,7 @@
 .roster-cell {
     text-align: center;
     min-width: 56px;
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
     border-radius: 4px;
     padding: 6px 4px;
 }
@@ -27,12 +27,12 @@
 .roster-hariini-box.shift-kosong { background-color: var(--status-neutral-bg); }
 
 .roster-hariini-box h6 {
-    font-weight: 700;
+    font-weight: var(--fw-bold);
     margin-bottom: 8px;
 }
 
 .roster-orang.saya {
-    font-weight: 700;
+    font-weight: var(--fw-bold);
 }
 
 .roster-orang.saya::before {
@@ -119,7 +119,7 @@
 }
 
 .roster-date-header small {
-    font-weight: 400;
+    font-weight: var(--fw-normal);
     color: var(--color-muted);
 }
 

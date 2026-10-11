@@ -19,7 +19,7 @@
 
 .summary-value {
     font-size: var(--fs-title);
-    font-weight: 700;
+    font-weight: var(--fw-bold);
     line-height: 1.2;
 }
 
@@ -39,7 +39,7 @@
     white-space: nowrap;
     vertical-align: middle;
     font-size: var(--fs-small);
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
 }
 
 .table-item-terjual tbody td {
@@ -95,12 +95,12 @@
    ========================================================== */
 
 .transaction-time {
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
     white-space: nowrap;
 }
 
 .invoice-link {
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
     text-decoration: none;
 }
 
@@ -113,7 +113,7 @@
 }
 
 .pelanggan-name {
-    font-weight: 500;
+    font-weight: var(--fw-medium);
 }
 
 .produk-cell {

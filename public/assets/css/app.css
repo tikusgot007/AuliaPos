@@ -119,6 +119,19 @@
     /* 20px -- card titles, big numbers */
 }
 
+/*
+ * Font weights: tokens for the four weights the app uses. Convention:
+ * big numbers/totals use --fw-bold, labels and emphasis use --fw-semibold,
+ * and --fw-normal only cancels a bolder parent (e.g. a <small> inside a bold
+ * heading). Bootstrap heading/display weights stay untouched.
+ */
+:root {
+    --fw-normal: 400;
+    --fw-medium: 500;
+    --fw-semibold: 600;
+    --fw-bold: 700;
+}
+
 body {
     background-color: var(--color-bg);
 }
@@ -159,7 +172,7 @@ body {
     border-radius: 50%;
     background: var(--color-primary);
     color: var(--color-white);
-    font-weight: 700;
+    font-weight: var(--fw-bold);
 }
 
 .avatar-initial.avatar-32 {
@@ -194,7 +207,7 @@ body {
    refreshNoOrderDropdown() in kasir-shared.js so both agree. */
 .no-order-recommended {
     background-color: var(--color-highlight);
-    font-weight: bold;
+    font-weight: var(--fw-bold);
 }
 
 /*

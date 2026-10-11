@@ -555,7 +555,7 @@
 
         let html = `
         <div class="text-center mb-3">
-            <h4 class="${statusColor}">${statusLabel}</h4>
+                            <div class="fs-4 fw-bold ${statusColor}">${statusLabel}</div>
             <p><strong>Invoice:</strong> ${escapeHtmlKasir(response.invoice)}</p>
             <p><strong>Total:</strong> ${formatRupiah(response.grand_total)}</p>
             ${response.total_dibayar > 0 ? `<p><strong>Dibayar:</strong> ${formatRupiah(response.total_dibayar)}</p>` : ''}
