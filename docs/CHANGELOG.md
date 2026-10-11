@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026-10-11 — Inbox: penanda pesan dihapus tidak lagi dobel + tombol aksi bubble melayang
+
+- **Masalah**: bubble pesan yang dihapus di WhatsApp menampilkan informasi yang sama
+  sampai tiga kali: label "Pesan diedit — teks terbaru" (bila sempat diedit), label
+  "Pesan dihapus — cek WhatsApp Web" (TODO-F7), dan placeholder "Pesan ini telah dihapus"
+  (task 2026-10-07). Label TODO-F7 dibuat saat isi pesan yang dihapus masih ditampilkan
+  samar; sejak 2026-10-07 isi itu diganti placeholder, sehingga label tersebut berulang.
+- **Perubahan tampilan**: untuk pesan `is_revoked`, hanya placeholder
+  "Pesan ini telah dihapus" yang tampil. Label "Pesan dihapus — cek WhatsApp Web" dihapus,
+  dan label "Pesan diedit" tidak ditampilkan lagi setelah pesan dihapus. Toggle admin
+  untuk melihat isi pesan teks yang dihapus tetap sama. Label "Pesan diedit" pada pesan
+  yang TIDAK dihapus tetap seperti sebelumnya.
+- **Aksi bubble jadi menu dropdown** (pola WhatsApp Web): deretan tombol
+  Balas/Teruskan/Edit/Hapus diganti satu panah kecil di pojok kanan-atas bubble yang
+  membuka menu. Sebelumnya tombolnya hanya transparan saat tidak di-hover, sehingga tetap
+  memakan satu baris kosong, membuat bubble pendek melebar, dan masih bisa terklik walau
+  tak terlihat. Menu muncul saat hover/fokus dan tetap terbuka selama dipakai; pada
+  perangkat sentuh panahnya selalu tampil. Bootstrap dropdown dipakai karena bundle-nya
+  sudah dimuat halaman ini; tidak ada library baru. Aturan kelayakan tiap aksi tidak
+  berubah (mis. Teruskan untuk audio/video/lokasi/kontak tetap tampil tapi nonaktif).
+- **Tidak berubah**: data, API, skema, kebijakan privasi pesan dihapus (tetap ditentukan
+  server lewat `expandable`).
+- Test: `tests/js/inbox-thread.test.js` (93 test, termasuk kasus baru "edited-then-revoked").
+
 ## 2026-10-11 — Kegagalan kirim ke Gateway tidak lagi dijawab HTTP 200 (TODO-Q2b) + test jalur kirim/handoff (TODO-Q2, TODO-Q2a)
 
 - **Masalah (TODO-Q2b)**: bila Gateway membalas HTTP 200 tetapi isinya `success:false`,

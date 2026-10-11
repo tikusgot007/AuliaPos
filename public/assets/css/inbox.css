@@ -496,26 +496,83 @@
     display: inline-block;
 }
 
-/* Aksi per-pesan (REQ-004): "Balas" -- disembunyikan sampai kursor
-   berada di bubble supaya tidak ramai di thread yang panjang. */    .bubble-aksi {
-    margin-top: 3px;
-    text-align: right;
+/* Aksi per-pesan (REQ-004): satu panah di pojok kanan-atas balon yang membuka
+   menu Balas/Teruskan/Edit/Hapus (pola WhatsApp Web). Wadahnya di luar aliran
+   teks supaya balon pendek tidak melebar. Disembunyikan dengan opacity +
+   pointer-events (bukan visibility) supaya tombolnya tetap terjangkau Tab:
+   :focus-within pada balon lalu memunculkannya. */
+.inbox-bubble {
+    position: relative;
+}
+
+.bubble-aksi {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    display: flex;
     opacity: 0;
+    pointer-events: none;
     transition: opacity 0.12s ease-in-out;
+    z-index: 3;
 }
 
-.inbox-bubble:hover .bubble-aksi {
+.inbox-bubble:hover .bubble-aksi,
+.inbox-bubble:focus-within .bubble-aksi,
+.bubble-aksi:has(.dropdown-menu.show) {
     opacity: 1;
+    pointer-events: auto;
 }
 
-.bubble-aksi .btn {
-    font-size: 0.68rem;
-    padding: 1px 6px;
+@media (hover: none) {
+    .bubble-aksi {
+        opacity: 1;
+        pointer-events: auto;
+    }
 }
 
-/* Teruskan (Tahap 4): tombol kedua di blok aksi yang SAMA dengan "Balas". */
-.bubble-aksi .btn + .btn {
-    margin-left: 4px;
+.inbox-bubble-menu-btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(11, 20, 26, 0.06);
+    color: #54656f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+}
+
+.inbox-bubble-menu-btn:hover {
+    background: rgba(11, 20, 26, 0.12);
+    color: #111b21;
+}
+
+.bubble-aksi .dropdown-menu {
+    font-size: 0.82rem;
+    min-width: 8rem;
+    padding: 4px;
+}
+
+.bubble-aksi .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.bubble-aksi .dropdown-item i {
+    width: 14px;
+    text-align: center;
+    color: #54656f;
+}
+
+.bubble-aksi .dropdown-item:disabled {
+    white-space: normal;
+    max-width: 260px;
 }
 
 /* REQ-008: label "Diteruskan" dibangun dari kolom `is_forwarded` saja.
@@ -530,22 +587,14 @@
     margin-bottom: 4px;
 }
 
-/* TODO-F7: label "Pesan diedit"/"Pesan dihapus". `display: block` sama
-   seperti label Diteruskan -- label harus berdiri di barisnya sendiri. */
-.inbox-edit-label,
-.inbox-delete-label {
+/* TODO-F7: label "Pesan diedit". `display: block` sama seperti label
+   Diteruskan -- label harus berdiri di barisnya sendiri. */
+.inbox-edit-label {
     display: block;
     font-size: 0.68rem;
     font-weight: 700;
     margin-bottom: 4px;
-}
-
-.inbox-edit-label {
     color: #b26a00;
-}
-
-.inbox-delete-label {
-    color: #b02a37;
 }
 
 /* Pemilih percakapan tujuan Teruskan (REQ-005). */

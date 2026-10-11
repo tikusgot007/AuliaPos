@@ -506,13 +506,13 @@ function renderKotakKutipan(m) {
 /* Aksi per-pesan (REQ-004): tombol "Balas". Tidak dirender untuk
    Internal Note (bukan percakapan dengan pelanggan) dan untuk pesan
    outgoing yang belum terkirim (tidak ada yang bisa dibalas).
-   Mengembalikan TOMBOL saja -- wadah `.bubble-aksi` dirakit
-   renderAksiPesan() supaya Balas dan Teruskan berada di satu blok aksi. */
-function renderAksiBalas(m) {
+   Mengembalikan satu <li> saja -- tombol panah + <ul> dirakit
+   renderAksiPesan() supaya semua aksi berada di satu menu dropdown. */
+function itemAksiBalas(m) {
     if (!aksiPesanTersedia(m)) return '';
 
-    return '<button type="button" class="btn btn-outline-success btn-sm" onclick="pilihKutipan(' + m.id + ')">' +
-        '<i class="fas fa-reply"></i> Balas</button>';
+    return '<li><button type="button" class="dropdown-item" onclick="pilihKutipan(' + m.id + ')">' +
+        '<i class="fas fa-reply"></i> Balas</button></li>';
 }
 
 /* Aksi per-pesan (REQ-004/REQ-006): tombol "Teruskan". Sama seperti
@@ -520,33 +520,40 @@ function renderAksiBalas(m) {
    Untuk audio/video tombol tetap DIRENDER tetapi disabled + alasan
    (AC-002/GH-016) -- bukan disembunyikan; server tetap menolak percobaan
    langsung ke endpoint (GUD-001). */
-function renderAksiTeruskan(m) {
+function itemAksiTeruskan(m) {
     if (!aksiPesanTersedia(m)) return '';
 
     if (m.message_type === 'audio' || m.message_type === 'video'
         || m.message_type === 'location' || m.message_type === 'contact') {
         const jenis = (m.message_type === 'audio' || m.message_type === 'video')
             ? 'audio/video' : 'lokasi/kontak';
-        return '<button type="button" class="btn btn-outline-secondary btn-sm" disabled' +
+        return '<li><button type="button" class="dropdown-item" disabled' +
             ' title="Teruskan — ' + jenis + ' tidak dapat diteruskan">' +
-            '<i class="fas fa-share"></i> Teruskan — ' + jenis + ' tidak dapat diteruskan</button>';
+            '<i class="fas fa-share"></i> Teruskan — ' + jenis + ' tidak dapat diteruskan</button></li>';
     }
 
-    return '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="bukaPemilihTeruskan(' + m.id + ')">' +
-        '<i class="fas fa-share"></i> Teruskan</button>';
+    return '<li><button type="button" class="dropdown-item" onclick="bukaPemilihTeruskan(' + m.id + ')">' +
+        '<i class="fas fa-share"></i> Teruskan</button></li>';
 }
 
-/* Satu blok aksi per bubble: wadah tidak dirender sama sekali bila tidak
-   ada tombol yang tersedia, supaya bubble yang tidak punya aksi tampil
-   persis seperti sebelumnya. */
+/* Satu menu aksi per bubble (pola WhatsApp Web: panah kecil di pojok balon
+   yang membuka daftar aksi). Wadah `.bubble-aksi` tidak dirender sama sekali
+   bila tidak ada aksi yang tersedia, supaya bubble tampil seperti semula.
+   Bootstrap dropdown dipakai karena bundle-nya sudah dimuat halaman ini
+   (dipakai tombol Follow-up) -- tidak ada library baru. */
 function renderAksiPesan(m) {
     if (modePilih) return '';
 
-    const tombol = renderAksiBalas(m) + renderAksiTeruskan(m) + renderAksiEdit(m) + renderAksiHapus(m);
+    const item = itemAksiBalas(m) + itemAksiTeruskan(m) + itemAksiEdit(m) + itemAksiHapus(m);
 
-    if (tombol === '') return '';
+    if (item === '') return '';
 
-    return '<div class="bubble-aksi">' + tombol + '</div>';
+    return '<div class="bubble-aksi">' +
+        '<button type="button" class="inbox-bubble-menu-btn" data-bs-toggle="dropdown"' +
+        ' aria-expanded="false" title="Aksi pesan" aria-label="Aksi pesan">' +
+        '<i class="fas fa-chevron-down"></i></button>' +
+        '<ul class="dropdown-menu dropdown-menu-end">' + item + '</ul>' +
+        '</div>';
 }
 
 // ================================================================
@@ -579,18 +586,18 @@ function pesanBisaDihapus(m) {
     return !(m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1');
 }
 
-function renderAksiEdit(m) {
+function itemAksiEdit(m) {
     if (!pesanBisaDiedit(m)) return '';
 
-    return '<button type="button" class="btn btn-outline-primary btn-sm" onclick="bukaEditPesan(' + m.id + ')"' +
-        ' title="Edit pesan (batas WhatsApp 15 menit)"><i class="fas fa-pen"></i> Edit</button>';
+    return '<li><button type="button" class="dropdown-item" onclick="bukaEditPesan(' + m.id + ')"' +
+        ' title="Edit pesan (batas WhatsApp 15 menit)"><i class="fas fa-pen"></i> Edit</button></li>';
 }
 
-function renderAksiHapus(m) {
+function itemAksiHapus(m) {
     if (!pesanBisaDihapus(m)) return '';
 
-    return '<button type="button" class="btn btn-outline-danger btn-sm" onclick="bukaKonfirmasiHapus(' + m.id + ')"' +
-        ' title="Hapus untuk semua orang"><i class="fas fa-trash"></i> Hapus</button>';
+    return '<li><button type="button" class="dropdown-item text-danger" onclick="bukaKonfirmasiHapus(' + m.id + ')"' +
+        ' title="Hapus untuk semua orang"><i class="fas fa-trash"></i> Hapus</button></li>';
 }
 
 // ================================================================
@@ -634,10 +641,17 @@ function renderLabelDiteruskan(m) {
    berdiri di barisnya sendiri di atas isi pesan, bukan mengalir sebaris.
    Label TIDAK menyebut pelaku ("pelanggan") karena event edit/hapus ini juga
    terjadi pada pesan KELUAR yang staf kirim & edit sendiri lewat WA Web/HP
-   (direction=outgoing) -- menyebut "pelanggan" pada kasus itu menyesatkan. */
+   (direction=outgoing) -- menyebut "pelanggan" pada kasus itu menyesatkan.
+   2026-10-11: a revoked message always renders renderPlaceholderDihapus()
+   ("Pesan ini telah dihapus"), so the separate delete label was dropped and
+   the edit label is suppressed once is_revoked -- both only repeated it. */
+function pesanSudahDihapus(m) {
+    return m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1';
+}
+
 function renderLabelDiedit(m) {
     const edited = m.is_edited === true || m.is_edited === 1 || m.is_edited === '1';
-    if (!edited) return '';
+    if (!edited || pesanSudahDihapus(m)) return '';
 
     const resolved = m.is_edited_text_resolved === true
         || m.is_edited_text_resolved === 1
@@ -646,12 +660,6 @@ function renderLabelDiedit(m) {
     return resolved
         ? '<div class="inbox-edit-label"><i class="fas fa-pen"></i> Pesan diedit \u2014 teks terbaru</div>'
         : '<div class="inbox-edit-label"><i class="fas fa-pen"></i> Pesan diedit \u2014 versi ini belum tentu terbaru</div>';
-}
-
-function renderLabelDihapus(m) {
-    const revoked = m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1';
-    if (!revoked) return '';
-    return '<div class="inbox-delete-label"><i class="fas fa-ban"></i> Pesan dihapus \u2014 cek WhatsApp Web</div>';
 }
 
 // ================================================================
@@ -1140,7 +1148,6 @@ function renderBubbleHtml(m) {
         senderLabel +
         renderLabelDiteruskan(m) +
         renderLabelDiedit(m) +
-        renderLabelDihapus(m) +
         renderKotakKutipan(m) +
         renderIsiPesan(m) +
         penandaKutipan +

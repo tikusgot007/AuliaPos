@@ -161,6 +161,23 @@ test('actions: Teruskan disabled for audio/video/location/contact, absent for un
     assert.ok(t.ctx.renderBubbleHtml(msg(10)).includes('bukaPemilihTeruskan(10)'));
 });
 
+test('2026-10-11: bubble actions live in one dropdown opened by a chevron', () => {
+    const t = loadThread();
+    const html = t.ctx.renderBubbleHtml(msg(11));
+
+    assert.ok(html.includes('class="bubble-aksi"'), html);
+    assert.ok(html.includes('data-bs-toggle="dropdown"'), 'chevron toggles the menu: ' + html);
+    assert.ok(html.includes('class="dropdown-menu'), html);
+    assert.ok(html.includes('pilihKutipan(11)'), html);
+    assert.ok(html.includes('bukaPemilihTeruskan(11)'), html);
+    assert.ok(!html.includes('btn-outline'), 'no inline action buttons left: ' + html);
+
+    // Without any eligible action the wrapper disappears entirely.
+    const revoked = t.ctx.renderBubbleHtml(msg(12, { is_revoked: true }));
+    assert.ok(!revoked.includes('bubble-aksi'), revoked);
+    assert.ok(!revoked.includes('data-bs-toggle="dropdown"'), revoked);
+});
+
 test('forwarded label and the five quote branches', () => {
     const t = loadThread();
     assert.ok(t.ctx.renderBubbleHtml(msg(1, { is_forwarded: true })).includes('Diteruskan'));
@@ -188,7 +205,11 @@ test('TODO-F7/F8: edit/delete lifecycle labels and validated text state', () => 
     assert.ok(resolved.includes('teks terbaru'), resolved);
 
     const deleted = t.ctx.renderBubbleHtml(msg(22, { is_revoked: true }));
-    assert.ok(deleted.includes('Pesan dihapus'), deleted);
+    assert.ok(deleted.includes('Pesan ini telah dihapus'), deleted);
+    // 2026-10-11: the placeholder is the only "deleted" indicator -- no
+    // separate delete label repeating it.
+    assert.ok(!deleted.includes('Pesan dihapus \u2014'), deleted);
+    assert.ok(!deleted.includes('inbox-delete-label'), deleted);
     // Task 2026-10-07: placeholder pesan terhapus TIDAK lagi pakai
     // inbox-teks-basi (teks diburamkan) -- sekarang `inbox-pesan-dihapus`
     // dengan data-expandable (lihat renderPlaceholderDihapus()).
@@ -200,6 +221,16 @@ test('TODO-F7/F8: edit/delete lifecycle labels and validated text state', () => 
     assert.ok(!normal.includes('Pesan diedit'), normal);
     assert.ok(!normal.includes('Pesan dihapus'), normal);
     assert.ok(!normal.includes('inbox-teks-basi'), normal);
+});
+
+test('2026-10-11: edited-then-revoked message shows only the deleted placeholder', () => {
+    const t = loadThread();
+    const html = t.ctx.renderBubbleHtml(msg(24, { is_edited: true, is_edited_text_resolved: true, is_revoked: true, text: 'x' }));
+    assert.ok(html.includes('Pesan ini telah dihapus'), html);
+    assert.ok(!html.includes('Pesan diedit'), 'edit label suppressed once revoked: ' + html);
+    assert.ok(!html.includes('inbox-delete-label'), html);
+    const teksTampil = html.replace(/<[^>]*>/g, '');
+    assert.equal((teksTampil.match(/dihapus/gi) || []).length, 1, 'deleted stated once: ' + teksTampil);
 });
 
 test('task 2026-10-07: Edit/Hapus buttons only for eligible outgoing messages', () => {
