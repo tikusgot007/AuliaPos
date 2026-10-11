@@ -27,8 +27,6 @@
 
 ### Medium
 
-- [ ] **TODO-S3** Route `/migrasi-manual` masih aktif di produksi AULIA-SERVER2 (dipakai deploy F8 2026-10-05); nonaktifkan/hapus 2 baris route setelah tidak diperlukan — `app/Config/Routes.php:100-101`; `app/Controllers/MigrasiManual.php` — sedang
-
 - [ ] **TODO-Q5** God-object & duplikasi render: `Inbox.php` 3721 baris, `Views/inbox/index.php` 3650 baris, daftar percakapan dirender 2× (PHP `index.php:778` vs JS `index.php:1474`) — sedang
 
 - [ ] **TODO-N1** Notifikasi Windows Inbox: **HTTPS self-signed AULIA-SERVER2 sudah aktif** (cert SAN `IP:192.168.1.10`+`DNS:AULIA-SERVER2`, `.env` baseURL→https, HTTP:80 tetap untuk gateway) dan kode `80df50f` sudah ter-deploy ke produksi. **Realtime WS sudah diperbaiki** via proxy same-origin `/realtime-ws` (Apache mod_proxy_wstunnel + `App\\Libraries\\InboxRealtimeWs`). **SISA**: jalankan `\\\\aulia-server2\\xampp\\import-sertifikat-aulia.bat` di tiap PC kasir yang belum, lalu uji E2E notifikasi Windows + realtime di browser kasir — sedang — ref `docs/sesi/2026-10-05-https-self-signed-aulia-server2.md`
@@ -57,6 +55,12 @@
 
 
 ## Selesai / Ditutup
+
+- [x] **TODO-S3** Medium — Route `/migrasi-manual` aktif di produksi AULIA-SERVER2 — **DITUTUP 2026-10-11, TIDAK DIKERJAKAN (keputusan user: jalur ini masih dibutuhkan)**.
+  - Alasan: `php spark` tidak bisa dipakai di AULIA-SERVER2, sehingga `/migrasi-manual` adalah satu-satunya cara menjalankan migrasi saat deploy produksi (dipakai deploy F8 2026-10-05, L3 2026-10-10, BL10/Q3h 2026-10-09).
+  - Route tetap ada: `app/Config/Routes.php:112-113` (`MigrasiManual::index`, `MigrasiManual::jalankan`).
+  - Mitigasi yang sudah ada: admin-only dua lapis (prefix `migrasi-manual` di `AuthFilter::$adminRoutes` + cek inline di `app/Controllers/MigrasiManual.php`), konfirmasi ketik `JALANKAN`, dan aplikasi hanya diakses di LAN (DEC-S2).
+  - Buka lagi bila: tersedia cara migrasi lain di produksi (mis. `php spark` bisa jalan), atau aplikasi diekspos ke luar LAN.
 
 - [x] **TODO-BL22b** Medium — CSRF global untuk seluruh POST/AJAX — **DITUTUP 2026-10-11, TIDAK DIKERJAKAN (keputusan user: effort dan risiko terlalu besar)**.
   - Keputusan: filter `csrf` global **sengaja dibiarkan mati** (`Filters.php:64-74`). Bagian yang berbahaya dan murah sudah ditutup lewat TODO-BL22 (5 aksi hapus/batal dari GET menjadi POST).
