@@ -29,7 +29,8 @@ final class InboxViewStructureTest extends CIUnitTestCase
     {
         $this->assertDoesNotMatchRegularExpression('/foreach\s*\(\s*\$conversations\b/', $this->view);
         $this->assertMatchesRegularExpression('/<div class="inbox-list-panel" id="inboxListPanel"><\/div>/', $this->view);
-        $this->assertSame(1, substr_count($this->view, 'function renderDaftarConversation('));
+        $js = (string) file_get_contents(FCPATH . 'assets/js/inbox-page.js');
+        $this->assertSame(1, substr_count($js, 'function renderDaftarConversation('));
     }
 
     public function testCssIsExternal(): void
@@ -37,6 +38,39 @@ final class InboxViewStructureTest extends CIUnitTestCase
         $this->assertStringNotContainsString('<style', $this->view);
         $this->assertStringContainsString("base_url('assets/css/inbox.css')", $this->view);
         $this->assertFileExists(FCPATH . 'assets/css/inbox.css');
+    }
+
+    /** TODO-Q5c: page logic lives in public/assets/js/inbox-page.js; the view only renders config. */
+    public function testPageScriptIsExternalAndPhpFree(): void
+    {
+        $this->assertStringContainsString("base_url('assets/js/inbox-page.js')", $this->view);
+        $this->assertStringContainsString('window.INBOX_PAGE_CONFIG', $this->view);
+
+        preg_match_all('#<script>(.*?)</script>#s', $this->view, $blok);
+        foreach ($blok[1] as $isi) {
+            $this->assertLessThan(40, substr_count($isi, "\n"), 'inline <script> blocks must stay config-only');
+        }
+
+        $js = (string) file_get_contents(FCPATH . 'assets/js/inbox-page.js');
+        $this->assertStringNotContainsString('<?', $js);
+        $this->assertStringNotContainsString('?>', $js);
+    }
+
+    /** Every inline handler in the view must be defined by one of the inbox scripts. */
+    public function testInlineHandlersAreDefinedInScripts(): void
+    {
+        $sumber = '';
+        foreach (['inbox-page.js', 'inbox-thread.js', 'inbox-template.js'] as $file) {
+            $sumber .= (string) file_get_contents(FCPATH . 'assets/js/' . $file);
+        }
+
+        preg_match_all('/\son(?:click|submit|change|input)="(?:return\s+)?(?:event\.stopPropagation\(\);\s*)?([A-Za-z_]\w*)\(/', $this->view, $m);
+        $handler = array_diff(array_unique($m[1]), ['document']);
+        $this->assertNotEmpty($handler);
+
+        foreach ($handler as $nama) {
+            $this->assertMatchesRegularExpression('/function\s+' . $nama . '\s*\(/', $sumber, "handler {$nama}() is not defined");
+        }
     }
 
     public function testElementIdsUsedByScriptsStillExist(): void
