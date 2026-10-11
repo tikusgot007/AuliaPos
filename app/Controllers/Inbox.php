@@ -4739,7 +4739,14 @@ class Inbox extends BaseController
         }
 
         log_message('warning', "Inbox::{$context} gagal mengirim ke Gateway. conversation_id={$conversationId} error=" . ($result['error'] ?? 'unknown'));
-        return $this->response->setStatusCode((int) ($result['http_code'] ?? 502))->setJSON([
+
+        // TODO-Q2b: a failure must never reach the browser as 2xx/3xx (e.g.
+        // Gateway answered HTTP 200 with success:false). Gateway error codes
+        // (>= 400) pass through unchanged; the audit row above keeps the
+        // original http_code.
+        $httpCode = (int) ($result['http_code'] ?? 0);
+
+        return $this->response->setStatusCode($httpCode >= 400 ? $httpCode : 502)->setJSON([
             'status' => 'error', 'error_code' => $errorCode,
             'state' => $result['state'] ?? null,
             'replayed' => (bool) ($result['replayed'] ?? false),

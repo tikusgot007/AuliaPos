@@ -29,7 +29,7 @@
 
 - [ ] **TODO-S3** Route `/migrasi-manual` masih aktif di produksi AULIA-SERVER2 (dipakai deploy F8 2026-10-05); nonaktifkan/hapus 2 baris route setelah tidak diperlukan — `app/Config/Routes.php:100-101`; `app/Controllers/MigrasiManual.php` — sedang
 
-- [ ] **TODO-Q2** Test gap: belum ada test end-to-end jalur `kirim`/`kirimMedia` yang menembus sampai respons HTTP gateway asli (test existing pakai fake subclass, lihat TODO-Q3), `handoffPercakapan()` (290 baris), lifecycle percakapan — sedang. **`GatewayTokenFilter` sudah tertutup** (lihat TODO-Q3, `tests/feature/GatewayTokenFilterTest.php`, 2026-10-10).
+- [ ] **TODO-Q2c** Low — Test end-to-end **Teruskan lampiran** (`kirimTeruskanMedia()`, `Inbox.php:1761`, termasuk live-fetch media sumber) dan **Balas-dengan-lampiran** (`kirimMediaBiasa()` + `quoted_message_id`) belum ada. Pola siap pakai: `tests/feature/InboxKirimMediaGatewayPalsuTest.php` (fake gateway + `FakeUploadedFile`) — rendah — sisa TODO-Q2a, 2026-10-11.
 
 - [ ] **TODO-Q5** God-object & duplikasi render: `Inbox.php` 3721 baris, `Views/inbox/index.php` 3650 baris, daftar percakapan dirender 2× (PHP `index.php:778` vs JS `index.php:1474`) — sedang
 

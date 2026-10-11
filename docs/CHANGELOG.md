@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-10-11 — Kegagalan kirim ke Gateway tidak lagi dijawab HTTP 200 (TODO-Q2b) + test jalur kirim/handoff (TODO-Q2, TODO-Q2a)
+
+- **Masalah (TODO-Q2b)**: bila Gateway membalas HTTP 200 tetapi isinya `success:false`,
+  `Inbox::gatewayFailureResponse()` meneruskan kode HTTP Gateway apa adanya, sehingga
+  browser kasir menerima **HTTP 200** dengan `status:'error'`. Tampilan kasir tetap
+  benar (UI membaca `json.status`), tetapi log dan monitoring melihat "sukses".
+- **Perbaikan**: bila kode HTTP Gateway di bawah 400 (atau tidak ada), browser menerima
+  **502**. Kode error dari Gateway (400/409/500/504, dll.) tetap diteruskan apa adanya.
+  Kolom `message_send_audit.http_code` tetap menyimpan kode asli dari Gateway.
+  Berlaku untuk kirim teks, kirim media, edit, dan hapus pesan (satu fungsi bersama).
+- **Tidak berubah**: bentuk JSON respons, isi pesan ke kasir, skema, route, kontrak
+  Gateway. Tidak ada perubahan di sisi Gateway.
+- **Test baru (hanya file test, kode aplikasi lain tidak diubah)**:
+  - Fake gateway `php -S` (`tests/_support/fake-gateway-router.php`,
+    `FakeGatewayServer.php`) sehingga cURL asli di `Inbox.php` diuji lewat HTTP
+    sungguhan tanpa mengirim ke WhatsApp.
+  - `InboxKirimGatewayPalsuTest` (13 test), `InboxKirimMediaGatewayPalsuTest` (7 test),
+    `InboxHandoffPercakapanTest` (23 test), `InboxLepasDanAlurPercakapanTest` (6 test),
+    `InboxKirimGatewayAsliTest` (manual, di-skip kecuali `INBOX_REAL_GATEWAY_TO` diisi).
+- **Verifikasi**: 2 test TODO-Q2b gagal terhadap kode lama (200 ≠ 502) dan lulus
+  terhadap kode baru. Feature **233 OK** (1 skipped = test manual), unit **128 OK**
+  (7 incomplete pra-ada), integration **65 OK**.
+- **Deploy**: perlu `git pull` di AULIA-SERVER2; tanpa migrasi.
+- Ref: `docs/TODO.md` **TODO-Q2**, **TODO-Q2a**, **TODO-Q2b**.
+
 ## 2026-10-11 — Saldo sistem negatif diperingatkan dan butuh konfirmasi sebelum opname/closing (TODO-BL30)
 
 - **Masalah**: `CashBalanceService::getBalance()` menghitung `pemasukan - pengeluaran`
