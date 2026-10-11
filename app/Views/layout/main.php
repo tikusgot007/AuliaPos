@@ -533,34 +533,31 @@
 
                                     <!-- Alat Bantu Ukuran (skala/rasio -- dipakai Kasir & Admin) -->
                                     <a href="<?= base_url('/ukuran') ?>" class="nav-icon text-decoration-none d-inline-flex align-items-center"
-                                        style="font-size: 1.1rem;"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Alat Bantu Ukuran">
                                         <i class="fas fa-ruler-combined"></i>
-                                        <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Ukuran</span>
+                                        <span class="ms-1 d-none d-md-inline nav-label">Ukuran</span>
                                     </a>
 
                                     <!-- Jadwal Karyawan (admin -> /jadwal, kasir -> /roster) -->
                                     <a href="<?= base_url(session()->get('role') === 'admin' ? '/jadwal' : '/roster') ?>"
                                         class="nav-icon text-decoration-none"
-                                        style="font-size: 1.1rem;"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Jadwal Karyawan">
                                         <i class="fas fa-calendar-alt"></i>
                                     </a>
 
                                     <!-- Preview Banner (alat bantu operasional -- dipakai Kasir & Admin) -->
                                     <a href="<?= base_url('/preview-banner') ?>" class="nav-icon text-decoration-none d-inline-flex align-items-center"
-                                        style="font-size: 1.1rem;"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Preview Banner">
                                         <i class="fas fa-image"></i>
-                                        <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Preview Banner</span>
+                                        <span class="ms-1 d-none d-md-inline nav-label">Preview Banner</span>
                                     </a>
 
                                     <!-- Tagihan Belum Lunas (akses cepat ke daftar tagihan) -->
-                                    <a href="<?= base_url('/tagihan') ?>" class="nav-icon position-relative text-decoration-none d-inline-flex align-items-center" style="font-size: 1.1rem;"
+                                    <a href="<?= base_url('/tagihan') ?>" class="nav-icon position-relative text-decoration-none d-inline-flex align-items-center"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Tagihan Belum Lunas">
                                         <i class="fas fa-file-invoice"></i>
-                                        <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Tagihan</span>
-                                        <span class="badge bg-danger" id="headerBadgeTagihan" style="font-size: 0.55rem; padding: 2px 6px; border-radius: 20px; position: absolute; top: -6px; right: -8px; display: none;">0</span>
+                                        <span class="ms-1 d-none d-md-inline nav-label">Tagihan</span>
+                                        <span class="badge bg-danger" id="headerBadgeTagihan" style="padding: 2px 6px; border-radius: 20px; position: absolute; top: -6px; right: -8px; display: none;">0</span>
                                     </a>
 
                                     <!-- User Dropdown -->
@@ -584,17 +581,17 @@
                                                 <img src="<?= base_url('/foto-profil/' . $__headerFoto) ?>" alt="Foto profil"
                                                     class="user-avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                                             <?php else: ?>
-                                                <span class="user-avatar" style="width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;">
+                                                <span class="user-avatar" style="width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700;">
                                                     <?= strtoupper(substr(session()->get('username') ?? 'A', 0, 1)) ?>
                                                 </span>
                                             <?php endif; ?>
                                             <span class="ms-2 d-none d-md-inline">
-                                                <span class="fw-semibold" style="font-size: 0.85rem;"><?= session()->get('username') ?? 'Admin' ?></span>
-                                                <small class="d-block text-muted" style="font-size: 0.55rem; margin-top: -2px;">
+                                                <span class="fw-semibold user-name"><?= session()->get('username') ?? 'Admin' ?></span>
+                                                <small class="d-block text-muted" style="font-size: var(--fs-caption); margin-top: -2px;">
                                                     <?= session()->get('role') == 'admin' ? 'Administrator' : 'Kasir' ?>
                                                 </small>
                                             </span>
-                                            <i class="fas fa-chevron-down ms-1 text-muted" style="font-size: 0.6rem;"></i>
+                                            <i class="fas fa-chevron-down ms-1 text-muted" style="font-size: var(--fs-caption);"></i>
                                         </a>
                                         <ul class="dropdown-menu dropdown-menu-end">
                                             <li><a class="dropdown-item" href="<?= base_url('/profil') ?>"><i class="fas fa-id-card me-2"></i> Profil Saya</a></li>

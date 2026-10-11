@@ -15,7 +15,7 @@
         <?php if (!empty($log)): ?>
             <div class="mb-3">
                 <strong>Log proses migrasi:</strong>
-                <pre class="bg-light p-3 border rounded" style="white-space: pre-wrap; font-size: 0.85rem;"><?php foreach ($log as $baris): ?><?= esc($baris) ?>
+                <pre class="bg-light p-3 border rounded" style="white-space: pre-wrap; font-size: var(--fs-compact);"><?php foreach ($log as $baris): ?><?= esc($baris) ?>
 <?php endforeach; ?></pre>
             </div>
         <?php endif; ?>

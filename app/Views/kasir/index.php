@@ -263,10 +263,10 @@
                 <p class="text-muted text-center" id="keranjangKosong">Belum ada item</p>
                 <div id="keranjangList"></div>
             </div>
-            <div class="card-footer bg-light">
+            <div class="card-footer bg-light cart-footer">
                 <div id="detailPembulatan" style="display: none;">
 
-                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between text-muted">
                         <span>Subtotal</span>
                         <span id="previewSubtotal">Rp 0</span>
                     </div>
@@ -277,8 +277,8 @@
                          kasir-shared.js). Reuse field diskonInput/
                          diskonTipe di bawah -- BUKAN sistem diskon
                          terpisah. -->
-                    <div class="d-flex justify-content-between align-items-center mt-1"
-                        id="diskonPelangganBox" style="display: none; font-size: 0.85rem;">
+                    <div class="d-flex justify-content-between align-items-center mt-1 cart-sub"
+                        id="diskonPelangganBox" style="display: none;">
                         <label class="d-flex align-items-center gap-1 mb-0" style="cursor: pointer;">
                             <input type="checkbox" id="diskonPelangganCheckbox" onchange="toggleDiskonPelanggan()">
                             <span class="text-muted">Diskon Pelanggan</span>
@@ -286,24 +286,24 @@
                         <span id="diskonPelangganPersenLabel" class="text-muted">0%</span>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center mt-1" style="font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between align-items-center mt-1">
                         <span class="text-muted">Diskon</span>
                         <div class="d-flex align-items-center gap-1">
                             <input type="number" id="diskonInput" class="form-control form-control-sm"
-                                style="width: 80px; font-size: 0.9rem; height: 28px;" placeholder="0" min="0" max="100" step="10" value="0"
+                                style="width: 80px; height: 28px;" placeholder="0" min="0" max="100" step="10" value="0"
                                 oninput="hitungDiskon()">
-                            <select id="diskonTipe" class="form-select form-select-sm" style="width: 55px; font-size: 0.9rem; height: 28px;" onchange="hitungDiskon()">
+                            <select id="diskonTipe" class="form-select form-select-sm" style="width: 55px; height: 28px;" onchange="hitungDiskon()">
                                 <option value="percent">%</option>
                                 <option value="nominal">Rp</option>
                             </select>
-                            <button class="btn btn-outline-danger btn-sm" type="button" onclick="resetDiskon()" title="Reset Diskon" style="font-size: 0.9rem; padding: 0px 6px; height: 28px;">
+                            <button class="btn btn-outline-danger btn-sm" type="button" onclick="resetDiskon()" title="Reset Diskon" style="padding: 0px 6px; height: 28px;">
                                 <i class="fas fa-times"></i>
                             </button>
-                            <span id="diskonInfo" class="text-danger" style="min-width: 70px; text-align: right; font-size: 0.9rem;">Rp 0</span>
+                            <span id="diskonInfo" class="text-danger" style="min-width: 70px; text-align: right;">Rp 0</span>
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-between text-danger" id="previewPembulatanRow" style="font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between text-danger" id="previewPembulatanRow">
                         <span>Pembulatan</span>
                         <span id="previewPembulatan">-Rp 0</span>
                     </div>
@@ -311,15 +311,15 @@
                     <hr class="my-1">
                 </div>
 
-                <div class="d-flex justify-content-between" style="font-size: 0.9rem;">
+                <div class="d-flex justify-content-between">
                     <strong>Total:</strong>
                     <span id="totalBayar">Rp 0</span>
                 </div>
                 <div class="d-grid gap-2 mt-2">
-                    <button class="btn btn-success" onclick="prosesPembayaran()" style="font-size: 0.9rem;">
+                    <button class="btn btn-success" onclick="prosesPembayaran()">
                         <i class="fas fa-credit-card"></i> Proses Pembayaran
                     </button>
-                    <button class="btn btn-warning" onclick="prosesPiutang()" style="font-size: 0.9rem;">
+                    <button class="btn btn-warning" onclick="prosesPiutang()">
                         <i class="fas fa-hand-holding-usd"></i> BM (Belum Membayar)
                     </button>
                 </div>
@@ -566,7 +566,7 @@
             html += `
             <div class="alert alert-success py-2 mt-2">
                 <strong><i class="fas fa-money-bill-wave"></i> Kembalian:</strong>
-                <span style="font-size: 1.3rem;">${formatRupiah(kembalian)}</span>
+                <span class="kembalian-nilai">${formatRupiah(kembalian)}</span>
             </div>
         `;
         }

@@ -281,17 +281,17 @@
                 <p class="text-muted text-center" id="keranjangKosong">Belum ada item</p>
                 <div id="keranjangList"></div>
             </div>
-            <div class="card-footer bg-light">
+            <div class="card-footer bg-light cart-footer">
                 <div id="detailPembulatan" style="display: none;">
 
-                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between text-muted">
                         <span>Subtotal</span>
                         <span id="previewSubtotal">Rp 0</span>
                     </div>
 
                     <!-- 🔥 DISKON PELANGGAN OTOMATIS (lihat kasir/index.php) -->
-                    <div class="d-flex justify-content-between align-items-center mt-1"
-                        id="diskonPelangganBox" style="display: none; font-size: 0.85rem;">
+                    <div class="d-flex justify-content-between align-items-center mt-1 cart-sub"
+                        id="diskonPelangganBox" style="display: none;">
                         <label class="d-flex align-items-center gap-1 mb-0" style="cursor: pointer;">
                             <input type="checkbox" id="diskonPelangganCheckbox" onchange="toggleDiskonPelanggan()">
                             <span class="text-muted">Diskon Pelanggan</span>
@@ -299,25 +299,25 @@
                         <span id="diskonPelangganPersenLabel" class="text-muted">0%</span>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center mt-1" style="font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between align-items-center mt-1">
                         <span class="text-muted">Diskon</span>
                         <div class="d-flex align-items-center gap-1">
                             <input type="number" id="diskonInput" class="form-control form-control-sm"
-                                style="width: 80px; font-size: 0.9rem; height: 28px;" placeholder="0" min="0"
+                                style="width: 80px; height: 28px;" placeholder="0" min="0"
                                 value="<?= (float) ($transaksi['diskon'] ?? 0) ?>"
                                 oninput="hitungDiskon()">
-                            <select id="diskonTipe" class="form-select form-select-sm" style="width: 55px; font-size: 0.9rem; height: 28px;" onchange="hitungDiskon()">
+                            <select id="diskonTipe" class="form-select form-select-sm" style="width: 55px; height: 28px;" onchange="hitungDiskon()">
                                 <option value="percent">%</option>
                                 <option value="nominal" selected>Rp</option>
                             </select>
-                            <button class="btn btn-outline-danger btn-sm" type="button" onclick="resetDiskon()" title="Reset Diskon" style="font-size: 0.9rem; padding: 0px 6px; height: 28px;">
+                            <button class="btn btn-outline-danger btn-sm" type="button" onclick="resetDiskon()" title="Reset Diskon" style="padding: 0px 6px; height: 28px;">
                                 <i class="fas fa-times"></i>
                             </button>
-                            <span id="diskonInfo" class="text-danger" style="min-width: 70px; text-align: right; font-size: 0.9rem;">Rp 0</span>
+                            <span id="diskonInfo" class="text-danger" style="min-width: 70px; text-align: right;">Rp 0</span>
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-between text-danger" id="previewPembulatanRow" style="font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between text-danger" id="previewPembulatanRow">
                         <span>Pembulatan</span>
                         <span id="previewPembulatan">-Rp 0</span>
                     </div>
@@ -325,7 +325,7 @@
                     <hr class="my-1">
                 </div>
 
-                <div class="d-flex justify-content-between" style="font-size: 0.9rem;">
+                <div class="d-flex justify-content-between">
                     <strong>Total:</strong>
                     <span id="totalBayar">Rp 0</span>
                 </div>
@@ -334,21 +334,21 @@
                 <?php if ($sudahDibayarEdit > 0): ?>
                     <?php // Indikator LIVE: sisa vs LEBIH BAYAR mengikuti total keranjang.
                     // Kondisi "lebih bayar" TIDAK disamarkan sebagai "Lunas". ?>
-                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.85rem;">
+                    <div class="d-flex justify-content-between text-muted cart-sub">
                         <span>Sudah dibayar</span>
                         <span id="editSudahDibayar" data-nilai="<?= $sudahDibayarEdit ?>">Rp <?= number_format($sudahDibayarEdit, 0, ',', '.') ?></span>
                     </div>
-                    <div class="d-flex justify-content-between fw-bold" id="editSelisihRow" style="font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between fw-bold" id="editSelisihRow">
                         <span id="editSelisihLabel">Sisa</span>
                         <span id="editSelisihNilai">Rp 0</span>
                     </div>
                 <?php endif; ?>
 
                 <div class="d-grid gap-2 mt-2">
-                    <button class="btn btn-success" onclick="simpanPerubahanTransaksi()" style="font-size: 0.9rem;">
+                    <button class="btn btn-success" onclick="simpanPerubahanTransaksi()">
                         <i class="fas fa-save"></i> Simpan Perubahan
                     </button>
-                    <a class="btn btn-outline-secondary" href="<?= base_url('/transaksi/detail/' . $transaksi_id) ?>" style="font-size: 0.9rem;">
+                    <a class="btn btn-outline-secondary" href="<?= base_url('/transaksi/detail/' . $transaksi_id) ?>">
                         <i class="fas fa-times"></i> Batal
                     </a>
                 </div>

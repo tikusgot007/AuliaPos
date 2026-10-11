@@ -106,7 +106,7 @@
                             <div class="kutipan-aktif-judul" id="kutipanAktifJudul"></div>
                             <div class="inbox-kutipan-snippet" id="kutipanAktifSnippet"></div>
                         </div>
-                        <button type="button" class="btn-close btn-sm align-self-center" id="btnBatalKutipan" style="font-size:0.6rem;" aria-label="Batalkan kutipan" onclick="batalkanKutipan()"></button>
+                        <button type="button" class="btn-close btn-sm align-self-center" id="btnBatalKutipan" style="font-size: var(--fs-caption);" aria-label="Batalkan kutipan" onclick="batalkanKutipan()"></button>
                     </div>
                     <!-- Badge per-file di-render dinamis oleh renderAntrianMediaBalasan()
                          -- lihat definisi antrianMediaBalasan di bawah. -->

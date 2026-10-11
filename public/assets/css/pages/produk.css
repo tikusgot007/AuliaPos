@@ -17,7 +17,7 @@
 }
 
 .action-buttons .btn i {
-    font-size: 16px;
+    font-size: var(--fs-medium);
 }
 
 /* Sel yang bisa diedit */
@@ -70,6 +70,7 @@
     white-space: nowrap;
 }
 
+/* Relative to the surrounding cell text, so it stays in em. */
 kbd {
     font-size: 0.8em;
 }

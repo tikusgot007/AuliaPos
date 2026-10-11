@@ -48,7 +48,7 @@
 .btn-filter-kategori {
     transition: all 0.2s ease;
     border-radius: 20px;
-    font-size: 0.75rem;
+    font-size: var(--fs-tiny);
     padding: 4px 12px;
 }
 
@@ -105,7 +105,7 @@
 }
 
 #keranjangContainer .form-control-sm {
-    font-size: 0.65rem;
+    font-size: var(--fs-caption);
 }
 
 /* Scrollbar yang lebih tipis */
@@ -172,7 +172,7 @@
 
 /* Badge Tagihan */
 #badgeTagihan {
-    font-size: 0.7rem;
+    font-size: var(--fs-caption);
     padding: 2px 8px;
     border-radius: 20px;
     transition: all 0.3s ease;
@@ -216,13 +216,13 @@
 
 /* Diskon di keranjang */
 #detailPembulatan .form-control-sm {
-    font-size: 0.75rem;
+    font-size: var(--fs-tiny);
     padding: 0.1rem 0.3rem;
     height: 24px;
 }
 
 #detailPembulatan .form-select-sm {
-    font-size: 0.7rem;
+    font-size: var(--fs-caption);
     padding: 0.1rem 0.3rem;
     height: 24px;
     min-height: 24px;
@@ -230,18 +230,18 @@
 
 #detailPembulatan .btn-sm {
     padding: 0.1rem 0.3rem;
-    font-size: 0.7rem;
+    font-size: var(--fs-caption);
     height: 24px;
 }
 
 #detailPembulatan .small {
-    font-size: 0.75rem;
+    font-size: var(--fs-tiny);
 }
 
 .badge.bg-info {
     background-color: var(--color-info) !important;
     color: var(--color-white);
-    font-size: 0.65rem;
+    font-size: var(--fs-caption);
 }
 
 /* Preview pembulatan */
@@ -265,7 +265,7 @@
     min-width: 250px;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    font-size: 14px;
+    font-size: var(--fs-body);
 }
 
 /* ========================================== */
@@ -280,7 +280,7 @@
 }
 
 .sidebar .brand {
-    font-size: 1.5rem;
+    font-size: var(--fs-title);
     font-weight: bold;
     color: var(--shell-text);
     padding: 20px;
@@ -290,7 +290,7 @@
 
 .sidebar .brand small {
     display: block;
-    font-size: 0.7rem;
+    font-size: var(--fs-caption);
     color: var(--shell-text-muted);
     font-weight: normal;
 }
@@ -341,7 +341,7 @@
 
 .sidebar .submenu .nav-link {
     padding: 8px 12px;
-    font-size: 14px;
+    font-size: var(--fs-body);
 }
 
 .sidebar .nav-link .fa-chevron-down {
@@ -439,7 +439,7 @@
 
 .top-header .dropdown-menu {
     min-width: 180px;
-    font-size: 0.85rem;
+    font-size: var(--fs-compact);
     background: var(--shell-menu);
     border: 1px solid var(--shell-border-2);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
@@ -456,7 +456,7 @@
 }
 
 .top-header .badge {
-    font-size: 0.6rem;
+    font-size: var(--fs-caption);
     padding: 2px 6px;
 }
 
@@ -492,6 +492,17 @@
 
 .top-header .nav-icon {
     color: var(--shell-text-dim) !important;
+    font-size: var(--fs-medium);
+}
+
+/* Label text next to a header icon (was inline font-size in the markup). */
+.top-header .nav-label {
+    font-size: var(--fs-small);
+}
+
+/* Logged-in username in the header dropdown. */
+.top-header .user-name {
+    font-size: var(--fs-compact);
 }
 
 .top-header .nav-icon:hover {
@@ -513,6 +524,7 @@
 .top-header .user-avatar {
     background: var(--aulia-shell-active) !important;
     color: var(--color-white) !important;
+    font-size: var(--fs-small);
 }
 
 /* Pemisah header */

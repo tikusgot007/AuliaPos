@@ -85,7 +85,7 @@
    FONT CARD
    ========================================= */
 .produk-card-wrap .card-title {
-    font-size: 0.98rem;
+    font-size: var(--fs-medium);
     font-weight: 600;
     line-height: 1.25;
 
@@ -95,11 +95,11 @@
 }
 
 .produk-card-wrap small {
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
 }
 
 .produk-card-wrap .badge {
-    font-size: 0.72rem;
+    font-size: var(--fs-caption);
     align-self: center;
 }
 
@@ -138,16 +138,40 @@
     }
 
     .produk-card-wrap .card-title {
-        font-size: 0.9rem;
+        font-size: var(--fs-body);
     }
 
     .produk-card-wrap small {
-        font-size: 0.75rem;
+        font-size: var(--fs-tiny);
     }
 
     .produk-card-wrap .badge {
-        font-size: 0.68rem;
+        font-size: var(--fs-caption);
     }
+}
+
+/*
+ * Cart footer: summary rows, discount controls and action buttons. Font sizes
+ * come from the shared scale (were inline font-size in kasir/index + edit).
+ */
+.cart-footer {
+    font-size: var(--fs-body);
+}
+
+.cart-footer .btn,
+.cart-footer .form-control,
+.cart-footer .form-select {
+    font-size: var(--fs-body);
+}
+
+/* Sub-row one step smaller ("Diskon Pelanggan", "Sudah dibayar"). */
+.cart-footer .cart-sub {
+    font-size: var(--fs-compact);
+}
+
+/* Kembalian value inside the payment modal (built by kasir-shared.js). */
+.kembalian-nilai {
+    font-size: var(--fs-title);
 }
 
 /* Aksi Khusus card tints (shared with kasir/edit.php). */

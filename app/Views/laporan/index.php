@@ -507,7 +507,7 @@
                 <div class="card-body py-3">
                     <div class="d-flex align-items-center gap-2 mb-1">
                         <i class="fas ${icon} text-${warna}"></i>
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">${label}</small>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: var(--fs-caption);">${label}</small>
                     </div>
                     <div class="fs-5 fw-bold text-truncate" title="${value}">${value}</div>
                     ${keterangan ? `<small class="text-muted">${keterangan}</small>` : ''}

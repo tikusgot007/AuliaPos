@@ -56,7 +56,7 @@
 }
 
 .sort-icon {
-    font-size: 0.75rem;
+    font-size: var(--fs-tiny);
     color: var(--status-neutral-text);
     margin-left: 4px;
 }
@@ -114,7 +114,7 @@
 }
 
 .matrix-availability-header th {
-    font-size: 0.72rem;
+    font-size: var(--fs-caption);
     line-height: 1.35;
     font-weight: 400;
     padding-top: 4px;
@@ -124,7 +124,7 @@
 
 .matrix-availability-header th:first-child {
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
 }
 
 /* Baris per-shift di dalam cell Ketersediaan (Pagi/Siang/PM),

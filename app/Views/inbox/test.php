@@ -30,7 +30,7 @@
                         <?php foreach ($conversations as $c): ?>
                             <tr>
                                 <td><?= esc($c['id']) ?></td>
-                                <td><code style="font-size: 0.75rem;"><?= esc($c['chat_id']) ?></code></td>
+                                <td><code style="font-size: var(--fs-tiny);"><?= esc($c['chat_id']) ?></code></td>
                                 <td><?= esc($c['jid_type']) ?></td>
                                 <td><?= esc($c['contact_name'] ?? '-') ?></td>
                                 <td><?= esc($c['phone'] ?? '-') ?></td>

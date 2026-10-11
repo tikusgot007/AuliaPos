@@ -97,6 +97,28 @@
     --shell-chevron: #6c757d;
 }
 
+/*
+ * Type scale -- single source for every font size (7 steps). Bootstrap's own
+ * scale stays as-is; these steps cover the app's custom sizes, which used to be
+ * ~28 near-duplicate values scattered across page CSS and inline styles.
+ */
+:root {
+    --fs-caption: 0.7rem;
+    /* 11.2px -- smallest labels, tiny badges */
+    --fs-tiny: 0.75rem;
+    /* 12px -- badges, meta */
+    --fs-small: 0.8rem;
+    /* 12.8px -- dense table cells */
+    --fs-compact: 0.85rem;
+    /* 13.6px -- secondary text */
+    --fs-body: 0.9rem;
+    /* 14.4px -- default component text */
+    --fs-medium: 1rem;
+    /* 16px -- primary text */
+    --fs-title: 1.25rem;
+    /* 20px -- card titles, big numbers */
+}
+
 body {
     background-color: var(--color-bg);
 }
@@ -106,7 +128,7 @@ body {
     min-width: 250px;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    font-size: 14px;
+    font-size: var(--fs-body);
 }
 
 .toast-success {
@@ -143,9 +165,10 @@ body {
 .avatar-initial.avatar-32 {
     width: 32px;
     height: 32px;
-    font-size: 0.75rem;
+    font-size: var(--fs-tiny);
 }
 
+/* The letter size tracks the circle diameter, so it stays out of the type scale. */
 .avatar-initial.avatar-100 {
     width: 100px;
     height: 100px;

@@ -428,7 +428,7 @@ $isShiftLeaderUser = \App\Services\Authority::isCurrentShiftLeader((int) session
                         var html = '<span class="' + (Number(d) > 0 ? 'text-danger' : 'text-success') + '">' +
                             Number(d).toLocaleString('id-ID') + '</span>';
                         if (Number(row.kelebihan) > 0) {
-                            html += '<br><span class="badge bg-warning text-dark" style="font-size: 0.65rem;" title="Kelebihan bayar">' +
+                            html += '<br><span class="badge bg-warning text-dark" style="font-size: var(--fs-caption);" title="Kelebihan bayar">' +
                                 '<i class="fas fa-exclamation-triangle"></i> +' +
                                 Number(row.kelebihan).toLocaleString('id-ID') + '</span>';
                         }

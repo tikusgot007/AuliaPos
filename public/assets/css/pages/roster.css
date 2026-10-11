@@ -50,7 +50,7 @@
 }
 
 .sort-icon {
-    font-size: 0.75rem;
+    font-size: var(--fs-tiny);
     color: var(--status-neutral-text);
     margin-left: 4px;
 }
