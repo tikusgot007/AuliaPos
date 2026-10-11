@@ -9,11 +9,10 @@
                 <?php if (!empty($user['profile_photo'])): ?>
                     <img src="<?= base_url('/foto-profil/' . $user['profile_photo']) ?>"
                         alt="Foto profil"
-                        class="rounded-circle mb-3"
-                        style="width: 140px; height: 140px; object-fit: cover; border: 3px solid #e9ecef;">
+                        class="rounded-circle mb-3 avatar-photo avatar-photo-lg"
+                        style="width: 140px; height: 140px; object-fit: cover;">
                 <?php else: ?>
-                    <div class="rounded-circle mb-3 mx-auto d-flex align-items-center justify-content-center"
-                        style="width: 140px; height: 140px; background: #0d6efd; color: #fff; font-size: 2.5rem; font-weight: 700;">
+                    <div class="rounded-circle mb-3 mx-auto d-flex align-items-center justify-content-center avatar-initial avatar-140">
                         <?= esc(strtoupper(substr($user['nama'] ?? $user['username'], 0, 1))) ?>
                     </div>
                 <?php endif; ?>

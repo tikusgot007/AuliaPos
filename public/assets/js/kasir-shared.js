@@ -191,7 +191,7 @@ function refreshNoOrderDropdown() {
                 const option = document.createElement('option');
                 option.value = no;
                 option.textContent = formatNoOrder(no) + (no == response.recommended ? '' : '');
-                if (no == response.recommended) option.className = 'fw-bold';
+                if (no == response.recommended) option.className = 'no-order-recommended';
                 select.appendChild(option);
             });
 

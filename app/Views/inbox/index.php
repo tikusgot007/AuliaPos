@@ -25,14 +25,14 @@
                 <!-- Search (M3 Fase 1c, TASK-017): runs on Enter or the  -->
                 <!-- search icon, never per keystroke; sent to the server  -->
                 <!-- as `q` so it covers ALL conversations (CL-001).       -->
-                <form class="p-2 border-bottom" style="background:#fff;" onsubmit="return cariConversationDariInput(event)">
+                <form class="p-2 border-bottom bg-white" onsubmit="return cariConversationDariInput(event)">
                     <div class="input-group input-group-sm">
                         <input type="text" class="form-control" id="inputCariConversation" maxlength="255" placeholder="Cari nama / nomor..." autocomplete="off">
                         <button type="button" class="btn btn-outline-secondary" title="Hapus pencarian" onclick="hapusPencarianConversation()">&#x2715;</button>
                         <button type="submit" class="btn btn-outline-primary" title="Cari"><i class="fas fa-search"></i></button>
                     </div>
                 </form>
-                <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom flex-wrap" style="background:#fff;">
+                <div class="inbox-list-filter d-flex gap-1 p-2 border-bottom flex-wrap bg-white">
                     <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterBelum_diambil" onclick="setFilterConversation('belum_diambil')">Belum Diambil <span class="badge bg-light text-dark border tab-count" data-count-for="belum_diambil">0</span></button>
                     <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterOpen" onclick="setFilterConversation('open')">Open <span class="badge bg-light text-dark border tab-count" data-count-for="open">0</span></button>
                     <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnFilterMenunggu" onclick="setFilterConversation('menunggu')">Menunggu <span class="badge bg-light text-dark border tab-count" data-count-for="menunggu">0</span></button>

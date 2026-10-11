@@ -10,14 +10,13 @@
                 <div class="col-md-3 text-center mb-3">
                     <?php if (!empty($user['profile_photo'])): ?>
                         <img src="<?= base_url('/foto-profil/' . $user['profile_photo']) ?>" alt="Foto profil"
-                            class="rounded-circle mb-2" style="width: 100px; height: 100px; object-fit: cover; border: 2px solid #e9ecef;">
+                            class="rounded-circle mb-2 avatar-photo" style="width: 100px; height: 100px; object-fit: cover;">
                         <div class="form-check d-flex justify-content-center align-items-center gap-2 mb-2">
                             <input type="checkbox" class="form-check-input" id="hapus_foto" name="hapus_foto" value="1">
                             <label class="form-check-label" for="hapus_foto">Hapus foto</label>
                         </div>
                     <?php else: ?>
-                        <div class="rounded-circle mb-2 mx-auto d-flex align-items-center justify-content-center"
-                            style="width: 100px; height: 100px; background: #0d6efd; color: #fff; font-size: 2rem; font-weight: 700;">
+                        <div class="rounded-circle mb-2 mx-auto d-flex align-items-center justify-content-center avatar-initial avatar-100">
                             <?= strtoupper(substr($user['nama'] ?: $user['username'], 0, 1)) ?>
                         </div>
                     <?php endif; ?>

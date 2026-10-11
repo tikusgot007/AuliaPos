@@ -79,7 +79,7 @@
                                     <option
                                         value="<?= $orderNumber ?>"
                                         <?= ($orderNumber == $recommended_no_order)
-                                            ? 'style="background-color:pink; font-weight:bold;"'
+                                            ? 'class="no-order-recommended"'
                                             : '' ?>>
                                         <?= format_no_order($orderNumber) ?>
                                     </option>
@@ -176,9 +176,9 @@
             <h6 class="text-muted mb-2"><i class="fas fa-bolt"></i> Aksi Khusus</h6>
             <div id="aksiKhususList" class="produk-grid">
                 <div class="produk-card-wrap">
-                    <div class="card card-kasir p-2 text-center border-primary h-100"
+                    <div class="card card-kasir p-2 text-center border-primary h-100 aksi-khusus-banner"
                         onclick="bukaModalBanner()"
-                        style="cursor:pointer; background-color:#e8f4fd;">
+                        >
                         <div class="card-body p-1 d-flex flex-column justify-content-center">
                             <h6 class="card-title mb-1">
                                 <i class="fas fa-ruler-combined text-primary"></i> Banner
@@ -190,9 +190,9 @@
                 </div>
 
                 <div class="produk-card-wrap">
-                    <div class="card card-kasir p-2 text-center border-warning h-100"
+                    <div class="card card-kasir p-2 text-center border-warning h-100 aksi-khusus-manual"
                         onclick="showManualInput()"
-                        style="cursor:pointer; background-color:#fff8e7;">
+                        >
                         <div class="card-body p-1 d-flex flex-column justify-content-center">
                             <h6 class="card-title mb-1">
                                 <i class="fas fa-pencil-alt text-warning"></i> Manual Input
@@ -204,9 +204,9 @@
                 </div>
 
                 <div class="produk-card-wrap">
-                    <div class="card card-kasir p-2 text-center border-danger h-100"
+                    <div class="card card-kasir p-2 text-center border-danger h-100 aksi-khusus-custom"
                         onclick="showModalCustomSize()"
-                        style="cursor:pointer; background-color:#fde8e8;">
+                        >
                         <div class="card-body p-1 d-flex flex-column justify-content-center">
                             <h6 class="card-title mb-1">
                                 <i class="fas fa-vector-square text-success"></i> Ukuran Custom

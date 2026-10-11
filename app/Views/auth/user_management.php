@@ -32,8 +32,7 @@
                                         <img src="<?= base_url('/foto-profil/' . $u['profile_photo']) ?>" alt=""
                                             class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
                                     <?php else: ?>
-                                        <span class="rounded-circle d-inline-flex align-items-center justify-content-center"
-                                            style="width: 32px; height: 32px; background: #0d6efd; color: #fff; font-size: 0.75rem; font-weight: 700;">
+                                        <span class="rounded-circle d-inline-flex align-items-center justify-content-center avatar-initial avatar-32">
                                             <?= strtoupper(substr($u['nama'] ?: $u['username'], 0, 1)) ?>
                                         </span>
                                     <?php endif; ?>

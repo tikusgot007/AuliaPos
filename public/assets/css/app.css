@@ -14,7 +14,7 @@
 
     /* Generic UI */
     --color-white: #ffffff;
-    --color-primary: #0d6efd;
+    --color-primary: var(--aulia-navy);
     --color-success: #28a745;
     --color-danger: #dc3545;
     --color-danger-soft: #ff6b6b;
@@ -45,18 +45,23 @@
     --color-muted: #6c757d;
     --color-hover-bg: #e9ecef;
     --color-selected-outline: #000000;
-    --color-today-overlay: rgba(13, 110, 253, 0.10);
+    --color-today-overlay: rgba(31, 59, 92, 0.10);
 
     /* Light blue accent surface (search boxes, highlighted rows). */
     --color-accent-bg: #eaf3ff;
     --color-accent-border: #b6d7ff;
-    --color-focus-ring: rgba(13, 110, 253, 0.15);
+    --color-focus-ring: rgba(31, 59, 92, 0.15);
+
+    /* Aksi Khusus card tints (kasir & edit transaksi). */
+    --tint-banner: #e8f4fd;
+    --tint-manual: #fff8e7;
+    --tint-custom: #fde8e8;
 
     /* Bootstrap focused-input border. */
-    --color-focus-border: #86b7fe;
+    --color-focus-border: #8fa7c6;
 
     /* Light state tints (inline edit feedback, hover highlights). */
-    --tint-primary: rgba(13, 110, 253, 0.08);
+    --tint-primary: rgba(31, 59, 92, 0.08);
     --tint-warning: rgba(255, 193, 7, 0.12);
     --tint-danger: rgba(220, 53, 69, 0.12);
     --tint-success: rgba(25, 135, 84, 0.12);
@@ -118,4 +123,132 @@ body {
 .toast-info {
     background-color: var(--color-info);
     color: var(--color-white);
+}
+
+/* Initial-letter avatar (no profile photo). Size set by a modifier. */
+.avatar-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: var(--color-white);
+    font-weight: 700;
+}
+
+.avatar-initial.avatar-32 {
+    width: 32px;
+    height: 32px;
+    font-size: 0.75rem;
+}
+
+.avatar-initial.avatar-100 {
+    width: 100px;
+    height: 100px;
+    font-size: 2rem;
+}
+
+.avatar-initial.avatar-140 {
+    width: 140px;
+    height: 140px;
+    font-size: 2.5rem;
+}
+
+/* Profile photo ring in user forms. */
+.avatar-photo {
+    border: 2px solid var(--color-border-light);
+}
+
+.avatar-photo.avatar-photo-lg {
+    border-width: 3px;
+}
+
+/* Recommended No. Order option -- shared by kasir/index.php and
+   refreshNoOrderDropdown() in kasir-shared.js so both agree. */
+.no-order-recommended {
+    background-color: var(--color-highlight);
+    font-weight: bold;
+}
+
+/*
+ * Primary accent = navy (same hue as the Inbox header). Bootstrap 5.3 does
+ * not derive component colours from one variable, so each spot is overridden
+ * here. Values: base #1f3b5c, hover #16293f, active #0f1d2d.
+ */
+:root {
+    --bs-primary-rgb: 31, 59, 92;
+    --bs-link-color: #1f3b5c;
+    --bs-link-color-rgb: 31, 59, 92;
+    --bs-link-hover-color: #16293f;
+    --bs-link-hover-color-rgb: 22, 41, 63;
+}
+
+.btn-primary {
+    --bs-btn-bg: #1f3b5c;
+    --bs-btn-border-color: #1f3b5c;
+    --bs-btn-hover-bg: #16293f;
+    --bs-btn-hover-border-color: #16293f;
+    --bs-btn-focus-shadow-rgb: 31, 59, 92;
+    --bs-btn-active-bg: #0f1d2d;
+    --bs-btn-active-border-color: #0f1d2d;
+    --bs-btn-disabled-bg: #1f3b5c;
+    --bs-btn-disabled-border-color: #1f3b5c;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: #1f3b5c;
+    --bs-btn-border-color: #1f3b5c;
+    --bs-btn-hover-bg: #1f3b5c;
+    --bs-btn-hover-border-color: #1f3b5c;
+    --bs-btn-focus-shadow-rgb: 31, 59, 92;
+    --bs-btn-active-bg: #1f3b5c;
+    --bs-btn-active-border-color: #1f3b5c;
+    --bs-btn-disabled-color: #1f3b5c;
+    --bs-btn-disabled-border-color: #1f3b5c;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--color-focus-border);
+    box-shadow: 0 0 0 .25rem rgba(31, 59, 92, .25);
+}
+
+.form-check-input:checked {
+    background-color: #1f3b5c;
+    border-color: #1f3b5c;
+}
+
+.form-check-input:focus {
+    border-color: var(--color-focus-border);
+    box-shadow: 0 0 0 .25rem rgba(31, 59, 92, .25);
+}
+
+.form-range::-webkit-slider-thumb {
+    background-color: #1f3b5c;
+}
+
+.form-range::-moz-range-thumb {
+    background-color: #1f3b5c;
+}
+
+.nav-pills {
+    --bs-nav-pills-link-active-bg: #1f3b5c;
+}
+
+.pagination {
+    --bs-pagination-active-bg: #1f3b5c;
+    --bs-pagination-active-border-color: #1f3b5c;
+}
+
+.dropdown-menu {
+    --bs-dropdown-link-active-bg: #1f3b5c;
+}
+
+.list-group {
+    --bs-list-group-active-bg: #1f3b5c;
+    --bs-list-group-active-border-color: #1f3b5c;
+}
+
+.progress {
+    --bs-progress-bar-bg: #1f3b5c;
 }

@@ -16,31 +16,31 @@
     <div class="card-body">
         <div class="row g-2" id="rosterHariIniGrid">
             <div class="col-6 col-md-2">
-                <div class="roster-hariini-box" style="background:#fff3cd;">
+                <div class="roster-hariini-box shift-P">
                     <h6>Pagi <small class="fw-normal">(08:00–15:00)</small></h6>
                     <div id="rosterHariIniPagi"></div>
                 </div>
             </div>
             <div class="col-6 col-md-2">
-                <div class="roster-hariini-box" style="background:#cce5ff;">
+                <div class="roster-hariini-box shift-S">
                     <h6>Siang <small class="fw-normal">(13:30–20:30)</small></h6>
                     <div id="rosterHariIniSiang"></div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
-                <div class="roster-hariini-box" style="background:#d4edda;">
+                <div class="roster-hariini-box shift-PM">
                     <h6>PM <small class="fw-normal">(08:00–12:30 & 18:00–20:30)</small></h6>
                     <div id="rosterHariIniPM"></div>
                 </div>
             </div>
             <div class="col-6 col-md-2">
-                <div class="roster-hariini-box" style="background:#f8d7da;">
+                <div class="roster-hariini-box shift-L">
                     <h6>Libur</h6>
                     <div id="rosterHariIniLibur"></div>
                 </div>
             </div>
             <div class="col-12 col-md-3">
-                <div class="roster-hariini-box" style="background:#f8f9fa;">
+                <div class="roster-hariini-box shift-kosong">
                     <h6>Belum Dijadwalkan</h6>
                     <div id="rosterHariIniBelum"></div>
                 </div>

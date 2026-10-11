@@ -504,8 +504,7 @@
                             }
                             ?>
                             <div class="col-md-4 col-6">
-                                <span id="shiftLeaderBadge" class="badge <?= $__shiftLeaderAwal ? 'bg-warning' : 'bg-secondary' ?>"
-                                    style="<?= $__shiftLeaderAwal ? 'color: #145a32;' : '' ?>"
+                                <span id="shiftLeaderBadge" class="badge <?= $__shiftLeaderAwal ? 'bg-warning badge-shift-leader' : 'bg-secondary' ?>"
                                     data-bs-toggle="tooltip" data-bs-placement="bottom" title="Shift Leader saat ini">
                                     <i class="fas fa-crown"></i>
                                     <?= $__shiftLeaderAwal ? esc($__shiftLeaderAwal['inisial'] ?? $__shiftLeaderAwal['nama'] ?? $__shiftLeaderAwal['username']) : 'Tidak ada Shift Leader' ?>
@@ -523,7 +522,7 @@
                                         class="form-control"
                                         placeholder="Cari transaksi, nomor order, atau pelanggan..."
                                         value="<?= esc(service('request')->getGet('keyword') ?? '') ?>">
-                                    <button type="submit" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #0d6efd; padding: 4px 8px;">
+                                    <button type="submit" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; padding: 4px 8px;">
                                         <i class="fas fa-arrow-right"></i>
                                     </button>
                                 </form>
@@ -534,7 +533,7 @@
 
                                     <!-- Alat Bantu Ukuran (skala/rasio -- dipakai Kasir & Admin) -->
                                     <a href="<?= base_url('/ukuran') ?>" class="nav-icon text-decoration-none d-inline-flex align-items-center"
-                                        style="color: #495057; font-size: 1.1rem;"
+                                        style="font-size: 1.1rem;"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Alat Bantu Ukuran">
                                         <i class="fas fa-ruler-combined"></i>
                                         <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Ukuran</span>
@@ -543,21 +542,21 @@
                                     <!-- Jadwal Karyawan (admin -> /jadwal, kasir -> /roster) -->
                                     <a href="<?= base_url(session()->get('role') === 'admin' ? '/jadwal' : '/roster') ?>"
                                         class="nav-icon text-decoration-none"
-                                        style="color: #495057; font-size: 1.1rem;"
+                                        style="font-size: 1.1rem;"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Jadwal Karyawan">
                                         <i class="fas fa-calendar-alt"></i>
                                     </a>
 
                                     <!-- Preview Banner (alat bantu operasional -- dipakai Kasir & Admin) -->
                                     <a href="<?= base_url('/preview-banner') ?>" class="nav-icon text-decoration-none d-inline-flex align-items-center"
-                                        style="color: #495057; font-size: 1.1rem;"
+                                        style="font-size: 1.1rem;"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Preview Banner">
                                         <i class="fas fa-image"></i>
                                         <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Preview Banner</span>
                                     </a>
 
                                     <!-- Tagihan Belum Lunas (akses cepat ke daftar tagihan) -->
-                                    <a href="<?= base_url('/tagihan') ?>" class="nav-icon position-relative text-decoration-none d-inline-flex align-items-center" style="color: #495057; font-size: 1.1rem;"
+                                    <a href="<?= base_url('/tagihan') ?>" class="nav-icon position-relative text-decoration-none d-inline-flex align-items-center" style="font-size: 1.1rem;"
                                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Tagihan Belum Lunas">
                                         <i class="fas fa-file-invoice"></i>
                                         <span class="ms-1 d-none d-md-inline" style="font-size: 0.8rem;">Tagihan</span>
@@ -585,7 +584,7 @@
                                                 <img src="<?= base_url('/foto-profil/' . $__headerFoto) ?>" alt="Foto profil"
                                                     class="user-avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                                             <?php else: ?>
-                                                <span class="user-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: #0d6efd; color: white; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;">
+                                                <span class="user-avatar" style="width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;">
                                                     <?= strtoupper(substr(session()->get('username') ?? 'A', 0, 1)) ?>
                                                 </span>
                                             <?php endif; ?>
@@ -1018,10 +1017,10 @@
                 success: function(response) {
                     const $badge = $('#shiftLeaderBadge');
                     if (response.leader) {
-                        $badge.removeClass('bg-secondary').addClass('bg-warning').css('color', '#145a32');
+                        $badge.removeClass('bg-secondary').addClass('bg-warning badge-shift-leader');
                         $badge.html('<i class="fas fa-crown"></i> ' + (response.leader.inisial || response.leader.nama || response.leader.username));
                     } else {
-                        $badge.removeClass('bg-warning').addClass('bg-secondary').css('color', '');
+                        $badge.removeClass('bg-warning badge-shift-leader').addClass('bg-secondary');
                         $badge.html('<i class="fas fa-crown"></i> Tidak ada Shift Leader');
                     }
                 },

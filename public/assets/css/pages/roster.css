@@ -19,6 +19,13 @@
     min-height: 90px;
 }
 
+/* "Jadwal Hari Ini" boxes use the same shift colours as .roster-cell. */
+.roster-hariini-box.shift-P { background-color: var(--status-warning-bg); }
+.roster-hariini-box.shift-S { background-color: var(--status-info-bg); }
+.roster-hariini-box.shift-PM { background-color: var(--status-success-bg); }
+.roster-hariini-box.shift-L { background-color: var(--status-danger-bg); }
+.roster-hariini-box.shift-kosong { background-color: var(--status-neutral-bg); }
+
 .roster-hariini-box h6 {
     font-weight: 700;
     margin-bottom: 8px;

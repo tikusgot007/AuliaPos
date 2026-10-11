@@ -150,6 +150,19 @@
     }
 }
 
+/* Aksi Khusus card tints (shared with kasir/edit.php). */
+.aksi-khusus-banner {
+    background-color: var(--tint-banner);
+}
+
+.aksi-khusus-manual {
+    background-color: var(--tint-manual);
+}
+
+.aksi-khusus-custom {
+    background-color: var(--tint-custom);
+}
+
 /* =========================================
    AKSI KHUSUS (Banner/Manual/Custom) -- tinggi
    kartu 1/2 dari kartu produk biasa. Discope ke
