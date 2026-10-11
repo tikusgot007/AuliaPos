@@ -25,14 +25,6 @@
 
 ### Medium
 
-- [ ] **TODO-Q5** God-object & duplikasi render Inbox — sedang
-  - **Q5a SELESAI 2026-10-11** (`e97e96d`): render PHP daftar percakapan dihapus; satu-satunya renderer = `renderDaftarConversation()` di `Views/inbox/index.php`. Guard: `tests/unit/InboxViewStructureTest.php`.
-  - **Q5b SELESAI 2026-10-11** (`e97e96d`): CSS inline (±870 baris) dipindah ke `public/assets/css/inbox.css`. View 4353 → 3490 baris.
-  - **Restyle UI ala WhatsApp Web (2026-10-11)**: bubble `fit-content` (min 80px, max 65%) + flex column; filter status TETAP grid tombol lama (pill scroll horizontal dicoba lalu dibatalkan atas keputusan user); avatar inisial (dekoratif) di daftar; tombol edit/hapus baris hanya muncul saat hover/focus (selalu tampil di perangkat sentuh); composer melayang dalam satu wadah bulat; palet header navy / biru (pilihan) / area chat abu kebiruan / bubble keluar hijau muda / tombol kirim hijau. Seluruh id/onclick tetap. Uji visual di browser: **dikonfirmasi user 2026-10-11**. **Belum di-deploy ke produksi.** Tombol emoji tidak ditambahkan karena belum ada fitur emoji (picker emoji = fitur baru, belum diminta).
-  - **Q5c-1 SELESAI 2026-10-11** (`c242947`): kode HTTP CI4 → Gateway dipindah utuh ke `app/Libraries/InboxGatewayClient.php`; `Inbox.php` tinggal wrapper `protected callGateway*` (seam test lama tetap jalan tanpa diubah); `InboxGatewayApi` tidak lagi membuat `new Inbox()`. `Inbox.php` 4756 → 4219 baris. Suite unit/feature/integrasi hijau.
-  - **Q5c-2 SELESAI 2026-10-11** (uji browser dikonfirmasi user): JS inline view (2.908 baris) dipindah ke `public/assets/js/inbox-page.js`; data/URL server lewat `window.INBOX_PAGE_CONFIG`. View 3490 → 601 baris. Verifikasi: round-trip isi JS identik dengan aslinya (0 beda), ketiga script dimuat bersama tanpa error, `InboxViewStructureTest` memeriksa setiap handler `onclick` di view terdefinisi.
-  - Sisa opsional (tidak wajib untuk menutup Q5): `Inbox.php` masih ±4.200 baris (logika kirim/teruskan/handoff); `inbox-page.js` ±2.900 baris — pecah lebih lanjut hanya bila ada kebutuhan nyata.
-
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
 
 - [ ] **TODO-F3** Terapkan ulang patch Evolution (`PATCH-ADAPTER (2026-10-01)` di `whatsapp.baileys.service.ts`) setiap kali Evolution di-upgrade; prosedur `C:\\Projects\\evolution-gateway\\docs\\evolution-viewonce-patch.md` — sedang
@@ -56,6 +48,16 @@
 
 
 ## Selesai / Ditutup
+
+- [x] **TODO-Q5** Medium — God-object & duplikasi render Inbox — **SELESAI 2026-10-11**.
+  - Q5a (`e97e96d`): render PHP daftar percakapan yang dobel dihapus; satu-satunya renderer `renderDaftarConversation()`.
+  - Q5b (`e97e96d`): CSS inline dipindah ke `public/assets/css/inbox.css`.
+  - Q5c-1 (`c242947`): kode HTTP CI4 → Gateway dipindah utuh ke `app/Libraries/InboxGatewayClient.php`; `Inbox.php` tinggal wrapper `protected callGateway*` (seam test lama tetap jalan); `InboxGatewayApi` tidak lagi membuat `new Inbox()`.
+  - Q5c-2 (`9ba37a4`): JS inline view (2.908 baris) dipindah ke `public/assets/js/inbox-page.js`, data/URL lewat `window.INBOX_PAGE_CONFIG`; round-trip isi JS identik (0 beda).
+  - Ikut dikerjakan: restyle UI ala WhatsApp Web + palet navy/biru/hijau (`e5af865`); aksi bubble jadi menu dropdown panah + penanda "dihapus" tidak lagi dobel (`920d613`, CHANGELOG 2026-10-11). Filter status tetap grid tombol lama (keputusan user).
+  - Hasil: `Views/inbox/index.php` 4353 → 601 baris; `Inbox.php` 4756 → 4219 baris. Guard: `tests/unit/InboxViewStructureTest.php` (render tunggal, CSS/JS eksternal tanpa tag PHP, semua handler `onclick` terdefinisi, id elemen tetap ada).
+  - Verifikasi: unit 133, feature 245 (3 skip: 2 di luar jam shift, 1 kirim WA manual), integrasi 65, JS 94 — semua lulus; uji browser dikonfirmasi user. Di-push ke `origin/v2.4`; **belum di-deploy ke produksi**.
+  - Catatan (bukan TODO): `Inbox.php` (±4.200 baris, logika kirim/teruskan/kutipan/handoff) dan `inbox-page.js` (±2.900 baris, belum punya unit test JS) masih besar. Pecah lebih lanjut hanya saat bagian itu memang akan diubah (mis. fitur Inbox baru), bukan sebagai refactor tersendiri.
 
 - [x] **TODO-N1** Medium — Notifikasi Windows Inbox (HTTPS self-signed AULIA-SERVER2 + realtime `/realtime-ws`) — **SELESAI 2026-10-11**.
   - Sertifikat diimpor di semua PC kasir. AULIA-DP1 diimpor agen via SSH (`certutil -addstore Root`) dan terverifikasi (thumbprint `FBF775F4…D79168` di `LocalMachine\Root`, `curl https://192.168.1.10/aulia/login` → 200, `ssl_verify=0`). AAN-PC dan PC lain dikonfirmasi user.
