@@ -27,9 +27,6 @@
 
 - [ ] **TODO-Q5** God-object & duplikasi render: `Inbox.php` 3721 baris, `Views/inbox/index.php` 3650 baris, daftar percakapan dirender 2× (PHP `index.php:778` vs JS `index.php:1474`) — sedang
 
-- [ ] **TODO-N1** Notifikasi Windows Inbox: **HTTPS self-signed AULIA-SERVER2 sudah aktif** (cert SAN `IP:192.168.1.10`+`DNS:AULIA-SERVER2`, `.env` baseURL→https, HTTP:80 tetap untuk gateway) dan kode `80df50f` sudah ter-deploy ke produksi. **Realtime WS sudah diperbaiki** via proxy same-origin `/realtime-ws` (Apache mod_proxy_wstunnel + `App\\Libraries\\InboxRealtimeWs`). **SISA**: jalankan `\\\\aulia-server2\\xampp\\import-sertifikat-aulia.bat` di tiap PC kasir yang belum, lalu uji E2E notifikasi Windows + realtime di browser kasir — sedang — ref `docs/sesi/2026-10-05-https-self-signed-aulia-server2.md`
-  - **Status 2026-10-11**: menurut user, semua PC kasir sudah impor kecuali **AULIA-DP1** dan **AAN-PC**. **AULIA-DP1 — SELESAI**: sertifikat diimpor via SSH (`useraulia@192.168.1.134`, kunci `id_ed25519_aulia_dp1`) dengan `certutil -addstore Root` (share `\\192.168.1.10\xampp` tidak terjangkau dari sesi SSH, jadi `.bat` tidak bisa dipakai di sana); terverifikasi thumbprint `FBF775F4…D79168` di `LocalMachine\Root` dan `curl https://192.168.1.10/aulia/login` → 200, `ssl_verify=0`. **AAN-PC — SELESAI** (dikonfirmasi user 2026-10-11; tidak diverifikasi agen karena tidak ada akses login ke AAN-PC). Impor sertifikat di semua PC kasir selesai. **SISA**: uji E2E notifikasi Windows + realtime di browser kasir (belum diuji).
-
 - [ ] **TODO-O4** (opsional) `VACUUM` + pantau ukuran disk PostgreSQL Evolution — sedang
 
 - [ ] **TODO-F3** Terapkan ulang patch Evolution (`PATCH-ADAPTER (2026-10-01)` di `whatsapp.baileys.service.ts`) setiap kali Evolution di-upgrade; prosedur `C:\\Projects\\evolution-gateway\\docs\\evolution-viewonce-patch.md` — sedang
@@ -53,6 +50,11 @@
 
 
 ## Selesai / Ditutup
+
+- [x] **TODO-N1** Medium — Notifikasi Windows Inbox (HTTPS self-signed AULIA-SERVER2 + realtime `/realtime-ws`) — **SELESAI 2026-10-11**.
+  - Sertifikat diimpor di semua PC kasir. AULIA-DP1 diimpor agen via SSH (`certutil -addstore Root`) dan terverifikasi (thumbprint `FBF775F4…D79168` di `LocalMachine\Root`, `curl https://192.168.1.10/aulia/login` → 200, `ssl_verify=0`). AAN-PC dan PC lain dikonfirmasi user.
+  - Uji E2E di browser kasir (notifikasi Windows muncul + pesan baru tampil tanpa refresh): **dikonfirmasi user 2026-10-11**, tidak diamati langsung oleh agen.
+  - Ref: `docs/sesi/2026-10-05-https-self-signed-aulia-server2.md`, `docs/sesi/2026-10-05-notifikasi-windows-inbox.md`.
 
 - [x] **TODO-S3** Medium — Route `/migrasi-manual` aktif di produksi AULIA-SERVER2 — **DITUTUP 2026-10-11, TIDAK DIKERJAKAN (keputusan user: jalur ini masih dibutuhkan)**.
   - Alasan: `php spark` tidak bisa dipakai di AULIA-SERVER2, sehingga `/migrasi-manual` adalah satu-satunya cara menjalankan migrasi saat deploy produksi (dipakai deploy F8 2026-10-05, L3 2026-10-10, BL10/Q3h 2026-10-09).
