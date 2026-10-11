@@ -1,0 +1,167 @@
+/* kasir/index.php and kasir/edit.php (shared product grid). Colour tokens live in app.css. */
+
+/* =========================================
+   PENCARIAN PRODUK
+   ========================================= */
+.produk-search-box {
+    background-color: var(--color-accent-bg);
+    border: 1px solid var(--color-accent-border);
+    border-radius: 8px;
+    padding: 6px 6px;
+}
+
+.produk-search-box .input-group-text {
+    background-color: transparent;
+    border: none;
+}
+
+.produk-search-box .form-control {
+    border: none;
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.produk-search-box:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.15rem var(--color-focus-ring);
+}
+
+/* =========================================
+   CONTAINER DAFTAR PRODUK
+   ========================================= */
+.produk-scroll-container {
+    max-height: 620px;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding: 6px 10px 6px 4px;
+}
+
+/* =========================================
+   GRID PRODUK
+   ========================================= */
+.produk-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+
+    align-items: stretch;
+}
+
+/* =========================================
+   CARD WRAPPER
+   ========================================= */
+.produk-card-wrap {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0;
+
+    padding: 0 !important;
+    margin: 0 !important;
+
+    display: flex;
+}
+
+.produk-card-wrap .card {
+    width: 100%;
+    min-height: 108px;
+    margin: 0;
+
+    display: flex;
+}
+
+.produk-card-wrap .card-body {
+    width: 100%;
+    overflow: hidden;
+
+    padding: 8px !important;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* =========================================
+   FONT CARD
+   ========================================= */
+.produk-card-wrap .card-title {
+    font-size: 0.98rem;
+    font-weight: 600;
+    line-height: 1.25;
+
+    margin-bottom: 4px !important;
+
+    overflow-wrap: anywhere;
+}
+
+.produk-card-wrap small {
+    font-size: 0.8rem;
+}
+
+.produk-card-wrap .badge {
+    font-size: 0.72rem;
+    align-self: center;
+}
+
+/* =========================================
+   DESKTOP
+   4 KOLOM
+   ========================================= */
+@media (min-width: 900px) {
+    .produk-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+/* =========================================
+   TABLET
+   3 KOLOM
+   ========================================= */
+@media (min-width: 576px) and (max-width: 899.98px) {
+    .produk-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* =========================================
+   HP
+   2 KOLOM
+   ========================================= */
+@media (max-width: 575.98px) {
+    .produk-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .produk-card-wrap .card {
+        min-height: 96px;
+    }
+
+    .produk-card-wrap .card-title {
+        font-size: 0.9rem;
+    }
+
+    .produk-card-wrap small {
+        font-size: 0.75rem;
+    }
+
+    .produk-card-wrap .badge {
+        font-size: 0.68rem;
+    }
+}
+
+/* =========================================
+   AKSI KHUSUS (Banner/Manual/Custom) -- tinggi
+   kartu 1/2 dari kartu produk biasa. Discope ke
+   #aksiKhususList supaya tidak ikut mengecilkan
+   kartu produk biasa (sama class .produk-card-wrap).
+   ========================================= */
+#aksiKhususList .produk-card-wrap .card {
+    min-height: 54px;
+}
+
+@media (max-width: 575.98px) {
+    #aksiKhususList .produk-card-wrap .card {
+        min-height: 48px;
+    }
+}

@@ -1,128 +1,4 @@
-<style>
-    /* =========================================
-       CONTAINER DAFTAR PRODUK
-       ========================================= */
-    .produk-scroll-container {
-        max-height: 620px;
-        overflow-y: auto;
-        overflow-x: hidden;
-
-        padding: 6px 10px 6px 4px;
-    }
-
-    /* =========================================
-       GRID PRODUK
-       ========================================= */
-    .produk-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-
-        align-items: stretch;
-    }
-
-    /* =========================================
-       CARD WRAPPER
-       ========================================= */
-    .produk-card-wrap {
-        width: auto !important;
-        max-width: none !important;
-        min-width: 0;
-
-        padding: 0 !important;
-        margin: 0 !important;
-
-        display: flex;
-    }
-
-    .produk-card-wrap .card {
-        width: 100%;
-        min-height: 108px;
-        margin: 0;
-
-        display: flex;
-    }
-
-    .produk-card-wrap .card-body {
-        width: 100%;
-        overflow: hidden;
-
-        padding: 8px !important;
-
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-
-    /* =========================================
-       FONT CARD
-       ========================================= */
-    .produk-card-wrap .card-title {
-        font-size: 0.98rem;
-        font-weight: 600;
-        line-height: 1.25;
-
-        margin-bottom: 4px !important;
-
-        overflow-wrap: anywhere;
-    }
-
-    .produk-card-wrap small {
-        font-size: 0.8rem;
-    }
-
-    .produk-card-wrap .badge {
-        font-size: 0.72rem;
-        align-self: center;
-    }
-
-    /* =========================================
-       DESKTOP
-       4 KOLOM
-       ========================================= */
-    @media (min-width: 900px) {
-        .produk-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-    }
-
-    /* =========================================
-       TABLET
-       3 KOLOM
-       ========================================= */
-    @media (min-width: 576px) and (max-width: 899.98px) {
-        .produk-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-    }
-
-    /* =========================================
-       HP
-       2 KOLOM
-       ========================================= */
-    @media (max-width: 575.98px) {
-        .produk-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-        }
-
-        .produk-card-wrap .card {
-            min-height: 96px;
-        }
-
-        .produk-card-wrap .card-title {
-            font-size: 0.9rem;
-        }
-
-        .produk-card-wrap small {
-            font-size: 0.75rem;
-        }
-
-        .produk-card-wrap .badge {
-            font-size: 0.68rem;
-        }
-    }
-</style>
+<link rel="stylesheet" href="<?= base_url('assets/css/pages/kasir.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/pages/kasir.css') ?>">
 
 <!-- INFO TRANSAKSI YANG SEDANG DIEDIT -->
 <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
@@ -142,140 +18,158 @@
     </a>
 </div>
 
-<!-- DATA PELANGGAN DAN NO ORDER -->
-<div class="row g-2 mb-3">
+<div class="row">
 
-    <!-- Baris 1 -->
-    <div class="col-md-6">
-        <div class="input-group">
-            <span class="input-group-text">
-                <i class="fas fa-user"></i>
-            </span>
+    <div class="col-md-8">
 
-            <input
-                type="text"
-                id="namaPelanggan"
-                class="form-control"
-                autocomplete="off"
-                value="<?= esc($pelanggan['nama'] ?? '') ?>"
-                placeholder="Cari atau masukkan pelanggan baru"
-                oninput="handleCustomerNameInput(this.value)">
-        </div>
+        <!-- DATA PELANGGAN DAN NO ORDER -->
+        <div class="row g-2 mb-3">
 
-        <small class="text-muted">Pelanggan baru akan disimpan saat perubahan disimpan.</small>
-
-        <div
-            id="listPelanggan"
-            class="list-group mt-1"
-            style="display:none; position:absolute; z-index:1000; width:100%; max-height:200px; overflow-y:auto;">
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="input-group">
-            <input
-                type="text"
-                id="telpPelanggan"
-                class="form-control"
-                value="<?= esc($pelanggan['no_hp'] ?? '') ?>"
-                placeholder="No. Telp (opsional)"
-                readonly>
-
-            <button
-                type="button"
-                id="btnEditTelpPelanggan"
-                class="btn btn-outline-secondary"
-                style="display:<?= !empty($pelanggan) ? 'inline-block' : 'none' ?>;"
-                onclick="editTelpPelanggan()"
-                title="Edit data pelanggan">
-                Edit
-            </button>
-        </div>
-    </div>
-
-    <!-- Sisa ruang -->
-    <div class="col-md-3"></div>
-
-    <!-- Baris 2 -->
-    <div class="col-md-9">
-        <div class="row g-2 align-items-center">
-
-            <!-- Pilih No Order -->
-            <div class="col-md-5">
+            <!-- Baris 1 -->
+            <div class="col-md-6">
                 <div class="input-group">
                     <span class="input-group-text">
-                        <i class="fas fa-hashtag"></i>
+                        <i class="fas fa-user"></i>
                     </span>
 
-                    <select
-                        name="no_order_input2"
-                        id="no_order_input2"
-                        class="form-select"
-                        onchange="gantiNo()">
+                    <input
+                        type="text"
+                        id="namaPelanggan"
+                        class="form-control"
+                        autocomplete="off"
+                        value="<?= esc($pelanggan['nama'] ?? '') ?>"
+                        placeholder="Cari atau masukkan pelanggan baru"
+                        oninput="handleCustomerNameInput(this.value)">
+                </div>
 
-                        <option value="">Pilih No. Order</option>
+                <small class="text-muted">Pelanggan baru akan disimpan saat perubahan disimpan.</small>
 
-                        <?php foreach ($available_no_orders as $orderNumber): ?>
-                            <option
-                                value="<?= $orderNumber ?>"
-                                <?= ($orderNumber == $selected_no_order) ? 'selected' : '' ?>>
-                                <?= format_no_order($orderNumber) ?>
-                            </option>
-                        <?php endforeach; ?>
+                <div
+                    id="listPelanggan"
+                    class="list-group mt-1"
+                    style="display:none; position:absolute; z-index:1000; width:100%; max-height:200px; overflow-y:auto;">
+                </div>
+            </div>
 
-                    </select>
+            <div class="col-md-3">
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="telpPelanggan"
+                        class="form-control"
+                        value="<?= esc($pelanggan['no_hp'] ?? '') ?>"
+                        placeholder="No. Telp (opsional)"
+                        readonly>
 
                     <button
-                        class="btn btn-outline-secondary"
                         type="button"
-                        onclick="generateNewOrder()"
-                        title="Buat No. Order Baru">
-                        <i class="fas fa-sync-alt"></i>
+                        id="btnEditTelpPelanggan"
+                        class="btn btn-outline-secondary"
+                        style="display:<?= !empty($pelanggan) ? 'inline-block' : 'none' ?>;"
+                        onclick="editTelpPelanggan()"
+                        title="Edit data pelanggan">
+                        Edit
                     </button>
                 </div>
             </div>
 
-            <!-- No Order Manual -->
-            <div class="col-md-4">
-                <input
-                    type="text"
-                    id="noOrderInput"
-                    class="form-control"
-                    placeholder="No. Order manual"
-                    disabled
-                    autocomplete="off">
+            <!-- Sisa ruang -->
+            <div class="col-md-3"></div>
 
-                <input
-                    type="hidden"
-                    id="noOrderAsli"
-                    value="<?= !empty($selected_no_order) ? (int) $selected_no_order : '' ?>">
-            </div>
+            <!-- Baris 2 -->
+            <div class="col-md-9">
+                <div class="row g-2 align-items-center">
 
-            <!-- Checkbox -->
-            <div class="col-md-3">
-                <div class="form-check">
-                    <input
-                        class="form-check-input"
-                        type="checkbox"
-                        id="manual_order_checkbox"
-                        onchange="toggleManualOrder()">
+                    <!-- Pilih No Order -->
+                    <div class="col-md-5">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-hashtag"></i>
+                            </span>
 
-                    <label
-                        class="form-check-label"
-                        for="manual_order_checkbox">
-                        Input No. Order Manual
-                    </label>
+                            <select
+                                name="no_order_input2"
+                                id="no_order_input2"
+                                class="form-select"
+                                onchange="gantiNo()">
+
+                                <option value="">Pilih No. Order</option>
+
+                                <?php foreach ($available_no_orders as $orderNumber): ?>
+                                    <option
+                                        value="<?= $orderNumber ?>"
+                                        <?= ($orderNumber == $selected_no_order) ? 'selected' : '' ?>>
+                                        <?= format_no_order($orderNumber) ?>
+                                    </option>
+                                <?php endforeach; ?>
+
+                            </select>
+
+                            <button
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                onclick="generateNewOrder()"
+                                title="Buat No. Order Baru">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- No Order Manual -->
+                    <div class="col-md-4">
+                        <input
+                            type="text"
+                            id="noOrderInput"
+                            class="form-control"
+                            placeholder="No. Order manual"
+                            disabled
+                            autocomplete="off">
+
+                        <input
+                            type="hidden"
+                            id="noOrderAsli"
+                            value="<?= !empty($selected_no_order) ? (int) $selected_no_order : '' ?>">
+                    </div>
+
+                    <!-- Checkbox -->
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="manual_order_checkbox"
+                                onchange="toggleManualOrder()">
+
+                            <label
+                                class="form-check-label"
+                                for="manual_order_checkbox">
+                                Input No. Order Manual
+                            </label>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
         </div>
-    </div>
 
-</div>
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="input-group produk-search-box">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" id="searchProduk" class="form-control"
+                        placeholder="Cari nama atau barcode..."
+                        autocomplete="off">
+                    <button class="btn btn-primary" type="button" onclick="terapkanFilterProduk()" title="Cari produk">
+                        Cari
+                    </button>
+                    <button class="btn btn-outline-secondary d-none" id="resetSearchProduk" type="button" onclick="resetFilterProduk()" title="Reset filter">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
 
-<div class="row">
-
-    <div class="col-md-8">
         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
             <h5 class="mb-0"><i class="fas fa-boxes"></i> Pilih Produk</h5>
             <div class="d-flex gap-1 flex-wrap" id="filterKategoriProduk">
@@ -343,22 +237,6 @@
             </div>
         </div>
 
-        <div class="row mb-3">
-            <div class="col-12">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" id="searchProduk" class="form-control"
-                        placeholder="Cari nama atau barcode..."
-                        autocomplete="off">
-                    <button class="btn btn-primary" type="button" onclick="terapkanFilterProduk()" title="Cari produk">
-                        Cari
-                    </button>
-                    <button class="btn btn-outline-secondary d-none" id="resetSearchProduk" type="button" onclick="resetFilterProduk()" title="Reset filter">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
         <h6 class="text-muted mb-2"><i class="fas fa-boxes"></i> Daftar Produk</h6>
         <div id="produkScroll" class="produk-scroll-container">
             <div id="produkList" class="produk-grid">
@@ -399,7 +277,7 @@
                     </button>
                 </div>
             </div>
-            <div class="card-body" style="height: 500px; overflow-y: auto;" id="keranjangContainer">
+            <div class="card-body" style="max-height: 500px; overflow-y: auto;" id="keranjangContainer">
                 <p class="text-muted text-center" id="keranjangKosong">Belum ada item</p>
                 <div id="keranjangList"></div>
             </div>

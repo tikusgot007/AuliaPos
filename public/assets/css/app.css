@@ -47,6 +47,11 @@
     --color-selected-outline: #000000;
     --color-today-overlay: rgba(13, 110, 253, 0.10);
 
+    /* Light blue accent surface (search boxes, highlighted rows). */
+    --color-accent-bg: #eaf3ff;
+    --color-accent-border: #b6d7ff;
+    --color-focus-ring: rgba(13, 110, 253, 0.15);
+
     /* Scrollbar */
     --scrollbar-track: #f1f1f1;
     --scrollbar-thumb: #c1c1c1;
