@@ -49,7 +49,6 @@
   - **Review ulang 2026-10-11**: pertanyaan "apakah berdampak pada rencana pindah gateway ke Windows Service" **sudah terjawab** — migrasi ke Windows Service (WinSW) selesai 2026-10-09 di aulia7. Sisa terbuka: putuskan remediation sesi/LID + perlu-tidaknya pemeriksaan gap berkala, kini untuk **aulia7**.
   - **Monitor aulia7**: **SELESAI 2026-10-09** — dipasang & terverifikasi (lihat bullet "Monitor aulia7 — SELESAI 2026-10-09" di atas).
 
-- [ ] **TODO-L2** Tutup/terminalize baris `outgoing_operations` berstatus `in_flight` yang basi saat adapter start (saat ini hanya **dicatat**, `outgoingOperationService.js:396`), supaya tidak mengendap & muncul terus di ringkasan startup — perubahan gateway (`src/store/outgoingOperations.js` / `src/delivery/outgoingOperationService.js`) — higiene; perlu persetujuan — ref `docs/sesi/2026-10-06-analisa-log-gateway-aulia3.md`
 
 
 ## Selesai / Ditutup
