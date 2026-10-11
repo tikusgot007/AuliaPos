@@ -469,7 +469,7 @@
   berstatus *"production migration deployment pending"*.
 - **Backup pra-deploy**: `C:\xampp\backup-db-aulia-server2\` (mysqldump
   `aulia_kasirdb` + `aulia_inboxdb`, hash SHA256 tercatat).
-- Rollback: lihat `docs/TODO.md` **TODO-Q3i**.
+- Rollback: lihat `docs/deploy.md` §8 (ditulis 2026-10-11, TODO-Q3i).
 - Ref: `docs/requirements/2026-10-09-cutover-gateway-aulia7.md`.
 
 ## 2026-10-08 — Kas Keluar: audit trail + validasi tanggal (TODO-BL10)

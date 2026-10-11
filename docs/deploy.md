@@ -87,7 +87,99 @@ Setelah rollback: ulangi smoke test bagian 5 dan catat kejadian di `docs/sesi/`.
 - [ ] `docs/CHANGELOG.md` diperbarui bila ada perubahan aturan bisnis.
 - [ ] Lokasi backup dan versi sebelumnya dicatat di checkpoint.
 
-## 8. Belum terverifikasi
+## 8. Rollback gateway WhatsApp `aulia7` → `aulia3`
+
+Dipakai hanya bila gateway produksi di `aulia7` bermasalah dan tidak bisa dipulihkan di tempat
+(mis. PC rusak). Sejak cutover 2026-10-09 (`docs/requirements/2026-10-09-cutover-gateway-aulia7.md`),
+`aulia7` adalah gateway utama dan `aulia3` cadangan. Kontrak POS ↔ Gateway, port (`3000` adapter,
+`8080` Evolution), dan instance `aulia-toko` sama di kedua PC, jadi tidak ada perubahan kode.
+
+| Komponen | `aulia7` (aktif) | `aulia3` (cadangan) |
+|---|---|---|
+| Mekanisme | Windows Service WinSW | Scheduled Task |
+| Gateway | `AuliaPosGatewayEvolution`, `AuliaPosGatewayAdapter` | `AuliaEvolution`, `AuliaAdapter` |
+| Penjaga/monitor | `AuliaPosGatewayMonitor` (task) | `AuliaStackWatchdog`, `AuliaMonitor` (task) |
+| Alamat | `192.168.1.68` | `AULIA3` |
+
+Nilai di `aulia-server2` saat ini (dicek 2026-10-11):
+
+- `\\aulia-server2\xampp\htdocs\aulia\.env`: `inbox.gatewayBaseUrl = 'http://192.168.1.68:3000'`
+- `\\aulia-server2\xampp\apache\conf\extra\httpd-ssl.conf`:
+  `ProxyPass "/realtime-ws" "ws://192.168.1.68:3000/realtime"`
+
+(`\\aulia-server2\xampp` adalah folder `xampp` di server; dari PC dev tersedia sebagai drive `W:`.)
+
+Prinsip: **hanya satu gateway aktif pada satu waktu.** `gateway_status` di CI4 hanya satu baris
+(`id=1`), jadi dua gateway yang hidup bersamaan saling menimpa status. Bila keduanya tertaut ke
+nomor yang sama, pesan juga bisa masuk dua kali. Karena itu `aulia7` dimatikan **lebih dulu**.
+
+### 8.1 Langkah
+
+1. **Matikan `aulia7` dulu** (PowerShell admin di `aulia7`):
+
+        Disable-ScheduledTask -TaskName AuliaPosGatewayMonitor
+        Stop-Service AuliaPosGatewayAdapter
+        Stop-Service AuliaPosGatewayEvolution
+        Set-Service AuliaPosGatewayAdapter -StartupType Disabled
+        Set-Service AuliaPosGatewayEvolution -StartupType Disabled
+
+   Service PostgreSQL `postgresql-aulia7` boleh dibiarkan hidup. Jangan uninstall apa pun, supaya
+   `aulia7` bisa diaktifkan lagi dengan langkah kebalikannya.
+2. **Hidupkan `aulia3`** (PowerShell admin di `aulia3`; dari PC lain RPC/`schtasks` ke `aulia3`
+   sering gagal, jadi jalankan langsung di `aulia3`):
+
+        Enable-ScheduledTask -TaskName AuliaEvolution
+        Enable-ScheduledTask -TaskName AuliaAdapter
+        Start-ScheduledTask  -TaskName AuliaEvolution
+        # tunggu port 8080 LISTEN (netstat -ano | findstr :8080), lalu:
+        Start-ScheduledTask  -TaskName AuliaAdapter
+        Enable-ScheduledTask -TaskName AuliaStackWatchdog
+        Enable-ScheduledTask -TaskName AuliaMonitor
+
+3. **Cek koneksi WhatsApp di `aulia3`**: buka Evolution `http://AULIA3:8080` → instance `aulia-toko`
+   harus `open` dengan nomor `6285155105633`. Bila tidak `open`, **pairing ulang** (scan QR dari HP
+   toko). Kemungkinan besar ini diperlukan karena nomor sudah di-pairing ke `aulia7`; sesi lama di
+   `aulia3` belum diverifikasi masih berlaku. Setelah pairing ulang, pastikan `readreceipts: all`
+   (lihat checklist §2).
+4. **Arahkan CI4 ke `aulia3`** (di `aulia-server2`): ubah `\\aulia-server2\xampp\htdocs\aulia\.env` menjadi
+   `inbox.gatewayBaseUrl = 'http://AULIA3:3000'`. CI4 membaca `.env` per request, tidak perlu restart.
+5. **Arahkan realtime ke `aulia3`**: ubah baris `ProxyPass "/realtime-ws"` di
+   `\\aulia-server2\xampp\apache\conf\extra\httpd-ssl.conf` menjadi `ws://AULIA3:3000/realtime`, lalu restart
+   Apache (XAMPP Control Panel → Apache Stop/Start).
+6. **Verifikasi**:
+   - `aulia3`: port `3000` dan `8080` LISTEN; task `AuliaEvolution`/`AuliaAdapter` Running.
+   - `aulia7`: port `3000`/`8080` tidak LISTEN; kedua service Stopped + Disabled.
+   - CI4: `SELECT status, last_heartbeat_at FROM aulia_inboxdb.gateway_status WHERE id=1` →
+     `connected` dengan heartbeat baru (< 30 detik).
+   - Inbox POS: badge gateway "Terhubung"; kirim satu pesan ke nomor sendiri dan terima satu pesan
+     masuk; realtime (pesan baru muncul tanpa refresh) jalan.
+7. **Catat kejadian** di `docs/sesi/` dan `docs/CHANGELOG.md`.
+
+### 8.2 Yang perlu diketahui
+
+- **Data tidak hilang**: riwayat pesan tersimpan di `aulia_inboxdb` (CI4), bukan di gateway. Pesan
+  yang masuk ke WhatsApp selama jeda tetap dikirim Evolution setelah tersambung lagi.
+- **Media lama**: media yang diterima `aulia7` tersimpan di media store `aulia7`. Media yang sudah
+  di-prefetch ke `inbox.mediaStoragePath` CI4 tetap bisa dibuka; yang belum, tidak bisa diambil dari
+  `aulia3` (pesan Inbox menampilkan media tidak tersedia).
+- **Kiriman yang sedang berjalan** (`outgoing_operations` `in_flight` di `aulia7`) tidak dikenal
+  `aulia3`; kasir yang ragu sebaiknya mengecek WhatsApp sebelum mengirim ulang.
+- **Kembali ke `aulia7`**: jalankan langkah yang sama dengan arah dibalik (matikan `aulia3`:
+  disable `AuliaStackWatchdog`/`AuliaMonitor` dulu, lalu stop + disable `AuliaAdapter`/`AuliaEvolution`;
+  hidupkan service `aulia7` + `AuliaPosGatewayMonitor`; kembalikan `.env` dan `ProxyPass` ke
+  `192.168.1.68`).
+
+### 8.3 Belum terverifikasi
+
+- Apakah sesi WhatsApp `aulia3` masih berlaku atau wajib pairing ulang (langkah 3).
+- Apakah `aulia-server2` bisa me-resolve nama `AULIA3` (dari PC dev hanya resolve ke alamat IPv6
+  link-local). Bila tidak, pakai IP `aulia3` di langkah 4 dan 5.
+- Apakah Apache di `aulia-server2` berjalan sebagai Windows Service atau dari XAMPP Control Panel.
+- Status task di `aulia3` saat ini (query jarak jauh 2026-10-11 gagal: RPC tidak tersedia). Per
+  catatan cutover, keempat task gateway berstatus Disabled, bukan dihapus.
+- Prosedur ini belum pernah dilatih (rehearsal).
+
+## 9. Belum terverifikasi
 
 - Apakah `php spark migrate` tanpa opsi tambahan menjalankan migrasi grup `inbox` (migrasi Inbox
   mendeklarasikan `$DBGroup = 'inbox'`). Pastikan lewat `php spark migrate:status` pada rilis pertama,

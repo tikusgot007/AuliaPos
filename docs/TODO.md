@@ -21,7 +21,6 @@
 
 - [ ] **TODO-Q3e** Instance WhatsApp gateway WAJIB `readreceipts: all` (bila `none`, Evolution tetap balas 201 tetapi blue tick tidak pernah terkirim) — sudah dicatat di `docs/deploy.md` §2 & gateway `petunjuk-penggunaan.md` §4.1; usulkan **otomatiskan** saat setup instance (mis. di `scripts/setup-instance.js`) agar tak bergantung cek manual — rendah — ref temuan 2026-10-07.
 
-- [ ] **TODO-Q3i** Low — **Prosedur rollback cutover gateway `aulia7` → `aulia3`**: dokumentasikan langkah memulihkan gateway lama bila cutover dibatalkan — (1) aulia3: `schtasks /change /enable` + `/run` untuk `AuliaEvolution`/`AuliaAdapter`/`AuliaStackWatchdog` (+`AuliaMonitor`); (2) CI4 aulia-server2: kembalikan `inbox.gatewayBaseUrl` ke `http://AULIA3:3000`; (3) Apache aulia-server2: kembalikan `ProxyPass "/realtime-ws"` ke `ws://AULIA3:3000/realtime` + restart Apache; (4) aulia7: stop + disable service `AuliaPosGatewayEvolution`/`AuliaPosGatewayAdapter` agar tak dobel; (5) verifikasi port 3000/8080, status task, dan `gateway_status` CI4. — rendah — ref `docs/requirements/2026-10-09-cutover-gateway-aulia7.md`
 
 ## Sedang dikerjakan
 
@@ -123,7 +122,7 @@
   - aulia3: task `AuliaAdapter`/`AuliaEvolution`/`AuliaStackWatchdog`/`AuliaMonitor` **Disabled** (tidak di-unregister, demi rollback); port 3000/8080 mati.
   - aulia-server2 (POS CI4): `git pull` ke `a55d86e` (fast-forward) + migrasi `cash_expense_audit` & `message_send_audit` diterapkan ke production.
   - Backup DB production pra-deploy: `C:\xampp\backup-db-aulia-server2\`.
-  - Rollback: lihat TODO-Q3i.
+  - Rollback: lihat `docs/deploy.md` §8.
   - Ref: `docs/requirements/2026-10-09-cutover-gateway-aulia7.md`.
 
 - [x] **TODO-S2** Login: rate-limit/lockout — **DITUTUP: accepted risk (DEC-S2)**.
