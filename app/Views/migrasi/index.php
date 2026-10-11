@@ -24,7 +24,7 @@
             <div class="alert alert-danger"><?= esc($errorBaca) ?></div>
         <?php endif; ?>
 
-        <h6>Daftar migration terdeteksi</h6>
+        <h6 class="mb-3">Daftar migration terdeteksi</h6>
         <div class="table-responsive mb-4">
             <table class="table table-sm table-bordered">
                 <thead>

@@ -1,5 +1,5 @@
 <div class="card">
-    <div class="card-header bg-warning text-dark">
+    <div class="card-header bg-primary text-white">
         <h5 class="mb-0"><i class="fas fa-flask"></i> Test Inbox WhatsApp (Sementara)</h5>
     </div>
     <div class="card-body">
@@ -11,7 +11,7 @@
             akan dibuat di Phase 4.
         </div>
 
-        <h6>Daftar Conversation</h6>
+        <h6 class="mb-3">Daftar Conversation</h6>
         <div class="table-responsive mb-4">
             <table class="table table-sm table-bordered">
                 <thead>
@@ -56,7 +56,7 @@
             </table>
         </div>
 
-        <h6>Kirim Balasan Test</h6>
+        <h6 class="mb-3">Kirim Balasan Test</h6>
         <form id="formKirimTest">
             <div class="mb-3">
                 <label class="form-label">Pilih Conversation</label>

@@ -53,7 +53,7 @@
                 <div class="row g-3 mb-3" id="chartRowHarian" style="display: none;">
                     <div class="col-md-6">
                         <div class="card h-100">
-                            <div class="card-header py-2"><small class="text-muted fw-bold">DISTRIBUSI KATEGORI</small></div>
+                            <div class="card-header"><h6 class="mb-0">Distribusi Kategori</h6></div>
                             <div class="card-body">
                                 <canvas id="chartKategoriHarian" height="200"></canvas>
                             </div>
@@ -61,7 +61,7 @@
                     </div>
                     <div class="col-md-6">
                         <div class="card h-100">
-                            <div class="card-header py-2"><small class="text-muted fw-bold">METODE PEMBAYARAN</small></div>
+                            <div class="card-header"><h6 class="mb-0">Metode Pembayaran</h6></div>
                             <div class="card-body">
                                 <canvas id="chartMetodeHarian" height="200"></canvas>
                             </div>

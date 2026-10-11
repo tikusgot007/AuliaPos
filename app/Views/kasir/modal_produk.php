@@ -82,7 +82,7 @@
                 </div>
 
                 <div class="border-top pt-3 mt-3">
-                    <h6>Hasil Perhitungan</h6>
+                    <h6 class="mb-3">Hasil Perhitungan</h6>
                     <div id="hasilCustom" class="mt-2">
                         <div class="row">
                             <div class="col-md-4">

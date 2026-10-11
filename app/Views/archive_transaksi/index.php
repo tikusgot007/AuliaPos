@@ -13,7 +13,7 @@
             utama secara berkala di luar fitur ini.
         </div>
 
-        <h6>Pilih bulan yang akan di-archive</h6>
+        <h6 class="mb-3">Pilih bulan yang akan di-archive</h6>
         <p class="text-muted small">
             Bulan <strong>eligible</strong> (bisa dipilih, tombol berwarna) adalah
             bulan yang sudah berlalu minimal 6 bulan penuh dari bulan berjalan.
@@ -58,7 +58,7 @@
 
         <div id="hasilPreviewArchive" class="mt-4" style="display:none;">
             <hr>
-            <h6>Preview</h6>
+            <h6 class="mb-3">Preview</h6>
             <table class="table table-sm table-bordered" style="max-width: 480px;">
                 <tbody>
                     <tr><th style="width: 220px;">Periode</th><td id="pvPeriode"></td></tr>
