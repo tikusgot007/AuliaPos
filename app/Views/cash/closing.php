@@ -1,9 +1,10 @@
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3">Closing Kas</h1>
-        <a href="<?= base_url('/cash') ?>" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Kembali ke Dashboard
-        </a>
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Closing Kas</h5>
+            <a href="<?= base_url('/cash') ?>" class="btn btn-light btn-sm">
+                <i class="fas fa-arrow-left"></i> Kembali ke Dashboard
+            </a>
+        </div>
     </div>
 
     <!-- Month picker -->
@@ -149,7 +150,6 @@
             </div>
         </div>
     </div>
-</div>
 
 <script>
     (function() {

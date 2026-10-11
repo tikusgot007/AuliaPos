@@ -62,7 +62,7 @@
 
         <!-- Detail Item -->
         <div class="card mb-3">
-            <div class="card-header bg-secondary text-white">
+            <div class="card-header">
                 <h6 class="mb-0"><i class="fas fa-list"></i> Item Transaksi</h6>
             </div>
             <div class="card-body">
@@ -111,7 +111,7 @@
     <div class="col-md-4">
         <!-- Riwayat Pembayaran -->
         <div class="card mb-3">
-            <div class="card-header bg-success text-white">
+            <div class="card-header">
                 <h6 class="mb-0"><i class="fas fa-credit-card"></i> Riwayat Pembayaran</h6>
             </div>
             <div class="card-body">

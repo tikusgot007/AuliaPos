@@ -1,9 +1,10 @@
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3">Riwayat Opname</h1>
-        <a href="<?= base_url('/cash') ?>" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Kembali ke Dashboard
-        </a>
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Riwayat Opname</h5>
+            <a href="<?= base_url('/cash') ?>" class="btn btn-light btn-sm">
+                <i class="fas fa-arrow-left"></i> Kembali ke Dashboard
+            </a>
+        </div>
     </div>
 
     <!-- Filter Tanggal -->
@@ -66,7 +67,6 @@
             </table>
         </div>
     </div>
-</div>
 
 <script>
     $(document).ready(function() {

@@ -1,19 +1,17 @@
-<div class="container-fluid py-4">
-
     <!-- =========================================================
          HEADER
          ========================================================= -->
 
     <div class="card mb-3">
 
-        <div class="card-header">
+        <div class="card-header bg-primary text-white">
 
-            <h5 class="mb-1">
+            <h5 class="mb-0">
                 <i class="fas fa-boxes"></i>
                 Item Harian
             </h5>
 
-            <small class="text-muted">
+            <small class="opacity-75">
                 Daftar item yang memperoleh bagian pembayaran
             </small>
 
@@ -407,7 +405,6 @@
 
     </div>
 
-</div>
 
 
 <!-- =========================================================
@@ -527,4 +524,4 @@
 
     });
 </script>
-
+

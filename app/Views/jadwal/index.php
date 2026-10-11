@@ -1,7 +1,9 @@
 <link rel="stylesheet" href="<?= base_url('assets/css/pages/jadwal.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/pages/jadwal.css') ?>">
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h4 class="mb-0"><i class="fas fa-calendar-alt"></i> Jadwal Karyawan</h4>
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Jadwal Karyawan</h5>
+    </div>
 </div>
 
 <ul class="nav nav-tabs mb-3" id="jadwalModeTabs">

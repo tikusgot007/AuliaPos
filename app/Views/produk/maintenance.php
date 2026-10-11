@@ -1,13 +1,13 @@
-<div class="container-fluid">
-
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h4 class="mb-1"><i class="bi bi-tools"></i> Maintenance Master Barang</h4>
-            <small class="text-muted">Khusus admin. Rapikan data produk secara berkala tanpa mengorbankan histori transaksi.</small>
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0"><i class="bi bi-tools"></i> Maintenance Master Barang</h5>
+                <small class="opacity-75">Khusus admin. Rapikan data produk secara berkala tanpa mengorbankan histori transaksi.</small>
+            </div>
+            <a href="<?= base_url('produk') ?>" class="btn btn-outline-light btn-sm">
+                <i class="bi bi-arrow-left"></i> Kembali ke Produk
+            </a>
         </div>
-        <a href="<?= base_url('produk') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Kembali ke Produk
-        </a>
     </div>
 
     <!-- LANGKAH-LANGKAH -->
@@ -100,7 +100,6 @@
         </div>
     </div>
 
-</div>
 
 <?= $this->section('scripts') ?>
 <script>

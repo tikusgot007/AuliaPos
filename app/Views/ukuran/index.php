@@ -1,22 +1,23 @@
 <link rel="stylesheet" href="<?= base_url('assets/css/pages/ukuran.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/pages/ukuran.css') ?>">
 
-<div class="container-fluid">
     <!-- Page Heading -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="mb-0">
-            <i class="fas fa-ruler-combined me-2"></i> Skala Ukuran
-        </h4>
-        <a href="<?= base_url('/kasir') ?>" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Kembali ke Kasir
-        </a>
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-ruler-combined me-2"></i> Skala Ukuran
+            </h5>
+            <a href="<?= base_url('/kasir') ?>" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Kembali ke Kasir
+            </a>
+        </div>
     </div>
 
     <div class="row">
         <!-- Kolom Kiri: Tabel Skala Ukuran -->
         <div class="col-lg-8 mb-4">
             <div class="card shadow">
-                <div class="card-header py-3 bg-secondary text-white">
-                    <h6 class="m-0 font-weight-bold">
+                <div class="card-header">
+                    <h6 class="mb-0">
                         <i class="fas fa-table me-2"></i> Perhitungan Skala Ukuran
                     </h6>
                 </div>
@@ -103,8 +104,8 @@
         <!-- Kolom Kanan: Kode Warna -->
         <div class="col-lg-4 mb-4">
             <div class="card shadow">
-                <div class="card-header py-3 bg-secondary text-white">
-                    <h6 class="m-0 font-weight-bold">
+                <div class="card-header">
+                    <h6 class="mb-0">
                         <i class="fas fa-palette me-2"></i> Kode Warna
                     </h6>
                 </div>
@@ -161,7 +162,6 @@
             </div>
         </div>
     </div>
-</div>
 
 
 

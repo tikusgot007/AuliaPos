@@ -1,23 +1,24 @@
 <link rel="stylesheet" href="<?= base_url('assets/css/pages/produk.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/pages/produk.css') ?>">
-<div class="container-fluid">
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h4 class="mb-1">Data Produk</h4>
-            <small class="text-muted">
-                Double-click pada sel untuk mengedit data secara langsung.
-            </small>
-        </div>
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">Data Produk</h5>
+                <small class="opacity-75">
+                    Double-click pada sel untuk mengedit data secara langsung.
+                </small>
+            </div>
 
-        <div class="d-flex gap-2">
-            <?php if (session()->get('role') === 'admin'): ?>
-                <a href="<?= base_url('produk/maintenance') ?>" class="btn btn-outline-secondary">
-                    <i class="bi bi-tools"></i> Maintenance Barang
+            <div class="d-flex gap-2">
+                <?php if (session()->get('role') === 'admin'): ?>
+                    <a href="<?= base_url('produk/maintenance') ?>" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-tools"></i> Maintenance Barang
+                    </a>
+                <?php endif; ?>
+                <a href="<?= base_url('produk/tambah') ?>" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-lg"></i> Tambah Produk
                 </a>
-            <?php endif; ?>
-            <a href="<?= base_url('produk/tambah') ?>" class="btn btn-primary">
-                <i class="bi bi-plus-lg"></i> Tambah Produk
-            </a>
+            </div>
         </div>
     </div>
 
@@ -96,7 +97,6 @@
         </div>
     </div>
 
-</div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {

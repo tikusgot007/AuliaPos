@@ -1,13 +1,14 @@
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3">Kas Keluar (Pengeluaran)</h1>
-        <div>
-            <button type="button" class="btn btn-primary" id="btnTambahPengeluaran">
-                <i class="fas fa-plus"></i> Tambah Pengeluaran
-            </button>
-            <a href="<?= base_url('/cash') ?>" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Dashboard
-            </a>
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Kas Keluar (Pengeluaran)</h5>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-light btn-sm" id="btnTambahPengeluaran">
+                    <i class="fas fa-plus"></i> Tambah Pengeluaran
+                </button>
+                <a href="<?= base_url('/cash') ?>" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </a>
+            </div>
         </div>
     </div>
 
@@ -149,7 +150,6 @@
             </div>
         </div>
     </div>
-</div>
 
 <!-- ========================================== -->
 <!-- JAVASCRIPT -->

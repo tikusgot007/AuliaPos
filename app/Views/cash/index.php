@@ -1,9 +1,10 @@
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3">Dashboard Kas</h1>
-        <a href="<?= base_url('/cash/riwayat') ?>" class="btn btn-info">
-            <i class="fas fa-history"></i> Riwayat
-        </a>
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Dashboard Kas</h5>
+            <a href="<?= base_url('/cash/riwayat') ?>" class="btn btn-light btn-sm">
+                <i class="fas fa-history"></i> Riwayat
+            </a>
+        </div>
     </div>
     <!-- ========================================== -->
     <!-- KAS AWAL HARI -->
@@ -324,7 +325,6 @@
                 </div>
             </div>
         </div>
-    </div>
     <!-- ========================================== -->
     <!-- JAVASCRIPT UNTUK MODAL OPNAME -->
     <!-- ========================================== -->

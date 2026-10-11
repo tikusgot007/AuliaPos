@@ -1,5 +1,5 @@
 <div class="card">
-    <div class="card-header bg-warning text-white">
+    <div class="card-header bg-primary text-white">
         <h5 class="mb-0"><i class="fas fa-edit"></i> Edit Kategori</h5>
     </div>
     <div class="card-body">

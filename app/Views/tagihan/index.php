@@ -1,5 +1,5 @@
 <div class="card">
-    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Daftar Tagihan Belum Lunas</h5>
         <span class="badge bg-dark"><span id="badgeJumlahTagihan">0</span> tagihan</span>
     </div>

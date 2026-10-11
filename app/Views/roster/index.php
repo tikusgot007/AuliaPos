@@ -1,18 +1,20 @@
 <link rel="stylesheet" href="<?= base_url('assets/css/pages/roster.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/pages/roster.css') ?>">
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h4 class="mb-0"><i class="fas fa-calendar-alt"></i> Jadwal Karyawan</h4>
-    <span class="badge bg-secondary">Tampilan baca-saja</span>
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Jadwal Karyawan</h5>
+        <span class="badge bg-light text-dark">Tampilan baca-saja</span>
+    </div>
 </div>
 
 <!-- ============================================================ -->
 <!-- RINGKASAN HARI INI -->
 <!-- ============================================================ -->
 <div class="card mb-4">
-    <div class="card-header bg-light">
-        <strong>Jadwal Hari Ini</strong>
-        <span id="rosterHariIniTanggalLabel"></span>
-    </div>
+        <div class="card-header">
+            <h6 class="mb-0 d-inline">Jadwal Hari Ini</h6>
+            <span id="rosterHariIniTanggalLabel"></span>
+        </div>
     <div class="card-body">
         <div class="row g-2" id="rosterHariIniGrid">
             <div class="col-6 col-md-2">
