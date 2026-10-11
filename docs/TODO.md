@@ -19,7 +19,6 @@
 
 ### Low
 
-- [ ] **TODO-Q3e** Instance WhatsApp gateway WAJIB `readreceipts: all` (bila `none`, Evolution tetap balas 201 tetapi blue tick tidak pernah terkirim) — sudah dicatat di `docs/deploy.md` §2 & gateway `petunjuk-penggunaan.md` §4.1; usulkan **otomatiskan** saat setup instance (mis. di `scripts/setup-instance.js`) agar tak bergantung cek manual — rendah — ref temuan 2026-10-07.
 
 
 ## Sedang dikerjakan
