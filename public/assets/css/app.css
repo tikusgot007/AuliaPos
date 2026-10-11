@@ -1,16 +1,17 @@
 /*
  * Global stylesheet, loaded by layout/main.php and layout/minimal.php right
  * after Bootstrap. Colour tokens are the single source of truth for the
- * shared palette; values intentionally mirror the previous hardcoded colours
- * so the UI looks identical.
+ * shared palette: the primary accent is navy; the app shell (sidebar + header)
+ * is light grey; page CSS lives in assets/css/pages/*.css.
  */
 :root {
-    /* Aulia brand */
-    --aulia-primary: #16856b;
-    --aulia-primary-light: #1da47f;
-    --aulia-dark: #02241c;
-    --aulia-dark-2: #022a14;
+    /* Brand */
     --aulia-whatsapp: #25D366;
+
+    /* App shell (sidebar + top header) -- light grey; navy is reserved for the
+       active nav item and the primary accent. */
+    --aulia-shell-bg: #e9ecef;
+    --aulia-shell-bg-2: #dee2e6;
 
     /* Generic UI */
     --color-white: #ffffff;
@@ -28,6 +29,9 @@
 
     /* Navy accent (Inbox header); planned primary for buttons/links. */
     --aulia-navy: #1f3b5c;
+    --aulia-shell-active: var(--aulia-navy);
+    --aulia-shell-active-border: #9cc4ea;
+    --aulia-shell-accent: var(--aulia-navy);
 
     /* Semantic status palette = Bootstrap 5.3 *-bg-subtle / *-text-emphasis,
        so custom badges/cells match .alert-* and .text-bg-* across pages. */
@@ -78,19 +82,19 @@
     --scrollbar-thumb: #c1c1c1;
     --scrollbar-thumb-hover: #a1a1a1;
 
-    /* Dark surfaces (sidebar / top header) */
-    --dark-surface: #222222;
-    --dark-surface-hover: #242424;
-    --dark-menu: #1b1b1b;
-    --dark-border: #2a2a2a;
-    --dark-border-2: #2f2f2f;
-    --dark-input-border: #333333;
-    --dark-text: #f3f4f6;
-    --dark-text-2: #d1d5db;
-    --dark-text-muted: #9ca3af;
-    --dark-text-dim: #b8b8b8;
-    --dark-placeholder: #8f8f8f;
-    --dark-chevron: #8a8a8a;
+    /* App shell surfaces (sidebar / top header) -- light grey, dark text. */
+    --shell-hover: #dfe3e6;
+    --shell-hover-strong: #d3d8dd;
+    --shell-menu: #ffffff;
+    --shell-border: #ced4da;
+    --shell-border-2: #ced4da;
+    --shell-input-border: #ced4da;
+    --shell-text: #212529;
+    --shell-text-2: #343a40;
+    --shell-text-muted: #6c757d;
+    --shell-text-dim: #495057;
+    --shell-placeholder: #adb5bd;
+    --shell-chevron: #6c757d;
 }
 
 body {

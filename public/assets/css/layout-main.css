@@ -269,12 +269,12 @@
 }
 
 /* ========================================== */
-/* SIDEBAR - AULIA DARK / GREEN THEME         */
+/* SIDEBAR - AULIA DARK / NAVY THEME          */
 /* ========================================== */
 
 .sidebar {
     min-height: 100vh;
-    background: linear-gradient(180deg, var(--aulia-dark) 0%, var(--aulia-dark-2) 100%);
+    background: linear-gradient(180deg, var(--aulia-shell-bg) 0%, var(--aulia-shell-bg-2) 100%);
     position: sticky;
     top: 0;
 }
@@ -282,16 +282,16 @@
 .sidebar .brand {
     font-size: 1.5rem;
     font-weight: bold;
-    color: var(--color-white);
+    color: var(--shell-text);
     padding: 20px;
-    border-bottom: 0px solid var(--dark-border);
+    border-bottom: 0px solid var(--shell-border);
     text-align: center;
 }
 
 .sidebar .brand small {
     display: block;
     font-size: 0.7rem;
-    color: var(--dark-text-muted);
+    color: var(--shell-text-muted);
     font-weight: normal;
 }
 
@@ -299,7 +299,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    color: var(--dark-text-dim);
+    color: var(--shell-text-dim);
     padding: 12px 20px;
     border-radius: 8px;
     margin: 2px 8px;
@@ -307,25 +307,28 @@
 }
 
 .sidebar .nav-link:hover {
-    color: var(--color-white);
-    background: var(--dark-surface);
+    color: var(--shell-text);
+    background: var(--shell-hover);
 }
 
 .sidebar .nav-link.active {
-    background: linear-gradient(90deg, rgba(22, 133, 107, 0.95), rgba(16, 107, 87, 0.95));
+    background: var(--aulia-shell-active);
     color: var(--color-white);
-    border-left: 3px solid var(--aulia-primary-light);
+    border-left: 3px solid var(--aulia-shell-active-border);
 }
 
 .sidebar .nav-link i {
     width: 24px;
     text-align: center;
-    color: var(--dark-text-muted);
+    color: var(--shell-text-muted);
 }
 
-.sidebar .nav-link:hover i,
+.sidebar .nav-link:hover i {
+    color: var(--aulia-shell-accent);
+}
+
 .sidebar .nav-link.active i {
-    color: var(--aulia-primary-light);
+    color: var(--color-white);
 }
 
 /* SUBMENU */
@@ -333,7 +336,7 @@
 .sidebar .submenu {
     margin-left: 18px;
     padding-left: 8px;
-    border-left: 2px solid rgba(29, 164, 127, 0.25);
+    border-left: 2px solid rgba(0, 0, 0, 0.12);
 }
 
 .sidebar .submenu .nav-link {
@@ -343,12 +346,12 @@
 
 .sidebar .nav-link .fa-chevron-down {
     transition: transform .25s ease;
-    color: var(--dark-chevron);
+    color: var(--shell-chevron);
 }
 
 .sidebar .nav-link[aria-expanded="true"] .fa-chevron-down {
     transform: rotate(180deg);
-    color: var(--aulia-primary-light);
+    color: var(--aulia-shell-accent);
 }
 
 .sidebar .nav-link[aria-expanded="false"] .fa-chevron-down {
@@ -395,15 +398,15 @@
 }
 
 /* ========================================== */
-/* TOP HEADER - AULIA DARK / GREEN THEME      */
+/* TOP HEADER - AULIA DARK / NAVY THEME       */
 /* ========================================== */
 
 .top-header {
     position: sticky;
     top: 0;
     z-index: 1030;
-    background: var(--aulia-dark) !important;
-    border-bottom: 1px solid var(--dark-border) !important;
+    background: var(--aulia-shell-bg) !important;
+    border-bottom: 1px solid var(--shell-border) !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18) !important;
     /* .main-content (pembungkus <header> ini) punya
        padding: 25px di SEMUA sisi, termasuk atas -- itu yang
@@ -437,19 +440,19 @@
 .top-header .dropdown-menu {
     min-width: 180px;
     font-size: 0.85rem;
-    background: var(--dark-menu);
-    border: 1px solid var(--dark-border-2);
+    background: var(--shell-menu);
+    border: 1px solid var(--shell-border-2);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .top-header .dropdown-item {
     padding: 8px 16px;
-    color: var(--dark-text-2);
+    color: var(--shell-text-2);
 }
 
 .top-header .dropdown-item:hover {
-    background: var(--dark-surface-hover);
-    color: var(--color-white);
+    background: var(--shell-hover-strong);
+    color: var(--shell-text);
 }
 
 .top-header .badge {
@@ -466,49 +469,49 @@
 /* Search */
 
 .top-header .search-box .form-control {
-    background: var(--dark-surface) !important;
-    border: 1px solid var(--dark-input-border) !important;
-    color: var(--color-white) !important;
+    background: var(--shell-menu) !important;
+    border: 1px solid var(--shell-input-border) !important;
+    color: var(--shell-text) !important;
 }
 
 .top-header .search-box .form-control::placeholder {
-    color: var(--dark-placeholder) !important;
+    color: var(--shell-placeholder) !important;
 }
 
 .top-header .search-box .form-control:focus {
-    background: var(--dark-surface-hover) !important;
-    border-color: var(--aulia-primary) !important;
-    box-shadow: 0 0 0 0.2rem rgba(22, 133, 107, 0.18) !important;
+    background: var(--shell-menu) !important;
+    border-color: var(--aulia-shell-accent) !important;
+    box-shadow: 0 0 0 0.2rem rgba(31, 59, 92, 0.15) !important;
 }
 
 .top-header .search-box button {
-    color: var(--aulia-primary-light) !important;
+    color: var(--aulia-shell-accent) !important;
 }
 
 /* Icon header */
 
 .top-header .nav-icon {
-    color: var(--dark-text-dim) !important;
+    color: var(--shell-text-dim) !important;
 }
 
 .top-header .nav-icon:hover {
-    color: var(--aulia-primary-light) !important;
+    color: var(--aulia-shell-accent) !important;
 }
 
 /* Nama user dan teks header */
 
 .top-header .text-dark {
-    color: var(--dark-text) !important;
+    color: var(--shell-text) !important;
 }
 
 .top-header .text-muted {
-    color: var(--dark-text-muted) !important;
+    color: var(--shell-text-muted) !important;
 }
 
 /* Avatar user */
 
 .top-header .user-avatar {
-    background: var(--aulia-primary) !important;
+    background: var(--aulia-shell-active) !important;
     color: var(--color-white) !important;
 }
 
@@ -516,7 +519,7 @@
 
 .top-header hr,
 .top-header .border-bottom {
-    border-color: var(--dark-border) !important;
+    border-color: var(--shell-border) !important;
 }
 
 /* Responsive header */
