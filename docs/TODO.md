@@ -21,7 +21,9 @@
 
 - [ ] **TODO-S1** Pemusatan style/warna view — rendah — ref keputusan 2026-10-12: warna dipertahankan persis (hanya dipusatkan), login tetap tema gelap sendiri, cetak (`nota`/`ticket`) & `errors/html` tidak disentuh.
   - **Tahap 1–2 SELESAI 2026-10-12**: token warna di `public/assets/css/app.css` (`:root`), CSS layout dipindah ke `layout-main.css` / `layout-minimal.css`; blok `<style>` di `layout/main.php` & `layout/minimal.php` diganti `<link>` (cache-bust `filemtime`). Verifikasi: nilai CSS setelah resolve token identik aturan-per-aturan dengan aslinya (84/84 & 8/8), file dilayani HTTP 200, `php -l` lulus. Cek visual di browser oleh user belum dilakukan.
-  - **Sisa tahap 3**: pindahkan `<style>` per halaman ke `assets/css/pages/*.css` (tetap dimuat per halaman) + ganti hex ke token: `kasir/index`, `kasir/edit`, `transaksi/hari_ini`, `jadwal/index`, `roster/index`, `produk/index` (2 blok), `ukuran/index`, `auth/login` (token gelap sendiri).
+  - **Keputusan 2026-10-12 (revisi)**: warna harus **konsisten antar halaman** (Opsi A): palet semantik di `app.css`; warna status = Bootstrap 5.3 `*-bg-subtle`/`*-text-emphasis` (perubahan visual kecil disengaja); nuansa nyaris-sama digabung. Warna utama tombol/link akan jadi **navy Inbox `#1f3b5c`** (`--aulia-navy`) — dikerjakan sebagai langkah terpisah (menyentuh `btn-primary` di 26 view). Dikerjakan bertahap per halaman, dicek user di browser sebelum lanjut.
+  - **Tahap 3a SELESAI 2026-10-12**: `jadwal/index` & `roster/index` → `assets/css/pages/jadwal.css` / `roster.css`, semua warna lewat token; satu-satunya perubahan visual = warna shift P/S/PM/L ke palet BS 5.3 (diverifikasi aturan-per-aturan). Cek visual user belum.
+  - **Sisa tahap 3**: `kasir/index`, `kasir/edit`, `transaksi/hari_ini` (gabung 7 nuansa baris), `produk/index` (2 blok), `ukuran/index`, `auth/login` (token gelap sendiri). Lalu langkah warna utama navy.
   - **Sisa tahap 4**: atribut `style="..."` yang berisi warna (37 view; terbanyak `layout/main.php`, `kasir/index`, `kasir/edit`, `ukuran/index`) → class/token. Inline yang hanya ukuran/jarak dibiarkan.
 
 

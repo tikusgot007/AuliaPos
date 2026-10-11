@@ -26,6 +26,27 @@
     --color-border-light: #e9ecef;
     --color-highlight: #fff3cd;
 
+    /* Navy accent (Inbox header); planned primary for buttons/links. */
+    --aulia-navy: #1f3b5c;
+
+    /* Semantic status palette = Bootstrap 5.3 *-bg-subtle / *-text-emphasis,
+       so custom badges/cells match .alert-* and .text-bg-* across pages. */
+    --status-success-bg: #d1e7dd;
+    --status-success-text: #0a3622;
+    --status-danger-bg: #f8d7da;
+    --status-danger-text: #58151c;
+    --status-warning-bg: #fff3cd;
+    --status-warning-text: #664d03;
+    --status-info-bg: #cfe2ff;
+    --status-info-text: #052c65;
+    --status-neutral-bg: #f8f9fa;
+    --status-neutral-text: #adb5bd;
+
+    --color-muted: #6c757d;
+    --color-hover-bg: #e9ecef;
+    --color-selected-outline: #000000;
+    --color-today-overlay: rgba(13, 110, 253, 0.10);
+
     /* Scrollbar */
     --scrollbar-track: #f1f1f1;
     --scrollbar-thumb: #c1c1c1;

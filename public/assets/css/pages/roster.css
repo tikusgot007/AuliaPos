@@ -1,0 +1,126 @@
+/* roster/index.php. Colour tokens live in app.css. */
+.roster-cell {
+    text-align: center;
+    min-width: 56px;
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 6px 4px;
+}
+
+.roster-cell.shift-P { background-color: var(--status-warning-bg); color: var(--status-warning-text); }
+.roster-cell.shift-S { background-color: var(--status-info-bg); color: var(--status-info-text); }
+.roster-cell.shift-PM { background-color: var(--status-success-bg); color: var(--status-success-text); }
+.roster-cell.shift-L { background-color: var(--status-danger-bg); color: var(--status-danger-text); }
+.roster-cell.shift-kosong { background-color: var(--status-neutral-bg); color: var(--status-neutral-text); }
+
+.roster-hariini-box {
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 90px;
+}
+
+.roster-hariini-box h6 {
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.roster-orang.saya {
+    font-weight: 700;
+}
+
+.roster-orang.saya::before {
+    content: "★ ";
+}
+
+.sortable-header {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.sortable-header:hover {
+    background-color: var(--color-hover-bg);
+}
+
+.sort-icon {
+    font-size: 0.75rem;
+    color: var(--status-neutral-text);
+    margin-left: 4px;
+}
+
+.sortable-header.sort-active .sort-icon {
+    color: var(--color-text);
+}
+
+/* ============================================================ */
+/* HEADER MINGGUAN BERTANGGAL + STICKY (page-level)             */
+/* ============================================================ */
+/*
+ * Sticky di sini SENGAJA relatif ke HALAMAN PENUH (bukan kotak
+ * scroll lokal seperti Matrix Admin) -- perilaku yang diminta:
+ * halaman scroll normal (card "Jadwal Hari Ini" dkk ikut naik
+ * ke atas), sampai header tabel menyentuh tepi atas viewport,
+ * baru header itu "menempel" dan baris di bawahnya yang lanjut
+ * scroll.
+ *
+ * ROOT CAUSE kenapa percobaan sticky halaman-penuh sebelumnya
+ * (di Matrix Admin) tidak jalan: div `.table-responsive` Bootstrap
+ * hanya set `overflow-x:auto`. Begitu SATU sumbu overflow di-set
+ * non-visible, browser memperlakukan div itu sebagai "scroll
+ * container" penuh (kedua sumbu) untuk keperluan positioning --
+ * padahal div itu sendiri TIDAK PERNAH benar-benar discroll
+ * secara internal (tingginya auto mengikuti konten, tidak pernah
+ * overflow vertikal). Akibatnya elemen sticky di dalamnya
+ * mengacu ke "scrollport" yang scrollTop-nya selalu 0 (karena
+ * yang benar-benar discroll user adalah halaman/body, BUKAN div
+ * itu) -- makanya sticky terlihat seperti tidak berfungsi sama
+ * sekali (header ikut naik terus bersama halaman).
+ *
+ * FIX di sini: wrapper tabel Mingguan TIDAK diberi
+ * `.table-responsive`/overflow-x:auto sama sekali di layar lebar
+ * (desktop/tablet), supaya tidak ada ancestor non-visible-overflow
+ * di antara <th> dan halaman -- sticky jadi reliable relatif ke
+ * viewport sungguhan. Di layar sempit (mobile), 8 kolom tabel
+ * bisa kepotong tanpa scroll horizontal, jadi khusus breakpoint
+ * itu overflow-x:auto DIAKTIFKAN LAGI sebagai fallback -- pada
+ * kondisi itu sticky sengaja "dikorbankan" (fallback ke scroll
+ * biasa) demi tabel tetap bisa digeser horizontal, trade-off yang
+ * disengaja, bukan bug.
+ */
+.roster-mingguan-wrap {
+    overflow-x: visible;
+}
+
+@media (max-width: 767.98px) {
+    .roster-mingguan-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+.roster-sticky-th {
+    position: sticky;
+    z-index: 20;
+    background-color: var(--color-bg);
+    /* `top` di-set dinamis via JS (updateStickyOffsetsMingguan()
+       di roster.js), berdasarkan tinggi ASLI .top-header aplikasi
+       saat ini -- bukan angka hardcode. */
+}
+
+.roster-date-header th {
+    white-space: nowrap;
+}
+
+.roster-date-header small {
+    font-weight: 400;
+    color: var(--color-muted);
+}
+
+/* Highlight kolom "hari ini", pola sama dengan Matrix Admin
+   (lihat jadwal.css .matrix-today-col) -- box-shadow inset
+   supaya tetap menumpuk di atas warna shift per-cell. */
+.roster-today-col {
+    box-shadow: inset 0 0 0 999px var(--color-today-overlay);
+    border-left: 2px solid var(--color-primary) !important;
+    border-right: 2px solid var(--color-primary) !important;
+}
