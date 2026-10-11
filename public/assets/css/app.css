@@ -1,0 +1,79 @@
+/*
+ * Global stylesheet, loaded by layout/main.php and layout/minimal.php right
+ * after Bootstrap. Colour tokens are the single source of truth for the
+ * shared palette; values intentionally mirror the previous hardcoded colours
+ * so the UI looks identical.
+ */
+:root {
+    /* Aulia brand */
+    --aulia-primary: #16856b;
+    --aulia-primary-light: #1da47f;
+    --aulia-dark: #02241c;
+    --aulia-dark-2: #022a14;
+    --aulia-whatsapp: #25D366;
+
+    /* Generic UI */
+    --color-white: #ffffff;
+    --color-primary: #0d6efd;
+    --color-success: #28a745;
+    --color-danger: #dc3545;
+    --color-danger-soft: #ff6b6b;
+    --color-warning: #ffc107;
+    --color-info: #17a2b8;
+    --color-text: #212529;
+    --color-bg: #f8f9fa;
+    --color-border: #dee2e6;
+    --color-border-light: #e9ecef;
+    --color-highlight: #fff3cd;
+
+    /* Scrollbar */
+    --scrollbar-track: #f1f1f1;
+    --scrollbar-thumb: #c1c1c1;
+    --scrollbar-thumb-hover: #a1a1a1;
+
+    /* Dark surfaces (sidebar / top header) */
+    --dark-surface: #222222;
+    --dark-surface-hover: #242424;
+    --dark-menu: #1b1b1b;
+    --dark-border: #2a2a2a;
+    --dark-border-2: #2f2f2f;
+    --dark-input-border: #333333;
+    --dark-text: #f3f4f6;
+    --dark-text-2: #d1d5db;
+    --dark-text-muted: #9ca3af;
+    --dark-text-dim: #b8b8b8;
+    --dark-placeholder: #8f8f8f;
+    --dark-chevron: #8a8a8a;
+}
+
+body {
+    background-color: var(--color-bg);
+}
+
+/* Toast notification (showToast() in both layouts) */
+#liveToast {
+    min-width: 250px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 14px;
+}
+
+.toast-success {
+    background-color: var(--color-success);
+    color: var(--color-white);
+}
+
+.toast-danger {
+    background-color: var(--color-danger);
+    color: var(--color-white);
+}
+
+.toast-warning {
+    background-color: var(--color-warning);
+    color: var(--color-text);
+}
+
+.toast-info {
+    background-color: var(--color-info);
+    color: var(--color-white);
+}

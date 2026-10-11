@@ -11,56 +11,8 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <style>
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-        }
-
-        body {
-            background-color: #f8f9fa;
-            display: flex;
-            flex-direction: column;
-        }
-
-        main {
-            flex: 1 1 auto;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-        }
-
-        /* Toast Notification -- sama seperti layout/main.php, dipakai
-           showToast()/showNotifikasi() yang juga dipanggil oleh
-           inbox/index.php lewat window ini. */
-        #liveToast {
-            min-width: 250px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            font-size: 14px;
-        }
-
-        .toast-success {
-            background-color: #28a745;
-            color: white;
-        }
-
-        .toast-danger {
-            background-color: #dc3545;
-            color: white;
-        }
-
-        .toast-warning {
-            background-color: #ffc107;
-            color: #212529;
-        }
-
-        .toast-info {
-            background-color: #17a2b8;
-            color: white;
-        }
-    </style>
+    <link rel="stylesheet" href="<?= base_url('assets/css/app.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/app.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/layout-minimal.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/layout-minimal.css') ?>">
 </head>
 
 <body>
