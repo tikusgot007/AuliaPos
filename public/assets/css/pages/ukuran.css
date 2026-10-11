@@ -1,0 +1,20 @@
+/* ukuran/index.php. Colour tokens live in app.css. */
+
+.inputCustom {
+    width: 75px;
+}
+
+/* Swatch fill colours in the "Kode Warna" table are print data, set inline. */
+.color-box {
+    border-radius: 4px;
+    border: 1px solid var(--color-border);
+}
+
+.table-ukuran th {
+    font-size: 0.85rem;
+}
+
+.table-ukuran td {
+    font-size: 1rem;
+    vertical-align: middle;
+}

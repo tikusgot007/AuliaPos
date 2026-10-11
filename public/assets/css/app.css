@@ -52,6 +52,22 @@
     --color-accent-border: #b6d7ff;
     --color-focus-ring: rgba(13, 110, 253, 0.15);
 
+    /* Bootstrap focused-input border. */
+    --color-focus-border: #86b7fe;
+
+    /* Light state tints (inline edit feedback, hover highlights). */
+    --tint-primary: rgba(13, 110, 253, 0.08);
+    --tint-warning: rgba(255, 193, 7, 0.12);
+    --tint-danger: rgba(220, 53, 69, 0.12);
+    --tint-success: rgba(25, 135, 84, 0.12);
+
+    /* Grouped data tables (rows striped per transaksi). */
+    --table-row-stripe: #f4f7fb;
+    --table-cell-bg: #f8fbff;
+    --table-cell-stripe: #edf3f9;
+    --table-row-hover: #eef5ff;
+    --table-group-border: #d0d7de;
+
     /* Scrollbar */
     --scrollbar-track: #f1f1f1;
     --scrollbar-thumb: #c1c1c1;

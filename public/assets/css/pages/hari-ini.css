@@ -1,0 +1,172 @@
+/* transaksi/hari_ini.php. Colour tokens live in app.css. */
+
+/* ==========================================================
+   SUMMARY CARD
+   ========================================================== */
+
+.summary-card {
+    height: 100%;
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.summary-label {
+    font-size: 13px;
+    color: var(--color-muted);
+    margin-bottom: 4px;
+}
+
+.summary-value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+
+/* ==========================================================
+   TABLE
+   ========================================================== */
+
+.table-item-terjual {
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table-item-terjual thead th {
+    background: var(--color-bg);
+    white-space: nowrap;
+    vertical-align: middle;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.table-item-terjual tbody td {
+    vertical-align: middle;
+    font-size: 14px;
+}
+
+
+/* ==========================================================
+   GROUP TRANSAKSI
+   ========================================================== */
+
+/* Awal transaksi */
+.table-item-terjual tbody tr.transaction-start td {
+    border-top: 2px solid var(--table-group-border);
+}
+
+/* Item lanjutan */
+.table-item-terjual tbody tr.transaction-detail td {
+    border-top: 0;
+    border-bottom: 0;
+}
+
+/* Akhir transaksi */
+.table-item-terjual tbody tr.transaction-end td {
+    border-bottom: 2px solid var(--table-group-border);
+}
+
+
+/* ==========================================================
+   WARNA BLOK TRANSAKSI
+   ========================================================== */
+
+.table-item-terjual tbody tr.transaction-group-odd td {
+    background-color: var(--color-white);
+}
+
+.table-item-terjual tbody tr.transaction-group-even td {
+    background-color: var(--table-row-stripe);
+}
+
+/* Kolom transaksi */
+.table-item-terjual tbody tr.transaction-group-odd td.transaction-cell {
+    background-color: var(--table-cell-bg);
+}
+
+.table-item-terjual tbody tr.transaction-group-even td.transaction-cell {
+    background-color: var(--table-cell-stripe);
+}
+
+/* ==========================================================
+   TRANSACTION CONTENT
+   ========================================================== */
+
+.transaction-time {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.invoice-link {
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.invoice-link:hover {
+    text-decoration: underline;
+}
+
+.pelanggan-cell {
+    min-width: 150px;
+}
+
+.pelanggan-name {
+    font-weight: 500;
+}
+
+.produk-cell {
+    min-width: 220px;
+}
+
+
+/* ==========================================================
+   HOVER
+   ========================================================== */
+
+.table-item-terjual tbody tr.transaction-group-odd:hover td,
+.table-item-terjual tbody tr.transaction-group-even:hover td {
+    background-color: var(--table-row-hover);
+}
+
+/*
+ * Pastikan rowspan pada kolom transaksi ikut berubah
+ * saat hover.
+ */
+.table-item-terjual tbody tr.transaction-group-odd:hover td.transaction-cell,
+.table-item-terjual tbody tr.transaction-group-even:hover td.transaction-cell {
+    background-color: var(--table-row-hover);
+}
+
+
+/* ==========================================================
+   PAGINATION
+   ========================================================== */
+
+.pagination-wrapper {
+    padding-top: 15px;
+    margin-top: 0;
+    border-top: 1px solid var(--color-border);
+}
+
+.pagination-info {
+    font-size: 13px;
+    color: var(--color-muted);
+}
+
+
+/* ==========================================================
+   MOBILE
+   ========================================================== */
+
+@media (max-width: 768px) {
+
+    .summary-value {
+        font-size: 18px;
+    }
+
+    .table-item-terjual {
+        min-width: 1100px;
+    }
+}

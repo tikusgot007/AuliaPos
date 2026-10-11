@@ -1,26 +1,4 @@
-<style>
-    .inputCustom {
-        width: 75px;
-    }
-
-    .color-box {
-        border-radius: 4px;
-        border: 1px solid #dee2e6;
-    }
-
-    .card-header.bg-gradient-secondary {
-        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-    }
-
-    .table-ukuran th {
-        font-size: 0.85rem;
-    }
-
-    .table-ukuran td {
-        font-size: 1rem;
-        vertical-align: middle;
-    }
-</style>
+<link rel="stylesheet" href="<?= base_url('assets/css/pages/ukuran.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/pages/ukuran.css') ?>">
 
 <div class="container-fluid">
     <!-- Page Heading -->

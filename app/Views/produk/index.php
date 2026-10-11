@@ -1,24 +1,4 @@
-<style>
-    .action-buttons {
-        white-space: nowrap;
-        text-align: center;
-    }
-
-    .action-buttons .btn {
-        width: 38px;
-        height: 36px;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px !important;
-        margin: 0 2px;
-    }
-
-    .action-buttons .btn i {
-        font-size: 16px;
-    }
-</style>
+<link rel="stylesheet" href="<?= base_url('assets/css/pages/produk.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/pages/produk.css') ?>">
 <div class="container-fluid">
 
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -117,66 +97,6 @@
     </div>
 
 </div>
-
-<style>
-    /* Sel yang bisa diedit */
-    .inline-editable {
-        cursor: pointer;
-        position: relative;
-    }
-
-    .inline-editable:hover {
-        background-color: rgba(13, 110, 253, 0.08);
-    }
-
-    /* Saat sedang diedit */
-    .inline-editing {
-        padding: 3px !important;
-        background-color: rgba(255, 193, 7, 0.12) !important;
-    }
-
-    .inline-editing input,
-    .inline-editing select {
-        width: 100%;
-        min-width: 100px;
-        border: 1px solid #86b7fe;
-        border-radius: 4px;
-        padding: 5px 7px;
-        outline: none;
-    }
-
-    .inline-editing input:focus,
-    .inline-editing select:focus {
-        border-color: #0d6efd;
-        box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
-    }
-
-    .inline-saving {
-        opacity: 0.6;
-        pointer-events: none;
-    }
-
-    .inline-error {
-        background-color: rgba(220, 53, 69, 0.12) !important;
-    }
-
-    .inline-saved {
-        background-color: rgba(25, 135, 84, 0.12) !important;
-    }
-
-    .price-cell {
-        text-align: right;
-        white-space: nowrap;
-    }
-
-    .action-buttons {
-        white-space: nowrap;
-    }
-
-    kbd {
-        font-size: 0.8em;
-    }
-</style>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
