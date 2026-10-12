@@ -372,7 +372,14 @@ class JadwalModel extends Model
             ->where('tanggal <=', $tanggalSelesai)
             ->findColumn('karyawan_id') ?? [];
 
-        $builder = $userModel->builder()->select('users.*');
+        $builder = $userModel->builder()->select([
+            'users.id',
+            'users.nama',
+            'users.inisial',
+            'users.divisi',
+            'users.is_active',
+            'users.priority',
+        ]);
 
         if (!empty($karyawanIdHistori)) {
             $builder->groupStart()

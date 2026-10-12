@@ -637,7 +637,11 @@ class Jadwal extends BaseController
         }
 
         $detail = $this->masterModel->getDetailMaster($master['id']);
-        $karyawanAktif = $this->userModel->where('is_active', 1)->orderBy('nama', 'ASC')->findAll();
+        $karyawanAktif = $this->userModel
+            ->select(['id', 'nama', 'inisial', 'divisi', 'is_active', 'priority'])
+            ->where('is_active', 1)
+            ->orderBy('nama', 'ASC')
+            ->findAll();
 
         return $this->response->setJSON([
             'status' => 'success',

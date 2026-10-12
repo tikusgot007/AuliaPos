@@ -158,6 +158,11 @@
                 const mode = btn.dataset.jadwalMode;
                 el('jadwalTab' + capitalize(mode)).classList.remove('d-none');
 
+                if (mode === 'matrix') {
+                    // Tinggi wrapper bergantung pada sisa viewport, jadi
+                    // hitung ulang saat tab Matrix dipilih kembali.
+                    updateStickyOffsets();
+                }
                 if (mode === 'kalender' && !state.calendarInitialized) {
                     initCalendar();
                 }
@@ -246,10 +251,11 @@
 
         karyawanList.forEach(function (k) {
             const tr = document.createElement('tr');
+            const inisial = k.inisial || k.nama || '-';
 
-            let baris = '<td>' + escapeHtml(k.nama) +
+            let baris = '<td>' + escapeHtml(inisial) +
                 (k.is_active == 0 ? ' <span class="badge bg-secondary">Nonaktif</span>' : '') +
-                '<br><small class="text-muted">' + escapeHtml(k.inisial || '') + ' · ' + escapeHtml(k.divisi || '-') + '</small></td>';
+                '<br><small class="text-muted">' + escapeHtml(k.divisi || '-') + '</small></td>';
 
             for (let i = 0; i < 7; i++) {
                 const tanggal = tanggalPlus(data.minggu_awal, i);
@@ -259,7 +265,7 @@
                 const isi = shift || '-';
 
                 baris += '<td class="jadwal-cell ' + kelas + '" ' +
-                    'data-karyawan-id="' + k.id + '" data-nama="' + escapeHtml(k.nama) + '" ' +
+                    'data-karyawan-id="' + k.id + '" data-nama="' + escapeHtml(inisial) + '" ' +
                     'data-tanggal="' + tanggal + '" data-shift="' + (shift || '') + '" ' +
                     'data-schedule-id="' + scheduleId + '">' + isi + '</td>';
             }
@@ -383,18 +389,19 @@
         updateStickyOffsets();
     }
 
-    // Jadikan wrapper tabel Matrix scroll container LOKAL (tinggi
-    // terbatas, overflow-y:auto) supaya `position: sticky; top: 0`
-    // pada <th> reliable lintas browser -- lihat catatan revisi di
-    // <style> jadwal/index.php untuk alasan kenapa pendekatan
-    // page-level sticky sebelumnya tidak dipakai.
+    // Jadikan wrapper tabel Matrix scroll container LOKAL (tinggi tetap,
+    // overflow-y:auto) supaya `position: sticky; top: 0` pada <th>
+    // reliable lintas browser -- lihat catatan di
+    // public/assets/css/pages/jadwal.css (.matrix-table-responsive)
+    // untuk alasan kenapa pendekatan page-level sticky sebelumnya tidak
+    // dipakai.
     //
-    // Tinggi maksimum dihitung dari SISA ruang viewport di bawah
-    // posisi wrapper saat ini (window.innerHeight - jarak wrapper ke
-    // atas viewport - buffer), bukan angka hardcode -- supaya tetap
-    // pas walau tinggi elemen di atasnya (top-header, judul, tab,
-    // filter) berubah. Minimum 240px dijaga supaya di layar sangat
-    // pendek tabel tetap punya ruang scroll yang wajar, bukan
+    // Tinggi dihitung dari SISA ruang viewport di bawah posisi wrapper
+    // saat ini (window.innerHeight - jarak wrapper ke atas viewport -
+    // buffer), bukan angka hardcode -- supaya area Matrix selalu mengisi
+    // ruang bawah dan tetap pas saat tinggi elemen di atasnya (top-header,
+    // judul, tab, filter) berubah. Minimum 240px dijaga supaya di layar
+    // sangat pendek tabel tetap punya ruang scroll yang wajar, bukan
     // terjepit ke ~0px.
     function updateStickyOffsets() {
         const wrapper = document.querySelector('.matrix-table-responsive');
@@ -402,8 +409,17 @@
 
         const BUFFER_BAWAH = 24;
         const rect = wrapper.getBoundingClientRect();
-        const tinggiMax = Math.max(240, Math.floor(window.innerHeight - rect.top - BUFFER_BAWAH));
-        wrapper.style.maxHeight = tinggiMax + 'px';
+
+        // Tab lain aktif => wrapper display:none => rect nol. Jangan hitung
+        // tinggi dari nilai itu (akan jadi setinggi viewport dan memaksa
+        // body ikut scroll); tunggu sampai tab Matrix dipilih lagi.
+        if (!rect.width) return;
+
+        // Tinggi tetap (bukan max-height) supaya area Matrix mengisi sisa
+        // ruang viewport walau barisnya sedikit; baris berlebih tetap
+        // discroll di dalam wrapper ini (overflow-y:auto).
+        const tinggiArea = Math.max(240, Math.floor(window.innerHeight - rect.top - BUFFER_BAWAH));
+        wrapper.style.height = tinggiArea + 'px';
 
         // top:0 relatif ke wrapper itu sendiri (scroll container lokal)
         // untuk baris tanggal. Baris Ketersediaan menumpuk persis di
@@ -759,14 +775,15 @@
             return;
         }
 
-        res.karyawan_aktif.forEach(function (k) {
-            const detailKaryawan = res.detail[k.id] || { hari: {} };
-            let baris = '<td>' + escapeHtml(k.nama) + '<br><small class="text-muted">' + escapeHtml(k.inisial || '') + '</small></td>';
+          res.karyawan_aktif.forEach(function (k) {
+              const detailKaryawan = res.detail[k.id] || { hari: {} };
+              const inisial = k.inisial || k.nama || '-';
+              let baris = '<td>' + escapeHtml(inisial) + '</td>';
 
             for (let h = 1; h <= 7; h++) {
                 const shift = detailKaryawan.hari[h];
                 const kelas = shift ? 'shift-' + shift : 'shift-kosong';
-                baris += '<td class="jadwal-cell ' + kelas + '" data-karyawan-id="' + k.id + '" data-nama="' + escapeHtml(k.nama) + '" data-hari="' + h + '" data-shift="' + (shift || '') + '">' + (shift || '-') + '</td>';
+                baris += '<td class="jadwal-cell ' + kelas + '" data-karyawan-id="' + k.id + '" data-nama="' + escapeHtml(inisial) + '" data-hari="' + h + '" data-shift="' + (shift || '') + '">' + (shift || '-') + '</td>';
             }
 
             const tr = document.createElement('tr');

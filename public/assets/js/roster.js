@@ -233,9 +233,10 @@
 
         karyawanUrut.forEach(function (k) {
             const saya = Number(k.id) === Number(cfg.userIdLogin);
-            let baris = '<td' + (saya ? ' class="roster-orang saya"' : '') + '>' + escapeHtml(k.nama) +
+            const inisial = k.inisial || k.nama || '-';
+            let baris = '<td' + (saya ? ' class="roster-orang saya"' : '') + '>' + escapeHtml(inisial) +
                 (k.is_active == 0 ? ' <span class="badge bg-secondary">Nonaktif</span>' : '') +
-                '<br><small class="text-muted">' + escapeHtml(k.inisial || '') + ' · ' + escapeHtml(k.divisi || '-') + '</small></td>';
+                '<br><small class="text-muted">' + escapeHtml(k.divisi || '-') + '</small></td>';
 
             for (let i = 0; i < 7; i++) {
                 const tanggal = tanggalPlus(data.minggu_awal, i);
@@ -322,7 +323,8 @@
 
         data.karyawan.forEach(function (k) {
             const saya = Number(k.id) === Number(cfg.userIdLogin);
-            let baris = '<td' + (saya ? ' class="roster-orang saya"' : '') + ' style="white-space:nowrap;">' + escapeHtml(k.nama) + '</td>';
+            const inisial = k.inisial || k.nama || '-';
+            let baris = '<td' + (saya ? ' class="roster-orang saya"' : '') + ' style="white-space:nowrap;">' + escapeHtml(inisial) + '</td>';
 
             for (let d = 1; d <= data.jumlah_hari; d++) {
                 const tanggal = data.awal_bulan.slice(0, 8) + String(d).padStart(2, '0');
