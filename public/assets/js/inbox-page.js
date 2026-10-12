@@ -120,6 +120,8 @@ function kosongkanThreadPanel() {
     document.getElementById('btnKirimBalasan').disabled = true;
     document.getElementById('btnLampirkanMedia').disabled = true;
     document.getElementById('btnTemplateBalasan').disabled = true;
+    document.getElementById('btnEmojiBalasan').disabled = true;
+    tutupEmojiPanel();
     batalkanKutipan();
     batalkanMediaBalasan();
 
@@ -1275,6 +1277,8 @@ function pilihConversation(id) {
     document.getElementById('btnKirimBalasan').disabled = false;
     document.getElementById('btnLampirkanMedia').disabled = false;
     document.getElementById('btnTemplateBalasan').disabled = false;
+    document.getElementById('btnEmojiBalasan').disabled = false;
+    tutupEmojiPanel();
     document.getElementById('teksBalasan').focus();
 
     muatUlangPesan(true);
@@ -1403,6 +1407,8 @@ function bukaPemilihTeruskan(messageId) {
     document.getElementById('teksBalasan').disabled = true;
     document.getElementById('btnLampirkanMedia').disabled = true;
     document.getElementById('btnTemplateBalasan').disabled = true;
+    document.getElementById('btnEmojiBalasan').disabled = true;
+    tutupEmojiPanel();
     document.getElementById('btnKirimBalasan').disabled = true;
 
     // Area kutipan aktif (bila ada) ikut dibekukan selama pemilih terbuka:
@@ -1427,6 +1433,7 @@ function tutupPemilihTeruskan() {
         document.getElementById('teksBalasan').disabled = false;
         document.getElementById('btnLampirkanMedia').disabled = false;
         document.getElementById('btnTemplateBalasan').disabled = false;
+        document.getElementById('btnEmojiBalasan').disabled = false;
         document.getElementById('btnKirimBalasan').disabled = false;
 
         // Pulihkan tombol batal area kutipan aktif (kalau ada) -- lihat
@@ -2471,6 +2478,7 @@ async function kirimAntrianMediaBalasan() {
     const btn = document.getElementById('btnKirimBalasan');
     const attachBtn = document.getElementById('btnLampirkanMedia');
     const templateBtn = document.getElementById('btnTemplateBalasan');
+    const emojiBtn = document.getElementById('btnEmojiBalasan');
     const caption = textarea.value.trim();
     // Hanya ID LOKAL yang ikut -- isi kutipan tetap diambil ulang dari
     // database server saat permintaan diproses (ALT-002), persis seperti
@@ -2481,6 +2489,8 @@ async function kirimAntrianMediaBalasan() {
     textarea.disabled = true;
     attachBtn.disabled = true;
     templateBtn.disabled = true;
+    emojiBtn.disabled = true;
+    tutupEmojiPanel();
 
     const antrianKirim = antrianMediaBalasan.filter(function(item) {
         return item.status !== 'failed';
@@ -2535,6 +2545,7 @@ async function kirimAntrianMediaBalasan() {
     textarea.disabled = false;
     attachBtn.disabled = false;
     templateBtn.disabled = false;
+    emojiBtn.disabled = false;
     textarea.focus();
 
     return false;

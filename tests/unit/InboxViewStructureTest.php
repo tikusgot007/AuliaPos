@@ -60,7 +60,7 @@ final class InboxViewStructureTest extends CIUnitTestCase
     public function testInlineHandlersAreDefinedInScripts(): void
     {
         $sumber = '';
-        foreach (['inbox-page.js', 'inbox-thread.js', 'inbox-template.js'] as $file) {
+        foreach (['inbox-page.js', 'inbox-thread.js', 'inbox-template.js', 'inbox-emoji.js'] as $file) {
             $sumber .= (string) file_get_contents(FCPATH . 'assets/js/' . $file);
         }
 
@@ -73,6 +73,15 @@ final class InboxViewStructureTest extends CIUnitTestCase
         }
     }
 
+    /** AC-EP: inbox-emoji.js must load before inbox-page.js, which calls tutupEmojiPanel(). */
+    public function testEmojiScriptLoadsBeforePageScript(): void
+    {
+        $emoji = strpos($this->view, "base_url('assets/js/inbox-emoji.js')");
+        $page  = strpos($this->view, "base_url('assets/js/inbox-page.js')");
+        $this->assertNotFalse($emoji);
+        $this->assertLessThan($page, $emoji);
+    }
+
     public function testElementIdsUsedByScriptsStillExist(): void
     {
         $ids = [
@@ -83,6 +92,7 @@ final class InboxViewStructureTest extends CIUnitTestCase
             'barPilihUnduh', 'perluDibalasBadge', 'gatewayStatusBadge', 'realtimeStatusBadge',
             'btnFilterBelum_diambil', 'btnFilterOpen', 'btnFilterMenunggu',
             'btnFilterDitunda', 'btnFilterSelesai', 'btnFilterGrup',
+            'btnEmojiBalasan', 'panelEmoji',
         ];
 
         foreach ($ids as $id) {

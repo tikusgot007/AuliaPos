@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-10-12 — Inbox: pemilih emoji di composer + reaksi pelanggan tampil sebagai kutipan
+
+- **Pemilih emoji**: tombol senyum baru di composer membuka panel ±80 emoji umum dalam
+  beberapa kelompok. Emoji disisipkan di posisi kursor (tidak mengganti teks) dan belum
+  terkirim sampai kasir menekan Kirim. Daftar emoji tersimpan lokal (tanpa internet, tanpa
+  library baru); belum ada fitur cari.
+- **Perubahan aturan — reaksi pelanggan kini tercatat**: sebelumnya reaksi emoji pelanggan
+  pada sebuah pesan dibuang Gateway tanpa jejak. Sekarang reaksi di **chat pribadi (1-1)**
+  masuk ke Inbox sebagai pesan masuk berisi emoji yang **mengutip pesan yang direaksi**, dan
+  diperlakukan sebagai **pesan baru**: menjadi pesan terakhir, percakapan kembali "perlu
+  dibalas", dan percakapan yang sudah ditutup terbuka kembali — sama seperti pesan masuk biasa.
+- **Tetap diabaikan**: reaksi di grup, reaksi dari perangkat toko sendiri, dan reaksi yang
+  ditarik pelanggan. Bila pelanggan mengganti reaksinya, reaksi baru tampil sebagai baris baru.
+- **Tidak berubah**: skema database, endpoint CI4, kirim/balas/teruskan. Membalas bubble reaksi
+  tetap bisa, tetapi terkirim tanpa kutipan.
+- **Lintas repositori**: perubahan ada di `evolution-gateway` (`normalize.js`,
+  `webhookRoutes.js`); berlaku setelah adapter di-deploy ke aulia7.
+- Ref: `docs/requirements/2026-10-12-reaksi-masuk-dan-emoji-picker-inbox.md`,
+  `docs/design/2026-10-12-reaksi-masuk-dan-emoji-picker-inbox.md`. Test:
+  `tests/js/inbox-emoji.test.js`, `tests/feature/InboxGatewayApiReaksiMasukTest.php`,
+  `evolution-gateway/test/simulate-evolution-adapter.js`, `test/test-contract-ci4.js`.
+
 ## 2026-10-11 — Inbox: penanda pesan dihapus tidak lagi dobel + tombol aksi bubble melayang
 
 - **Masalah**: bubble pesan yang dihapus di WhatsApp menampilkan informasi yang sama

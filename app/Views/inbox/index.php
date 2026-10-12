@@ -116,6 +116,7 @@
                          percobaan kirim dan dipakai ulang saat kirim ulang
                          setelah gagal/timeout (REQ-039). Kosong = kunci
                          akan dibuat saat kirim pertama. -->
+                    <div id="panelEmoji" class="inbox-emoji-panel" style="display:none;" role="dialog" aria-label="Pilih emoji"></div>
                     <form id="formBalas" data-operation-id="" onsubmit="return kirimBalasan(event)">
                         <div class="inbox-composer">
                             <button class="inbox-composer-ikon" type="button" id="btnLampirkanMedia" disabled onclick="document.getElementById('inputMediaBalasan').click()" title="Lampirkan file" aria-label="Lampirkan file">
@@ -124,6 +125,9 @@
                             <input type="file" id="inputMediaBalasan" multiple style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="pilihMediaBalasan(event)">
                             <button class="inbox-composer-ikon" type="button" id="btnTemplateBalasan" disabled onclick="bukaModalTemplate()" title="Template Balasan" aria-label="Template Balasan">
                                 <i class="fas fa-comment-dots"></i>
+                            </button>
+                            <button class="inbox-composer-ikon" type="button" id="btnEmojiBalasan" disabled onclick="toggleEmojiPanel()" title="Emoji" aria-label="Emoji">
+                                <i class="far fa-smile"></i>
                             </button>
                             <textarea class="inbox-composer-teks" id="teksBalasan" rows="1" placeholder="Pilih percakapan dulu..." disabled aria-label="Tulis balasan"></textarea>
                             <button class="inbox-composer-kirim" type="submit" id="btnKirimBalasan" disabled title="Kirim" aria-label="Kirim">
@@ -598,4 +602,5 @@
         gatewayStatus: <?= json_encode($gatewayStatus) ?>
     };
 </script>
+<script src="<?= base_url('assets/js/inbox-emoji.js') ?>"></script>
 <script src="<?= base_url('assets/js/inbox-page.js') ?>"></script>
