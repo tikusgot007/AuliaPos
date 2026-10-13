@@ -30,6 +30,9 @@
   menyentuh database/gateway/browser langsung.
 - **Terbuka**: bentuk balasan yang diharapkan M.A.R.A (`{status, data:{id}}`) masih perlu
   dikonfirmasi ke sisi M.A.R.A saat integrasi (di luar workspace ini).
+- **Deploy produksi 2026-10-13**: AULIA-SERVER2 (`192.168.1.10`) `7f44401` → `007a9a5`; migrasi
+  `mara_suggestions` via `/migrasi-manual`. Smoke test produksi lulus (401 tanpa token, 201 kirim
+  valid, 302 baca kasir tanpa session). Tidak ada perubahan gateway.
 - Ref: `docs/requirements/2026-10-13-mara-saran-ke-kasir.md`,
   `docs/design/2026-10-13-mara-saran-ke-kasir.md`. Test:
   `tests/feature/MaraSuggestionsTest.php`, `tests/js/inbox-suggestions.test.js`.

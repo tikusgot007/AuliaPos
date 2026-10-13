@@ -1,8 +1,8 @@
 # Checkpoint Sesi — M.A.R.A saran ke kasir (TODO-MARA1 butir 1)
 
 - **Tanggal**: 2026-10-13
-- **Status**: selesai (kode + test lokal), **belum di-deploy ke produksi**
-- **Repo / branch**: AuliaPos `C:\xampp\htdocs\aulia`, branch `v2.4` (belum commit)
+- **Status**: SELESAI + **SUDAH DI-DEPLOY KE PRODUKSI & TERVERIFIKASI (2026-10-13)**
+- **Repo / branch**: AuliaPos `C:\xampp\htdocs\aulia`, branch `v2.4`; commit `007a9a5` (di `origin/v2.4`)
 
 ## Selesai
 
@@ -39,15 +39,45 @@
 
 ## Tersisa
 
-Lihat `docs/TODO.md` item **TODO-MARA1** butir 1: (a) deploy produksi (kode + migrasi via
-`/migrasi-manual`, dengan persetujuan eksplisit); (b) konfirmasi bentuk balasan ke M.A.R.A lalu
-kabari "endpoint siap untuk tes kirim"; (c) uji tampilan panel di browser kasir.
+Lihat `docs/TODO.md` item **TODO-MARA1** butir 1: (a) konfirmasi bentuk balasan ke M.A.R.A lalu
+kabari "endpoint siap untuk tes kirim"; (b) uji tampilan panel di browser kasir (uji visual belum).
+Deploy produksi SUDAH selesai (lihat bagian Deployment).
+
+## Deployment produksi (2026-10-13)
+
+- **Server**: AULIA-SERVER2 = `192.168.1.10` (dikonfirmasi `@@hostname`).
+- **Kode**: `git pull --ff-only` di `\\aulia-server2\xampp\htdocs\aulia`, `7f44401` → `007a9a5`.
+  `.env`/`.htaccess` tidak terlacak Git → tidak tertimpa. Working tree produksi bersih.
+- **Migrasi**: dijalankan user lewat `/migrasi-manual` (halaman admin). Tabel `mara_suggestions`
+  terkonfirmasi ada di `aulia_inboxdb` (11 kolom + 3 index sesuai desain), dan
+  `2026-10-13-000002 CreateMaraSuggestions` tercatat di `aulia_kasirdb.migrations`.
+- **Backup pra-deploy**: `aulia_inboxdb_20261013.sql` & `aulia_kasirdb_20261013.sql`
+  (arsip di PC dev: `%TEMP%\kilo\prod-backup-20261013\`).
+- **Smoke test produksi (end-to-end, lulus)**:
+  - `POST /api/inbox/mara/suggestions` tanpa token → 401; token salah → 401.
+  - Token benar + conversation tak ada → 404 "Conversation tidak ditemukan."
+  - Token benar + conversation nyata (422) → **201** `{status:"ok",data:{id:1}}`; baris tersimpan
+    `status='active'`, `expires_at` default tepat **1800 detik** (now+30m).
+  - `GET /inbox/api/conversations/422/suggestions` tanpa session → 302 (redirect `/login`).
+  - Baris uji dihapus setelah verifikasi (`mara_suggestions` kembali 0 baris).
+- **Temuan urutan deploy (penting)**: kode sempat aktif ~7 jam SEBELUM migrasi dijalankan
+  (deploy 12:02, migrasi ~19:18). Selama jendela itu jalur `expireMaraSuggestions()` menulis ke
+  tabel yang belum ada → 2 baris ERROR di log (19:05:48), TAPI best-effort/protektif sehingga
+  pengiriman pesan TIDAK terganggu. Setelah tabel dibuat, tidak ada error lagi. Pelajaran: bila
+  tabel baru dipakai di jalur panas, jalankan migrasi berbarengan/segera setelah deploy kode.
+- **Tidak ada perubahan gateway** — fitur murni sisi AuliaPos.
+- **Catatan**: `.env` produksi `CI_ENVIRONMENT = development` (pra-eksisting, di luar lingkup tugas
+  ini; perlu ditinjau terpisah).
 
 ## Belum diverifikasi / risiko
 
 - Sisi M.A.R.A (di luar workspace ini) — bentuk request/response persis belum dikonfirmasi.
-- Tampilan panel di browser kasir (uji visual) belum dilakukan.
-- Migrasi belum dijalankan di `aulia_inboxdb` dev/live; hanya di `aulia_inboxdb_test`.
+- Tampilan panel di browser kasir (uji visual) belum dilakukan (perlu M.A.R.A kirim saran nyata).
+- Uji `expires_at` lewat-waktu & expire-saat-membalas sudah diuji di DB uji + sebagian di produksi,
+  tetapi uji visual end-to-end dengan saran nyata dari M.A.R.A belum.
+- ⚠️ Backup produksi disimpan di `%TEMP%\kilo\prod-backup-20261013\` (PC dev) — sebaiknya
+  dipindahkan ke folder backup permanen `C:\xampp\backup-db-aulia-server2\` (butuh akses admin
+  share, tidak tersedia dari sesi ini).
 
 ## Titik masuk sesi berikutnya
 

@@ -181,9 +181,21 @@ nomor yang sama, pesan juga bisa masuk dua kali. Karena itu `aulia7` dimatikan *
 
 ## 9. Belum terverifikasi
 
-- Apakah `php spark migrate` tanpa opsi tambahan menjalankan migrasi grup `inbox` (migrasi Inbox
-  mendeklarasikan `$DBGroup = 'inbox'`). Pastikan lewat `php spark migrate:status` pada rilis pertama,
-  lalu perbarui bagian ini.
+- **TERJAWAB (2026-10-13)**: `/migrasi-manual` (`MigrationRunner::latest()`) MENJALANKAN migrasi
+  grup `inbox` dan mencatatnya di tabel `migrations` grup **default** (`aulia_kasirdb.migrations`,
+  bukan `aulia_inboxdb.migrations` — tabel itu tidak ada). Dibuktikan saat deploy `007a9a5`:
+  `2026-10-13-000002 CreateMaraSuggestions` tercatat di `aulia_kasirdb.migrations` dan tabel
+  `mara_suggestions` terkonfirmasi ada di `aulia_inboxdb`. **Konsekuensi**: `php spark migrate:status`
+  (tanpa `-g`) menampilkan migrasi Inbox sebagai "sudah jalan" karena membaca tabel yang sama;
+  sedangkan `php spark migrate:status -g inbox` MENYESATKAN (menganggap hampir semua migrasi Inbox
+  belum jalan) — JANGAN pakai `-g inbox` untuk memutuskan migrasi di produksi.
+- `php spark` **berjalan** di AULIA-SERVER2 (via `\\aulia-server2\xampp\php\php.exe`), walau ada
+  warning `Unable to load dynamic library 'curl'` yang tidak fatal. Meski begitu, prosedur resmi
+  tetap memakai `/migrasi-manual` (pilihan user 2026-10-13).
+- **Jalur DB produksi harus eksplisit host**: menjalankan `mysql.exe`/`php.exe` produksi dari PC dev
+  dengan `localhost` akan menyambung ke MySQL **PC dev**, bukan AULIA-SERVER2. Gunakan
+  `-h 192.168.1.10` (atau `--defaults-extra-file` yang memuat `host=192.168.1.10`) dan verifikasi
+  `SELECT @@hostname` = `AULIA-SERVER2` sebelum mempercayai hasilnya.
 - Web server produksi (`.htaccess` mengindikasikan Apache) dan cara me-restart layanan gateway;
   catatan sesi menyebut `restart-adapter.ps1` dan task `AuliaEvolution` di repositori gateway.
 - Jadwal backup otomatis: catatan sesi 2026-10-01 menyebut belum ada untuk sebagian komponen gateway.
