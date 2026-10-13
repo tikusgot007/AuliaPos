@@ -16,6 +16,7 @@ use App\Libraries\InboxMediaDownload;
 use App\Libraries\InboxOutgoingRequest;
 use App\Libraries\InboxRealtimeWs;
 use App\Libraries\InboxGatewayClient;
+use App\Libraries\MaraWebhookDispatcher;
 use App\Services\InboxSlaService;
 use App\Services\InboxMatchSnippetService;
 use App\Services\InboxQuoteSnapshotService;
@@ -1860,6 +1861,14 @@ class Inbox extends BaseController
         log_message('info', "Inbox::kirimMedia sukses. conversation_id={$conversationId}, user_id={$userId}, media_ref=" . ($mediaMetadata ? 'ada' : 'tidak ada'));
 
         $newMessage = $messageModel->find($newMessageId);
+
+        // --- M.A.R.A webhook realtime (TODO-MARA1): best-effort, sama
+        // posisi/alasan dengan hook di InboxGatewayApi::messages().
+        MaraWebhookDispatcher::fromConfig()->dispatchAfterInsert(
+            $newMessage,
+            $conversationModel->find($conversationId) ?? $conversation
+        );
+
         $newMessage = $this->attachSenderNames([$newMessage])[0];
 
         $body = [
@@ -3424,6 +3433,16 @@ class Inbox extends BaseController
         $conversationModel->updateLastMessageIfNewer($conversationId, $now, 'outgoing', $conversationUpdate);
 
         log_message('info', "Inbox::kirimKeConversation sukses. conversation_id={$conversationId}, user_id={$userId}");
+
+        // --- M.A.R.A webhook realtime (TODO-MARA1): best-effort, sama
+        // posisi/alasan dengan hook di InboxGatewayApi::messages().
+        $newMessageRow = $messageModel->find($newMessageId);
+        if ($newMessageRow !== null) {
+            MaraWebhookDispatcher::fromConfig()->dispatchAfterInsert(
+                $newMessageRow,
+                $conversationModel->find($conversationId) ?? $conversation
+            );
+        }
 
         // Sertakan data pesan yang baru dibuat + conversation_id, supaya
         // UI bisa langsung menampilkannya di thread tanpa menunggu

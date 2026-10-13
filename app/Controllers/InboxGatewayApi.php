@@ -9,6 +9,7 @@ use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
 use App\Libraries\InboxMediaBound;
 use App\Libraries\InboxGatewayClient;
+use App\Libraries\MaraWebhookDispatcher;
 use App\Services\SenderIdentityFormatter;
 use App\Services\InboxQuoteSnapshotService;
 use Config\Database;
@@ -492,6 +493,20 @@ class InboxGatewayApi extends BaseController
         }
 
         log_message('info', "InboxGatewayApi::messages() sukses menyimpan pesan ({$direction}). chat_id={$chatId}, wa_message_id={$waMessageId}");
+
+        // --- M.A.R.A webhook realtime (TODO-MARA1): best-effort, DILUAR
+        // transaksi DB di atas (sudah commit) -- sama posisi dengan prefetch
+        // media Tahap C di bawah. Butuh baris message+conversation
+        // TERBARU (bukan $payload mentah) supaya field turunan
+        // (message_timestamp ternormalisasi, conversation.jid_type, dll)
+        // konsisten dengan yang tersimpan di DB.
+        $newMessageRow = $messageModel->find($messageModel->getInsertID());
+        if ($newMessageRow !== null) {
+            MaraWebhookDispatcher::fromConfig()->dispatchAfterInsert(
+                $newMessageRow,
+                $conversationModel->find($conversationId) ?? $conversation
+            );
+        }
 
         // --- Tahap C: prefetch + simpan permanen ke storage lokal -----------
         // Best-effort, DILUAR transaksi DB di atas (sudah commit) -- gagal

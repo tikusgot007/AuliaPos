@@ -26,6 +26,7 @@
 Thumbs.db
 .vscode/
 .idea/
+.codebuddy/
 
 # === Test/build artifacts ===
 /build/

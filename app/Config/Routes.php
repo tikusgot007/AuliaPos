@@ -36,6 +36,17 @@ $routes->post('/api/inbox/gateway/status', 'InboxGatewayApi::status', ['filter' 
 $routes->post('/api/inbox/gateway/message-event', 'InboxGatewayApi::messageEvent', ['filter' => 'gatewaytoken']);
 $routes->post('/api/inbox/gateway/message-status', 'InboxGatewayApi::messageStatus', ['filter' => 'gatewaytoken']);
 
+// ==========================================
+// ROUTE M.A.R.A (MACHINE-TO-MACHINE, BEARER TOKEN TERPISAH DARI GATEWAY)
+// ==========================================
+// Dipanggil oleh M.A.R.A (agent AI pemantau Inbox, jalan di aulia7,
+// satu LAN), BUKAN dari browser kasir -- dikecualikan dari filter
+// session 'auth' (lihat app/Config/Filters.php), diproteksi filter
+// 'maratoken' sendiri (token BEDA dari gatewaytoken -- lihat
+// app/Config/Mara.php). Lihat app/Controllers/MaraController.php.
+$routes->get('/api/inbox/mara/export/conversations', 'MaraController::export', ['filter' => 'maratoken']);
+$routes->get('/api/inbox/mara/resolve/(:num)', 'MaraController::resolve/$1', ['filter' => 'maratoken']);
+
 // Endpoint browser POS (kasir/admin, session-authenticated) untuk
 // kirim balasan text -- Phase 3. UI utama + polling -- Phase 4.
 $routes->get('/inbox', 'Inbox::index', ['filter' => 'auth']);

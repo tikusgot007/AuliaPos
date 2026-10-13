@@ -10,11 +10,12 @@ class AuthFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
-        // 🔥 Endpoint machine-to-machine Gateway WhatsApp -- TIDAK PERNAH
-        // punya session (Gateway itu proses Node.js terpisah, bukan
+        // 🔥 Endpoint machine-to-machine Gateway WhatsApp / M.A.R.A --
+        // TIDAK PERNAH punya session (keduanya proses terpisah, bukan
         // browser kasir yang login), diproteksi sendiri lewat filter
-        // 'gatewaytoken' (Bearer token, lihat
-        // app/Filters/GatewayTokenFilter.php dan Routes.php).
+        // 'gatewaytoken'/'maratoken' (Bearer token, lihat
+        // app/Filters/GatewayTokenFilter.php, app/Filters/MaraTokenFilter.php
+        // dan Routes.php).
         //
         // Dicek EKSPLISIT di sini (bukan hanya mengandalkan 'except'
         // di Config/Filters.php) supaya perilakunya pasti dan tidak
@@ -29,7 +30,8 @@ class AuthFilter implements FilterInterface
         // deployment) yang bikin pengecekan strict-prefix (=== 0)
         // gagal match walau strpos 'contains' berhasil.
         $uriGateway = service('uri')->getPath();
-        if (strpos($uriGateway, 'api/inbox/gateway/') !== false) {
+        if (strpos($uriGateway, 'api/inbox/gateway/') !== false
+            || strpos($uriGateway, 'api/inbox/mara/') !== false) {
             return null;
         }
 

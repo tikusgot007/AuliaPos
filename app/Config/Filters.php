@@ -33,6 +33,7 @@ class Filters extends BaseFilters
         'performance'   => PerformanceMetrics::class,
         'auth'          => \App\Filters\AuthFilter::class, // 🔥 TAMBAHKAN INI
         'gatewaytoken'  => \App\Filters\GatewayTokenFilter::class, // Bearer token untuk endpoint machine-to-machine Gateway WA
+        'maratoken'     => \App\Filters\MaraTokenFilter::class, // Bearer token untuk endpoint machine-to-machine M.A.R.A
     ];
 
     /**
@@ -132,6 +133,13 @@ class Filters extends BaseFilters
                 // bukan lewat session. Lihat app/Filters/GatewayTokenFilter.php
                 // dan docs/aturan-bisnis-AULIA.md Section 28.
                 'api/inbox/gateway/*',
+                // Endpoint machine-to-machine untuk M.A.R.A (agent AI
+                // pemantau Inbox, jalan di aulia7) -- SAMA PRINSIP dengan
+                // WA-Gateway di atas: tidak pernah punya session, diproteksi
+                // filter 'maratoken' (Bearer token) sendiri di route-nya.
+                // Lihat app/Filters/MaraTokenFilter.php dan
+                // app/Controllers/MaraController.php.
+                'api/inbox/mara/*',
             ]
         ],
     ];
