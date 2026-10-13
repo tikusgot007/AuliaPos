@@ -60,7 +60,7 @@ final class InboxViewStructureTest extends CIUnitTestCase
     public function testInlineHandlersAreDefinedInScripts(): void
     {
         $sumber = '';
-        foreach (['inbox-page.js', 'inbox-thread.js', 'inbox-template.js', 'inbox-emoji.js'] as $file) {
+        foreach (['inbox-page.js', 'inbox-thread.js', 'inbox-template.js', 'inbox-emoji.js', 'inbox-suggestions.js'] as $file) {
             $sumber .= (string) file_get_contents(FCPATH . 'assets/js/' . $file);
         }
 
@@ -92,7 +92,7 @@ final class InboxViewStructureTest extends CIUnitTestCase
             'barPilihUnduh', 'perluDibalasBadge', 'gatewayStatusBadge', 'realtimeStatusBadge',
             'btnFilterBelum_diambil', 'btnFilterOpen', 'btnFilterMenunggu',
             'btnFilterDitunda', 'btnFilterSelesai', 'btnFilterGrup',
-            'btnEmojiBalasan', 'panelEmoji',
+            'btnEmojiBalasan', 'panelEmoji', 'panelSaranMara',
         ];
 
         foreach ($ids as $id) {

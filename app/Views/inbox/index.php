@@ -95,6 +95,14 @@
                 </div>
 
                 <div class="inbox-thread-form">
+                    <!-- Panel saran M.A.R.A (TODO-MARA1): draft balasan,
+                         daftar-periksa (checklist), dan peringatan untuk
+                         percakapan yang sedang dibuka. Isi dirender oleh
+                         inbox-suggestions (dipanggil dari inbox-page.js saat
+                         pilihConversation); di luar area scroll thread supaya
+                         tidak hilang saat polling. Lihat
+                         docs/requirements/2026-10-13-mara-saran-ke-kasir.md. -->
+                    <div id="panelSaranMara" class="inbox-saran-panel" style="display:none;"></div>
                     <!-- Area kutipan aktif (Balas Pesan, REQ-005): muncul
                          hanya setelah kasir menekan "Balas" pada salah satu
                          bubble. Tepat di atas kotak ketik supaya jelas
@@ -588,6 +596,7 @@
             conversations: <?= json_encode(base_url('/inbox/api/conversations')) ?>,
             gatewayStatus: <?= json_encode(base_url('/inbox/api/gateway-status')) ?>,
             realtimeTicket: <?= json_encode(base_url('/inbox/api/realtime-ticket')) ?>,
+            suggestionBaseUrl: <?= json_encode(base_url('/inbox/api/conversations/')) ?>,
             kirim: <?= json_encode(base_url('/inbox/kirim')) ?>,
             kirimMedia: <?= json_encode(base_url('/inbox/kirim-media')) ?>,
             mulaiPercakapan: <?= json_encode(base_url('/inbox/mulai-percakapan')) ?>,
@@ -603,4 +612,5 @@
     };
 </script>
 <script src="<?= base_url('assets/js/inbox-emoji.js') ?>"></script>
+<script src="<?= base_url('assets/js/inbox-suggestions.js') ?>"></script>
 <script src="<?= base_url('assets/js/inbox-page.js') ?>"></script>

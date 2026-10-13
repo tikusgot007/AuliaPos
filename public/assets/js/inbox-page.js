@@ -125,6 +125,9 @@ function kosongkanThreadPanel() {
     batalkanKutipan();
     batalkanMediaBalasan();
 
+    // Saran M.A.R.A: tidak ada percakapan aktif -> sembunyikan panel.
+    if (typeof kosongkanSaranMara === 'function') kosongkanSaranMara();
+
     // Nudge 1: panel dikosongkan -> batalkan timer & sembunyikan banner
     // supaya tidak ada banner nyangkut atau timer yang masih berjalan.
     if (nudgeAmbilTimer !== null) {
@@ -1281,6 +1284,14 @@ function pilihConversation(id) {
     tutupEmojiPanel();
     document.getElementById('teksBalasan').focus();
 
+    // Saran M.A.R.A (TODO-MARA1): muat saran aktif untuk percakapan ini.
+    // Opsi A "cukup simpan" -- tanpa push realtime; saran muncul beberapa
+    // detik setelah M.A.R.A mengirim (jauh di dalam SLA 15 menit).
+    // force=true: kasir baru pindah percakapan -> selalu ambil. Panggilan
+    // dari muatUlangPesan() (loop polling) TIDAK force, jadi tertahan throttle
+    // (mencegah fetch ganda saat pilihConversation lalu muatUlangPesan).
+    if (typeof muatSaranMara === 'function') muatSaranMara(id, true);
+
     muatUlangPesan(true);
     panggilWhatsappDibaca(id);
     jadwalkanNudgeAmbil(id);
@@ -1622,6 +1633,10 @@ function muatUlangPesan(scrollPaksa) {
         .catch(function() {
             // Diamkan, siklus polling berikutnya coba lagi.
         });
+
+    // Saran M.A.R.A ikut di-refresh pada siklus polling yang sama, supaya
+    // saran baru muncul tanpa perlu kasir pindah percakapan (AC-8).
+    if (typeof muatSaranMara === 'function') muatSaranMara(idDimuat);
 }
 
 // ================================================================

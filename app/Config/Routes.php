@@ -46,12 +46,22 @@ $routes->post('/api/inbox/gateway/message-status', 'InboxGatewayApi::messageStat
 // app/Config/Mara.php). Lihat app/Controllers/MaraController.php.
 $routes->get('/api/inbox/mara/export/conversations', 'MaraController::export', ['filter' => 'maratoken']);
 $routes->get('/api/inbox/mara/resolve/(:num)', 'MaraController::resolve/$1', ['filter' => 'maratoken']);
+// M.A.R.A -> AuliaPos -> kasir: kirim saran (balasan / daftar-periksa /
+// peringatan) untuk ditampilkan di Inbox. ADDITIVE -- kontrak export/
+// resolve/webhook yang sudah live TIDAK disentuh. Lihat
+// docs/requirements/2026-10-13-mara-saran-ke-kasir.md.
+$routes->post('/api/inbox/mara/suggestions', 'MaraController::suggestions', ['filter' => 'maratoken']);
 
 // Endpoint browser POS (kasir/admin, session-authenticated) untuk
 // kirim balasan text -- Phase 3. UI utama + polling -- Phase 4.
 $routes->get('/inbox', 'Inbox::index', ['filter' => 'auth']);
 $routes->get('/inbox/api/conversations', 'Inbox::apiConversations', ['filter' => 'auth']);
 $routes->get('/inbox/api/conversations/(:num)/messages', 'Inbox::apiMessages/$1', ['filter' => 'auth']);
+// Saran aktif dari M.A.R.A untuk satu percakapan (session kasir). Sumber
+// data: tabel mara_suggestions (grup inbox), diisi lewat
+// POST /api/inbox/mara/suggestions. Lihat
+// docs/requirements/2026-10-13-mara-saran-ke-kasir.md.
+$routes->get('/inbox/api/conversations/(:num)/suggestions', 'Inbox::apiSuggestions/$1', ['filter' => 'auth']);
 $routes->get('/inbox/api/gateway-status', 'Inbox::apiGatewayStatus', ['filter' => 'auth']);
 $routes->get('/inbox/api/realtime-ticket', 'Inbox::apiRealtimeTicket', ['filter' => 'auth']);
 $routes->get('/inbox/media/(:num)', 'Inbox::media/$1', ['filter' => 'auth']);

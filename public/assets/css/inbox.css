@@ -1093,3 +1093,82 @@
     color: #6c757d;
     font-size: 0.72rem;
 }
+
+/* ================================================================
+   Saran M.A.R.A (TODO-MARA1) -- panel saran di atas composer.
+   Warna tepi kiri mengikuti priority: normal biru, tinggi kuning,
+   darurat merah (AC-14).
+   ================================================================ */
+.inbox-saran-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+}
+
+.inbox-saran-judul {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #667781;
+}
+
+.inbox-saran {
+    border-left: 4px solid #0d6efd;
+    border-radius: 8px;
+    background: #f5f8ff;
+    padding: 6px 10px;
+}
+
+.inbox-saran--normal {
+    border-left-color: #0d6efd;
+    background: #f5f8ff;
+}
+
+.inbox-saran--tinggi {
+    border-left-color: #ffc107;
+    background: #fff8e1;
+}
+
+.inbox-saran--darurat {
+    border-left-color: #dc3545;
+    background: #fdecea;
+}
+
+.inbox-saran-tipe {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 2px;
+}
+
+.inbox-saran-teks {
+    font-size: 0.82rem;
+    color: #111b21;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.inbox-saran-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 4px;
+}
+
+.inbox-saran-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #111b21;
+    cursor: pointer;
+}
+
+.inbox-saran-item span {
+    word-wrap: break-word;
+}
+

@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\ConversationModel;
 use App\Models\MessageModel;
 use App\Models\MaraResolveLogModel;
+use App\Models\MaraSuggestionModel;
 use Config\Database;
 use Config\Mara as MaraConfig;
 
@@ -27,14 +28,34 @@ use Config\Mara as MaraConfig;
  *    histori lengkap). HANYA dipanggil M.A.R.A saat eskalasi kasus
  *    nyata ke pemilik (bukan dipanggil otomatis tiap training) --
  *    setiap panggilan WAJIB tercatat di mara_resolve_log untuk audit.
- * 3. (webhook realtime + suggestions -- TODO, belum diimplementasi
- *    di controller ini; dibahas terpisah saat fase operasional.)
+ * 3. suggestions() -- POST saran M.A.R.A untuk kasir (balasan /
+ *    daftar-periksa / peringatan). Arah KEBALIKAN dari webhook: di
+ *    sini M.A.R.A yang menulis, AuliaPos menyimpan ke mara_suggestions
+ *    (grup inbox) dan kasir membacanya lewat endpoint session-auth
+ *    terpisah (Inbox::apiSuggestions()). Lihat
+ *    docs/requirements/2026-10-13-mara-saran-ke-kasir.md.
  *
  * SEMUA method di sini pakai koneksi database 'inbox' (aulia_inboxdb),
  * TIDAK PERNAH koneksi default AuliaPos -- konsisten InboxGatewayApi.
  */
 class MaraController extends BaseController
 {
+    /** Tipe saran yang diterima dari M.A.R.A. */
+    private const SUGGESTION_TYPES = ['balasan', 'daftar-periksa', 'peringatan'];
+
+    /** Tingkat prioritas saran (menentukan warna di UI kasir). */
+    private const SUGGESTION_PRIORITIES = ['normal', 'tinggi', 'darurat'];
+
+    /** Batas panjang teks saran / satu langkah checklist. */
+    private const SUGGESTION_TEXT_MAX = 4096;
+    private const SUGGESTION_ITEM_MAX = 500;
+
+    /** Batas jumlah langkah dalam satu daftar-periksa. */
+    private const SUGGESTION_ITEMS_MAX = 50;
+
+    /** TTL default saran bila M.A.R.A tidak mengirim expires_at. */
+    private const SUGGESTION_DEFAULT_TTL_MINUTES = 30;
+
     /**
      * GET /api/inbox/mara/export/conversations
      *
@@ -207,6 +228,235 @@ class MaraController extends BaseController
                 }, $messages),
             ],
         ]);
+    }
+
+    /**
+     * POST /api/inbox/mara/suggestions
+     *
+     * M.A.R.A mengirim SATU saran untuk kasir pada satu percakapan.
+     * Body JSON (final shape ditentukan AuliaPos, M.A.R.A menyesuaikan):
+     *   {
+     *     "conversation_id": 403,
+     *     "type":     "balasan" | "daftar-periksa" | "peringatan",
+     *     "priority": "normal" | "tinggi" | "darurat",
+     *     "text":     "draft balasan / isi peringatan" (boleh kosong utk daftar-periksa),
+     *     "items":    ["langkah 1", "langkah 2"] (WAJIB utk type='daftar-periksa'),
+     *     "reason":   "kenapa saran ini dibuat" (opsional, audit),
+     *     "expires_at": "2026-10-13T17:00:00+07:00" (opsional; default now+30m)
+     *   }
+     *
+     * Aturan (lihat requirements AC-1..AC-7):
+     * - conversation_id WAJIB bilangan bulat positif yang ADA di conversations.
+     * - type & priority WAJIB salah satu nilai yang diizinkan.
+     * - type='daftar-periksa' WAJIB membawa `items` array string non-kosong.
+     * - maks 1 saran 'active' per tipe per percakapan: saran bertipe sama
+     *   yang lama di-supersede; supersede + insert dalam SATU transaksi.
+     * - expires_at hilang -> default now+30 menit (Asia/Jakarta).
+     * - Semua validasi DIJALANKAN PENUH sebelum insert; body ditolak utuh,
+     *   tidak pernah menyimpan baris setengah jadi.
+     *
+     * Balasan sukses: {"status":"ok","data":{"id":<int>}}.
+     */
+    public function suggestions()
+    {
+        $body = $this->request->getJSON(true);
+
+        if (!is_array($body)) {
+            return $this->suggestionError(400, 'Body JSON tidak valid.');
+        }
+
+        // --- conversation_id ---------------------------------------------
+        $conversationId = isset($body['conversation_id']) && is_numeric($body['conversation_id'])
+            ? (int) $body['conversation_id']
+            : 0;
+
+        if ($conversationId <= 0) {
+            return $this->suggestionError(400, 'conversation_id wajib bilangan bulat positif.');
+        }
+
+        // --- type ---------------------------------------------------------
+        $type = is_string($body['type'] ?? null) ? trim($body['type']) : '';
+        if (!in_array($type, self::SUGGESTION_TYPES, true)) {
+            return $this->suggestionError(400, "type harus salah satu dari: " . implode(', ', self::SUGGESTION_TYPES) . '.');
+        }
+
+        // --- priority -----------------------------------------------------
+        // Default 'normal' bila M.A.R.A tidak mengirimkannya (aman: bukan
+        // data kritis, dan spek menyebut normal sebagai tingkat dasar).
+        $priority = is_string($body['priority'] ?? null) ? trim($body['priority']) : 'normal';
+        if (!in_array($priority, self::SUGGESTION_PRIORITIES, true)) {
+            return $this->suggestionError(400, "priority harus salah satu dari: " . implode(', ', self::SUGGESTION_PRIORITIES) . '.');
+        }
+
+        // --- text ---------------------------------------------------------
+        $text = $body['text'] ?? null;
+        if ($text !== null && !is_string($text)) {
+            return $this->suggestionError(400, 'text harus berupa string.');
+        }
+        $text = $text === null ? null : trim($text);
+        if ($text !== null && strlen($text) > self::SUGGESTION_TEXT_MAX) {
+            return $this->suggestionError(400, 'text terlalu panjang (maksimal ' . self::SUGGESTION_TEXT_MAX . ' karakter).');
+        }
+
+        // --- items (khusus daftar-periksa) --------------------------------
+        $items = $body['items'] ?? null;
+        $itemsJson = null;
+
+        if ($type === 'daftar-periksa') {
+            if (!is_array($items) || $items === []) {
+                return $this->suggestionError(400, "items wajib berupa array string non-kosong untuk type='daftar-periksa'.");
+            }
+
+            foreach ($items as $item) {
+                if (!is_string($item) || trim($item) === '') {
+                    return $this->suggestionError(400, 'items harus berisi string tidak kosong.');
+                }
+                if (strlen($item) > self::SUGGESTION_ITEM_MAX) {
+                    return $this->suggestionError(400, 'item terlalu panjang (maksimal ' . self::SUGGESTION_ITEM_MAX . ' karakter).');
+                }
+            }
+
+            if (count($items) > self::SUGGESTION_ITEMS_MAX) {
+                return $this->suggestionError(400, 'terlalu banyak item (maksimal ' . self::SUGGESTION_ITEMS_MAX . ').');
+            }
+
+            $itemsJson = json_encode(array_values(array_map('strval', $items)), JSON_UNESCAPED_UNICODE);
+        } else {
+            // Untuk tipe lain `items` diabaikan -- tidak disimpan (hanya
+            // $itemsJson yang dipakai insert, dan itu tetap null di sini), dan
+            // tidak ada bagian lain yang membaca $items lagi.
+        }
+
+        // Sebuah saran harus punya KONTEN: teks ATAU items. Daftar-periksa
+        // sudah dijamin punya items di atas; balasan/peringatan butuh teks.
+        if ($type !== 'daftar-periksa' && ($text === null || $text === '')) {
+            return $this->suggestionError(400, "text wajib diisi untuk type='{$type}'.");
+        }
+
+        // --- reason (opsional, audit) -------------------------------------
+        $reason = $body['reason'] ?? null;
+        if ($reason !== null && !is_string($reason)) {
+            return $this->suggestionError(400, 'reason harus berupa string.');
+        }
+        $reason = $reason === null ? null : trim($reason);
+
+        // --- conversation_id harus ADA di conversations -------------------
+        $conversationModel = new ConversationModel();
+        if ($conversationModel->find($conversationId) === null) {
+            return $this->suggestionError(404, 'Conversation tidak ditemukan.');
+        }
+
+        // --- expires_at ---------------------------------------------------
+        $now = MaraSuggestionModel::nowWib();
+
+        if (array_key_exists('expires_at', $body) && $body['expires_at'] !== null && $body['expires_at'] !== '') {
+            if (!is_string($body['expires_at'])) {
+                return $this->suggestionError(400, 'expires_at harus berupa string tanggal-time.');
+            }
+
+            $expiresAt = $this->parseExpiresAt($body['expires_at']);
+            if ($expiresAt === null) {
+                return $this->suggestionError(400, 'expires_at tidak bisa di-parse.');
+            }
+            if ($expiresAt <= $now) {
+                return $this->suggestionError(400, 'expires_at harus di masa depan.');
+            }
+        } else {
+            // Default now + 30 menit (AC-6): saran tidak pernah tersimpan
+            // tanpa batas waktu.
+            $expiresAt = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))
+                ->modify('+' . self::SUGGESTION_DEFAULT_TTL_MINUTES . ' minutes')
+                ->format('Y-m-d H:i:s');
+        }
+
+        // --- supersede (tipe sama) + insert dalam SATU transaksi ----------
+        // Lock baris conversation dulu (AC-5): transaksi saja tidak cukup
+        // untuk menjamin "maks 1 active per tipe" di bawah konkurensi --
+        // lihat MaraSuggestionModel::lockConversation().
+        $suggestionModel = new MaraSuggestionModel();
+        $db = $suggestionModel->db;
+        $db->transBegin();
+
+        try {
+            $suggestionModel->lockConversation($conversationId);
+            $suggestionModel->supersedeSameType($conversationId, $type, $now);
+
+            $suggestionModel->insert([
+                'conversation_id' => $conversationId,
+                'type'            => $type,
+                'priority'        => $priority,
+                'text'            => $text === '' ? null : $text,
+                'items'           => $itemsJson,
+                'reason'          => $reason,
+                'status'          => 'active',
+                'expires_at'      => $expiresAt,
+                'created_at'      => $now,
+                'updated_at'      => $now,
+            ]);
+
+            $newId = (int) $suggestionModel->getInsertID();
+
+            if ($db->transStatus() === false || $newId <= 0) {
+                $db->transRollback();
+
+                return $this->suggestionError(500, 'Gagal menyimpan saran.');
+            }
+
+            $db->transCommit();
+        } catch (\Throwable $e) {
+            $db->transRollback();
+
+            log_message('error', 'MaraController::suggestions() gagal menyimpan saran conversation_id=' . $conversationId . ': ' . $e->getMessage());
+
+            return $this->suggestionError(500, 'Gagal menyimpan saran.');
+        }
+
+        return $this->response->setStatusCode(201)->setJSON([
+            'status' => 'ok',
+            'data'   => [
+                'id' => $newId,
+            ],
+        ]);
+    }
+
+    /**
+     * Bentuk balasan error yang konsisten untuk suggestions().
+     */
+    private function suggestionError(int $code, string $message)
+    {
+        return $this->response->setStatusCode($code)->setJSON([
+            'status'  => 'error',
+            'message' => $message,
+        ]);
+    }
+
+    /**
+     * Parse expires_at dari M.A.R.A (ISO-8601, mis. "2026-10-13T17:00:00+07:00")
+     * -> DATETIME WIB 'Y-m-d H:i:s'. Null kalau tidak bisa di-parse.
+     *
+     * Timestamp apa pun dinormalkan ke zona Asia/Jakarta dulu (setTimezone)
+     * supaya instant-nya benar -- BEDA dari parseDateBoundary() di file ini
+     * yang TIDAK menormalkan zona (bug 7 jam pernah terjadi di
+     * InboxGatewayApi::parseTimestamp() karena format() tanpa konversi).
+     * Karena M.A.R.A mengirim +07:00 (offset), normalisasi ini WAJIB di sini
+     * supaya perbandingan expires_at > now (WIB) konsisten.
+     */
+    private function parseExpiresAt(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            $dt = new \DateTime($value);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        $dt->setTimezone(new \DateTimeZone('Asia/Jakarta'));
+
+        return $dt->format('Y-m-d H:i:s');
     }
 
     /**

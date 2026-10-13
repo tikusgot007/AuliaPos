@@ -1,7 +1,7 @@
 # Requirements: M.A.R.A mengirim saran ke kasir (balasan / daftar-periksa / peringatan)
 
 - **Tanggal**: 2026-10-13
-- **Status**: draf (menunggu persetujuan Gate 1)
+- **Status**: DISETUJUI Gate 1 (2026-10-13)
 - **Tier SDLC**: A (fitur baru + perubahan skema database)
 - **Penanggung jawab**: pemilik proyek
 
@@ -135,19 +135,19 @@ Tampilan:
 - Saran kedaluwarsa "hilang otomatis" — tidak ada aksi hapus manual dari kasir.
 - `conversation_id` yang dikirim M.A.R.A adalah `conversations.id` asli (bukan hash).
 
-**Pertanyaan (mengubah hasil):**
+**Pertanyaan (mengubah hasil) — SUDAH DIJAWAB user 2026-10-13:**
 
-1. **Bentuk default `expires_at`** bila M.A.R.A tidak mengirimnya — 30 menit (rekomendasi, sesuai
-   spek M.A.R.A) atau nilai lain?
-2. **Penandaan expired saat kasir membalas**: cukup set `status='expired'` pada saran percakapan
-   itu (rekomendasi, tanpa menghapus baris — baris tetap ada sebagai jejak audit), atau hapus
-   barisnya?
-3. **Bentuk balasan endpoint tulis**: `{status, data:{id}}` (rekomendasi, konsisten gaya endpoint
-   lain) — konfirmasi M.A.R.A agar tidak salah parse.
+1. **Bentuk default `expires_at`** bila M.A.R.A tidak mengirimnya — **DIPUTUSKAN: `now + 30 menit`**
+   (sesuai spek M.A.R.A). Saran tidak pernah tersimpan tanpa batas waktu.
+2. **Penandaan expired saat kasir membalas** — **DIPUTUSKAN: set `status='expired'`, baris TETAP ADA**
+   (tidak dihapus) sebagai jejak audit.
+3. **Bentuk balasan endpoint tulis** — **DIPUTUSKAN: `{status, data:{id}}`** (konsisten gaya endpoint
+   lain). **Catatan integrasi**: bentuk ini masih perlu dikonfirmasi ke M.A.R.A saat integrasi
+   (sisi M.A.R.A di luar workspace); default sementara ini yang dipakai sampai konfirmasi.
 
 ## 8. Persetujuan (Gate 1)
 
-- [ ] Disetujui oleh: <nama>, tanggal: <YYYY-MM-DD>
+- [x] Disetujui oleh: pemilik proyek, tanggal: 2026-10-13 (Gate 1 — balasan "lanjut")
 
 ## 9. Rujukan
 

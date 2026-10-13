@@ -9,6 +9,7 @@ use App\Models\MessageModel;
 use App\Models\MessageSendAuditModel;
 use App\Models\GatewayStatusModel;
 use App\Models\UserModel;
+use App\Models\MaraSuggestionModel;
 use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
 use App\Libraries\InboxMediaBound;
@@ -534,6 +535,57 @@ class Inbox extends BaseController
             'messages'     => $messages,
             'timeline'     => $timeline,
             'has_more'     => $page['has_more'],
+        ]);
+    }
+
+    /**
+     * GET /inbox/api/conversations/(:num)/suggestions
+     *
+     * Saran M.A.R.A yang masih layak ditampilkan kasir untuk satu
+     * percakapan: status='active' dan belum lewat expires_at (requirements
+     * AC-8/AC-9). Saran 'superseded'/'expired' TIDAK dikembalikan.
+     *
+     * Fail-safe: kalau tabel `mara_suggestions` belum dimigrasi (mis. deploy
+     * kode sebelum menjalankan migrasi produksi via /migrasi-manual),
+     * endpoint mengembalikan daftar KOSONG, bukan error 500 -- supaya
+     * halaman Inbox kasir tidak rusak.
+     *
+     * Teks saran diperlakukan TIDAK DIPERCAYA; escaping dilakukan di sisi
+     * klien (escapeHtmlInbox) saat render (AC-15).
+     */
+    public function apiSuggestions($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        if ($conversationModel->find($conversationId) === null) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        try {
+            $suggestions = (new MaraSuggestionModel())->activeForConversation($conversationId);
+        } catch (\Throwable $e) {
+            log_message('error', 'Inbox::apiSuggestions() gagal membaca mara_suggestions conversation_id=' . $conversationId . ': ' . $e->getMessage());
+
+            $suggestions = [];
+        }
+
+        // `items` disimpan sebagai JSON string; decode jadi array supaya kasir
+        // bisa merender tiap langkah. NULL tetap NULL (bukan array kosong).
+        foreach ($suggestions as &$suggestion) {
+            $suggestion['conversation_id'] = (int) $suggestion['conversation_id'];
+            $suggestion['items'] = (!empty($suggestion['items']))
+                ? json_decode((string) $suggestion['items'], true)
+                : null;
+        }
+        unset($suggestion);
+
+        return $this->response->setJSON([
+            'status'      => 'success',
+            'suggestions' => $suggestions,
         ]);
     }
 
@@ -1868,6 +1920,11 @@ class Inbox extends BaseController
             $newMessage,
             $conversationModel->find($conversationId) ?? $conversation
         );
+
+        // Kasir sudah mengirim pesan keluar di percakapan ini -> saran
+        // M.A.R.A untuk percakapan itu tidak relevan lagi (requirements
+        // AC-10). Baris TIDAK dihapus, hanya di-expire (jejak audit).
+        $this->expireMaraSuggestions($conversationId);
 
         $newMessage = $this->attachSenderNames([$newMessage])[0];
 
@@ -3444,6 +3501,11 @@ class Inbox extends BaseController
             );
         }
 
+        // Kasir sudah mengirim pesan keluar (balasan ATAU teruskan) di
+        // percakapan ini -> saran M.A.R.A di-expire (requirements AC-10;
+        // keputusan user: SEMUA pesan keluar sukses menutup saran).
+        $this->expireMaraSuggestions($conversationId);
+
         // Sertakan data pesan yang baru dibuat + conversation_id, supaya
         // UI bisa langsung menampilkannya di thread tanpa menunggu
         // siklus polling berikutnya -- sesuai spec: "outgoing langsung
@@ -3498,6 +3560,25 @@ class Inbox extends BaseController
         }
 
         return null;
+    }
+
+    /**
+     * Tandai semua saran M.A.R.A yang masih 'active' pada satu percakapan
+     * sebagai 'expired' (requirements AC-10): kasir sudah mengirim pesan
+     * keluar, jadi saran tidak relevan lagi. Baris TIDAK dihapus (keputusan
+     * user: tetap ada sebagai jejak audit).
+     *
+     * Best-effort murni: kegagalan di sini TIDAK PERNAH menggagalkan
+     * pengiriman pesan yang sudah sukses (sama pola dengan hook webhook
+     * M.A.R.A di atas) -- hanya dicatat ke log.
+     */
+    private function expireMaraSuggestions(int $conversationId): void
+    {
+        try {
+            (new MaraSuggestionModel())->expireForConversation($conversationId);
+        } catch (\Throwable $e) {
+            log_message('error', 'Inbox::expireMaraSuggestions() gagal expire saran conversation_id=' . $conversationId . ': ' . $e->getMessage());
+        }
     }
 
     /**

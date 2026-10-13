@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\ConversationModel;
 use App\Models\MessageModel;
 use App\Models\GatewayStatusModel;
+use App\Models\MaraSuggestionModel;
 use App\Libraries\PhoneNumber;
 use App\Libraries\InboxMediaStorage;
 use App\Libraries\InboxMediaBound;
@@ -508,6 +509,17 @@ class InboxGatewayApi extends BaseController
             );
         }
 
+        // Balasan staff yang dikirim LANGSUNG dari WA Web/HP juga masuk sini
+        // (direction='outgoing', lihat catatan field 'direction' di atas).
+        // Kasir sudah membalas percakapan ini -> saran M.A.R.A untuk
+        // percakapan itu tidak relevan lagi (requirements AC-10: SEMUA pesan
+        // keluar sukses menutup saran, termasuk yang tidak lewat POS).
+        // Best-effort, DILUAR transaksi (sudah commit) -- gagal di sini tidak
+        // pernah menggagalkan penerimaan pesan.
+        if ($direction === 'outgoing') {
+            $this->expireMaraSuggestions($conversationId);
+        }
+
         // --- Tahap C: prefetch + simpan permanen ke storage lokal -----------
         // Best-effort, DILUAR transaksi DB di atas (sudah commit) -- gagal
         // di sini TIDAK PERNAH menggagalkan penerimaan pesan itu sendiri,
@@ -955,5 +967,24 @@ class InboxGatewayApi extends BaseController
             'status'  => 'success',
             'matched' => true,
         ]);
+    }
+
+    /**
+     * Tandai semua saran M.A.R.A yang masih 'active' pada satu percakapan
+     * sebagai 'expired' (requirements AC-10): sebuah pesan keluar sudah
+     * terkirim di percakapan itu, jadi saran tidak relevan lagi. Baris TIDAK
+     * dihapus (keputusan user: tetap ada sebagai jejak audit).
+     *
+     * Best-effort murni: kegagalan di sini TIDAK PERNAH menggagalkan
+     * penyimpanan pesan yang sudah sukses -- hanya dicatat ke log. Sama pola
+     * dengan Inbox::expireMaraSuggestions() (dipakai di jalur kirim POS).
+     */
+    private function expireMaraSuggestions(int $conversationId): void
+    {
+        try {
+            (new MaraSuggestionModel())->expireForConversation($conversationId);
+        } catch (\Throwable $e) {
+            log_message('error', 'InboxGatewayApi::expireMaraSuggestions() gagal expire saran conversation_id=' . $conversationId . ': ' . $e->getMessage());
+        }
     }
 }

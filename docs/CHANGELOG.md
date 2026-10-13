@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-10-13 — Inbox: M.A.R.A mengirim saran ke kasir (balasan / daftar-periksa / peringatan)
+
+- **Fitur baru**: M.A.R.A (asisten AI pemantau Inbox di `aulia7`) kini punya jalur resmi
+  mengirim **saran** ke kasir lewat AuliaPos: `POST /api/inbox/mara/suggestions` (bearer token
+  `mara.apiToken`, terpisah dari token WA-Gateway). AuliaPos menyimpan saran di tabel baru
+  `mara_suggestions` (database `aulia_inboxdb`), lalu kasir melihatnya di halaman Inbox saat
+  membuka/menyegarkan percakapan — lewat `GET /inbox/api/conversations/(:num)/suggestions`.
+- **Tiga jenis saran**: `balasan` (draft siap-pakai; kasir klik untuk mengisi kotak balasan,
+  **tidak** otomatis terkirim), `daftar-periksa` (`items` sebagai checklist yang bisa dicentang
+  satu-satu), dan `peringatan` (alert). Warna mengikuti `priority`: normal (biru), tinggi
+  (kuning), darurat (merah).
+- **Aturan saran**: maksimal 1 aktif per tipe per percakapan (tipe sama saling menggantikan;
+  total maksimal 3). Jaminan ini ditegakkan lewat kunci baris percakapan (`SELECT ... FOR UPDATE`)
+  di dalam transaksi supersede+insert, supaya tetap berlaku walau ada dua kiriman bersamaan.
+  `expires_at` hilang otomatis: kasir membalas **atau** lewat 30 menit (default bila M.A.R.A
+  tidak mengirim). Saran yang lewat waktu tidak ditampilkan (tanpa label "basi").
+- **Saat kasir membalas**: begitu sebuah pesan keluar berhasil terkirim (balasan biasa, teruskan,
+  **atau** balasan staff yang disinkronkan dari WA Web/HP lewat webhook Gateway) pada percakapan
+  itu, semua saran aktif di percakapan itu diset `expired` — barisnya **tetap ada** sebagai jejak
+  audit (tidak dihapus). Kalau kirim gagal, status saran tidak berubah.
+- **Jalur "cukup simpan" (Opsi A)**: tanpa push realtime — saran muncul beberapa detik setelah
+  M.A.R.A mengirim, jauh di dalam SLA. Tidak ada perubahan pada Gateway maupun kontrak
+  export/resolve/webhook yang sudah live.
+- **Skema**: tabel baru `mara_suggestions` (grup `inbox`, additive murni, tanpa FK). Perlu
+  dijalankan saat deploy produksi lewat `/migrasi-manual`.
+- **Keamanan**: M.A.R.A diperlakukan sebagai pemanggil tidak tepercaya — semua input divalidasi
+  penuh sebelum simpan; teks saran di-escape saat render (anti-XSS). M.A.R.A tidak pernah
+  menyentuh database/gateway/browser langsung.
+- **Terbuka**: bentuk balasan yang diharapkan M.A.R.A (`{status, data:{id}}`) masih perlu
+  dikonfirmasi ke sisi M.A.R.A saat integrasi (di luar workspace ini).
+- Ref: `docs/requirements/2026-10-13-mara-saran-ke-kasir.md`,
+  `docs/design/2026-10-13-mara-saran-ke-kasir.md`. Test:
+  `tests/feature/MaraSuggestionsTest.php`, `tests/js/inbox-suggestions.test.js`.
+
 ## 2026-10-12 — Inbox: pemilih emoji di composer + reaksi pelanggan tampil sebagai kutipan
 
 - **Pemilih emoji**: tombol senyum baru di composer membuka panel ±80 emoji umum dalam
