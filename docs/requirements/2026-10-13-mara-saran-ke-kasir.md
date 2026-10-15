@@ -142,8 +142,11 @@ Tampilan:
 2. **Penandaan expired saat kasir membalas** — **DIPUTUSKAN: set `status='expired'`, baris TETAP ADA**
    (tidak dihapus) sebagai jejak audit.
 3. **Bentuk balasan endpoint tulis** — **DIPUTUSKAN: `{status, data:{id}}`** (konsisten gaya endpoint
-   lain). **Catatan integrasi**: bentuk ini masih perlu dikonfirmasi ke M.A.R.A saat integrasi
-   (sisi M.A.R.A di luar workspace); default sementara ini yang dipakai sampai konfirmasi.
+   lain). **✅ KONFIRMASI FINAL dari M.A.R.A (2026-10-13, via Telegram)**: sukses = HTTP 201
+   `{"status":"ok","data":{"id":<int>}}`; gagal = `{"status":"error","message":"..."}` (400/401/404/500).
+   Seluruh kontrak lain juga dikonfirmasi cocok (type/priority, items WAJIB untuk daftar-periksa,
+   text WAJIB untuk balasan/peringatan, expires_at default now+30m, maks 1 aktif per tipe,
+   hilang saat kasir membalas termasuk dari WA Web/HP). **Tidak ada perubahan kontrak.**
 
 ## 8. Persetujuan (Gate 1)
 

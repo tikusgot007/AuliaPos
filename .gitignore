@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+rahasia.txt
 
 # === Dependency (di-install ulang lewat composer install) ===
 /vendor/
