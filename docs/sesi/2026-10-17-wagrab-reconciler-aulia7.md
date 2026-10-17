@@ -1,8 +1,8 @@
 # Checkpoint Sesi — Worker reconciler WAGRAB + alarm Inbox (aulia7)
 
 - **Tanggal**: 2026-10-17
-- **Status**: sebagian — worker terpasang & task aktif di `aulia7`; **endpoint tujuan belum ada di produksi**
-- **Repo / branch**: AuliaPos `v2.4` (docs saja di sesi ini), host `aulia7` (script + task)
+- **Status**: selesai — worker + task aktif di `aulia7`, endpoint sudah live di produksi dan lulus smoke test
+- **Repo / branch**: AuliaPos `v2.4` (commit `6530f07`, `9747c31`), host `aulia7` (script + task)
 
 ## Selesai
 
@@ -20,10 +20,9 @@
 
 ## Tersisa
 
-- **Deploy endpoint ke produksi.** `POST https://192.168.1.10/aulia/api/inbox/sync-missing` masih `404 Can't find a route for 'POST: api/inbox/sync-missing'`; `app/Controllers/Api/` tidak ada di `W:\htdocs\aulia`, HEAD produksi `2662456`. Endpoint baru terverifikasi lokal (feature test 4/4 lulus).
-- Selama endpoint belum ada, worker akan `exit 1` setiap kali ada kandidat (saat ini `candidates=0`, jadi task tampak sehat). Jangan biarkan kondisi ini permanen.
-- Alarm Telegram belum aktif (`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` kosong).
-- Uji end-to-end dengan pesan nyata yang benar-benar drop belum dilakukan.
+- **Alarm Telegram belum aktif** (`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` kosong). Isi dua nilai itu di `C:\AuliaPosGateway\config\wagrab-reconciler.json` bila alert ingin dipakai.
+- Uji end-to-end dengan pesan nyata yang benar-benar drop belum dilakukan — worker sudah terbukti bisa bicara dengan endpoint, tetapi belum pernah menambal pesan sungguhan (sejak deploy belum ada kandidat).
+- **Deploy produksi 2026-10-17**: `W:\htdocs\aulia` `2662456` → `9747c31` (fast-forward, working tree bersih, `.env` backup di `W:\htdocs\.env.bak_pre_syncmissing_20261017`). Smoke test: tanpa token 401, token salah 401, token valid + `[]` → 200 `{inserted:0, ignored:0}`, duplikat `wa_message_id` nyata → 200 `{inserted:0, ignored:1}`. `writable/logs` 0 ERROR.
 
 ## Belum diverifikasi / risiko
 

@@ -15,9 +15,11 @@
   opsional: kredensial Telegram kosong berarti alert dilewati, rekonsiliasi tetap jalan.
 - **Batas yang disengaja**: worker tidak mengunduh media, tidak menyentuh sesi Signal, dan tidak
   menulis ke database WAGRAB. Pesan lebih tua dari 30 menit tidak ditambal otomatis.
-- **Status deploy**: worker + Scheduled Task `WAGRAB-Reconciler` (SYSTEM, tiap 3 menit) **sudah aktif
-  di `aulia7`**. Endpoint `POST /api/inbox/sync-missing` **belum ada di produksi** (masih 404) —
-  sampai endpoint di-deploy, worker akan gagal setiap kali ada kandidat. Alarm Telegram belum diisi.
+- **Status deploy**: worker + Scheduled Task `WAGRAB-Reconciler` (SYSTEM, tiap 3 menit) **aktif
+  di `aulia7`**, dan endpoint `POST /api/inbox/sync-missing` **sudah live di produksi**
+  (`aulia-server2`, commit `9747c31`) sejak 2026-10-17. Smoke test produksi lulus: tanpa token 401,
+  token salah 401, token valid `[]` → 200, duplikat `wa_message_id` → `ignored`. Alarm Telegram
+  belum diisi, dan belum ada pesan sungguhan yang ditambal sejak deploy.
 - Ref: `docs/requirements/2026-10-17-wagrab-reconciler.md`, `docs/design/2026-10-17-wagrab-reconciler.md`,
   `docs/sesi/2026-10-17-wagrab-reconciler-aulia7.md`.
 
