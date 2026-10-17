@@ -7,7 +7,7 @@
   `C:\AuliaPosGateway\scripts\wagrab-reconciler.mjs` di gateway `aulia7` berjalan tiap 3 menit,
   membaca pesan `direction='in'` dari SQLite WAGRAB dalam jendela UTC 30 → 2 menit lalu, mengabaikan
   `album`/`revoked`/`ciphertext`, dan mengirimnya ke `POST /api/inbox/sync-missing`.
-- **Penandaan**: pesan hasil tambalan ditandai prefix `[AUTO-HEAL WAGRAB] ` pada `text` untuk media
+- **Penandaan**: pesan hasil tambalan ditandai prefix `⚠️ [CEK WA WEB] ` pada `text` untuk media
   (file fisik tetap di WhatsApp Web, `media_path` NULL) dan `wa_message_id` yang sama tidak pernah
   tersimpan dua kali (idempotensi di endpoint). Kasir bisa membedakan pesan tambalan dari pesan normal.
 - **Alarm**: bila endpoint melaporkan `inserted > 0`, worker mengirim satu notifikasi Telegram

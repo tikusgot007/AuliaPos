@@ -143,7 +143,7 @@ class InboxReconcile extends BaseController
             // Format isi teks dan prefix media
             $rawBody = (string) ($item['caption'] ?? $item['text'] ?? '');
             if ($messageType !== 'text') {
-                $text = '[AUTO-HEAL WAGRAB]' . ($rawBody !== '' ? ' ' . $rawBody : '');
+                $text = '⚠️ [CEK WA WEB]' . ($rawBody !== '' ? ' ' . $rawBody : '');
             } else {
                 $text = $rawBody;
             }

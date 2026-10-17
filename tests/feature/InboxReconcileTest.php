@@ -101,7 +101,7 @@ final class InboxReconcileTest extends CIUnitTestCase
         $msg = $this->inbox->table('messages')->where('wa_message_id', $waId)->get()->getRowArray();
         $this->assertNotNull($msg);
         $this->assertSame('image', $msg['message_type']);
-        $this->assertSame('[AUTO-HEAL WAGRAB] foto bukti bayar', $msg['text']);
+        $this->assertSame('⚠️ [CEK WA WEB] foto bukti bayar', $msg['text']);
         $this->assertNull($msg['media_path']);
         $this->assertSame('bukti.jpg', $msg['media_filename']);
     }
