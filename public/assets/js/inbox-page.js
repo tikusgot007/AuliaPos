@@ -629,6 +629,16 @@ function renderThreadHeader() {
         '<button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Tulis catatan internal (tidak terkirim ke pelanggan)" onclick="bukaModalCatatanInternal()">' +
         '<i class="fas fa-sticky-note"></i> Catatan Internal</button>';
 
+    // Inbox -> Kasir. Tidak dirender untuk grup (server juga menolak 403).
+    // Disabled selama permintaan berjalan -- state ada di variabel global
+    // karena polling mengganti innerHTML header dan akan mengaktifkan
+    // kembali tombol yang baru saja dinonaktifkan.
+    const tombolBuatPesanan = isGrup ? '' :
+        '<button type="button" class="btn btn-sm btn-success me-1" id="btnBuatPesanan" title="Buka Kasir dengan pelanggan ini" onclick="buatPesanan()"' +
+        (buatPesananBerjalan ? ' disabled' : '') + '>' +
+        (buatPesananBerjalan ? '<span class="spinner-border spinner-border-sm"></span>' : '<i class="fas fa-cash-register"></i>') +
+        ' Buat Pesanan</button>';
+
     // Edit & Hapus TIDAK lagi tampil di header -- dipindah ke masing-
     // masing row percakapan di daftar kiri (lihat editPercakapanDariList()/
     // hapusPercakapanDariList()).
@@ -639,7 +649,100 @@ function renderThreadHeader() {
         tombolKonfirmasiNomor +
         infoAssign +
         '</span>' +
-        '<span>' + tombolCatatanInternal + tombolTandaiDibaca + tombolHandoff + tombolFollowUp + tombolTutup + tombolAssign + '</span>';
+        '<span>' + tombolBuatPesanan + tombolCatatanInternal + tombolTandaiDibaca + tombolHandoff + tombolFollowUp + tombolTutup + tombolAssign + '</span>';
+}
+
+let buatPesananBerjalan = false;
+
+// Token CSRF untuk endpoint yang dilindungi filter 'csrf' per-route. Token
+// berputar setiap POST terverifikasi, jadi nilainya diganti dari balasan
+// server (field `csrf`). Cookie CSRF httponly, JS tidak bisa membacanya.
+const CSRF_INBOX = INBOX_PAGE_CONFIG.csrf || {
+    header: 'X-CSRF-TOKEN',
+    token: ''
+};
+
+function perbaruiTokenCsrf(json) {
+    if (json && typeof json.csrf === 'string' && json.csrf !== '') {
+        CSRF_INBOX.token = json.csrf;
+    }
+}
+
+/**
+ * Inbox -> Kasir. Dipanggil dari tombol header ("Buat Pesanan") dan dari
+ * tombol aksi saran M.A.R.A (action "buka_kasir"). `conversationId`
+ * opsional: bila kosong memakai percakapan yang sedang terbuka.
+ */
+function buatPesanan(conversationId) {
+    const idPercakapan = conversationId || conversationAktif;
+    if (!idPercakapan || buatPesananBerjalan) return;
+
+    buatPesananBerjalan = true;
+    renderThreadHeader();
+
+    // Tab baru dibuka SINKRON di dalam klik (sebelum fetch) supaya tidak
+    // diblokir popup blocker; URL-nya diisi setelah server menjawab.
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
+
+    const tutupTab = function() {
+        if (tab && !tab.closed) tab.close();
+    };
+
+    // X-Requested-With membuat CI4 menganggap ini AJAX: kegagalan CSRF di
+    // produksi (Security::$redirect = true) kembali sebagai 403 JSON, bukan
+    // redirect 302 ke halaman HTML yang tidak bisa di-parse sebagai JSON.
+    const headers = {
+        'X-Requested-With': 'XMLHttpRequest'
+    };
+    headers[CSRF_INBOX.header] = CSRF_INBOX.token;
+
+    fetch(INBOX_URL.percakapan + idPercakapan + '/buat-pesanan', {
+            method: 'POST',
+            headers: headers
+        })
+        .then(function(res) {
+            // 403 dari filter CSRF datang sebagai JSON tanpa `status`
+            // (token kedaluwarsa, mis. halaman ini terbuka di dua tab).
+            if (res.status === 403) {
+                return res.json().catch(function() {
+                    return {};
+                }).then(function(json) {
+                    if (!json.status) {
+                        json = {
+                            status: 'error',
+                            message: 'Sesi keamanan halaman kedaluwarsa. Muat ulang halaman Inbox (F5) lalu coba lagi.'
+                        };
+                    }
+                    return json;
+                });
+            }
+            return res.json();
+        })
+        .then(function(json) {
+            perbaruiTokenCsrf(json);
+            if (json.status === 'success' && json.redirect_url) {
+                if (json.pelanggan_baru) {
+                    showToast('Pelanggan baru dibuat dari percakapan ini.', 'success');
+                }
+                if (tab && !tab.closed) {
+                    tab.location.href = json.redirect_url;
+                } else {
+                    window.location.href = json.redirect_url;
+                }
+            } else {
+                tutupTab();
+                showToast(json.message || 'Gagal membuat pesanan.', 'danger');
+            }
+        })
+        .catch(function(err) {
+            tutupTab();
+            showToast('Gagal menghubungi server: ' + err.message, 'danger');
+        })
+        .finally(function() {
+            buatPesananBerjalan = false;
+            renderThreadHeader();
+        });
 }
 
 // Menit dari sekarang sampai jam 08:00 hari berikutnya -- dipakai

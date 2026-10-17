@@ -80,6 +80,12 @@ $routes->post('/inbox/percakapan/(:num)/lepas', 'Inbox::lepasPercakapan/$1', ['f
 $routes->post('/inbox/percakapan/(:num)/tutup', 'Inbox::tutupPercakapan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/profil', 'Inbox::updateCustomerProfile/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/konfirmasi-nomor', 'Inbox::konfirmasiNomorWhatsapp/$1', ['filter' => 'auth']);
+// Inbox -> Kasir: cari/buat pelanggan, tautkan ke percakapan, balas URL Kasir.
+// Lihat docs/design/2026-10-16-inbox-ke-kasir.md.
+// Filter 'csrf' dipasang PER-ROUTE di sini (route baru, menulis ke dua DB).
+// Filter csrf global tetap mati (keputusan TODO-BL22b); jangan hapus 'csrf'
+// dari baris ini tanpa mengganti dengan perlindungan setara.
+$routes->post('/inbox/percakapan/(:num)/buat-pesanan', 'Inbox::buatPesanan/$1', ['filter' => ['auth', 'csrf']]);
 $routes->post('/inbox/percakapan/(:num)/tandai-dibaca', 'Inbox::tandaiDibaca/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/whatsapp-dibaca', 'Inbox::whatsappDibaca/$1', ['filter' => 'auth']);
 $routes->post('/inbox/percakapan/(:num)/snooze', 'Inbox::snoozePercakapan/$1', ['filter' => 'auth']);

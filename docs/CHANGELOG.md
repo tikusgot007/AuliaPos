@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 2026-10-17 — Inbox ke Kasir: tombol "Buat Pesanan" + aksi "Buka di Kasir" pada saran M.A.R.A
+
+- **Fitur baru (aturan bisnis)**: di percakapan WhatsApp pribadi, kasir bisa menekan **Buat Pesanan**
+  untuk membuka halaman Kasir dengan pelanggan sudah terisi. Server mencari pelanggan secara berurutan:
+  (1) pelanggan yang sudah tertaut ke percakapan itu; (2) pelanggan dengan **nomor yang sama persis**
+  (format apa pun: `08…`, `62…`, `+62 …`, spasi/strip/titik/kurung diabaikan); (3) bila tidak ada,
+  **membuat pelanggan baru** dari nama percakapan (nama manual, lalu nama WhatsApp; maks. 100 karakter),
+  nomor format `08…`, diskon 0. Hasilnya ditautkan ke percakapan (`conversations.pelanggan_id`).
+- **Aturan penolakan**: percakapan grup dan percakapan yang dipegang kasir lain (admin boleh) ditolak;
+  tanpa nama layak (kosong / kurang dari 2 karakter) ditolak 422 dengan arahan memakai Edit Profil; nama yang
+  sudah dipakai pelanggan lain dengan **nomor berbeda** ditolak 409 (tidak otomatis memakai pelanggan itu,
+  agar tidak salah orang). Percakapan `@lid` tanpa nomor terverifikasi **tidak pernah dicocokkan lewat
+  nomor** (tidak menebak); nomor `pn` tanpa `phone` diambil dari `chat_id` `…@s.whatsapp.net`.
+- **Kasir**: halaman Kasir tidak diubah; memakai ulang parameter URL yang sudah dipahami
+  (`pelanggan_id`, `pelanggan_nama`, `pelanggan_telp`, `pelanggan_diskon`). Tab Kasir dibuka baru; bila
+  pop-up diblokir browser, halaman Inbox berpindah ke Kasir. Tombol dinonaktifkan selama permintaan berjalan.
+- **Keamanan**: route `POST /inbox/percakapan/(:num)/buat-pesanan` diverifikasi **CSRF per-route**
+  (`['auth','csrf']`). Filter CSRF **global tetap mati** (keputusan TODO-BL22b, 2026-10-11) dan
+  `Filters.php`/`Security.php` tidak diubah. Token berputar tiap POST; setiap balasan (sukses maupun error)
+  membawa token baru. Halaman Inbox yang terbuka di dua tab bisa kedaluwarsa: kasir diminta memuat ulang.
+- **Kontrak M.A.R.A (perubahan additive)**: `POST /api/inbox/mara/suggestions` menerima field opsional
+  `action`. Satu-satunya nilai sah: `buka_kasir`; hanya untuk tipe `balasan` / `peringatan`; selain itu
+  **400** dan saran ditolak utuh. `action` hanya **pengenal**, bukan URL/parameter: kasir melihat tombol
+  "Buka di Kasir" pada saran itu, dan tombol menjalankan alur yang sama dengan Buat Pesanan untuk
+  percakapan yang sedang terbuka. M.A.R.A tidak memanggil endpoint transaksional dan tidak bisa membuat
+  pelanggan sendiri. Saran tanpa `action` berperilaku seperti sebelumnya; webhook AuliaPos → M.A.R.A,
+  export, dan resolve **tidak berubah**. **Sisi M.A.R.A belum dikonfirmasi** (di luar workspace ini).
+- **Skema (additive, nullable, tanpa FK)**: `conversations.pelanggan_id INT UNSIGNED NULL` dan
+  `mara_suggestions.action VARCHAR(30) NULL`, keduanya di grup `inbox`
+  (`2026-10-16-000001_AddPelangganIdToConversations`, `2026-10-17-000001_AddActionToMaraSuggestions`).
+  **Belum dijalankan di dev maupun produksi**; produksi lewat `/migrasi-manual`, **jalankan migrasi
+  sebelum deploy kode** (kode memakai `conversations.pelanggan_id` di jalur panas).
+- **Catatan**: `pelanggan_id` adalah rujukan logis lintas-database. Pelanggan yang dihapus kemudian
+  membuat tautan menggantung; ditangani dengan menyelesaikan ulang saat tombol ditekan. Pelanggan baru yang
+  dibuat lalu gagal ditautkan dihapus kembali (dua database tidak bisa atomik). Pencocokan nomor memeriksa
+  maksimal 20 kandidat per pencarian (batas yang disengaja, didokumentasikan di test).
+- Ref: `docs/requirements/2026-10-16-inbox-ke-kasir.md`, `docs/design/2026-10-16-inbox-ke-kasir.md`.
+  Test: `tests/feature/InboxBuatPesananTest.php` (28), `tests/feature/PelangganFindByNomorTest.php` (13,
+  MariaDB sungguhan), `tests/feature/MaraSuggestionsTest.php` (+3 test `action`),
+  `tests/js/inbox-buat-pesanan.test.js` (14), `tests/js/inbox-suggestions.test.js` (+6).
+
 ## 2026-10-13 — Inbox: M.A.R.A mengirim saran ke kasir (balasan / daftar-periksa / peringatan)
 
 - **Fitur baru**: M.A.R.A (asisten AI pemantau Inbox di `aulia7`) kini punya jalur resmi

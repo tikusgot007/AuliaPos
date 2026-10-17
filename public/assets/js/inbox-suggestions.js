@@ -131,6 +131,9 @@ function renderSatuSaran(s) {
         : 'normal';
     const tipe = s.type || '';
     const kelasPrioritas = 'inbox-saran--' + priority;
+    // Aksi opsional (whitelist, hanya balasan/peringatan). Nilai lain
+    // diabaikan -- jangan pernah merender tombol dari string tak dikenal.
+    const tombolAksi = renderTombolAksiSaran(s);
 
     let isi = '';
 
@@ -140,7 +143,7 @@ function renderSatuSaran(s) {
         isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>' +
             '<button type="button" class="btn btn-sm btn-primary mt-1" ' +
             'onclick="pakaiSaranBalasan(' + parseInt(s.id, 10) + ')">' +
-            '<i class="fas fa-reply"></i> Pakai draft ini</button>';
+            '<i class="fas fa-reply"></i> Pakai draft ini</button>' + tombolAksi;
     } else if (tipe === 'daftar-periksa') {
         // Checklist: tiap item bisa dicentang terpisah (AC-13).
         const items = Array.isArray(s.items) ? s.items : [];
@@ -154,7 +157,7 @@ function renderSatuSaran(s) {
         isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>' +
             (baris ? '<div class="inbox-saran-checklist">' + baris + '</div>' : '');
     } else if (tipe === 'peringatan') {
-        isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>';
+        isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>' + tombolAksi;
     } else {
         // Tipe tak dikenal (server seharusnya sudah menolak) -- tampilkan
         // teksnya saja, jangan tebak-tebak.
@@ -165,6 +168,40 @@ function renderSatuSaran(s) {
         '<div class="inbox-saran-tipe">' + escapeHtmlInbox(labelTipeSaran(tipe)) + '</div>' +
         isi +
         '</div>';
+}
+
+// Aksi saran yang dikenal UI. Hanya pengenal -- M.A.R.A tidak pernah
+// mengirim URL atau parameter; tombol memanggil endpoint sesi kasir untuk
+// percakapan yang sedang terbuka (lihat buatPesanan() di inbox-page.js).
+var AKSI_SARAN_DIKENAL = ['buka_kasir'];
+
+function renderTombolAksiSaran(s) {
+    if (s.type !== 'balasan' && s.type !== 'peringatan') return '';
+    if (AKSI_SARAN_DIKENAL.indexOf(s.action) === -1) return '';
+
+    return ' <button type="button" class="btn btn-sm btn-success mt-1" ' +
+        'onclick="jalankanAksiSaran(' + parseInt(s.id, 10) + ')">' +
+        '<i class="fas fa-cash-register"></i> Buka di Kasir</button>';
+}
+
+/**
+ * Jalankan aksi yang menempel pada satu saran. Satu-satunya aksi saat ini
+ * 'buka_kasir' -> buatPesanan() milik halaman. Selalu untuk percakapan yang
+ * sedang terbuka (panel saran hanya menampilkan saran percakapan aktif),
+ * BUKAN id dari data saran.
+ */
+function jalankanAksiSaran(saranId) {
+    const saran = daftarSaranMara.filter(function(s) {
+        return parseInt(s.id, 10) === parseInt(saranId, 10);
+    })[0];
+
+    if (!saran || AKSI_SARAN_DIKENAL.indexOf(saran.action) === -1) return;
+
+    if (saran.action === 'buka_kasir') {
+        if (typeof buatPesanan === 'function') {
+            buatPesanan();
+        }
+    }
 }
 
 function labelTipeSaran(tipe) {

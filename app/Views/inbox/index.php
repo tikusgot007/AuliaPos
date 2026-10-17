@@ -604,6 +604,13 @@
             pesan: <?= json_encode(base_url('/inbox/pesan/')) ?>
         },
         conversations: <?= json_encode($conversations) ?>,
+        // Token CSRF untuk POST yang dilindungi filter 'csrf' per-route
+        // (saat ini hanya buat-pesanan). Token berputar tiap POST terverifikasi;
+        // server mengembalikan token baru di JSON dan inbox-page.js memperbaruinya.
+        csrf: {
+            header: <?= json_encode(csrf_header()) ?>,
+            token: <?= json_encode(csrf_hash()) ?>
+        },
         currentUserId: <?= (int) $currentUserId ?>,
         currentUserRole: <?= json_encode($currentUserRole) ?>,
         semuaUserLabel: <?= json_encode((object) ($semuaUserLabel ?? []), JSON_UNESCAPED_UNICODE) ?>,

@@ -529,6 +529,72 @@ final class MaraSuggestionsTest extends CIUnitTestCase
         $this->assertSame('superseded', $row['status']);
     }
 
+    /** Inbox->Kasir AC-12: balasan/peringatan with action 'buka_kasir' is stored and returned to the cashier. */
+    public function testStoresAndReturnsWhitelistedAction(): void
+    {
+        foreach (['balasan', 'peringatan'] as $i => $type) {
+            $conversationId = $this->seedConversation('628140000010' . $i . '@s.whatsapp.net');
+
+            $response = $this->postSuggestion([
+                'conversation_id' => $conversationId,
+                'type'            => $type,
+                'text'            => 'Buatkan pesanan',
+                'action'          => 'buka_kasir',
+            ], $this->maraToken);
+
+            $response->assertStatus(201);
+
+            $read = $this->bodyJson($this->getSuggestions($conversationId));
+            $this->assertSame('buka_kasir', $read['suggestions'][0]['action'] ?? null, "type {$type}");
+        }
+    }
+
+    /** No action (omitted, null or '') -> stored as NULL, i.e. no button. */
+    public function testSuggestionWithoutActionHasNullAction(): void
+    {
+        $conversationId = $this->seedConversation('6281400000120@s.whatsapp.net');
+
+        foreach ([[], ['action' => null], ['action' => '']] as $extra) {
+            $this->postSuggestion(array_merge([
+                'conversation_id' => $conversationId,
+                'type'            => 'balasan',
+                'text'            => 'Tanpa aksi',
+            ], $extra), $this->maraToken)->assertStatus(201);
+        }
+
+        $rows = $this->inbox->table('mara_suggestions')->get()->getResultArray();
+        $this->assertNotEmpty($rows);
+        foreach ($rows as $row) {
+            $this->assertNull($row['action']);
+        }
+    }
+
+    /**
+     * Inbox->Kasir AC-13: anything outside the whitelist is rejected whole
+     * (400) and nothing is stored -- unknown id, URL-ish value, wrong type.
+     */
+    public function testRejectsActionOutsideWhitelist(): void
+    {
+        $conversationId = $this->seedConversation('6281400000121@s.whatsapp.net');
+
+        $bad = [
+            'aksi tak dikenal'   => ['type' => 'balasan', 'action' => 'hapus_semua'],
+            'berupa URL'         => ['type' => 'peringatan', 'action' => 'https://evil.example/x'],
+            'bukan string'       => ['type' => 'balasan', 'action' => ['buka_kasir']],
+            'huruf besar'        => ['type' => 'balasan', 'action' => 'BUKA_KASIR'],
+            'pada daftar-periksa' => ['type' => 'daftar-periksa', 'items' => ['a', 'b'], 'action' => 'buka_kasir'],
+        ];
+
+        foreach ($bad as $label => $extra) {
+            $this->postSuggestion(array_merge([
+                'conversation_id' => $conversationId,
+                'text'            => 'x',
+            ], $extra), $this->maraToken)->assertStatus(400);
+        }
+
+        $this->assertSame(0, $this->inbox->table('mara_suggestions')->countAllResults(), 'nothing may be stored when action is invalid');
+    }
+
     /** daftar-periksa with valid items stores them as a decodable JSON array. */
     public function testStoresChecklistItems(): void
     {

@@ -3167,6 +3167,192 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/percakapan/(:num)/buat-pesanan
+     *
+     * Inbox -> Kasir. Menautkan percakapan ke satu baris `pelanggan` (DB
+     * default) -- memakai yang sudah ada (tautan lama atau nomor sama) atau
+     * membuat baru -- lalu mengembalikan URL Kasir yang dipahami
+     * restorePelangganFromUrl() (kasir-shared.js). Lihat
+     * docs/design/2026-10-16-inbox-ke-kasir.md.
+     *
+     * Dua DB berbeda, jadi tidak bisa atomik. Baris conversation dikunci
+     * (SELECT ... FOR UPDATE, grup inbox) selama cari-atau-buat + tautkan,
+     * supaya klik ganda / dua kasir tidak membuat pelanggan ganda. Kalau
+     * penulisan tautan gagal setelah pelanggan baru dibuat, pelanggan itu
+     * dihapus lagi (best-effort).
+     */
+    public function buatPesanan($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversationModel = new ConversationModel();
+        $conversation = $conversationModel->find($conversationId);
+
+        if (!$conversation) {
+            return $this->buatPesananError(404, 'Conversation tidak ditemukan.');
+        }
+
+        $grupError = $this->cekBukanGrup($conversation);
+        if ($grupError) {
+            return $this->buatPesananError(403, $grupError);
+        }
+
+        $ownershipError = $this->cekOwnership($conversation, (int) session()->get('id_user'), (string) session()->get('role'));
+        if ($ownershipError) {
+            return $this->buatPesananError(403, $ownershipError);
+        }
+
+        $pelangganModel = new \App\Models\PelangganModel();
+        $db             = $conversationModel->db;
+        $pelangganBaruId = null;
+
+        $db->transBegin();
+
+        try {
+            $row = $db->query(
+                'SELECT * FROM conversations WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+                [$conversationId]
+            )->getRowArray();
+
+            if (!$row) {
+                $db->transRollback();
+
+                return $this->buatPesananError(404, 'Conversation tidak ditemukan.');
+            }
+
+            $pelanggan = null;
+
+            // 1. Tautan yang sudah ada; id yang menggantung (pelanggan sudah
+            // dihapus) dianggap belum tertaut.
+            if (!empty($row['pelanggan_id'])) {
+                $pelanggan = $pelangganModel->find((int) $row['pelanggan_id']);
+            }
+
+            // 2. Nomor sama dengan pelanggan yang sudah ada. Nomor @lid yang
+            // belum terverifikasi (phone & manual_phone kosong) tidak pernah
+            // ditebak.
+            $nomor = null;
+            foreach ([$row['phone'] ?? null, $row['manual_phone'] ?? null] as $kandidat) {
+                if ($kandidat !== null && $kandidat !== '') {
+                    $nomor = PhoneNumber::normalize((string) $kandidat);
+                    if ($nomor !== null) {
+                        break;
+                    }
+                }
+            }
+
+            // Fallback untuk percakapan pribadi (`pn`) yang `phone`-nya belum
+            // terisi: chat_id berbentuk "<digit>@s.whatsapp.net", yaitu JID
+            // nomor asli dari WhatsApp. Pola dibuat ketat supaya JID dengan
+            // sufiks perangkat ("628...:12@...") tidak ikut terbaca sebagai
+            // nomor yang salah. Percakapan `lid` tidak pernah dipakai di sini.
+            if ($nomor === null
+                && ($row['jid_type'] ?? null) === 'pn'
+                && preg_match('/^(\d{8,15})@s\.whatsapp\.net$/', (string) ($row['chat_id'] ?? ''), $cocok) === 1
+            ) {
+                $nomor = PhoneNumber::normalize($cocok[1]);
+            }
+
+            if (!$pelanggan && $nomor !== null) {
+                $pelanggan = $pelangganModel->findByNomor($nomor);
+            }
+
+            // 3. Buat baru. Nama wajib layak dan tidak boleh bentrok dengan
+            // pelanggan lain (nama dijaga unik di Pelanggan::simpan()).
+            if (!$pelanggan) {
+                $nama = trim((string) ($row['contact_name'] ?? ''));
+                if ($nama === '') {
+                    $nama = trim((string) ($row['whatsapp_name'] ?? ''));
+                }
+                $nama = mb_substr($nama, 0, 100);
+
+                if (mb_strlen($nama) < 2) {
+                    $db->transRollback();
+
+                    return $this->buatPesananError(422, 'Nama pelanggan belum ada. Isi dulu lewat Edit Profil (ikon pensil) sebelum membuat pesanan.');
+                }
+
+                if ($pelangganModel->findByName($nama)) {
+                    $db->transRollback();
+
+                    return $this->buatPesananError(409, "Sudah ada pelanggan bernama \"{$nama}\" dengan nomor berbeda. Ubah nama di Edit Profil, atau pilih pelanggan itu langsung di halaman Kasir.");
+                }
+
+                $baruId = $pelangganModel->insert([
+                    'nama'   => $nama,
+                    'no_hp'  => $nomor !== null ? '0' . substr($nomor, 2) : null,
+                    'diskon' => 0,
+                ]);
+
+                if (!$baruId) {
+                    throw new \RuntimeException('Insert pelanggan tidak menyimpan baris.');
+                }
+
+                $pelangganBaruId = (int) $baruId;
+                $pelanggan       = $pelangganModel->find($pelangganBaruId);
+
+                if (!$pelanggan) {
+                    throw new \RuntimeException('Pelanggan baru tidak terbaca setelah insert.');
+                }
+            }
+
+            if ((int) ($row['pelanggan_id'] ?? 0) !== (int) $pelanggan['id']) {
+                if (!$conversationModel->update($conversationId, ['pelanggan_id' => (int) $pelanggan['id']])) {
+                    throw new \RuntimeException('Gagal menautkan pelanggan ke percakapan.');
+                }
+            }
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Transaksi inbox gagal.');
+            }
+
+            $db->transCommit();
+        } catch (\Throwable $e) {
+            $db->transRollback();
+
+            if ($pelangganBaruId !== null) {
+                $pelangganModel->delete($pelangganBaruId);
+            }
+
+            log_message('error', "Inbox::buatPesanan gagal. conversation_id={$conversationId}, error={$e->getMessage()}");
+
+            return $this->buatPesananError(500, 'Gagal menyiapkan pesanan. Silakan coba lagi.');
+        }
+
+        $userId = (int) session()->get('id_user');
+        log_message('info', "Inbox::buatPesanan sukses. conversation_id={$conversationId}, pelanggan_id={$pelanggan['id']}, baru=" . ($pelangganBaruId !== null ? '1' : '0') . ", user_id={$userId}");
+
+        $query = http_build_query([
+            'pelanggan_id'     => (int) $pelanggan['id'],
+            'pelanggan_nama'   => $pelanggan['nama'],
+            'pelanggan_telp'   => $pelanggan['no_hp'] ?? '',
+            'pelanggan_diskon' => $pelanggan['diskon'] ?? 0,
+        ]);
+
+        return $this->response->setStatusCode(200)->setJSON([
+            'status'         => 'success',
+            'pelanggan_id'   => (int) $pelanggan['id'],
+            'pelanggan_baru' => $pelangganBaruId !== null,
+            'redirect_url'   => base_url('kasir') . '?' . $query,
+            'csrf'           => csrf_hash(),
+        ]);
+    }
+
+    /**
+     * Token CSRF berputar setiap POST yang lolos filter 'csrf'
+     * (Security::$regenerate = true), jadi SEMUA balasan endpoint ini --
+     * termasuk error -- membawa token baru supaya klik berikutnya tidak 403.
+     */
+    private function buatPesananError(int $kode, string $pesan)
+    {
+        return $this->response->setStatusCode($kode)->setJSON([
+            'status'  => 'error',
+            'message' => $pesan,
+            'csrf'    => csrf_hash(),
+        ]);
+    }
+
+    /**
      * Logic inti kirim pesan (dipakai bersama oleh kirim() dan
      * mulaiPercakapan(), supaya tidak duplikat kode).
      *

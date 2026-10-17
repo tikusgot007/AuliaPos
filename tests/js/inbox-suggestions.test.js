@@ -239,3 +239,79 @@ test('S-14: forced fetch for a DIFFERENT conversation always fires', async () =>
         '/inbox/api/conversations/8/suggestions',
     ]);
 });
+
+// ---------------------------------------------------------------------------
+// Inbox -> Kasir: action button on M.A.R.A suggestions (AC-12 / AC-13).
+// ---------------------------------------------------------------------------
+
+test('S-15 (AC-12): balasan and peringatan with action buka_kasir render the "Buka di Kasir" button', () => {
+    for (const type of ['balasan', 'peringatan']) {
+        const t = loadSuggestions();
+        t.ctx.daftarSaranMara = [{ id: 11, type, priority: 'normal', text: 'Buatkan pesanan', items: null, action: 'buka_kasir' }];
+
+        t.ctx.renderSaranMara();
+
+        assert.match(t.elements.panelSaranMara.innerHTML, /jalankanAksiSaran\(11\)/, type);
+        assert.match(t.elements.panelSaranMara.innerHTML, /Buka di Kasir/, type);
+    }
+});
+
+test('S-16 (AC-13): no button for a missing, null, unknown or URL-like action', () => {
+    for (const action of [undefined, null, '', 'hapus_semua', 'https://evil.example/x', 'BUKA_KASIR', ['buka_kasir']]) {
+        const t = loadSuggestions();
+        t.ctx.daftarSaranMara = [{ id: 12, type: 'peringatan', priority: 'normal', text: 'x', items: null, action }];
+
+        t.ctx.renderSaranMara();
+
+        assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /jalankanAksiSaran|Buka di Kasir/, JSON.stringify(action));
+    }
+});
+
+test('S-17 (AC-13): daftar-periksa never gets the button, even if the server data carries an action', () => {
+    const t = loadSuggestions();
+    t.ctx.daftarSaranMara = [{ id: 13, type: 'daftar-periksa', priority: 'normal', text: 't', items: ['a'], action: 'buka_kasir' }];
+
+    t.ctx.renderSaranMara();
+
+    assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /jalankanAksiSaran|Buka di Kasir/);
+});
+
+test('S-18 (AC-12): clicking the action calls buatPesanan() for the OPEN conversation (no id from suggestion data)', () => {
+    const dipanggil = [];
+    const t = loadSuggestions({ buatPesanan: (...args) => dipanggil.push(args) });
+    t.ctx.daftarSaranMara = [{ id: 14, type: 'balasan', priority: 'normal', text: 'x', items: null, action: 'buka_kasir', conversation_id: 9999 }];
+
+    t.ctx.jalankanAksiSaran(14);
+
+    assert.equal(dipanggil.length, 1);
+    assert.deepEqual(dipanggil[0], [], 'must call buatPesanan() with no arguments so the page uses its own conversationAktif');
+});
+
+test('S-19 (AC-13): jalankanAksiSaran ignores an unknown suggestion id, an unknown action, and a missing buatPesanan', () => {
+    const dipanggil = [];
+    const t = loadSuggestions({ buatPesanan: () => dipanggil.push(1) });
+    t.ctx.daftarSaranMara = [
+        { id: 15, type: 'balasan', priority: 'normal', text: 'x', items: null, action: 'hapus_semua' },
+        { id: 16, type: 'balasan', priority: 'normal', text: 'x', items: null },
+    ];
+
+    t.ctx.jalankanAksiSaran(15);
+    t.ctx.jalankanAksiSaran(16);
+    t.ctx.jalankanAksiSaran(404);
+    assert.equal(dipanggil.length, 0);
+
+    const tanpaFungsi = loadSuggestions();
+    tanpaFungsi.ctx.daftarSaranMara = [{ id: 17, type: 'balasan', priority: 'normal', text: 'x', items: null, action: 'buka_kasir' }];
+    assert.doesNotThrow(() => tanpaFungsi.ctx.jalankanAksiSaran(17));
+});
+
+test('S-20: the action button does not weaken the existing "Pakai draft ini" button or escaping', () => {
+    const t = loadSuggestions();
+    t.ctx.daftarSaranMara = [{ id: 18, type: 'balasan', priority: 'normal', text: '<script>alert(1)</script>', items: null, action: 'buka_kasir' }];
+
+    t.ctx.renderSaranMara();
+
+    assert.match(t.elements.panelSaranMara.innerHTML, /pakaiSaranBalasan\(18\)/);
+    assert.match(t.elements.panelSaranMara.innerHTML, /jalankanAksiSaran\(18\)/);
+    assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /<script>alert/);
+});

@@ -5,6 +5,7 @@ tambahkan barisnya di sini (urutan terbaru di atas).
 
 | Tanggal | Topik | Status |
 |---|---|---|
+| 2026-10-17 | [Inbox ke Kasir ("Buat Pesanan") + aksi saran M.A.R.A](2026-10-17-inbox-ke-kasir.md) | sebagian (kode + test hijau di DB uji; belum di-commit; migrasi dev/produksi dan uji browser belum) |
 | 2026-10-17 | [Pembanding independen WA Web (WAGRAB) vs Inbox — bukti pesan hilang](2026-10-17-pembanding-wagrab-vs-inbox.md) | selesai (analisa read-only; tindak lanjut menunggu keputusan) |
 | 2026-10-10 | [Halaman Log Kiriman Gagal + Log Audit Kas (TODO-L3)](2026-10-10-log-audit-kiriman-gagal-dan-kas-todo-l3.md) | selesai (kode + test + migrasi lokal terverifikasi; belum di-commit; migrasi produksi belum) |
 | 2026-10-10 | [Kontrak dua sisi CI4 ↔ Gateway + test formal (TODO-Q3)](2026-10-10-kontrak-dua-sisi-ci4-gateway-todo-q3.md) | selesai (kode + test di kedua repo terverifikasi; belum di-commit) |

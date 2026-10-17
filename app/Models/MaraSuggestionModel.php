@@ -35,6 +35,7 @@ class MaraSuggestionModel extends Model
         'text',
         'items',
         'reason',
+        'action',
         'status',
         'expires_at',
         'created_at',

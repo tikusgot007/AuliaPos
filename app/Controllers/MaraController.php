@@ -53,6 +53,16 @@ class MaraController extends BaseController
     /** Batas jumlah langkah dalam satu daftar-periksa. */
     private const SUGGESTION_ITEMS_MAX = 50;
 
+    /**
+     * Aksi UI opsional yang boleh menempel pada saran. Whitelist ketat:
+     * hanya pengenal, BUKAN URL/parameter -- tombolnya memanggil endpoint
+     * sesi kasir untuk percakapan yang sedang terbuka.
+     */
+    private const SUGGESTION_ACTIONS = ['buka_kasir'];
+
+    /** Tipe saran yang boleh membawa `action`. */
+    private const SUGGESTION_ACTION_TYPES = ['balasan', 'peringatan'];
+
     /** TTL default saran bila M.A.R.A tidak mengirim expires_at. */
     private const SUGGESTION_DEFAULT_TTL_MINUTES = 30;
 
@@ -242,6 +252,7 @@ class MaraController extends BaseController
      *     "text":     "draft balasan / isi peringatan" (boleh kosong utk daftar-periksa),
      *     "items":    ["langkah 1", "langkah 2"] (WAJIB utk type='daftar-periksa'),
      *     "reason":   "kenapa saran ini dibuat" (opsional, audit),
+     *     "action":   "buka_kasir" (opsional; hanya type balasan/peringatan),
      *     "expires_at": "2026-10-13T17:00:00+07:00" (opsional; default now+30m)
      *   }
      *
@@ -340,6 +351,22 @@ class MaraController extends BaseController
         }
         $reason = $reason === null ? null : trim($reason);
 
+        // --- action (opsional) ---------------------------------------------
+        // null / '' = tanpa aksi. Selain itu harus ada di whitelist dan hanya
+        // untuk balasan/peringatan; ditolak utuh bila tidak.
+        $action = $body['action'] ?? null;
+        if ($action === '') {
+            $action = null;
+        }
+        if ($action !== null) {
+            if (!is_string($action) || !in_array($action, self::SUGGESTION_ACTIONS, true)) {
+                return $this->suggestionError(400, 'action harus salah satu dari: ' . implode(', ', self::SUGGESTION_ACTIONS) . '.');
+            }
+            if (!in_array($type, self::SUGGESTION_ACTION_TYPES, true)) {
+                return $this->suggestionError(400, 'action hanya berlaku untuk type: ' . implode(', ', self::SUGGESTION_ACTION_TYPES) . '.');
+            }
+        }
+
         // --- conversation_id harus ADA di conversations -------------------
         $conversationModel = new ConversationModel();
         if ($conversationModel->find($conversationId) === null) {
@@ -381,7 +408,7 @@ class MaraController extends BaseController
             $suggestionModel->lockConversation($conversationId);
             $suggestionModel->supersedeSameType($conversationId, $type, $now);
 
-            $suggestionModel->insert([
+            $row = [
                 'conversation_id' => $conversationId,
                 'type'            => $type,
                 'priority'        => $priority,
@@ -392,7 +419,15 @@ class MaraController extends BaseController
                 'expires_at'      => $expiresAt,
                 'created_at'      => $now,
                 'updated_at'      => $now,
-            ]);
+            ];
+
+            // Kolom `action` hanya disertakan bila dikirim, supaya kode yang
+            // sudah ter-deploy sebelum migrasi tetap bisa menyimpan saran biasa.
+            if ($action !== null) {
+                $row['action'] = $action;
+            }
+
+            $suggestionModel->insert($row);
 
             $newId = (int) $suggestionModel->getInsertID();
 

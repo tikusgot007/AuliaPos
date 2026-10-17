@@ -98,6 +98,7 @@ class ConversationModel extends Model
         'group_name',
         'phone',
         'manual_phone',
+        'pelanggan_id',
         'status',
         'assigned_to',
         'last_seen_by_assignee_at',
