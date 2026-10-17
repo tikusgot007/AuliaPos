@@ -16,7 +16,7 @@ yang tampil ke receiver lokal (SQLite `wa_messages.db`, PC dev). Pencocokan deng
 - WA Web: **2.729** pesan masuk. Ada di Inbox: **2.540**. Tidak ada di Inbox: **189**.
 - Sebagian besar dari 189 bukan pesan sungguhan (album 76, pesan ditarik 56, riwayat panggilan 13).
 - Kandidat pesan benar-benar hilang: **44**, rinci:
-  - **Gambar**: 11 Okt 18:31 pelanggan `...076319` (WA Web 13, Inbox 8); 13 Okt 16:26 pelanggan `...246748` (WA Web 13, Inbox 3);
+  - **Gambar**: 11 Okt 18:31 pelanggan `...076319` (WA Web 20, Inbox 8); 13 Okt 16:26 pelanggan `...246748` (WA Web 16, Inbox 3);
     14 Okt 12:13 pelanggan `628214065612` (1 gambar, tidak ada di Inbox — **sama dengan insiden F10 14 Okt**, kini terbukti dari sisi WA Web).
   - **Dokumen**: 14 Okt 18:17 `Preview Surat Permohonan _ Buku Pelaut.pdf` (`...044349`).
   - **Ciphertext** (WA Web sendiri gagal membuka, jejak Bad MAC): 16 pesan — 11 Okt 10:26 (7), 12 Okt 20:04 (6), lainnya tunggal.
