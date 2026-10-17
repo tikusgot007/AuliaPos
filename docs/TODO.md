@@ -105,6 +105,7 @@
   - **Calon solusi jangka panjang (masuk backlog 2026-10-17)**:
     1. *Pencegahan*: Penjadwalan restart instance Baileys rutin (SOP Tingkat 1) via API lokal sebelum sesi kelelahan saat load tinggi / burst album.
     2. *Auto-heal / Fail-safe*: Mekanisme sync komparasi otomatis (WAGRAB bridge -> Inbox POS) untuk menambal pesan masuk (terutama foto album beruntun) yang lolos/drop di gateway Baileys.
+       - **Status 2026-10-17**: endpoint `POST /api/inbox/sync-missing` selesai & lulus feature test **lokal** (`app/Controllers/Api/InboxReconcile.php`, 4 test) — **belum di-commit, belum di-deploy**; produksi masih 404. Worker `C:\AuliaPosGateway\scripts\wagrab-reconciler.mjs` + Scheduled Task `WAGRAB-Reconciler` (SYSTEM, tiap 3 menit, `--use-system-ca`) **sudah aktif di aulia7**, tapi belum bisa menambal apa pun sampai endpoint live. Alarm Telegram belum diisi. Ref: `docs/sesi/2026-10-17-wagrab-reconciler-aulia7.md`.
   - **SOP remediation (dibuat 2026-10-14)**: `docs/ops/SOP-remediasi-sesi-signal-lid-gateway-aulia7.md` — Tingkat 1 restart instance `aulia-toko` (tanpa pairing ulang; **dieksekusi sukses 2026-10-17 12:14 WIB**), Tingkat 2 relink/pairing ulang, Tingkat 3 upgrade Baileys/patch Evolution (TODO-F3), prosedur diagnosis read-only, verifikasi pasca, dan perbaikan pemantauan.
 
 

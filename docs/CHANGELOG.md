@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2026-10-17 — Fail-safe WAGRAB: worker reconciler di aulia7 (endpoint POS belum live)
+
+- **Fitur (aturan bisnis baru, belum aktif penuh)**: pesan masuk WhatsApp yang tertangkap WAGRAB
+  tetapi tidak masuk Inbox (drop di Evolution/Bad MAC) kini bisa ditambal otomatis. Worker
+  `C:\AuliaPosGateway\scripts\wagrab-reconciler.mjs` di gateway `aulia7` berjalan tiap 3 menit,
+  membaca pesan `direction='in'` dari SQLite WAGRAB dalam jendela UTC 30 → 2 menit lalu, mengabaikan
+  `album`/`revoked`/`ciphertext`, dan mengirimnya ke `POST /api/inbox/sync-missing`.
+- **Penandaan**: pesan hasil tambalan ditandai prefix `[AUTO-HEAL WAGRAB] ` pada `text` untuk media
+  (file fisik tetap di WhatsApp Web, `media_path` NULL) dan `wa_message_id` yang sama tidak pernah
+  tersimpan dua kali (idempotensi di endpoint). Kasir bisa membedakan pesan tambalan dari pesan normal.
+- **Alarm**: bila endpoint melaporkan `inserted > 0`, worker mengirim satu notifikasi Telegram
+  (`🚨 INBOX ALARM: …`) berisi jumlah pesan dan nomor pengirim terakhir-4-digit. Alert bersifat
+  opsional: kredensial Telegram kosong berarti alert dilewati, rekonsiliasi tetap jalan.
+- **Batas yang disengaja**: worker tidak mengunduh media, tidak menyentuh sesi Signal, dan tidak
+  menulis ke database WAGRAB. Pesan lebih tua dari 30 menit tidak ditambal otomatis.
+- **Status deploy**: worker + Scheduled Task `WAGRAB-Reconciler` (SYSTEM, tiap 3 menit) **sudah aktif
+  di `aulia7`**. Endpoint `POST /api/inbox/sync-missing` **belum ada di produksi** (masih 404) —
+  sampai endpoint di-deploy, worker akan gagal setiap kali ada kandidat. Alarm Telegram belum diisi.
+- Ref: `docs/requirements/2026-10-17-wagrab-reconciler.md`, `docs/design/2026-10-17-wagrab-reconciler.md`,
+  `docs/sesi/2026-10-17-wagrab-reconciler-aulia7.md`.
+
 ## 2026-10-17 — Inbox ke Kasir: tombol "Buat Pesanan" + aksi "Buka di Kasir" pada saran M.A.R.A
 
 - **Fitur baru (aturan bisnis)**: di percakapan WhatsApp pribadi, kasir bisa menekan **Buat Pesanan**
