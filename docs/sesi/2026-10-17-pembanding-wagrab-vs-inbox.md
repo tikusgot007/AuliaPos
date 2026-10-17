@@ -34,3 +34,14 @@ yang tampil ke receiver lokal (SQLite `wa_messages.db`, PC dev). Pencocokan deng
 - Pertimbangkan SOP remediasi Tingkat 1 (`docs/ops/SOP-remediasi-sesi-signal-lid-gateway-aulia7.md`) — belum dijalankan.
 - Selidiki pola kiriman gambar beruntun (11 & 13 Okt) di log Evolution aulia7.
 - Putuskan apakah WAGRAB dipakai rutin (receiver dipindah ke server, atau endpoint di AuliaPos — Tier A, perlu gate).
+
+
+## Status Operasional WAGRAB Receiver (aulia7) — Diperbarui 2026-10-17 12:25 WIB
+
+Receiver WAGRAB resmi dipindahkan ke server gateway **aulia7** (192.168.1.68) agar mandiri dan tidak tergantung PC dev:
+- **Runtime**: Node.js (v22.23.2, zero-dependency, built-in `node:http` + `node:sqlite`).
+- **Lokasi script**: `C:\AuliaPosGateway\wagrab-receivereceiver.js`.
+- **Database**: `C:\AuliaPosGateway\wagrab-receiver\wa_messages.db` (database awal berisi 4.173 pesan sudah disalin).
+- **Service/Task**: Windows Scheduled Task `WAGRAB-Receiver` (trigger `AtStartup`, run as `SYSTEM`, auto-restart on failure).
+- **Port**: `8645` (port 8644 sudah dipakai proses `Hermes_Gateway` di aulia7; firewall rule TCP 8645 sudah aktif).
+- **URL Endpoint Baru**: `http://192.168.1.68:8645/webhooks/wa-web-sync`.
