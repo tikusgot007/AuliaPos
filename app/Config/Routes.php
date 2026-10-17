@@ -52,6 +52,11 @@ $routes->get('/api/inbox/mara/resolve/(:num)', 'MaraController::resolve/$1', ['f
 // docs/requirements/2026-10-13-mara-saran-ke-kasir.md.
 $routes->post('/api/inbox/mara/suggestions', 'MaraController::suggestions', ['filter' => 'maratoken']);
 
+// ==========================================
+// ROUTE REKONSILIASI AUTO-HEAL INBOX (WAGRAB -> AULIAPOS)
+// ==========================================
+$routes->post('/api/inbox/sync-missing', '\App\Controllers\Api\InboxReconcile::syncMissing');
+
 // Endpoint browser POS (kasir/admin, session-authenticated) untuk
 // kirim balasan text -- Phase 3. UI utama + polling -- Phase 4.
 $routes->get('/inbox', 'Inbox::index', ['filter' => 'auth']);

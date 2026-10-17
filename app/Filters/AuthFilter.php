@@ -31,7 +31,8 @@ class AuthFilter implements FilterInterface
         // gagal match walau strpos 'contains' berhasil.
         $uriGateway = service('uri')->getPath();
         if (strpos($uriGateway, 'api/inbox/gateway/') !== false
-            || strpos($uriGateway, 'api/inbox/mara/') !== false) {
+            || strpos($uriGateway, 'api/inbox/mara/') !== false
+            || strpos($uriGateway, 'api/inbox/sync-missing') !== false) {
             return null;
         }
 

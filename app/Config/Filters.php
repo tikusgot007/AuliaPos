@@ -140,6 +140,7 @@ class Filters extends BaseFilters
                 // Lihat app/Filters/MaraTokenFilter.php dan
                 // app/Controllers/MaraController.php.
                 'api/inbox/mara/*',
+                'api/inbox/sync-missing*',
             ]
         ],
     ];
