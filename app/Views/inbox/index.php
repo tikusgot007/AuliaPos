@@ -194,6 +194,68 @@
 </div>
 
 <!-- ============================================ -->
+<!-- MODAL NAMA PELANGGAN BARU (Inbox -> Kasir)     -->
+<!-- Nama bisa diedit; 4 digit HP terkunci & dihitung server. -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalNamaPelanggan" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formNamaPelanggan" onsubmit="return simpanNamaPelanggan(event)">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-user-edit"></i> Nama Pelanggan Baru</h5>
+                    <button type="button" class="btn-close" onclick="batalNamaPelanggan()"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small">
+                        <i class="fas fa-info-circle"></i>
+                        Nama profil WhatsApp sering samaran. Tulis nama yang benar --
+                        4 digit nomor HP ditambahkan otomatis di belakangnya.
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="namaPelangganBaru">Nama Pelanggan</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control text-uppercase" id="namaPelangganBaru"
+                                   maxlength="95" autocomplete="off" placeholder="Contoh: RULY" required>
+                            <span class="input-group-text font-monospace" id="digitPelangganBaru"
+                                  title="4 digit terakhir nomor HP (tidak bisa diubah)"></span>
+                        </div>
+                        <small class="text-muted">Hanya bagian nama yang bisa diubah. 4 digit di kanan terkunci.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="batalNamaPelanggan()">Batal</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-cash-register"></i> Simpan &amp; Buka Kasir
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL KONFIRMASI GANTI ISI TAB KASIR           -->
+<!-- Muncul hanya bila tab utama berisi keranjang atau sedang edit transaksi. -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalGantiKasir" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-warning"><i class="fas fa-exclamation-triangle"></i> Tab Kasir Masih Dipakai</h5>
+                <button type="button" class="btn-close" onclick="batalGantiKasir()"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="pesanGantiKasir"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="batalGantiKasir()">Batal</button>
+                <button type="button" class="btn btn-warning" onclick="lanjutkanGantiKasir()">Ganti</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
 <!-- MODAL KONFIRMASI HAPUS PERCAKAPAN              -->
 <!-- ============================================ -->
 <div class="modal fade" id="modalHapusPercakapan" tabindex="-1">

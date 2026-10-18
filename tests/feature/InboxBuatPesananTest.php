@@ -129,15 +129,22 @@ final class InboxBuatPesananTest extends CIUnitTestCase
         return $row['pelanggan_id'] !== null ? (int) $row['pelanggan_id'] : null;
     }
 
-    /** POST with a valid (current) CSRF token unless $token is given. */
-    private function buatPesanan(int $conversationId, ?string $token = null, int $userId = 21, string $role = 'kasir')
+    /**
+     * POST with a valid (current) CSRF token unless $token is given.
+     *
+     * Sejak 2026-10-18 endpoint dua fase: `$nama` null = fase 1 (hanya cek),
+     * `$nama` string = fase 2 (validasi + tulis). Pelanggan yang sudah
+     * berformat `NAMA 4DIGIT` tetap selesai di fase 1, jadi test lama yang
+     * memakai pelanggan sudah-ada tidak perlu mengirim nama.
+     */
+    private function buatPesanan(int $conversationId, ?string $token = null, int $userId = 21, string $role = 'kasir', ?string $nama = null)
     {
         return $this->withSession(['isLoggedIn' => true, 'id_user' => $userId, 'role' => $role])
             ->withHeaders([
                 'X-Requested-With' => 'XMLHttpRequest',
                 'X-CSRF-TOKEN'     => $token ?? csrf_hash(),
             ])
-            ->post('/inbox/percakapan/' . $conversationId . '/buat-pesanan');
+            ->post('/inbox/percakapan/' . $conversationId . '/buat-pesanan', $nama !== null ? ['nama' => $nama] : []);
     }
 
     private function assertCsrfDitolak(callable $kirim): void
@@ -209,7 +216,8 @@ final class InboxBuatPesananTest extends CIUnitTestCase
      */
     public function testTokenCsrfBerputarDanTokenLamaDitolak(): void
     {
-        $id    = $this->seedPercakapan();
+        $this->seedPelanggan('CSRF UJI 7890', '081234567890');
+        $id    = $this->seedPercakapan(['phone' => '6281234567890']);
         $lama  = csrf_hash();
 
         $json = $this->json($this->buatPesanan($id, $lama));
@@ -268,7 +276,7 @@ final class InboxBuatPesananTest extends CIUnitTestCase
         $this->assertSame(0, $this->jumlahPelanggan());
         $this->assertNull($this->linkOf($id));
 
-        $this->buatPesanan($id, null, 1, 'admin')->assertStatus(200);
+        $this->buatPesanan($id, null, 1, 'admin', 'Tamu')->assertStatus(200);
         $this->assertSame(1, $this->jumlahPelanggan());
     }
 
@@ -295,7 +303,7 @@ final class InboxBuatPesananTest extends CIUnitTestCase
      */
     public function testPelangganLamaDipakaiLintasFormatNomor(string $noHpTersimpan): void
     {
-        $pelangganId = $this->seedPelanggan('Pelanggan Lama', $noHpTersimpan, 5);
+        $pelangganId = $this->seedPelanggan('PELANGGAN LAMA 7890', $noHpTersimpan, 5);
         $id          = $this->seedPercakapan(['phone' => '6281234567890', 'contact_name' => 'Nama Chat Berbeda']);
 
         $json = $this->json($this->buatPesanan($id));
@@ -310,10 +318,13 @@ final class InboxBuatPesananTest extends CIUnitTestCase
     /** AC-2: nomor berakhiran sama tetapi BUKAN nomor yang sama tidak dicocokkan. */
     public function testNomorBerakhiranSamaTetapiBedaTidakDicocokkan(): void
     {
-        $this->seedPelanggan('Orang Lain', '1081234567890');
+        $this->seedPelanggan('ORANG LAIN 7890', '1081234567890');
         $id = $this->seedPercakapan(['phone' => '6281234567890', 'contact_name' => 'Budi Baru']);
 
-        $json = $this->json($this->buatPesanan($id));
+        $fase1 = $this->json($this->buatPesanan($id));
+        $this->assertSame('butuh_nama', $fase1['status'] ?? null);
+
+        $json = $this->json($this->buatPesanan($id, $fase1['csrf'], 21, 'kasir', 'Budi Baru'));
 
         $this->assertSame('success', $json['status'] ?? null);
         $this->assertTrue($json['pelanggan_baru']);
@@ -323,7 +334,7 @@ final class InboxBuatPesananTest extends CIUnitTestCase
     /** AC-11: phone & manual_phone kosong -> nomor diambil dari chat_id `pn`. */
     public function testNomorDiambilDariChatIdBilaPhoneKosong(): void
     {
-        $pelangganId = $this->seedPelanggan('Dari Chat Id', '0812-3456-7890');
+        $pelangganId = $this->seedPelanggan('DARI CHAT ID 7890', '0812-3456-7890');
         $id          = $this->seedPercakapan(['chat_id' => '6281234567890@s.whatsapp.net', 'phone' => null]);
 
         $json = $this->json($this->buatPesanan($id));
@@ -336,60 +347,71 @@ final class InboxBuatPesananTest extends CIUnitTestCase
     /** AC-11: sufiks perangkat pada chat_id tidak dibaca sebagai nomor. */
     public function testChatIdDenganSufiksPerangkatTidakDibaca(): void
     {
-        $this->seedPelanggan('Jangan Cocok', '081234567890');
+        $this->seedPelanggan('JANGAN COCOK 7890', '081234567890');
         $id = $this->seedPercakapan(['chat_id' => '6281234567890:12@s.whatsapp.net', 'phone' => null, 'contact_name' => 'Tamu']);
 
-        $json = $this->json($this->buatPesanan($id));
-
-        $this->assertTrue($json['pelanggan_baru'] ?? false);
-        $this->assertSame(2, $this->jumlahPelanggan());
+        // Tanpa nomor terverifikasi -> diblok (AC-5 dokumen 2026-10-18).
+        $res = $this->buatPesanan($id, null, 21, 'kasir', 'Tamu');
+        $res->assertStatus(422);
+        $this->assertSame(1, $this->jumlahPelanggan());
     }
 
-    /** AC-11: percakapan `lid` tidak pernah dicocokkan lewat nomor; dibuat tanpa no_hp. */
+    /**
+     * AC-11 + AC-5 (2026-10-18): percakapan `lid` tidak pernah ditebak
+     * nomornya, dan karena tidak ada nomor terverifikasi pelanggan baru
+     * TIDAK dibuat -- kasir harus mengonfirmasi nomor dulu.
+     */
     public function testPercakapanLidTidakDitebakNomornya(): void
     {
-        $this->seedPelanggan('Pemilik Nomor Digit', '123456789012345');
+        $this->seedPelanggan('PEMILIK NOMOR DIGIT 2345', '123456789012345');
         $id = $this->seedPercakapan(['chat_id' => '123456789012345@lid', 'jid_type' => 'lid', 'phone' => null, 'contact_name' => 'Tamu Lid']);
 
-        $json = $this->json($this->buatPesanan($id));
+        $res = $this->buatPesanan($id, null, 21, 'kasir', 'Tamu Lid');
 
-        $this->assertTrue($json['pelanggan_baru'] ?? false);
-        $baru = db_connect()->table('pelanggan')->where('id', $json['pelanggan_id'])->get()->getRowArray();
-        $this->assertSame('Tamu Lid', $baru['nama']);
-        $this->assertNull($baru['no_hp']);
+        $res->assertStatus(422);
+        $this->assertSame(1, $this->jumlahPelanggan());
+        $this->assertNull($this->linkOf($id));
     }
 
     // ------------------------------------------------------------------
     // AC-3: pelanggan baru
     // ------------------------------------------------------------------
 
-    /** AC-3: dibuat dengan no_hp format 08, diskon 0, tautan tersimpan. */
+    /** AC-3: dibuat dengan nama `NAMA 4DIGIT`, no_hp format 08, diskon 0, tautan tersimpan. */
     public function testPelangganBaruDibuatDanDitautkan(): void
     {
         $id = $this->seedPercakapan(['phone' => '6281234567890', 'contact_name' => 'Siti Aminah']);
 
-        $json = $this->json($this->buatPesanan($id));
+        $fase1 = $this->json($this->buatPesanan($id));
+        $json  = $this->json($this->buatPesanan($id, $fase1['csrf'], 21, 'kasir', 'Siti Aminah'));
 
         $this->assertSame('success', $json['status'] ?? null);
         $this->assertTrue($json['pelanggan_baru']);
 
         $baru = db_connect()->table('pelanggan')->where('id', $json['pelanggan_id'])->get()->getRowArray();
-        $this->assertSame('Siti Aminah', $baru['nama']);
+        $this->assertSame('SITI AMINAH 7890', $baru['nama']);
         $this->assertSame('081234567890', $baru['no_hp']);
         $this->assertEquals(0, $baru['diskon']);
         $this->assertSame((int) $json['pelanggan_id'], $this->linkOf($id));
     }
 
-    public function testNamaFallbackKeWhatsappNameDanDipotong100(): void
+    /**
+     * Nama saran dari `whatsapp_name` dipotong 95 karakter (batas bagian
+     * nama), sehingga nama final + " 7890" tetap <= 100 karakter.
+     */
+    public function testNamaFallbackKeWhatsappNameDanDipotong95(): void
     {
         $id = $this->seedPercakapan([
-            'phone' => '6281234567890', 'contact_name' => null, 'whatsapp_name' => str_repeat('x', 120),
+            'phone' => '6281234567890', 'contact_name' => null, 'whatsapp_name' => str_repeat('X', 120),
         ]);
 
-        $json = $this->json($this->buatPesanan($id));
+        $fase1 = $this->json($this->buatPesanan($id));
+        $this->assertSame('butuh_nama', $fase1['status'] ?? null);
+        $this->assertSame(str_repeat('X', 95), $fase1['nama_usulan']);
 
+        $json = $this->json($this->buatPesanan($id, $fase1['csrf'], 21, 'kasir', str_repeat('X', 95)));
         $baru = db_connect()->table('pelanggan')->where('id', $json['pelanggan_id'])->get()->getRowArray();
-        $this->assertSame(str_repeat('x', 100), $baru['nama']);
+        $this->assertSame(str_repeat('X', 95) . ' 7890', $baru['nama']);
     }
 
     // ------------------------------------------------------------------
@@ -406,7 +428,8 @@ final class InboxBuatPesananTest extends CIUnitTestCase
     }
 
     /**
-     * AC-7: tanpa nama layak -> 422 dan tidak ada pelanggan dibuat.
+     * AC-7 (+ dokumen 2026-10-18 AC-4): profil tanpa nama layak -> fase 1
+     * memberi saran kosong, fase 2 menolak 422 dan tidak menulis apa pun.
      *
      * @dataProvider namaTidakLayakProvider
      */
@@ -416,7 +439,12 @@ final class InboxBuatPesananTest extends CIUnitTestCase
             'phone' => '6281234567890', 'contact_name' => $contactName, 'whatsapp_name' => $whatsappName,
         ]);
 
-        $res = $this->buatPesanan($id);
+        $fase1 = $this->json($this->buatPesanan($id));
+        $this->assertSame('butuh_nama', $fase1['status'] ?? null);
+        $this->assertSame('', $fase1['nama_usulan']);
+        $this->assertSame(0, $this->jumlahPelanggan());
+
+        $res = $this->buatPesanan($id, $fase1['csrf'], 21, 'kasir', '   ');
 
         $res->assertStatus(422);
         $this->assertSame(0, $this->jumlahPelanggan());
@@ -426,10 +454,11 @@ final class InboxBuatPesananTest extends CIUnitTestCase
     /** AC-7: nama sama dengan pelanggan lain (nomor berbeda) -> 409, tidak menimpa/menduplikasi. */
     public function testNamaBentrokDenganNomorBedaDitolak409(): void
     {
-        $this->seedPelanggan('Budi', '081999999999');
+        $this->seedPelanggan('BUDI 7890', '081999999999');
         $id = $this->seedPercakapan(['phone' => '6281234567890', 'contact_name' => 'Budi']);
 
-        $res = $this->buatPesanan($id);
+        $fase1 = $this->json($this->buatPesanan($id));
+        $res   = $this->buatPesanan($id, $fase1['csrf'], 21, 'kasir', 'Budi');
 
         $res->assertStatus(409);
         $json = $this->json($res);
@@ -447,7 +476,8 @@ final class InboxBuatPesananTest extends CIUnitTestCase
     {
         $id = $this->seedPercakapan(['phone' => '6281234567890', 'contact_name' => 'Dobel Klik']);
 
-        $pertama = $this->json($this->buatPesanan($id));
+        $fase1   = $this->json($this->buatPesanan($id));
+        $pertama = $this->json($this->buatPesanan($id, $fase1['csrf'], 21, 'kasir', 'Dobel Klik'));
         $kedua   = $this->json($this->buatPesanan($id, $pertama['csrf']));
 
         $this->assertTrue($pertama['pelanggan_baru']);
@@ -459,8 +489,8 @@ final class InboxBuatPesananTest extends CIUnitTestCase
     /** AC-4: tautan yang sudah ada menang atas pencocokan nomor. */
     public function testTautanYangAdaDipakaiMeskiNomorCocokDenganOrangLain(): void
     {
-        $tertaut = $this->seedPelanggan('Sudah Tertaut', '081111111111');
-        $this->seedPelanggan('Cocok Nomor', '081234567890');
+        $tertaut = $this->seedPelanggan('SUDAH TERTAUT 1111', '081111111111');
+        $this->seedPelanggan('COCOK NOMOR 7890', '081234567890');
         $id = $this->seedPercakapan(['phone' => '6281234567890', 'pelanggan_id' => $tertaut]);
 
         $json = $this->json($this->buatPesanan($id));
@@ -472,7 +502,7 @@ final class InboxBuatPesananTest extends CIUnitTestCase
     /** AC-5: pelanggan_id menggantung (baris sudah dihapus) -> diselesaikan ulang, bukan error. */
     public function testTautanMenggantungDiselesaikanUlang(): void
     {
-        $pelangganId = $this->seedPelanggan('Masih Ada', '081234567890');
+        $pelangganId = $this->seedPelanggan('MASIH ADA 7890', '081234567890');
         $id          = $this->seedPercakapan(['phone' => '6281234567890', 'pelanggan_id' => 987654]);
 
         $json = $this->json($this->buatPesanan($id));
@@ -493,7 +523,7 @@ final class InboxBuatPesananTest extends CIUnitTestCase
      */
     public function testRedirectUrlMemakaiFormatKasir(): void
     {
-        $pelangganId = $this->seedPelanggan('Toko A&B "Jaya" #1', '081234567890', 10);
+        $pelangganId = $this->seedPelanggan('TOKO A&B "JAYA" #1 7890', '081234567890', 10);
         $id          = $this->seedPercakapan(['phone' => '6281234567890']);
 
         $json = $this->json($this->buatPesanan($id));
@@ -502,9 +532,10 @@ final class InboxBuatPesananTest extends CIUnitTestCase
         $this->assertStringEndsWith('/kasir', $url['path']);
 
         parse_str($url['query'], $q);
-        $this->assertSame(['pelanggan_id', 'pelanggan_nama', 'pelanggan_telp', 'pelanggan_diskon'], array_keys($q));
+        $this->assertSame(['pelanggan_id', 'pelanggan_nama', 'pelanggan_telp', 'pelanggan_diskon', 'dari_inbox'], array_keys($q));
         $this->assertSame((string) $pelangganId, $q['pelanggan_id']);
-        $this->assertSame('Toko A&B "Jaya" #1', $q['pelanggan_nama']);
+        $this->assertSame('TOKO A&B "JAYA" #1 7890', $q['pelanggan_nama']);
+        $this->assertSame('1', $q['dari_inbox']);
         $this->assertSame('081234567890', $q['pelanggan_telp']);
         $this->assertEquals(10, $q['pelanggan_diskon']);
     }
@@ -514,10 +545,11 @@ final class InboxBuatPesananTest extends CIUnitTestCase
     {
         $id = $this->seedPercakapan(['phone' => '6281234567890', 'contact_name' => 'Baru Banget']);
 
-        $json = $this->json($this->buatPesanan($id));
+        $fase1 = $this->json($this->buatPesanan($id));
+        $json  = $this->json($this->buatPesanan($id, $fase1['csrf'], 21, 'kasir', 'Baru Banget'));
 
         parse_str(parse_url($json['redirect_url'], PHP_URL_QUERY), $q);
-        $this->assertSame('Baru Banget', $q['pelanggan_nama']);
+        $this->assertSame('BARU BANGET 7890', $q['pelanggan_nama']);
         $this->assertEquals(0, $q['pelanggan_diskon']);
         $this->assertNotSame('', $q['pelanggan_id']);
     }

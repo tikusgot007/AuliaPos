@@ -3172,8 +3172,22 @@ class Inbox extends BaseController
      * Inbox -> Kasir. Menautkan percakapan ke satu baris `pelanggan` (DB
      * default) -- memakai yang sudah ada (tautan lama atau nomor sama) atau
      * membuat baru -- lalu mengembalikan URL Kasir yang dipahami
-     * restorePelangganFromUrl() (kasir-shared.js). Lihat
-     * docs/design/2026-10-16-inbox-ke-kasir.md.
+     * restorePelangganFromUrl() (kasir-shared.js).
+     *
+     * Sejak 2026-10-18 endpoint ini DUA FASE (opsional `nama`):
+     * - fase 1 (tanpa `nama`): hanya mencari. Bila pelanggan sudah ada dan
+     *   namanya sudah sesuai format `NAMA 4DIGIT`, langsung sukses seperti
+     *   dulu. Bila belum, jawab `butuh_nama` TANPA MENULIS APA PUN (itu yang
+     *   membuat tombol Batal di browser benar-benar tidak berefek).
+     * - fase 2 (dengan `nama`): validasi + tulis. Baru dibuat (INSERT) atau
+     *   diperbarui (UPDATE nama, dan no_hp hanya bila masih kosong).
+     * Lihat docs/requirements/2026-10-18-buat-pesanan-konfirmasi-nama-dan-tab-utama.md
+     * dan docs/design/2026-10-18-buat-pesanan-konfirmasi-nama-dan-tab-utama.md.
+     *
+     * Aturan identitas (keputusan Gate 2, opsi A): tautan
+     * `conversations.pelanggan_id` yang sudah ada SELALU menang, walau
+     * nomornya beda dengan nomor percakapan. Nomor yang berbeda hanya berarti
+     * "orang lain" saat pencarian lewat nomor, bukan untuk memutus tautan.
      *
      * Dua DB berbeda, jadi tidak bisa atomik. Baris conversation dikunci
      * (SELECT ... FOR UPDATE, grup inbox) selama cari-atau-buat + tautkan,
@@ -3202,6 +3216,11 @@ class Inbox extends BaseController
             return $this->buatPesananError(403, $ownershipError);
         }
 
+        // `nama` kosong = fase 1 (hanya cek). Field ini SENGAJA tidak pernah
+        // dianggap "nama final" kalau hanya berisi spasi.
+        $namaInput = $this->request->getPost('nama');
+        $namaInput = is_string($namaInput) ? $namaInput : null;
+
         $pelangganModel = new \App\Models\PelangganModel();
         $db             = $conversationModel->db;
         $pelangganBaruId = null;
@@ -3223,7 +3242,7 @@ class Inbox extends BaseController
             $pelanggan = null;
 
             // 1. Tautan yang sudah ada; id yang menggantung (pelanggan sudah
-            // dihapus) dianggap belum tertaut.
+            // dihapus) dianggap belum tertaut. Tautan menang atas nomor.
             if (!empty($row['pelanggan_id'])) {
                 $pelanggan = $pelangganModel->find((int) $row['pelanggan_id']);
             }
@@ -3231,55 +3250,112 @@ class Inbox extends BaseController
             // 2. Nomor sama dengan pelanggan yang sudah ada. Nomor @lid yang
             // belum terverifikasi (phone & manual_phone kosong) tidak pernah
             // ditebak.
-            $nomor = null;
-            foreach ([$row['phone'] ?? null, $row['manual_phone'] ?? null] as $kandidat) {
-                if ($kandidat !== null && $kandidat !== '') {
-                    $nomor = PhoneNumber::normalize((string) $kandidat);
-                    if ($nomor !== null) {
-                        break;
-                    }
-                }
-            }
-
-            // Fallback untuk percakapan pribadi (`pn`) yang `phone`-nya belum
-            // terisi: chat_id berbentuk "<digit>@s.whatsapp.net", yaitu JID
-            // nomor asli dari WhatsApp. Pola dibuat ketat supaya JID dengan
-            // sufiks perangkat ("628...:12@...") tidak ikut terbaca sebagai
-            // nomor yang salah. Percakapan `lid` tidak pernah dipakai di sini.
-            if ($nomor === null
-                && ($row['jid_type'] ?? null) === 'pn'
-                && preg_match('/^(\d{8,15})@s\.whatsapp\.net$/', (string) ($row['chat_id'] ?? ''), $cocok) === 1
-            ) {
-                $nomor = PhoneNumber::normalize($cocok[1]);
-            }
+            $nomor = $this->nomorTerverifikasiPercakapan($row);
 
             if (!$pelanggan && $nomor !== null) {
                 $pelanggan = $pelangganModel->findByNomor($nomor);
             }
 
-            // 3. Buat baru. Nama wajib layak dan tidak boleh bentrok dengan
-            // pelanggan lain (nama dijaga unik di Pelanggan::simpan()).
+            // Digit acuan: nomor pelanggan itu sendiri bila sudah punya
+            // (jangan pernah menimpa no_hp orang lain), kalau tidak ada pakai
+            // nomor percakapan.
+            $digit = null;
+            if ($pelanggan) {
+                $nomorPelanggan = PhoneNumber::normalize((string) ($pelanggan['no_hp'] ?? ''));
+                $digit          = $nomorPelanggan !== null ? substr($nomorPelanggan, -4) : null;
+            }
+            if ($digit === null && $nomor !== null) {
+                $digit = substr($nomor, -4);
+            }
+
+            // --- Fase 1: belum ada nama dari kasir -----------------------
+            if ($namaInput === null) {
+                if ($pelanggan && $this->namaPelangganSesuaiFormat((string) ($pelanggan['nama'] ?? ''), $digit)) {
+                    // Nama sudah standar: tidak ada yang perlu dikoreksi,
+                    // tetapi tautan tetap disimpan (perilaku lama: percakapan
+                    // yang ketemu pelanggannya lewat nomor harus tertaut).
+                    if ((int) ($row['pelanggan_id'] ?? 0) !== (int) $pelanggan['id']) {
+                        if (!$conversationModel->update($conversationId, ['pelanggan_id' => (int) $pelanggan['id']])) {
+                            throw new \RuntimeException('Gagal menautkan pelanggan ke percakapan.');
+                        }
+                    }
+
+                    if ($db->transStatus() === false) {
+                        throw new \RuntimeException('Transaksi inbox gagal.');
+                    }
+
+                    $db->transCommit();
+
+                    log_message('info', "Inbox::buatPesanan sukses (tanpa koreksi nama). conversation_id={$conversationId}, pelanggan_id={$pelanggan['id']}, user_id=" . (int) session()->get('id_user'));
+
+                    return $this->buatPesananSukses($conversationId, $pelanggan, false);
+                }
+
+                $db->transRollback(); // tidak ada yang ditulis, lepaskan kunci
+
+                if ($digit === null) {
+                    return $this->buatPesananError(422, 'Nomor WhatsApp pelanggan ini belum terverifikasi. Konfirmasi nomornya dulu sebelum membuat pesanan.');
+                }
+
+                $namaAcuan = $pelanggan ? (string) ($pelanggan['nama'] ?? '') : '';
+                if ($namaAcuan === '') {
+                    $namaAcuan = (string) ($row['contact_name'] ?? '');
+                }
+                if (trim($namaAcuan) === '') {
+                    $namaAcuan = (string) ($row['whatsapp_name'] ?? '');
+                }
+
+                $usulan = mb_substr($this->bersihkanNamaPelanggan($namaAcuan, $digit), 0, 95);
+
+                // Nama profil terlalu pendek (mis. "A") bukan saran yang
+                // layak -- kolom nama dibiarkan kosong agar kasir mengetik.
+                if (mb_strlen($usulan) < 2) {
+                    $usulan = '';
+                }
+
+                return $this->response->setStatusCode(200)->setJSON([
+                    'status'        => 'butuh_nama',
+                    'pelanggan_id'  => $pelanggan ? (int) $pelanggan['id'] : null,
+                    'nama_usulan'   => $usulan,
+                    'digit'         => $digit,
+                    'csrf'          => csrf_hash(),
+                ]);
+            }
+
+            // --- Fase 2: nama dari kasir --------------------------------
+            if ($digit === null) {
+                $db->transRollback();
+
+                return $this->buatPesananError(422, 'Nomor WhatsApp pelanggan ini belum terverifikasi. Konfirmasi nomornya dulu sebelum membuat pesanan.');
+            }
+
+            $namaBersih = $this->bersihkanNamaPelanggan($namaInput, $digit);
+
+            if (mb_strlen($namaBersih) < 2) {
+                $db->transRollback();
+
+                return $this->buatPesananError(422, 'Nama pelanggan minimal 2 karakter (huruf/angka).');
+            }
+
+            if (mb_strlen($namaBersih) > 95) {
+                $db->transRollback();
+
+                return $this->buatPesananError(422, 'Nama pelanggan maksimal 95 karakter (4 digit nomor ditambahkan otomatis).');
+            }
+
+            // Digit SELALU dari server, tidak pernah dari input browser.
+            $namaFinal = $namaBersih . ' ' . $digit;
+
+            $bentrok = $pelangganModel->findByName($namaFinal, $pelanggan ? (int) $pelanggan['id'] : null);
+            if ($bentrok) {
+                $db->transRollback();
+
+                return $this->buatPesananError(409, "Sudah ada pelanggan bernama \"{$namaFinal}\" dengan nomor berbeda. Ubah namanya, atau pilih pelanggan itu langsung di halaman Kasir.");
+            }
+
             if (!$pelanggan) {
-                $nama = trim((string) ($row['contact_name'] ?? ''));
-                if ($nama === '') {
-                    $nama = trim((string) ($row['whatsapp_name'] ?? ''));
-                }
-                $nama = mb_substr($nama, 0, 100);
-
-                if (mb_strlen($nama) < 2) {
-                    $db->transRollback();
-
-                    return $this->buatPesananError(422, 'Nama pelanggan belum ada. Isi dulu lewat Edit Profil (ikon pensil) sebelum membuat pesanan.');
-                }
-
-                if ($pelangganModel->findByName($nama)) {
-                    $db->transRollback();
-
-                    return $this->buatPesananError(409, "Sudah ada pelanggan bernama \"{$nama}\" dengan nomor berbeda. Ubah nama di Edit Profil, atau pilih pelanggan itu langsung di halaman Kasir.");
-                }
-
                 $baruId = $pelangganModel->insert([
-                    'nama'   => $nama,
+                    'nama'   => $namaFinal,
                     'no_hp'  => $nomor !== null ? '0' . substr($nomor, 2) : null,
                     'diskon' => 0,
                 ]);
@@ -3293,6 +3369,24 @@ class Inbox extends BaseController
 
                 if (!$pelanggan) {
                     throw new \RuntimeException('Pelanggan baru tidak terbaca setelah insert.');
+                }
+            } else {
+                // Pelanggan lama: nama selalu dikoreksi. `no_hp` HANYA diisi
+                // kalau masih kosong -- nomor orang lain tidak pernah ditimpa.
+                $ubah = ['nama' => $namaFinal];
+
+                if (trim((string) ($pelanggan['no_hp'] ?? '')) === '' && $nomor !== null) {
+                    $ubah['no_hp'] = '0' . substr($nomor, 2);
+                }
+
+                if (!$pelangganModel->update((int) $pelanggan['id'], $ubah)) {
+                    throw new \RuntimeException('Gagal memperbarui nama pelanggan.');
+                }
+
+                $pelanggan = $pelangganModel->find((int) $pelanggan['id']);
+
+                if (!$pelanggan) {
+                    throw new \RuntimeException('Pelanggan tidak terbaca setelah update.');
                 }
             }
 
@@ -3320,22 +3414,104 @@ class Inbox extends BaseController
         }
 
         $userId = (int) session()->get('id_user');
-        log_message('info', "Inbox::buatPesanan sukses. conversation_id={$conversationId}, pelanggan_id={$pelanggan['id']}, baru=" . ($pelangganBaruId !== null ? '1' : '0') . ", user_id={$userId}");
+        log_message('info', "Inbox::buatPesanan sukses. conversation_id={$conversationId}, pelanggan_id={$pelanggan['id']}, baru=" . ($pelangganBaruId !== null ? '1' : '0') . ", nama=\"{$pelanggan['nama']}\", user_id={$userId}");
 
+        return $this->buatPesananSukses($conversationId, $pelanggan, $pelangganBaruId !== null);
+    }
+
+    /**
+     * Balasan sukses endpoint buat-pesanan. `dari_inbox=1` memberi tahu Kasir
+     * bahwa keranjang tersimpan (sessionStorage) harus DIBUANG, karena kasir
+     * datang dengan pesanan baru -- lihat kasir-shared.js.
+     */
+    private function buatPesananSukses(int $conversationId, array $pelanggan, bool $pelangganBaru)
+    {
         $query = http_build_query([
             'pelanggan_id'     => (int) $pelanggan['id'],
             'pelanggan_nama'   => $pelanggan['nama'],
             'pelanggan_telp'   => $pelanggan['no_hp'] ?? '',
             'pelanggan_diskon' => $pelanggan['diskon'] ?? 0,
+            'dari_inbox'       => 1,
         ]);
 
         return $this->response->setStatusCode(200)->setJSON([
             'status'         => 'success',
             'pelanggan_id'   => (int) $pelanggan['id'],
-            'pelanggan_baru' => $pelangganBaruId !== null,
+            'pelanggan_baru' => $pelangganBaru,
             'redirect_url'   => base_url('kasir') . '?' . $query,
             'csrf'           => csrf_hash(),
         ]);
+    }
+
+    /**
+     * Nomor percakapan yang TERVERIFIKASI ("62xxx"), atau null.
+     *
+     * Hanya dua sumber: (a) `phone` (diisi Gateway dari JID asli, atau kasir
+     * lewat konfirmasiNomorWhatsapp()), (b) chat_id `pn` berbentuk
+     * "<digit>@s.whatsapp.net". `manual_phone` SENGAJA tidak dipakai: itu
+     * nomor yang diketik bebas di Edit Profil dan bisa salah. Dipakai untuk
+     * mencari pelanggan (perilaku lama), tetapi TIDAK untuk membentuk 4 digit.
+     */
+    private function nomorTerverifikasiPercakapan(array $row): ?string
+    {
+        foreach ([$row['phone'] ?? null, $row['manual_phone'] ?? null] as $kandidat) {
+            if ($kandidat !== null && $kandidat !== '') {
+                $nomor = PhoneNumber::normalize((string) $kandidat);
+                if ($nomor !== null) {
+                    return $nomor;
+                }
+            }
+        }
+
+        // Fallback untuk percakapan pribadi (`pn`) yang `phone`-nya belum
+        // terisi: chat_id berbentuk "<digit>@s.whatsapp.net". Pola dibuat
+        // ketat supaya JID dengan sufiks perangkat ("628...:12@...") tidak
+        // terbaca sebagai nomor yang salah.
+        if (($row['jid_type'] ?? null) === 'pn'
+            && preg_match('/^(\d{8,15})@s\.whatsapp\.net$/', (string) ($row['chat_id'] ?? ''), $cocok) === 1
+        ) {
+            return PhoneNumber::normalize($cocok[1]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Rapikan nama dari kasir/profil menjadi bagian nama saja: buang akhiran
+     * 4 digit yang sama dengan nomor (supaya "RULY 7890" tidak jadi
+     * "RULY 7890 7890"), HURUF BESAR, spasi dipadatkan, dan hanya karakter
+     * yang wajar untuk nama (huruf, angka, spasi, titik, strip, apostrof).
+     * Emoji dan simbol dibuang, bukan ditolak -- nama profil WA penuh emoji
+     * harus tetap bisa dikoreksi kasir.
+     */
+    private function bersihkanNamaPelanggan(string $nama, ?string $digit): string
+    {
+        $nama = preg_replace('/[^\p{L}\p{N} .\-\']+/u', ' ', $nama) ?? '';
+        $nama = preg_replace('/\s+/u', ' ', $nama) ?? '';
+        $nama = trim($nama, " .-'");
+
+        if ($digit !== null && $digit !== '' && preg_match('/^(.*?)[\s.\-\']*' . preg_quote($digit, '/') . '$/u', $nama, $cocok) === 1) {
+            $nama = trim($cocok[1], " .-'");
+        }
+
+        return mb_strtoupper($nama);
+    }
+
+    /**
+     * Nama pelanggan sudah memenuhi standar toko: `NAMA 4DIGIT` huruf besar,
+     * dan 4 digit terakhirnya sama dengan nomor HP pelanggan itu.
+     */
+    private function namaPelangganSesuaiFormat(string $nama, ?string $digit): bool
+    {
+        if ($digit === null || $digit === '') {
+            return false;
+        }
+
+        if ($nama !== mb_strtoupper($nama)) {
+            return false;
+        }
+
+        return preg_match('/^(.+?)[\s.\-\']' . preg_quote($digit, '/') . '$/u', $nama) === 1;
     }
 
     /**

@@ -669,38 +669,145 @@ function perbaruiTokenCsrf(json) {
 }
 
 /**
+ * Window Inbox dibuka dari sidebar POS dengan `window.open(href, 'AuliaInbox')`,
+ * jadi `window.opener` adalah tab kasir yang membukanya. Semua akses dibungkus
+ * try/catch: opener bisa sudah ditutup, atau beda origin (akses properti
+ * melempar SecurityError). null = tidak ada tab utama yang bisa dipakai.
+ */
+function ambilOpenerKasir() {
+    try {
+        const o = window.opener;
+        if (!o || o.closed) return null;
+        // Probe akses lintas origin: kalau melempar, opener tidak bisa dipakai.
+        void o.location.pathname;
+        return o;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Apakah tab utama berisi pekerjaan yang akan hilang kalau diarahkan ulang?
+ * - `kasir/edit`: sedang mengedit transaksi tersimpan (perubahan belum tentu
+ *   tersimpan) -> SELALU tanya.
+ * - `kasir`: keranjang yang sedang diisi (`window.auliaCart`) -> tanya hanya
+ *   kalau ada isinya. Keranjang kosong = tidak ada yang hilang.
+ */
+function openerPerluKonfirmasi(opener) {
+    if (!opener) return { perlu: false };
+
+    try {
+        const jalur = String(opener.location.pathname || '');
+
+        if (/\/kasir\/edit(\/|$)/.test(jalur)) {
+            return { perlu: true, alasan: 'edit', jumlah: 0 };
+        }
+
+        if (/\/kasir\/?$/.test(jalur)) {
+            const isi = opener.auliaCart;
+            if (Array.isArray(isi) && isi.length > 0) {
+                return { perlu: true, alasan: 'keranjang', jumlah: isi.length };
+            }
+        }
+    } catch (e) {
+        // Opener tidak bisa dibaca: anggap tidak ada yang berisiko.
+    }
+
+    return { perlu: false };
+}
+
+/**
  * Inbox -> Kasir. Dipanggil dari tombol header ("Buat Pesanan") dan dari
  * tombol aksi saran M.A.R.A (action "buka_kasir"). `conversationId`
  * opsional: bila kosong memakai percakapan yang sedang terbuka.
+ *
+ * Alur (lihat docs/design/2026-10-18-buat-pesanan-konfirmasi-nama-dan-tab-utama.md):
+ * 1. Kalau tab utama berisi keranjang / sedang edit transaksi -> konfirmasi dulu.
+ * 2. Fase 1: POST tanpa `nama`. Server menjawab `success` (pelanggan sudah
+ *    standar) atau `butuh_nama` (kasir harus mengoreksi nama).
+ * 3. Fase 2 (bila perlu): POST dengan `nama`, lalu arahkan tab utama.
  */
 function buatPesanan(conversationId) {
     const idPercakapan = conversationId || conversationAktif;
     if (!idPercakapan || buatPesananBerjalan) return;
 
-    buatPesananBerjalan = true;
-    renderThreadHeader();
+    const opener = ambilOpenerKasir();
+    const cek = openerPerluKonfirmasi(opener);
 
-    // Tab baru dibuka SINKRON di dalam klik (sebelum fetch) supaya tidak
-    // diblokir popup blocker; URL-nya diisi setelah server menjawab.
-    const tab = window.open('', '_blank');
-    if (tab) tab.opener = null;
+    if (cek.perlu) {
+        buatPesananTertunda = { conversationId: idPercakapan, alasan: cek.alasan, jumlah: cek.jumlah };
+        tampilkanKonfirmasiGantiKasir(cek);
+        return;
+    }
 
-    const tutupTab = function() {
-        if (tab && !tab.closed) tab.close();
-    };
+    lanjutBuatPesanan(idPercakapan);
+}
 
-    // X-Requested-With membuat CI4 menganggap ini AJAX: kegagalan CSRF di
-    // produksi (Security::$redirect = true) kembali sebagai 403 JSON, bukan
-    // redirect 302 ke halaman HTML yang tidak bisa di-parse sebagai JSON.
+// Percakapan yang menunggu tombol "Ganti" di konfirmasi tab utama.
+let buatPesananTertunda = null;
+
+function tampilkanKonfirmasiGantiKasir(cek) {
+    const pesan = document.getElementById('pesanGantiKasir');
+    if (pesan) {
+        pesan.textContent = cek.alasan === 'edit'
+            ? 'Tab Kasir sedang mengedit transaksi. Kalau dilanjutkan, halaman edit itu akan diganti dengan pesanan baru dari WhatsApp ini.'
+            : 'Tab Kasir masih berisi ' + cek.jumlah + ' item. Kalau dilanjutkan, keranjang itu akan diganti dengan pesanan baru dari WhatsApp ini.';
+    }
+
+    const modal = document.getElementById('modalGantiKasir');
+    if (modal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+    }
+}
+
+/** Tombol "Ganti" pada konfirmasi tab utama. */
+function lanjutkanGantiKasir() {
+    const tertunda = buatPesananTertunda;
+    buatPesananTertunda = null;
+    tutupModalInbox('modalGantiKasir');
+
+    if (tertunda) lanjutBuatPesanan(tertunda.conversationId);
+}
+
+/** Tombol "Batal": tidak ada request sama sekali, tidak ada data tertulis. */
+function batalGantiKasir() {
+    buatPesananTertunda = null;
+    tutupModalInbox('modalGantiKasir');
+}
+
+function tutupModalInbox(idModal) {
+    const modal = document.getElementById(idModal);
+    if (modal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(modal).hide();
+    }
+}
+
+function headerBuatPesanan() {
     const headers = {
         'X-Requested-With': 'XMLHttpRequest'
     };
     headers[CSRF_INBOX.header] = CSRF_INBOX.token;
 
-    fetch(INBOX_URL.percakapan + idPercakapan + '/buat-pesanan', {
-            method: 'POST',
-            headers: headers
-        })
+    return headers;
+}
+
+/**
+ * Fase 1 / fase 2 endpoint buat-pesanan. `nama` null = fase 1 (hanya cek,
+ * server tidak menulis apa pun), string = fase 2 (server memvalidasi lalu
+ * menyimpan). Dipisah supaya kedua fase memakai jalur error/CSRF yang sama.
+ */
+function kirimBuatPesanan(idPercakapan, nama) {
+    const opsi = {
+        method: 'POST',
+        headers: headerBuatPesanan()
+    };
+
+    if (typeof nama === 'string') {
+        opsi.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        opsi.body = 'nama=' + encodeURIComponent(nama);
+    }
+
+    return fetch(INBOX_URL.percakapan + idPercakapan + '/buat-pesanan', opsi)
         .then(function(res) {
             // 403 dari filter CSRF datang sebagai JSON tanpa `status`
             // (token kedaluwarsa, mis. halaman ini terbuka di dua tab).
@@ -718,31 +825,154 @@ function buatPesanan(conversationId) {
                 });
             }
             return res.json();
-        })
+        });
+}
+
+function lanjutBuatPesanan(idPercakapan) {
+    buatPesananBerjalan = true;
+    renderThreadHeader();
+
+    kirimBuatPesanan(idPercakapan, null)
         .then(function(json) {
             perbaruiTokenCsrf(json);
+
             if (json.status === 'success' && json.redirect_url) {
                 if (json.pelanggan_baru) {
                     showToast('Pelanggan baru dibuat dari percakapan ini.', 'success');
                 }
-                if (tab && !tab.closed) {
-                    tab.location.href = json.redirect_url;
-                } else {
-                    window.location.href = json.redirect_url;
-                }
-            } else {
-                tutupTab();
-                showToast(json.message || 'Gagal membuat pesanan.', 'danger');
+                arahkanKeKasir(json.redirect_url);
+                return;
             }
+
+            if (json.status === 'butuh_nama') {
+                bukaModalNamaPelanggan(idPercakapan, json);
+                return;
+            }
+
+            showToast(json.message || 'Gagal membuat pesanan.', 'danger');
         })
         .catch(function(err) {
-            tutupTab();
             showToast('Gagal menghubungi server: ' + err.message, 'danger');
         })
         .finally(function() {
             buatPesananBerjalan = false;
             renderThreadHeader();
         });
+}
+
+// Data fase 1 yang menunggu kasir mengisi nama.
+let namaPelangganTertunda = null;
+
+function bukaModalNamaPelanggan(idPercakapan, data) {
+    namaPelangganTertunda = {
+        conversationId: idPercakapan,
+        digit: String(data.digit || '')
+    };
+
+    const inputNama = document.getElementById('namaPelangganBaru');
+    const inputDigit = document.getElementById('digitPelangganBaru');
+
+    if (inputNama) {
+        inputNama.value = String(data.nama_usulan || '');
+    }
+    if (inputDigit) {
+        inputDigit.value = String(data.digit || '');
+    }
+
+    const modal = document.getElementById('modalNamaPelanggan');
+    if (modal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+        if (inputNama) {
+            // Fokus + seleksi supaya kasir bisa langsung menimpa nama profil.
+            setTimeout(function() { inputNama.focus(); inputNama.select(); }, 0);
+        }
+    }
+}
+
+/** Tombol "Simpan & Buka Kasir" (juga Enter di kolom nama). */
+function simpanNamaPelanggan(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+
+    const tertunda = namaPelangganTertunda;
+    if (!tertunda || buatPesananBerjalan) return;
+
+    const inputNama = document.getElementById('namaPelangganBaru');
+    const nama = inputNama ? String(inputNama.value || '').trim() : '';
+
+    if (nama.length < 2) {
+        showToast('Nama pelanggan minimal 2 karakter.', 'warning');
+        if (inputNama) inputNama.focus();
+        return;
+    }
+
+    buatPesananBerjalan = true;
+    renderThreadHeader();
+
+    kirimBuatPesanan(tertunda.conversationId, nama)
+        .then(function(json) {
+            perbaruiTokenCsrf(json);
+
+            if (json.status === 'success' && json.redirect_url) {
+                namaPelangganTertunda = null;
+                tutupModalInbox('modalNamaPelanggan');
+                if (json.pelanggan_baru) {
+                    showToast('Pelanggan baru dibuat dari percakapan ini.', 'success');
+                }
+                arahkanKeKasir(json.redirect_url);
+                return;
+            }
+
+            // 409 nama bentrok / 422 nama tidak layak: modal tetap terbuka
+            // supaya kasir bisa memperbaiki tanpa mengulang dari awal.
+            showToast(json.message || 'Gagal menyimpan pelanggan.', 'danger');
+        })
+        .catch(function(err) {
+            showToast('Gagal menghubungi server: ' + err.message, 'danger');
+        })
+        .finally(function() {
+            buatPesananBerjalan = false;
+            renderThreadHeader();
+        });
+}
+
+/** Batal di modal nama: tidak ada yang tertulis (fase 1 tidak menyimpan). */
+function batalNamaPelanggan() {
+    namaPelangganTertunda = null;
+    tutupModalInbox('modalNamaPelanggan');
+}
+
+/**
+ * Tab utama (opener) yang diarahkan ke Kasir, difokuskan. Kalau opener tidak
+ * ada (Inbox dibuka dari bookmark / sudah di-refresh / tab utama ditutup),
+ * buka tab baru -- dipanggil di dalam klik atau submit, jadi tidak diblokir
+ * popup blocker. Kalau tab pun tidak bisa dibuka, halaman ini yang pindah.
+ */
+function arahkanKeKasir(url) {
+    const opener = ambilOpenerKasir();
+
+    if (opener) {
+        try {
+            opener.location.href = url;
+            opener.focus();
+            // Browser modern memblokir focus() dari popup — tutup window Inbox
+            // supaya tab Kasir (opener) otomatis jadi window aktif.
+            // ponytail: kalau Inbox perlu tetap terbuka setelah buat pesanan,
+            // ganti window.close() dengan notifikasi visual.
+            window.close();
+            return;
+        } catch (e) {
+            // Jatuh ke tab baru di bawah.
+        }
+    }
+
+    const tab = window.open(url, '_blank');
+
+    if (!tab) {
+        window.location.href = url;
+        return;
+    }
+
+    try { tab.opener = null; } catch (e) { /* biarkan */ }
 }
 
 // Menit dari sekarang sampai jam 08:00 hari berikutnya -- dipakai

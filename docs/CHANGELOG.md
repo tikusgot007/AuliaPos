@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-10-18 — Nama pelanggan dari Inbox berformat `NAMA 4DIGIT` + "Buat Pesanan" mengarahkan tab utama
+
+- **Aturan bisnis baru**: pelanggan yang dibuat dari tombol "Buat Pesanan" di Inbox tidak lagi
+  memakai nama profil WhatsApp apa adanya. Kasir mengoreksi nama lewat modal, dan sistem menyimpan
+  `NAMA + 4 digit terakhir nomor HP` dalam huruf besar (contoh: `RULY 6600`). Emoji/simbol dibuang,
+  nama 2-95 karakter. 4 digit selalu dihitung server dari nomor pelanggan, tidak pernah dari input
+  browser, sehingga kasir tidak bisa salah ketik nomor.
+- **Pelanggan lama dirapikan bertahap**: saat "Buat Pesanan" dipakai pada pelanggan yang namanya
+  belum sesuai format, nama diperbarui (UPDATE, bukan baris baru) dan `no_hp` hanya diisi bila masih
+  kosong. Nomor pelanggan lain tidak pernah ditimpa. Tidak ada migrasi/penulisan massal.
+- **Tanpa nomor terverifikasi tidak bisa membuat pesanan**: percakapan `@lid` murni atau nomor
+  non-Indonesia (mis. `60…`) ditolak dengan pesan "Konfirmasi nomor WhatsApp dulu". Kasir memakai
+  aksi konfirmasi nomor yang sudah ada.
+- **Tautan percakapan tetap diutamakan**: bila percakapan sudah tertaut ke pelanggan, tautan itu
+  dipakai walau nomor HP pelanggan berbeda dengan nomor chat.
+- **Alur browser**: "Buat Pesanan" mengarahkan tab utama POS (window pembuka Inbox) ke halaman Kasir,
+  bukan membuka tab Kasir baru. Bila tab itu masih berisi keranjang atau sedang mengedit transaksi,
+  kasir diminta konfirmasi lebih dulu; keranjang lama dibuang karena pesanan yang dibuka adalah
+  pesanan baru.
+- **Status**: kode + test + smoke test HTTP di dev selesai; belum di-commit, belum di-deploy, uji
+  browser kasir belum. Tidak ada perubahan skema database.
+
 ## 2026-10-17 — Fail-safe WAGRAB: worker reconciler di aulia7 (endpoint POS belum live)
 
 - **Fitur (aturan bisnis baru, belum aktif penuh)**: pesan masuk WhatsApp yang tertangkap WAGRAB

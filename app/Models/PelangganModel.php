@@ -19,9 +19,22 @@ class PelangganModel extends Model
             ->findAll();
     }
 
-    public function findByName(string $nama): ?array
+    /**
+     * Cari pelanggan dengan nama persis sama.
+     *
+     * `$exceptId` dipakai saat mengoreksi nama pelanggan yang sudah ada:
+     * baris itu sendiri tidak boleh dianggap bentrok (lihat
+     * Inbox::buatPesanan(), AC-2b).
+     */
+    public function findByName(string $nama, ?int $exceptId = null): ?array
     {
-        return $this->where('nama', trim($nama))->first();
+        $builder = $this->where('nama', trim($nama));
+
+        if ($exceptId !== null) {
+            $builder->where('id !=', $exceptId);
+        }
+
+        return $builder->first();
     }
 
     /**

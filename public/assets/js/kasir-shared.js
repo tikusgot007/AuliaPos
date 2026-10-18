@@ -55,6 +55,19 @@ const cart = [];
         return;
     }
 
+    // Datang dari Inbox ("Buat Pesanan"): kasir membuka pesanan BARU, jadi
+    // keranjang lama di tab ini harus dibuang -- bukan digabung. Tanpa ini,
+    // item milik pelanggan sebelumnya ikut terbawa ke nota pelanggan baru.
+    // Lihat docs/design/2026-10-18-buat-pesanan-konfirmasi-nama-dan-tab-utama.md.
+    try {
+        if (new URLSearchParams(window.location.search).get('dari_inbox') === '1') {
+            sessionStorage.removeItem(KASIR_CONFIG.cartStorageKey);
+            return;
+        }
+    } catch (e) {
+        console.warn('Parameter dari_inbox tidak dapat dibaca:', e);
+    }
+
     try {
         const savedCart = JSON.parse(sessionStorage.getItem(KASIR_CONFIG.cartStorageKey) || 'null');
         if (Array.isArray(savedCart)) {
@@ -885,7 +898,25 @@ function restorePelangganFromUrl() {
     const pelangganTelp = params.get('pelanggan_telp');
     const pelangganDiskon = params.get('pelanggan_diskon');
 
+    // Penanda dari Inbox hanya dipakai sekali (primeCartFromStorage sudah
+    // membaca & membuang keranjang lama). URL dibersihkan juga kalau
+    // pelanggannya tidak lengkap, supaya refresh tidak mengulang efeknya.
+    const bersihkanDariInbox = function() {
+        if (!params.has('dari_inbox')) return;
+
+        const sisa = new URLSearchParams(window.location.search);
+        sisa.delete('dari_inbox');
+        const q = sisa.toString();
+
+        window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname + (q ? '?' + q : '') + window.location.hash
+        );
+    };
+
     if (!pelangganId || !pelangganNama) {
+        bersihkanDariInbox();
         return;
     }
 
