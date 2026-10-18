@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Libraries\KeranjangDariSaran;
 use App\Models\ProdukModel;
 use App\Models\TransaksiModel;
 use App\Models\KategoriModel;
@@ -43,6 +44,17 @@ class Kasir extends BaseController
 
         $reminderTagihan = $this->getReminderTagihanSaya();
 
+        // Keranjang awal dari saran M.A.R.A (tombol "Buka di Kasir"). Dibangun
+        // ulang dari DB dan hanya bila datang dari Inbox; id saran dari URL
+        // tidak dipercaya (lihat App\Libraries\KeranjangDariSaran).
+        $keranjangSaran = ['items' => [], 'jumlah_gagal' => 0];
+        if ($this->request->getGet('dari_inbox') === '1') {
+            $keranjangSaran = (new KeranjangDariSaran())->bangun(
+                (int) $this->request->getGet('saran_id'),
+                (int) $this->request->getGet('pelanggan_id')
+            );
+        }
+
         $data = [
             'title'    => 'Kasir | AULIA',
             'content'  => 'kasir/index',
@@ -59,6 +71,7 @@ class Kasir extends BaseController
             'recommended_no_order' => $recommendedNoOrder,
             'available_no_orders' => $availableNoOrders,
             'reminderTagihan' => $reminderTagihan,
+            'keranjangSaran' => $keranjangSaran,
         ];
 
         return view('layout/main', $data);

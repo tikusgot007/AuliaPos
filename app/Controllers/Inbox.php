@@ -580,6 +580,13 @@ class Inbox extends BaseController
             $suggestion['items'] = (!empty($suggestion['items']))
                 ? json_decode((string) $suggestion['items'], true)
                 : null;
+
+            // Baris produk dari M.A.R.A (hanya id + jumlah). Kasir tidak
+            // membacanya langsung; dipakai untuk menandai tombol "Buka di Kasir".
+            $suggestion['cart_items'] = (!empty($suggestion['cart_items']))
+                ? json_decode((string) $suggestion['cart_items'], true)
+                : null;
+            $suggestion['ada_keranjang'] = is_array($suggestion['cart_items']) && $suggestion['cart_items'] !== [];
         }
         unset($suggestion);
 
@@ -3426,13 +3433,22 @@ class Inbox extends BaseController
      */
     private function buatPesananSukses(int $conversationId, array $pelanggan, bool $pelangganBaru)
     {
-        $query = http_build_query([
+        $query = [
             'pelanggan_id'     => (int) $pelanggan['id'],
             'pelanggan_nama'   => $pelanggan['nama'],
             'pelanggan_telp'   => $pelanggan['no_hp'] ?? '',
             'pelanggan_diskon' => $pelanggan['diskon'] ?? 0,
             'dari_inbox'       => 1,
-        ]);
+        ];
+
+        // Isi keranjang dari saran M.A.R.A: hanya id saran yang ikut URL.
+        // Kasir membaca ulang + memvalidasi sendiri, jadi ini cuma penyaring awal.
+        $saranId = $this->saranIdUntukKasir($conversationId);
+        if ($saranId !== null) {
+            $query['saran_id'] = $saranId;
+        }
+
+        $query = http_build_query($query);
 
         return $this->response->setStatusCode(200)->setJSON([
             'status'         => 'success',
@@ -3441,6 +3457,33 @@ class Inbox extends BaseController
             'redirect_url'   => base_url('kasir') . '?' . $query,
             'csrf'           => csrf_hash(),
         ]);
+    }
+
+    /**
+     * `saran_id` dari POST bila saran itu milik percakapan ini, aktif, belum
+     * kedaluwarsa dan punya `cart_items`; selain itu null.
+     */
+    private function saranIdUntukKasir(int $conversationId): ?int
+    {
+        $saranId = filter_var($this->request->getPost('saran_id'), FILTER_VALIDATE_INT);
+        if ($saranId === false || $saranId <= 0) {
+            return null;
+        }
+
+        $ada = db_connect('inbox')->table('mara_suggestions')
+            ->select('id')
+            ->where('id', $saranId)
+            ->where('conversation_id', $conversationId)
+            ->where('status', 'active')
+            ->where('cart_items IS NOT NULL', null, false)
+            ->groupStart()
+                ->where('expires_at', null)
+                ->orWhere('expires_at >', MaraSuggestionModel::nowWib())
+            ->groupEnd()
+            ->get()
+            ->getRowArray();
+
+        return $ada ? $saranId : null;
     }
 
     /**

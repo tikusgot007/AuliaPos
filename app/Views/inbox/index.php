@@ -681,5 +681,5 @@
     };
 </script>
 <script src="<?= base_url('assets/js/inbox-emoji.js') ?>"></script>
-<script src="<?= base_url('assets/js/inbox-suggestions.js') ?>"></script>
-<script src="<?= base_url('assets/js/inbox-page.js') ?>"></script>
+<script src="<?= base_url('assets/js/inbox-suggestions.js') ?>?v=<?= filemtime(FCPATH . 'assets/js/inbox-suggestions.js') ?>"></script>
+<script src="<?= base_url('assets/js/inbox-page.js') ?>?v=<?= filemtime(FCPATH . 'assets/js/inbox-page.js') ?>"></script>

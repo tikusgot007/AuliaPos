@@ -53,6 +53,10 @@ class MaraController extends BaseController
     /** Batas jumlah langkah dalam satu daftar-periksa. */
     private const SUGGESTION_ITEMS_MAX = 50;
 
+    /** Batas baris produk dan rentang jumlah dalam `cart_items`. */
+    private const CART_ITEMS_MAX = 20;
+    private const CART_QTY_MAX   = 999;
+
     /**
      * Aksi UI opsional yang boleh menempel pada saran. Whitelist ketat:
      * hanya pengenal, BUKAN URL/parameter -- tombolnya memanggil endpoint
@@ -367,6 +371,25 @@ class MaraController extends BaseController
             }
         }
 
+        // --- cart_items (opsional) ------------------------------------------
+        // Hanya {produk_id, jumlah} yang diterima; harga/nama/satuan dari
+        // M.A.R.A DIABAIKAN (POS membacanya sendiri dari `produk`). Wajib
+        // bersama action='buka_kasir' (daftar tanpa tombol tidak berguna).
+        // Kosong / tidak dikirim = tanpa keranjang.
+        $cartItemsJson = null;
+        if (array_key_exists('cart_items', $body) && $body['cart_items'] !== null) {
+            $cartItems = $this->normalizeCartItems($body['cart_items']);
+            if (is_string($cartItems)) {
+                return $this->suggestionError(400, $cartItems);
+            }
+            if ($cartItems !== []) {
+                if ($action !== 'buka_kasir') {
+                    return $this->suggestionError(400, "cart_items hanya berlaku bersama action='buka_kasir'.");
+                }
+                $cartItemsJson = json_encode($cartItems, JSON_UNESCAPED_UNICODE);
+            }
+        }
+
         // --- conversation_id harus ADA di conversations -------------------
         $conversationModel = new ConversationModel();
         if ($conversationModel->find($conversationId) === null) {
@@ -427,6 +450,12 @@ class MaraController extends BaseController
                 $row['action'] = $action;
             }
 
+            // Sama seperti `action`: kolom baru hanya ditulis bila dikirim,
+            // jadi kode yang ter-deploy sebelum migrasi tetap menyimpan saran biasa.
+            if ($cartItemsJson !== null) {
+                $row['cart_items'] = $cartItemsJson;
+            }
+
             $suggestionModel->insert($row);
 
             $newId = (int) $suggestionModel->getInsertID();
@@ -452,6 +481,54 @@ class MaraController extends BaseController
                 'id' => $newId,
             ],
         ]);
+    }
+
+    /**
+     * Validasi + normalisasi `cart_items`. Kembalian: array baris bersih
+     * [{produk_id, jumlah}] (id kembar dijumlahkan), atau string pesan error.
+     * Field lain (harga, nama, satuan) dibuang -- tidak pernah dipercaya.
+     *
+     * @param mixed $raw
+     *
+     * @return array<int, array{produk_id:int, jumlah:int}>|string
+     */
+    private function normalizeCartItems($raw)
+    {
+        if (!is_array($raw)) {
+            return 'cart_items harus berupa array.';
+        }
+        if (count($raw) > self::CART_ITEMS_MAX) {
+            return 'cart_items maksimal ' . self::CART_ITEMS_MAX . ' baris.';
+        }
+
+        $gabung = [];
+        foreach ($raw as $row) {
+            if (!is_array($row)) {
+                return 'cart_items harus berisi objek {produk_id, jumlah}.';
+            }
+
+            $id  = $row['produk_id'] ?? null;
+            $qty = $row['jumlah'] ?? null;
+
+            if (!is_int($id) || $id <= 0) {
+                return 'cart_items.produk_id harus bilangan bulat > 0.';
+            }
+            if (!is_int($qty) || $qty < 1 || $qty > self::CART_QTY_MAX) {
+                return 'cart_items.jumlah harus bilangan bulat 1-' . self::CART_QTY_MAX . '.';
+            }
+
+            $gabung[$id] = ($gabung[$id] ?? 0) + $qty;
+            if ($gabung[$id] > self::CART_QTY_MAX) {
+                return 'cart_items.jumlah gabungan melebihi ' . self::CART_QTY_MAX . '.';
+            }
+        }
+
+        $hasil = [];
+        foreach ($gabung as $id => $qty) {
+            $hasil[] = ['produk_id' => (int) $id, 'jumlah' => $qty];
+        }
+
+        return $hasil;
     }
 
     /**

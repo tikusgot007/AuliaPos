@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-10-18 — Keranjang Kasir dari saran M.A.R.A
+
+- **Aturan bisnis baru**: saran M.A.R.A dengan `action = buka_kasir` boleh membawa `cart_items` berisi hanya `produk_id` dan `jumlah`. POS membatasi maksimal 20 baris, jumlah 1–999, serta menjumlahkan id produk kembar.
+- **Harga aman**: nama, satuan, kategori, dan harga dari M.A.R.A tidak dipercaya. Kasir selalu membaca ulang master `produk`; produk tidak aktif, tidak ada, atau `harga_jual <= 0` dilewati dan kasir mendapat peringatan jumlah item gagal.
+- **Tautan aman**: URL Kasir hanya menerima `saran_id`. POS memeriksa ulang saran aktif, belum kedaluwarsa, milik percakapan pelanggan yang sama, lalu mengisi keranjang sekali saat datang dari Inbox. Refresh tidak menggandakan isi.
+- **Kompatibilitas browser**: berkas JavaScript Inbox/Kasir sekarang memakai query versi berbasis `filemtime`, agar browser tidak memakai skrip lama setelah rilis.
+- **Status**: selesai di dev; test, mutasi, smoke HTTP, dan uji browser dev lulus. Belum di-deploy. Ada migrasi Inbox.
+
 ## 2026-10-18 — Nama pelanggan dari Inbox berformat `NAMA 4DIGIT` + "Buat Pesanan" mengarahkan tab utama
 
 - **Aturan bisnis baru**: pelanggan yang dibuat dari tombol "Buat Pesanan" di Inbox tidak lagi

@@ -398,7 +398,7 @@
         }
     };
 </script>
-<script src="<?= base_url('assets/js/kasir-shared.js') ?>"></script>
+<script src="<?= base_url('assets/js/kasir-shared.js') ?>?v=<?= filemtime(FCPATH . 'assets/js/kasir-shared.js') ?>"></script>
 
 <script>
     // ================================================================

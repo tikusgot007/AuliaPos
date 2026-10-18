@@ -802,9 +802,16 @@ function kirimBuatPesanan(idPercakapan, nama) {
         headers: headerBuatPesanan()
     };
 
-    if (typeof nama === 'string') {
+    const bagian = [];
+    if (typeof nama === 'string') bagian.push('nama=' + encodeURIComponent(nama));
+    // Saran M.A.R.A yang sedang ditampilkan dan punya keranjang; server
+    // memvalidasi ulang kepemilikannya, ini hanya petunjuk.
+    const saranId = typeof saranKeranjangAktif === 'function' ? saranKeranjangAktif() : 0;
+    if (saranId) bagian.push('saran_id=' + saranId);
+
+    if (bagian.length) {
         opsi.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        opsi.body = 'nama=' + encodeURIComponent(nama);
+        opsi.body = bagian.join('&');
     }
 
     return fetch(INBOX_URL.percakapan + idPercakapan + '/buat-pesanan', opsi)

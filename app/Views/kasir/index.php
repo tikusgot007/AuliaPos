@@ -395,6 +395,8 @@
         // Cart kasir dipersist ke sessionStorage supaya tidak hilang
         // saat berpindah tab/reload sebelum transaksi disimpan.
         cartStorageKey: 'aulia_kasir_cart_v1',
+        // Item dari saran M.A.R.A (sudah divalidasi server); kosong bila bukan dari Inbox.
+        keranjangSaran: <?= json_encode($keranjangSaran ?? ['items' => [], 'jumlah_gagal' => 0], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         urls: {
             searchPelanggan: '<?= base_url('/api/search-pelanggan') ?>',
             editPelanggan: '<?= base_url('/pelanggan/edit/') ?>',
@@ -403,7 +405,7 @@
         }
     };
 </script>
-<script src="<?= base_url('assets/js/kasir-shared.js') ?>"></script>
+<script src="<?= base_url('assets/js/kasir-shared.js') ?>?v=<?= filemtime(FCPATH . 'assets/js/kasir-shared.js') ?>"></script>
 
 <script>
     // ================================================================

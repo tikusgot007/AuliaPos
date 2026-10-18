@@ -1,5 +1,6 @@
 # Indeks Checkpoint Sesi
 
+| 2026-10-18 | [Isi keranjang Kasir dari saran M.A.R.A](2026-10-18-isi-keranjang-dari-saran-mara.md) | selesai di dev; menunggu review/Gate 3 dan deploy |
 Daftar checkpoint per sesi kerja. Sesi baru: salin `TEMPLATE.md`, isi, lalu
 tambahkan barisnya di sini (urutan terbaru di atas).
 

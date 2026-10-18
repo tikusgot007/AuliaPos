@@ -734,6 +734,7 @@ function resetFilterProduk() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    isiKeranjangDariSaran();
     restorePelangganFromUrl();
     const search = document.getElementById('searchProduk');
     if (!search) return;
@@ -888,6 +889,33 @@ async function editTelpPelanggan() {
         KASIR_CONFIG.urls.editPelanggan +
         pelangganTerpilih.id +
         '?return=kasir';
+}
+
+/**
+ * Isi keranjang dari saran M.A.R.A. Item sudah dibangun SERVER (nama, satuan,
+ * harga dari tabel produk) dan dikirim lewat KASIR_CONFIG.keranjangSaran;
+ * JS hanya memasukkannya. Hanya jalan bila datang dari Inbox (dari_inbox=1),
+ * jadi refresh halaman tidak menggandakan item. Lihat
+ * docs/design/2026-10-18-isi-keranjang-dari-saran-mara.md.
+ */
+function isiKeranjangDariSaran() {
+    try {
+        if (new URLSearchParams(window.location.search).get('dari_inbox') !== '1') return;
+
+        const data = (typeof KASIR_CONFIG !== 'undefined') ? KASIR_CONFIG.keranjangSaran : null;
+        if (!data || !Array.isArray(data.items)) return;
+
+        data.items.forEach(function (item) {
+            tambahItemKeCart(item);
+        });
+
+        const gagal = Number(data.jumlah_gagal) || 0;
+        if (gagal > 0) {
+            showToast(gagal + ' item tidak ditemukan atau tidak aktif, silakan tambahkan manual.', 'warning');
+        }
+    } catch (e) {
+        console.warn('Isi keranjang dari saran gagal:', e);
+    }
 }
 
 function restorePelangganFromUrl() {

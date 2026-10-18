@@ -204,6 +204,18 @@ function jalankanAksiSaran(saranId) {
     }
 }
 
+/**
+ * Id saran 'buka_kasir' terbaru yang membawa keranjang (cart_items), atau 0.
+ * Dipakai buatPesanan() agar tombol header pun ikut mengisi keranjang.
+ */
+function saranKeranjangAktif() {
+    const kandidat = (typeof daftarSaranMara !== 'undefined' ? daftarSaranMara : []).filter(function(s) {
+        return s.action === 'buka_kasir' && s.ada_keranjang === true;
+    })[0];
+
+    return kandidat ? parseInt(kandidat.id, 10) || 0 : 0;
+}
+
 function labelTipeSaran(tipe) {
     if (tipe === 'balasan') return 'Draft balasan';
     if (tipe === 'daftar-periksa') return 'Daftar periksa';

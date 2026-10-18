@@ -36,6 +36,7 @@ class MaraSuggestionModel extends Model
         'items',
         'reason',
         'action',
+        'cart_items',
         'status',
         'expires_at',
         'created_at',

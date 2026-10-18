@@ -63,8 +63,9 @@
     5. 3 pertanyaan desain lama (siapa generate token, field apa yang di-hash, strategi cursor final) — masih belum final, lihat histori sebelumnya.
   - Ref: ide awal di repo `tikusgot007/m.a.r.a` (`IDEAS.md`, `ideas/mara-cara-membangun.md`); spek webhook dikonfirmasi LANGSUNG oleh M.A.R.A via Telegram 2026-10-13 (bukan dari source code, karena repo tidak ada lokal di PC ini).
 
-- [ ] **TODO-INBOX-KASIR3** Isi keranjang Kasir dari saran M.A.R.A (pecahan eks-TODO-INBOX-KASIR2, 2026-10-18; bagian nama pelanggan + tab utama sudah selesai & di-deploy).
-  - isi keranjang Kasir dari saran M.A.R.A. Butuh kolom/field baru (jangan pakai `mara_suggestions.items`, sudah dipakai `daftar-periksa`), hanya `produk_id`+`jumlah` dari M.A.R.A, harga dihitung server; kontrak lintas repo, sisi M.A.R.A belum diverifikasi.
+- [ ] **TODO-INBOX-KASIR3** Isi keranjang Kasir dari saran M.A.R.A (pecahan eks-TODO-INBOX-KASIR2, 2026-10-18; bagian nama pelanggan + tab utama sudah selesai & di-deploy). Implementasi dev + test + smoke + uji browser selesai 2026-10-18; menunggu review/Gate 3 dan deploy.
+  - Requirements Gate 1: `docs/requirements/2026-10-18-isi-keranjang-dari-saran-mara.md`. Design Gate 2: `docs/design/2026-10-18-isi-keranjang-dari-saran-mara.md`.
+  - Ada migrasi Inbox `2026-10-18-000001_AddCartItemsToMaraSuggestions.php`; urutan rilis wajib: migrasi → POS → M.A.R.A. Kontrak sisi repo M.A.R.A belum diverifikasi.
 
 - [ ] **TODO-INBOX-EMOJI** Emoji picker composer + reaksi masuk sebagai kutipan di Inbox — sedang — permintaan user 2026-10-12. **Selesai, di-commit & push, dan SUDAH DI-DEPLOY ke produksi 2026-10-12; tinggal uji nyata di produksi.**
   - (A) Pemilih emoji lokal: `public/assets/js/inbox-emoji.js` + tombol `btnEmojiBalasan` di `app/Views/inbox/index.php`, style `inbox.css`, toggle tombol di `inbox-page.js`.
