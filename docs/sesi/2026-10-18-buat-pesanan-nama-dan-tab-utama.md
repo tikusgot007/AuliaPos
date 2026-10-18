@@ -1,7 +1,7 @@
 # Checkpoint Sesi — "Buat Pesanan" v2: konfirmasi nama pelanggan + arahkan tab utama
 
 - **Tanggal**: 2026-10-18
-- **Status**: sebagian — kode + test hijau + smoke test HTTP di dev lulus; **belum di-commit, belum di-deploy, uji browser kasir belum**
+- **Status**: selesai — di-commit (`6016c23`), di-push, di-deploy ke produksi 2026-10-18; uji browser dev disetujui Aan. Uji dengan pelanggan nyata di produksi belum
 - **Repo / branch**: AuliaPos `C:\xampp\htdocs\aulia`, `v2.4`
 - **Dokumen**: `docs/requirements/2026-10-18-buat-pesanan-konfirmasi-nama-dan-tab-utama.md` (Gate 1), `docs/design/2026-10-18-buat-pesanan-konfirmasi-nama-dan-tab-utama.md` (Gate 2)
 - **Sumber usulan**: `\\aulia7\AuliaPosGateway-Handoff\usulan-fitur-buat-pesanan.md`
@@ -74,3 +74,10 @@ Data uji yang dibuat saat smoke test **sudah dibersihkan**: pelanggan `8649` dih
   `Inbox::buatPesanan()`.
 - **Jalankan**: `php spark aulia:sync-inbox-test-db && php vendor/bin/phpunit --configuration phpunit.feature.xml --filter InboxBuatPesanan`,
   `node --test tests/js/inbox-buat-pesanan.test.js tests/js/kasir-dari-inbox.test.js`.
+
+## Deploy 2026-10-18
+
+- `aulia-server2` (`W:/htdocs/aulia`): `abdf966` -> `6016c23` lewat `git pull --ff-only`. Tanpa migrasi, tanpa composer, tanpa backup DB.
+- Fix tambahan setelah uji dev: `arahkanKeKasir()` memanggil `window.close()` karena `opener.focus()` diblokir browser.
+- Cek pasca-rilis: `/login`, `inbox-page.js`, `kasir-shared.js` 200 dan berisi kode baru; log tanpa ERROR baru.
+- Rollback: `git -C W:/htdocs/aulia reset --hard abdf966` (perlu persetujuan).
