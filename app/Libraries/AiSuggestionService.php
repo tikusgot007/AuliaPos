@@ -28,10 +28,13 @@ class AiSuggestionService
     /** @var callable|null fn(array $payload): string  -- isi balasan HTTP; diganti di test */
     private $http;
 
-    public function __construct(?AiGateway $config = null, ?callable $http = null)
+    private ProdukPencari $produk;
+
+    public function __construct(?AiGateway $config = null, ?callable $http = null, ?ProdukPencari $produk = null)
     {
         $this->config = $config ?? config(AiGateway::class);
         $this->http   = $http;
+        $this->produk = $produk ?? new ProdukPencari();
     }
 
     /**
@@ -100,13 +103,57 @@ class AiSuggestionService
             throw new \RuntimeException('Belum ada pesan untuk dianalisa.');
         }
 
-        $balasan = $this->panggil($teks);
+        // Tahap 1: kata cari -> baris produk dari tabel `produk` (desain §10).
+        $katalog = $this->bangunKatalog($this->tentukanKataCari($teks));
 
-        return $this->parse($balasan);
+        return $this->parse($this->panggil($teks, $katalog));
+    }
+
+    /**
+     * Tahap 1: AI menebak kata cari produk dari percakapan. Gagal/kosong/rusak
+     * apa pun -> [] (tahap 2 tetap jalan dengan katalog dasar saja).
+     *
+     * @return string[]
+     */
+    public function tentukanKataCari(string $percakapan): array
+    {
+        try {
+            $raw = $this->kirim([
+                'model'       => $this->config->model,
+                'max_tokens'  => $this->config->maxTokensCari,
+                'temperature' => 0,
+                'stream'      => false,
+                'messages'    => [
+                    ['role' => 'system', 'content' => $this->config->promptCari],
+                    ['role' => 'user', 'content' => "Percakapan:\n" . $percakapan],
+                ],
+            ], $this->config->timeoutCariSeconds, false);
+
+            $json = json_decode($this->jsonPenuh(trim($raw)), true);
+            $isi  = $json['choices'][0]['message']['content'] ?? '';
+            $data = json_decode($this->jsonPenuh((string) $isi), true);
+
+            return ProdukPencari::bersihkanKata($data['cari'] ?? []);
+        } catch (\Throwable $e) {
+            log_message('warning', 'AiSuggestionService: tahap kata cari dilewati (' . $e->getMessage() . ')');
+
+            return [];
+        }
+    }
+
+    /** Katalog prompt tahap 2 = produk dasar + hasil cari dari tabel `produk`. Hanya nama + ID, TANPA harga. */
+    public function bangunKatalog(array $kata): string
+    {
+        $baris = [];
+        foreach (array_merge($this->produk->byIds($this->config->produkDasar), $this->produk->cari($kata)) as $p) {
+            $baris[$p['id']] = '- ' . $p['nama'] . ': ID ' . $p['id']; // tanpa harga: harga/total dihitung server (desain §11)
+        }
+
+        return implode("\n", $baris);
     }
 
     /** Panggil 9router (OpenAI-compatible), kembalikan teks jawaban model. */
-    public function panggil(string $percakapan): string
+    public function panggil(string $percakapan, string $katalog = ''): string
     {
         $payload = [
             'model'       => $this->config->model,
@@ -114,12 +161,12 @@ class AiSuggestionService
             'temperature' => 0.2,
             'stream'      => false,
             'messages'    => [
-                ['role' => 'system', 'content' => $this->config->systemPrompt],
+                ['role' => 'system', 'content' => str_replace('{{KATALOG}}', $katalog, $this->config->systemPrompt)],
                 ['role' => 'user', 'content' => 'Sekarang: ' . (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i') . " WIB\nPercakapan:\n" . $percakapan],
             ],
         ];
 
-        $raw = $this->http !== null ? ($this->http)($payload) : $this->curl($payload);
+        $raw = $this->kirim($payload, $this->config->timeoutSeconds, true);
 
         $json = json_decode($this->jsonPenuh(trim($raw)), true);
         $isi  = $json['choices'][0]['message']['content'] ?? null;
@@ -130,22 +177,27 @@ class AiSuggestionService
         return $isi;
     }
 
+    private function kirim(array $payload, int $timeout, bool $ulang429): string
+    {
+        return $this->http !== null ? ($this->http)($payload) : $this->curl($payload, $timeout, $ulang429);
+    }
+
     /** Satu kali ulang bila 429 (batas laju sesaat); error lain langsung dilempar. */
-    private function curl(array $payload): string
+    private function curl(array $payload, int $timeout, bool $ulang429): string
     {
         try {
-            return $this->curlSekali($payload);
+            return $this->curlSekali($payload, $timeout);
         } catch (\RuntimeException $e) {
-            if ($e->getCode() !== 429) {
+            if (!$ulang429 || $e->getCode() !== 429) {
                 throw $e;
             }
             sleep($this->config->jedaUlangDetik);
 
-            return $this->curlSekali($payload);
+            return $this->curlSekali($payload, $timeout);
         }
     }
 
-    private function curlSekali(array $payload): string
+    private function curlSekali(array $payload, int $timeout): string
     {
         $ch = curl_init(rtrim($this->config->baseUrl, '/') . '/chat/completions');
         $header = ['Content-Type: application/json'];
@@ -158,7 +210,7 @@ class AiSuggestionService
             CURLOPT_HTTPHEADER     => $header,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT        => $this->config->timeoutSeconds,
+            CURLOPT_TIMEOUT        => $timeout,
         ]);
         $res    = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -212,6 +264,10 @@ class AiSuggestionService
 
         $b = $data['balasan'] ?? null;
         if (is_array($b) && ($t = $this->teks($b['text'] ?? null)) !== null) {
+            $t = $this->buangHarga($t);
+            if ($t === null) {
+                return [];
+            }
             $baris = ['type' => 'balasan', 'priority' => 'normal', 'text' => $t,
                 'items' => null, 'reason' => $this->teks($b['reason'] ?? null, 500),
                 'action' => null, 'cart_items' => null];
@@ -221,6 +277,7 @@ class AiSuggestionService
             if (($data['action'] ?? null) === 'buka_kasir' && $cart !== []) {
                 $baris['action']     = 'buka_kasir';
                 $baris['cart_items'] = $cart;
+                $baris['text']       = $this->sisipTotal($t, $this->total($cart));
             }
             $hasil[] = $baris;
         }
@@ -229,7 +286,7 @@ class AiSuggestionService
     }
 
     /**
-     * Keranjang dari AI -> hanya {produk_id, jumlah} dengan id yang ada di katalog.
+     * Keranjang dari AI -> hanya {produk_id, jumlah} dengan id sah di tabel `produk`.
      * Baris tak sah dibuang diam-diam (kasir tetap melihat balasan); id kembar digabung.
      *
      * @return array<int, array{produk_id: int, jumlah: int}>
@@ -243,17 +300,55 @@ class AiSuggestionService
         foreach ($raw as $row) {
             $id  = is_array($row) ? ($row['produk_id'] ?? null) : null;
             $qty = is_array($row) ? ($row['jumlah'] ?? null) : null;
-            if (!is_int($id) || !isset($this->config->katalog[$id]) || !is_int($qty) || $qty < 1 || $qty > self::QTY_MAX) {
+            if (!is_int($id) || $id < 1 || !is_int($qty) || $qty < 1 || $qty > self::QTY_MAX) {
                 continue;
             }
             $gabung[$id] = min(self::QTY_MAX, ($gabung[$id] ?? 0) + $qty);
         }
+        // ID harus produk aktif, tidak terkunci, berharga di tabel `produk` (bukan karangan AI).
+        $sah    = array_flip($this->produk->valid(array_keys($gabung)));
+        $gabung = array_intersect_key($gabung, $sah);
         $hasil = [];
         foreach (array_slice($gabung, 0, self::CART_MAX, true) as $id => $qty) {
             $hasil[] = ['produk_id' => $id, 'jumlah' => $qty];
         }
 
         return $hasil;
+    }
+
+    /** Total keranjang dari harga master `produk` (bukan angka AI). */
+    private function total(array $cart): int
+    {
+        $harga = array_column($this->produk->byIds(array_column($cart, 'produk_id')), 'harga', 'id');
+        $total = 0;
+        foreach ($cart as $c) {
+            $total += ($harga[$c['produk_id']] ?? 0) * $c['jumlah'];
+        }
+
+        return $total;
+    }
+
+    /**
+     * AI dilarang menulis harga (desain §11). Pengaman: kalimat yang memuat angka
+     * harga dibuang. Semua kalimat terbuang -> null (tidak ada saran).
+     */
+    private function buangHarga(string $t): ?string
+    {
+        $kalimat = preg_split('/(?<=[.!?])\s+/u', $t) ?: [$t];
+        $sisa    = array_filter($kalimat, static fn (string $k) => !preg_match('/\bRp\.?\s*\d|\d\s*(rb|ribu|k)\b/iu', $k));
+
+        return $this->teks(implode(' ', $sisa));
+    }
+
+    /** "Total Rp 60.000." disisipkan sebelum emoji penutup bila ada. */
+    private function sisipTotal(string $t, int $total): string
+    {
+        $kalimat = 'Total Rp ' . number_format($total, 0, ',', '.') . '.';
+        if (preg_match('/^(.*?)(\s*[^\p{L}\p{N}\s.,!?]+)$/su', $t, $m)) {
+            return mb_substr(rtrim($m[1]) . ' ' . $kalimat . $m[2], 0, self::TEXT_MAX);
+        }
+
+        return mb_substr(rtrim($t) . ' ' . $kalimat, 0, self::TEXT_MAX);
     }
 
     private function teks($v, int $max = self::TEXT_MAX): ?string

@@ -67,7 +67,7 @@
   - Requirements Gate 1: `docs/requirements/2026-10-18-isi-keranjang-dari-saran-mara.md`. Design Gate 2: `docs/design/2026-10-18-isi-keranjang-dari-saran-mara.md`.
   - Ada migrasi Inbox `2026-10-18-000001_AddCartItemsToMaraSuggestions.php`; urutan rilis wajib: migrasi → POS → M.A.R.A. Kontrak sisi repo M.A.R.A belum diverifikasi.
 
-- [ ] **TODO-INBOX-AI-SARAN** Tombol "Minta Saran AI" on-demand di panel saran Inbox: AuliaPos panggil 9router (`aan-groq`) tanpa M.A.R.A, hasil ke `mara_suggestions` (sedang, permintaan user 2026-10-18). Tahap: Requirements Gate 1 + Design Gate 2 disetujui 2026-10-19; kode BELUM ditulis.
+- [ ] **TODO-INBOX-AI-SARAN** Tombol "Minta Saran AI" on-demand di panel saran Inbox: AuliaPos panggil 9router (`aan-groq`) tanpa M.A.R.A, hasil ke `mara_suggestions` (sedang, permintaan user 2026-10-18). Tahap: Requirements Gate 1 + Design Gate 2 disetujui 2026-10-19; kode v1 sudah di-commit (0d6c67a, katalog tetap 15 produk). Amendment design §10 (cari produk dari tabel `produk`, dua tahap) menunggu persetujuan Gate 2.
   - Requirements: `docs/requirements/2026-10-18-ai-saran-on-demand.md`. Design: `docs/design/2026-10-18-ai-saran-on-demand.md`.
   - Sebelum deploy: 9router produksi jalan sendiri di aulia-server2 (sama seperti dev, `localhost:20128`); cek di server: 9router hidup, combo `aan-groq` ada, key Groq terisi. Di dev, buktikan `aan-groq` hidup (tes tadi `Missing API key`). Chat grup diblok (403).
 

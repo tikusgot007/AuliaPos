@@ -3,14 +3,50 @@
 namespace Tests\Unit;
 
 use App\Libraries\AiSuggestionService;
+use App\Libraries\ProdukPencari;
 use Config\AiGateway;
 use PHPUnit\Framework\TestCase;
 
 final class AiSuggestionServiceTest extends TestCase
 {
-    private function svc(?callable $http = null): AiSuggestionService
+    /** ProdukPencari palsu: tanpa DB. $valid = id yang dianggap sah; $baris = isi tabel. */
+    private function pencari(array $baris = [], ?array $valid = null): ProdukPencari
     {
-        return new AiSuggestionService(new AiGateway(), $http);
+        return new class($baris, $valid) extends ProdukPencari {
+            public function __construct(private array $baris, private ?array $valid)
+            {
+            }
+
+            public function byIds(array $ids): array
+            {
+                return array_values(array_filter($this->baris, fn ($r) => in_array($r['id'], $ids, true)));
+            }
+
+            public function cari(array $kata): array
+            {
+                $kata = ProdukPencari::bersihkanKata($kata);
+
+                return array_values(array_filter($this->baris, function ($r) use ($kata) {
+                    foreach ($kata as $k) {
+                        if (stripos($r['nama'], $k) !== false) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }));
+            }
+
+            public function valid(array $ids): array
+            {
+                return array_values(array_filter($ids, fn ($i) => $this->valid === null || in_array($i, $this->valid, true)));
+            }
+        };
+    }
+
+    private function svc(?callable $http = null, ?ProdukPencari $p = null): AiSuggestionService
+    {
+        return new AiSuggestionService(new AiGateway(), $http, $p ?? $this->pencari());
     }
 
     private function balasanAi(string $content): string
@@ -36,11 +72,11 @@ final class AiSuggestionServiceTest extends TestCase
             $dikirim = $p;
             return $this->balasanAi('{"balasan":null}');
         });
-        $svc->panggil('Pelanggan: halo');
+        $svc->panggil('Pelanggan: halo', '- Cetak 10R: ID 76');
 
         $cfg = new AiGateway();
         $this->assertSame($cfg->model, $dikirim['model']);
-        $this->assertSame($cfg->systemPrompt, $dikirim['messages'][0]['content']);
+        $this->assertSame(str_replace('{{KATALOG}}', '- Cetak 10R: ID 76', $cfg->systemPrompt), $dikirim['messages'][0]['content']);
         $this->assertGreaterThanOrEqual(4096, $dikirim['max_tokens']);
         $this->assertFalse($dikirim['stream']);
     }
@@ -72,7 +108,7 @@ final class AiSuggestionServiceTest extends TestCase
 
     public function testKeranjangHanyaIdKatalogDanJumlahSah(): void
     {
-        $r = $this->svc()->parse(json_encode([
+        $r = $this->svc(null, $this->pencari([], [76, 116, 64]))->parse(json_encode([
             'balasan' => ['text' => 'Siap kak'],
             'action' => 'buka_kasir',
             'cart_items' => [
@@ -98,17 +134,46 @@ final class AiSuggestionServiceTest extends TestCase
             ['action' => 'hapus_semua', 'cart_items' => [['produk_id' => 76, 'jumlah' => 1]]],
             ['action' => null, 'cart_items' => [['produk_id' => 76, 'jumlah' => 1]]],
         ] as $tambahan) {
-            $r = $this->svc()->parse(json_encode(['balasan' => ['text' => 'Siap kak']] + $tambahan));
+            $r = $this->svc(null, $this->pencari([], [76]))->parse(json_encode(['balasan' => ['text' => 'Siap kak']] + $tambahan));
             $this->assertNull($r[0]['action']);
             $this->assertNull($r[0]['cart_items']);
         }
     }
 
-    public function testPromptMemuatKatalogDariConfig(): void
+    public function testBangunKatalogGabungDasarDanHasilCariTanpaDuplikat(): void
     {
+        $tabel = [
+            ['id' => 76, 'nama' => 'Cetak 10R', 'harga' => 11000],
+            ['id' => 73, 'nama' => '4R', 'harga' => 2500],
+            ['id' => 868, 'nama' => 'Frame 4R Minimalis', 'harga' => 16000],
+        ];
         $cfg = new AiGateway();
-        $this->assertStringNotContainsString('{{KATALOG}}', $cfg->systemPrompt);
-        $this->assertStringContainsString('Cetak 10R: ID 76, Rp 11.000', $cfg->systemPrompt);
+        $cfg->produkDasar = [76];
+        $svc = new AiSuggestionService($cfg, null, $this->pencari($tabel));
+
+        $this->assertSame(
+            "- Cetak 10R: ID 76\n- 4R: ID 73\n- Frame 4R Minimalis: ID 868",
+            $svc->bangunKatalog(['4R', 'Cetak 10R'])
+        );
+        $this->assertSame('- Cetak 10R: ID 76', $svc->bangunKatalog([]));
+    }
+
+    public function testTentukanKataCari(): void
+    {
+        $isi = fn (string $c) => fn () => $this->balasanAi($c);
+        $this->assertSame(['4R', 'Frame 4R'], $this->svc($isi('{"cari":["4R","Frame 4R"]}'))->tentukanKataCari('x'));
+        $this->assertSame(['4R'], $this->svc($isi("```json\n{\"cari\":[\"4R\"]}\n```"))->tentukanKataCari('x'));
+        $this->assertSame([], $this->svc($isi('bukan json'))->tentukanKataCari('x'), 'rusak -> kosong');
+        $this->assertSame([], $this->svc($isi('{"cari":"4R"}'))->tentukanKataCari('x'), 'bukan array -> kosong');
+        $this->assertSame([], $this->svc(function () { throw new \RuntimeException('429'); })->tentukanKataCari('x'), 'error -> kosong, tidak melempar');
+    }
+
+    public function testBersihkanKataSanitasiDanBatas(): void
+    {
+        $this->assertSame(['4R', 'Frame'], ProdukPencari::bersihkanKata(['4R', '  Frame ', '4r', 'a', str_repeat('x', 41), 5, null, '%_']));
+        $this->assertSame(['ab'], ProdukPencari::bersihkanKata(['a%b_']), 'wildcard LIKE dibuang');
+        $this->assertCount(ProdukPencari::KATA_MAX, ProdukPencari::bersihkanKata(['aa', 'bb', 'cc', 'dd', 'ee', 'ff', 'gg']));
+        $this->assertSame([], ProdukPencari::bersihkanKata('4R'));
     }
 
     public function testParseBatasPanjangDanNullKosong(): void

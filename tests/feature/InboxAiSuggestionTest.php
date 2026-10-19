@@ -24,6 +24,27 @@ final class InboxAiSuggestionTest extends CIUnitTestCase
         parent::setUp();
 
         $this->inbox = db_connect('inbox');
+
+        // `produk` (grup default = SQLite saat testing): dipakai pencarian dan validasi keranjang.
+        $forge = \Config\Database::forge();
+        $forge->dropTable('produk', true);
+        $forge->addField([
+            'id' => ['type' => 'INTEGER', 'auto_increment' => true], 'nama' => ['type' => 'TEXT'],
+            'kategori_id' => ['type' => 'INTEGER', 'default' => 16], 'satuan' => ['type' => 'TEXT', 'null' => true],
+            'harga_jual' => ['type' => 'REAL'], 'harga_beli' => ['type' => 'REAL', 'null' => true],
+            'is_active' => ['type' => 'INTEGER', 'default' => 1], 'is_locked' => ['type' => 'INTEGER', 'default' => 0],
+        ]);
+        $forge->addKey('id', true);
+        $forge->createTable('produk', true);
+        foreach ([
+            [76, 'Cetak 10R', 11000, 1, 0], [838, 'Frame 10R Minimalis', 27000, 1, 0], [73, '4R', 2500, 1, 0],
+            [868, 'Frame 4R Minimalis', 16000, 1, 0], [900, '4R Mati', 1000, 0, 0],
+            [901, '4R Terkunci', 1000, 1, 1], [903, '24R', 175000, 1, 0], [902, '4R Gratis', 0, 1, 0],
+        ] as [$id, $nama, $harga, $aktif, $kunci]) {
+            db_connect()->table('produk')->insert([
+                'id' => $id, 'nama' => $nama, 'harga_jual' => $harga, 'is_active' => $aktif, 'is_locked' => $kunci,
+            ]);
+        }
         foreach (['mara_suggestions', 'messages', 'conversation_identities', 'conversations'] as $t) {
             $this->inbox->table($t)->emptyTable();
         }
@@ -56,6 +77,9 @@ final class InboxAiSuggestionTest extends CIUnitTestCase
         }
         @unlink($this->respFile);
         @unlink($this->respFile . '.once');
+        @unlink($this->respFile . '.cari');
+        @unlink($this->respFile . '.log');
+        \Config\Database::forge()->dropTable('produk', true);
         foreach (['aigateway.baseUrl', 'aigateway.timeoutSeconds', 'aigateway.jedaUlangDetik'] as $k) {
             putenv($k);
             unset($_ENV[$k], $_SERVER[$k]);
@@ -70,6 +94,21 @@ final class InboxAiSuggestionTest extends CIUnitTestCase
         file_put_contents($this->respFile, $status . "\n" . json_encode(
             ['choices' => [['message' => ['content' => json_encode($isi)]]]]
         ));
+    }
+
+    private function aiCari(array $kata): void
+    {
+        file_put_contents($this->respFile . '.cari', "200\n" . json_encode(
+            ['choices' => [['message' => ['content' => json_encode(['cari' => $kata])]]]]
+        ));
+    }
+
+    /** @return array<int, array> body request yang diterima server palsu, urut masuk */
+    private function request(): array
+    {
+        $f = $this->respFile . '.log';
+
+        return is_file($f) ? array_map(static fn ($l) => json_decode($l, true), array_filter(explode("\n", file_get_contents($f)))) : [];
     }
 
     private function seedConv(string $jid = 'pn', bool $denganPesan = true): int
@@ -186,6 +225,88 @@ final class InboxAiSuggestionTest extends CIUnitTestCase
         file_put_contents($this->respFile . '.once', "429\n{}");
         $this->minta($id)->assertOK();
         $this->assertSame('Berhasil setelah ulang', $this->aktif($id)[0]['text']);
+    }
+
+    public function testHasilCariMasukPromptTahap2DariTabelProduk(): void
+    {
+        $id = $this->seedConv();
+        $this->aiCari(['4R', 'Frame 4R', '4R']);
+        $this->aiMenjawab(['balasan' => ['text' => 'Siap kak']]);
+        $this->minta($id)->assertOK();
+
+        $req = $this->request();
+        $this->assertCount(2, $req, 'tahap 1 + tahap 2');
+        $prompt2 = $req[1]['messages'][0]['content'];
+        $this->assertStringContainsString('4R: ID 73', $prompt2);
+        $this->assertStringContainsString('Frame 4R Minimalis: ID 868', $prompt2);
+        $this->assertStringContainsString('Cetak 10R: ID 76', $prompt2, 'produk dasar tetap ikut');
+        $this->assertStringNotContainsString('Rp 2.500', $prompt2, 'katalog tanpa harga');
+        foreach (['4R Mati', '4R Terkunci', '4R Gratis', '24R'] as $tidak) {
+            $this->assertStringNotContainsString($tidak, $prompt2, "$tidak tidak boleh masuk katalog");
+        }
+        $this->assertStringNotContainsString('{{KATALOG}}', $prompt2);
+    }
+
+    public function testTahapCariGagalTetapMenghasilkanSaran(): void
+    {
+        $id = $this->seedConv();
+        file_put_contents($this->respFile . '.cari', "429\n{}");
+        $this->aiMenjawab(['balasan' => ['text' => 'Tetap jalan']]);
+        $this->minta($id)->assertOK();
+
+        $this->assertSame('Tetap jalan', $this->aktif($id)[0]['text']);
+        $this->assertStringNotContainsString('4R: ID 73', $this->request()[1]['messages'][0]['content']);
+    }
+
+    public function testKeranjangIdTidakSahDiTabelProdukDibuang(): void
+    {
+        $id = $this->seedConv();
+        $this->aiCari([]);
+        $this->aiMenjawab([
+            'balasan' => ['text' => 'Siap kak'], 'action' => 'buka_kasir',
+            'cart_items' => [
+                ['produk_id' => 73, 'jumlah' => 10],   // sah (hasil cari)
+                ['produk_id' => 900, 'jumlah' => 1],   // nonaktif
+                ['produk_id' => 901, 'jumlah' => 1],   // terkunci
+                ['produk_id' => 902, 'jumlah' => 1],   // harga 0
+                ['produk_id' => 5555, 'jumlah' => 1],  // tidak ada
+            ],
+        ]);
+        $this->minta($id)->assertOK();
+
+        $aktif = $this->aktif($id);
+        $this->assertSame('buka_kasir', $aktif[0]['action']);
+        $this->assertSame([['produk_id' => 73, 'jumlah' => 10]], json_decode($aktif[0]['cart_items'], true));
+    }
+
+    public function testTotalDihitungServerDanAngkaAiDibuang(): void
+    {
+        $id = $this->seedConv();
+        $this->aiCari([]);
+        $this->aiMenjawab([
+            'balasan' => ['text' => 'Siap kak Budi. Total Rp 58.000 ya. Kami proses 🙏'],
+            'action' => 'buka_kasir',
+            'cart_items' => [['produk_id' => 76, 'jumlah' => 3], ['produk_id' => 838, 'jumlah' => 1]],
+        ]);
+        $this->minta($id)->assertOK();
+
+        $teks = $this->aktif($id)[0]['text'];
+        $this->assertStringContainsString('Total Rp 60.000.', $teks);   // 3x11.000 + 27.000 dari tabel produk
+        $this->assertStringNotContainsString('58.000', $teks);
+        $this->assertStringEndsWith('🙏', $teks);
+    }
+
+    public function testTanpaKeranjangTidakAdaTotalDanHargaAiDibuang(): void
+    {
+        $id = $this->seedConv();
+        $this->aiCari([]);
+        $this->aiMenjawab(['balasan' => ['text' => 'Halo kak. 4R harganya Rp 2.500 per lembar. Atas nama siapa ya kak? 😊']]);
+        $this->minta($id)->assertOK();
+
+        $teks = $this->aktif($id)[0]['text'];
+        $this->assertStringNotContainsString('Rp', $teks);
+        $this->assertStringNotContainsString('Total', $teks);
+        $this->assertStringContainsString('Atas nama siapa', $teks);
     }
 
     public function testGatewayErrorTidakMenulisDb(): void

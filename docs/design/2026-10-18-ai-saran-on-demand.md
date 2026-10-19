@@ -3,7 +3,7 @@
 English technical specification (AGENTS.md §2.1).
 
 - **Date**: 2026-10-19
-- **Status**: approved (Gate 2, 2026-10-19)
+- **Status**: approved (Gate 2, 2026-10-19), incl. amendment §10.
 - **Requirements**: `docs/requirements/2026-10-18-ai-saran-on-demand.md` (Gate 1 approved 2026-10-19)
 - **SDLC tier**: A
 
@@ -105,4 +105,80 @@ The service takes an injectable HTTP callable so tests never hit the real 9route
 
 ## 9. Approval (Gate 2)
 
+- [x] Approved by: Aan, date: 2026-10-19 (scope §1-§9)
+
+## 10. Amendment 2026-10-19: product lookup from `produk` (two-stage call)
+
+### 10.1 Why
+
+Implementation of §1-§9 shipped with a hardcoded 15-product catalog in `Config\AiGateway::$katalog`. Verified in `aulia_kasirdb.produk` (468 rows, 413 with `harga_jual > 0`): 3R (id 72, Rp 2.500), 4R (73), 5R (74), 6R (75) and many frames exist, so the AI refused prices that the shop really has. The whole table is too large for the prompt, and a copied price list goes stale when prices change.
+
+### 10.2 Flow (replaces the single AI call of §1)
+
+    generateSaran()
+      1. AiSuggestionService::kumpulkanPesan()            (unchanged)
+      2. tahap 1: AI call, short prompt, timeout 8s
+           in : conversation text
+           out: {"cari": ["4R", "frame 4R"]}               (<= 5 terms)
+           failure / empty / invalid -> terms = [], continue
+      3. ProdukPencari::cari(terms)                         (new, DB only)
+           SELECT id, nama, harga_jual FROM produk
+           WHERE is_active=1 AND is_locked=0 AND harga_jual>0 AND nama LIKE %term% (escaped)
+           LIMIT 30 total, dedupe by id
+      4. tahap 2: AI call, existing reply prompt, catalog =
+           base list (the 15 ids, prices re-read from `produk`) + search hits
+      5. parse(): cart_items validated against `produk` (active, unlocked, price > 0)
+      6. lock + supersede + insert                          (unchanged)
+
+Both stages share the 429 retry (one retry, 3s). Total wall clock capped at 20s; stage 1 failure never fails the request.
+
+### 10.3 Changes
+
+| File | Change |
+|---|---|
+| `app/Libraries/ProdukPencari.php` | New. `cari(array $terms): array` (sanitize: trim, 2-40 chars, strip `%` `_`, max 5 terms; query builder with bound params, max 30 rows) and `valid(array $ids): array` (ids that are active, unlocked, price > 0) |
+| `app/Libraries/AiSuggestionService.php` | Add stage 1 `tentukanKataCari()`; stage 2 prompt receives catalog string; `keranjang()` validates via `ProdukPencari::valid()` instead of `$config->katalog` |
+| `app/Config/AiGateway.php` | `$katalog` becomes `$produkDasar` = list of 15 ids only (no names/prices); new `$promptCari` (stage 1) and `timeoutCariSeconds = 8`; `{{KATALOG}}` is filled at call time |
+| `app/Controllers/Inbox.php` | None beyond what exists |
+| tests | Unit: term sanitizing, LIKE escaping, cap 30, cart validation against DB, stage 1 failure still yields a reply. Feature: 4R conversation gets id 73 in the stage 2 prompt (fake router records request bodies) |
+| `docs/CHANGELOG.md` | Update the "Katalog AI" entry |
+
+### 10.4 Impact
+
+- DB: read-only on `produk` (group `default`). No schema change. Prices always come from the master table, so there is nothing to keep in sync by hand.
+- Cost per click (measured from the Groq log, qwen/qwen3.8-27b): about 2.300 tokens and 2.7s today; with stage 1 about 3.000 tokens and about 6s. Requests per minute double, so 429 risk rises; the shared retry mitigates it.
+- Security: stage 1 output is untrusted. Terms are sanitized and used only as bound `LIKE` parameters, never concatenated into SQL. Search hits go into the stage 2 prompt as data (name, id, price), no instructions. Cart ids are re-validated against `produk`.
+- The AI still never sets prices; `KeranjangDariSaran` re-reads them at cart time (§2).
+
+### 10.5 Risks
+
+- Stage 1 misses a term -> stage 2 says "harga kami cek dulu" (safe failure, same as today).
+- Common terms such as "foto" match many rows -> hard cap 30 and a 2-char minimum; order by `sort_order, id`.
+- Two calls in a row exceed the 15s UI expectation -> stage 1 has its own 8s cap; stage 1 failure is skipped.
+
+### 10.6 Approval (Gate 2, amendment)
+
 - [x] Approved by: Aan, date: 2026-10-19
+
+## 11. Amendment 2026-10-19: prices computed by the server, not the model
+
+### 11.1 Why
+
+Live runs of §10 (qwen/qwen3.8-27b) gave a correct `cart_items` every time but a different total in the text each run (Rp 58.000 / 57.000 / 50.000 / 40.000 for a true Rp 60.000), and once put the 4R price on a 10R line. The model cannot be trusted with arithmetic or price-to-item mapping.
+
+### 11.2 Change
+
+- Stage 2 catalog lists `name: ID n` only, no price. Prompt rule 1: never write a price, total or "Rp"; say "harga ... kami cek dulu".
+- `AiSuggestionService::parse()`:
+  1. `buangHarga()` drops every sentence with a price pattern (`Rp <digit>`, `<digit>rb|ribu|k`). All sentences dropped -> no suggestion.
+  2. If a valid cart exists (`action=buka_kasir`), `total()` sums `harga_jual x jumlah` from `produk` and `sisipTotal()` inserts `Total Rp N.` before the trailing emoji.
+  3. No valid cart -> no price at all in the text.
+- No schema change, no UI change.
+
+### 11.3 Trade-off
+
+A reply to "berapa harga 4R?" no longer carries a number; the cashier types it (or the customer is told "kami cek dulu"). Wrong prices cannot reach the customer from the AI.
+
+### 11.4 Approval (Gate 2, amendment 2)
+
+- [x] Approved by: Aan (choice "A"), date: 2026-10-19
