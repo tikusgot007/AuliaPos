@@ -35,6 +35,9 @@ class Cetak extends BaseController
             ->where('status', 'aktif')
             ->findAll();
         $pelanggan = $transaksi['pelanggan_id'] ? $pelangganModel->find($transaksi['pelanggan_id']) : null;
+        if ($pelanggan) {
+            $pelanggan['nama'] = \App\Libraries\PelangganResolver::tampil($pelanggan['nama'], $transaksi['atas_nama'] ?? null);
+        }
 
         $totalDibayar = array_sum(array_column($pembayaran, 'jumlah'));
         $sisa = $transaksi['grand_total'] - $totalDibayar;
@@ -90,6 +93,9 @@ class Cetak extends BaseController
             ->where('status', 'aktif')
             ->findAll();
         $pelanggan = $transaksi['pelanggan_id'] ? $pelangganModel->find($transaksi['pelanggan_id']) : null;
+        if ($pelanggan) {
+            $pelanggan['nama'] = \App\Libraries\PelangganResolver::tampil($pelanggan['nama'], $transaksi['atas_nama'] ?? null);
+        }
 
         $totalDibayar = array_sum(array_column($pembayaran, 'jumlah'));
         $sisa = $transaksi['grand_total'] - $totalDibayar;
@@ -364,6 +370,9 @@ class Cetak extends BaseController
         $pelanggan = $transaksi['pelanggan_id']
             ? $pelangganModel->find($transaksi['pelanggan_id'])
             : null;
+        if ($pelanggan) {
+            $pelanggan['nama'] = \App\Libraries\PelangganResolver::tampil($pelanggan['nama'], $transaksi['atas_nama'] ?? null);
+        }
 
         try {
             $connector = new WindowsPrintConnector("smb://guest@aulia6/POS-58");
@@ -484,6 +493,9 @@ class Cetak extends BaseController
         $pelanggan = $transaksi['pelanggan_id']
             ? $pelangganModel->find($transaksi['pelanggan_id'])
             : null;
+        if ($pelanggan) {
+            $pelanggan['nama'] = \App\Libraries\PelangganResolver::tampil($pelanggan['nama'], $transaksi['atas_nama'] ?? null);
+        }
 
         $totalDibayar = array_sum(
             array_column($pembayaran, 'jumlah')

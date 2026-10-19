@@ -183,4 +183,19 @@ final class PelangganResolverTest extends CIUnitTestCase
         $this->assertNull($this->model->findTanpaNomorByNama('AGUS 1234'), 'sudah punya nomor');
         $this->assertNull($this->model->findTanpaNomorByNama(''));
     }
+
+    public function testTampilGabungAtasNama(): void
+    {
+        $this->assertSame('Alby(SUHERMAN 1234)', PelangganResolver::tampil('SUHERMAN 1234', 'Alby'));
+        $this->assertSame('SUHERMAN 1234', PelangganResolver::tampil('SUHERMAN 1234', null));
+        $this->assertSame('SUHERMAN 1234', PelangganResolver::tampil('SUHERMAN 1234', '  '));
+    }
+
+    public function testSqlTampilMemakaiAliasYangDiminta(): void
+    {
+        $sql = PelangganResolver::sqlTampil('t', 'p');
+        $this->assertStringContainsString('t.atas_nama', $sql);
+        $this->assertStringContainsString('p.nama', $sql);
+        $this->assertStringNotContainsString('transaksi.', $sql);
+    }
 }

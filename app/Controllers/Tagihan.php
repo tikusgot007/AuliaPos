@@ -65,7 +65,7 @@ class Tagihan extends BaseController
     private function tagihanBaseBuilder($db)
     {
         return $db->table('transaksi')
-            ->select('transaksi.*, pelanggan.nama as pelanggan_nama, users.username as kasir_nama, users.inisial as kasir_inisial')
+            ->select('transaksi.*, ' . \App\Libraries\PelangganResolver::sqlTampil() . ' AS pelanggan_nama, users.username as kasir_nama, users.inisial as kasir_inisial', false)
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             ->where('transaksi.status_pembayaran !=', 'lunas')

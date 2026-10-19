@@ -6,7 +6,8 @@
 - **Kasir**: tidak ada auto-select pelanggan; dropdown selalu punya item "+ Jadikan Pelanggan Baru"; Enter memilih item teratas. Kolom telp selalu terbuka. Ganti nomor di kasir = pelanggan lain (nomor terdaftar -> pakai pemiliknya; belum terdaftar -> `NAMA 4DIGIT` baru); ganti nomor orang yang sama lewat Master Pelanggan. Piutang wajib pelanggan ber-HP.
 - **Atas nama**: kolom baru `transaksi.atas_nama` (migrasi `2026-10-19-000001`) + input "Atas nama (opsional)" di Kasir; dari Inbox terisi otomatis bila nama chat beda dari pelanggan hasil nomor. Tahap 1 hanya menyimpan; tampilan `Alby(Suherman)` di daftar/laporan/arsip = Tahap 2.
 - **Inbox**: nama chat sama dengan pelanggan lama TANPA nomor -> modal "Ya, Orang yang Sama" (nomor diisikan ke pelanggan lama) atau "Bukan, Pelanggan Baru".
-- **Deploy**: jalankan `php spark migrate` SEBELUM kode ini aktif.
+- **Tahap 2 (tampilan)**: bila `atas_nama` ada, nama pelanggan tampil `Alby(SUHERMAN 1234)` di daftar transaksi, hari ini, detail, laporan (periode, item, pembayaran), tagihan, pencarian global, nota/ticket/thermal. Pencarian ikut mencocokkan `atas_nama`. Lewat satu helper `PelangganResolver::tampil()` / `sqlTampil()`; view `v_daftar_pembayaran` diperbarui migrasi `2026-10-19-000002`. Arsip SQLite: snapshot nama disimpan sudah dalam bentuk tampilan (tanpa ubah skema arsip); baris arsip lama tidak berubah.
+- **Deploy**: jalankan `php spark migrate` (2 migrasi) SEBELUM kode ini aktif.
 
 ## 2026-10-19 — Tombol "Minta Saran AI" di panel saran Inbox
 

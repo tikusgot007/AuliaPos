@@ -113,6 +113,25 @@ class PelangganResolver
         return $hasil;
     }
 
+    /** Teks tampilan: "Alby(SUHERMAN 1234)" bila ada atas nama, selain itu nama master. */
+    public static function tampil(?string $nama, ?string $atasNama): string
+    {
+        $atasNama = trim((string) $atasNama);
+        $nama     = (string) $nama;
+
+        return $atasNama === '' ? $nama : $atasNama . '(' . $nama . ')';
+    }
+
+    /**
+     * Ekspresi SQL setara tampil() untuk SELECT (pakai select($x, false)).
+     * $t = alias tabel transaksi, $p = alias tabel pelanggan.
+     */
+    public static function sqlTampil(string $t = 'transaksi', string $p = 'pelanggan'): string
+    {
+        return "(CASE WHEN {$t}.atas_nama IS NULL OR {$t}.atas_nama = '' THEN {$p}.nama "
+            . "ELSE CONCAT({$t}.atas_nama, '(', COALESCE({$p}.nama, ''), ')') END)";
+    }
+
     /** Huruf besar, spasi dirapikan, maksimal 95 karakter (ruang untuk " 1234"). */
     public static function bersihkan(string $nama): string
     {

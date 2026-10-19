@@ -140,7 +140,7 @@ class Laporan extends BaseController
 
         // 🔥 Query dasar
         $transaksi = $transaksiModel
-            ->select('transaksi.*, pelanggan.nama as pelanggan_nama')
+            ->select('transaksi.*, ' . \App\Libraries\PelangganResolver::sqlTampil() . ' AS pelanggan_nama', false)
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
             ->where('DATE(tanggal) >=', $tanggal_awal)
             ->where('DATE(tanggal) <=', $tanggal_akhir)
@@ -1684,7 +1684,7 @@ class Laporan extends BaseController
         );
 
         $transaksiBuilder = $transaksiModel
-            ->select('transaksi.*, pelanggan.nama as pelanggan_nama')
+            ->select('transaksi.*, ' . \App\Libraries\PelangganResolver::sqlTampil() . ' AS pelanggan_nama', false)
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
             ->where('DATE(tanggal) >=', $tanggal_awal)
             ->where('DATE(tanggal) <=', $tanggal_akhir)
@@ -2625,7 +2625,7 @@ class Laporan extends BaseController
                       transaksi.total_dibayar,
                       transaksi.status_pembayaran,
                       transaksi.status,
-                      pelanggan.nama AS pelanggan_nama')
+                      ' . \App\Libraries\PelangganResolver::sqlTampil() . ' AS pelanggan_nama', false)
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
             ->where('transaksi.status !=', 'batal')
             ->where('EXISTS (SELECT 1 FROM detail_transaksi d WHERE d.transaksi_id = transaksi.id)', null, false);
@@ -2645,6 +2645,7 @@ class Laporan extends BaseController
                 ->like('transaksi.kode_invoice', $f['search'])
                 ->orLike('transaksi.no_order', $f['search'])
                 ->orLike('pelanggan.nama', $f['search'])
+                ->orLike('transaksi.atas_nama', $f['search'])
                 ->groupEnd();
         }
     }

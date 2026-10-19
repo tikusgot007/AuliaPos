@@ -668,7 +668,10 @@ SQL);
                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     [
                         $t['id'], $t['merged_into'], $t['kode_invoice'], $t['no_order'], $t['tanggal'],
-                        $t['pelanggan_id'], $petaPelanggan[$t['pelanggan_id']] ?? null,
+                        // ponytail: snapshot sudah berbentuk tampilan "Alby(Suherman)"; kolom atas_nama terpisah di arsip belum ada.
+                        $t['pelanggan_id'], isset($petaPelanggan[$t['pelanggan_id']])
+                            ? \App\Libraries\PelangganResolver::tampil($petaPelanggan[$t['pelanggan_id']], $t['atas_nama'] ?? null)
+                            : null,
                         $t['kasir_id'], $kasir['nama'] ?? null, $kasir['username'] ?? null, $kasir['inisial'] ?? null,
                         $t['subtotal'], $t['diskon'], $t['pajak'], $t['grand_total'], $t['selisih_pembulatan'],
                         $t['total_dibayar'], $t['status_pembayaran'], $t['status'], $t['sumber'],

@@ -433,6 +433,7 @@ class Transaksi extends BaseController
             'pelanggan.nama',
             $keyword
         );
+        $builder->orLike('transaksi.atas_nama', $keyword);
 
 
         /*
@@ -530,7 +531,8 @@ class Transaksi extends BaseController
              transaksi.sumber,
              users.username AS kasir_nama,
              users.inisial AS kasir_inisial,
-             pelanggan.nama AS pelanggan_nama'
+             ' . \App\Libraries\PelangganResolver::sqlTampil() . ' AS pelanggan_nama',
+            false
             )
             ->join('users', 'users.id = transaksi.kasir_id', 'left')
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left');
@@ -857,7 +859,6 @@ class Transaksi extends BaseController
             't.status',
             't.sumber',
 
-            'p.nama AS pelanggan_nama',
 
             'u.username AS kasir_nama',
             'u.nama AS kasir_real_nama',
@@ -881,6 +882,8 @@ class Transaksi extends BaseController
             'p.id = t.pelanggan_id',
             'left'
         );
+
+        $builder->select(\App\Libraries\PelangganResolver::sqlTampil('t', 'p') . ' AS pelanggan_nama', false);
 
         $builder->join(
             'users u',
@@ -1061,6 +1064,9 @@ class Transaksi extends BaseController
             $pelanggan = $transaksi['pelanggan_id']
                 ? $pelangganModel->find($transaksi['pelanggan_id'])
                 : null;
+            if ($pelanggan) {
+                $pelanggan['nama'] = \App\Libraries\PelangganResolver::tampil($pelanggan['nama'], $transaksi['atas_nama'] ?? null);
+            }
 
             // Kalau baris pelanggan sudah tidak ada/berubah di DB utama,
             // tetap tampilkan nama hasil snapshot archive supaya
@@ -1106,6 +1112,9 @@ class Transaksi extends BaseController
         $pelanggan = null;
         if ($transaksi['pelanggan_id']) {
             $pelanggan = $pelangganModel->find($transaksi['pelanggan_id']);
+            if ($pelanggan) {
+                $pelanggan['nama'] = \App\Libraries\PelangganResolver::tampil($pelanggan['nama'], $transaksi['atas_nama'] ?? null);
+            }
         }
 
         $total_dibayar = array_sum(array_column($pembayaran, 'jumlah'));

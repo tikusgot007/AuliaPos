@@ -1033,7 +1033,7 @@ class Api extends BaseController
         $transaksiModel = new \App\Models\TransaksiModel();
 
         $builder = $transaksiModel
-            ->select('transaksi.id, transaksi.kode_invoice, transaksi.no_order, transaksi.status_pembayaran, pelanggan.nama as pelanggan_nama')
+            ->select('transaksi.id, transaksi.kode_invoice, transaksi.no_order, transaksi.status_pembayaran, ' . \App\Libraries\PelangganResolver::sqlTampil() . ' AS pelanggan_nama', false)
             ->join('pelanggan', 'pelanggan.id = transaksi.pelanggan_id', 'left')
             ->where('transaksi.status !=', 'batal');
 
@@ -1045,6 +1045,7 @@ class Api extends BaseController
                 ->like('transaksi.kode_invoice', $keyword)
                 ->orLike('transaksi.no_order', $keyword)
                 ->orLike('pelanggan.nama', $keyword)
+                ->orLike('transaksi.atas_nama', $keyword)
                 ->groupEnd();
         }
 
