@@ -26,6 +26,25 @@ class PelangganModel extends Model
      * baris itu sendiri tidak boleh dianggap bentrok (lihat
      * Inbox::buatPesanan(), AC-2b).
      */
+    /**
+     * Pelanggan TANPA nomor HP dengan nama persis `$nama`. Kandidat "orang
+     * yang sama" untuk ditautkan ke nomor baru; null bila tidak ada atau
+     * ambigu (lebih dari satu).
+     */
+    public function findTanpaNomorByNama(string $nama): ?array
+    {
+        $nama = trim($nama);
+        if ($nama === '') {
+            return null;
+        }
+
+        $rows = $this->where('nama', $nama)
+            ->groupStart()->where('no_hp', null)->orWhere('no_hp', '')->groupEnd()
+            ->findAll(2);
+
+        return count($rows) === 1 ? $rows[0] : null;
+    }
+
     public function findByName(string $nama, ?int $exceptId = null): ?array
     {
         $builder = $this->where('nama', trim($nama));

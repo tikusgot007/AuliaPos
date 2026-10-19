@@ -559,3 +559,60 @@ test('N-26: butuh_nama tanpa digit tetap membuka modal (digit dikosongkan)', asy
     assert.equal(t.elemen.digitPelangganBaru.value, '');
     assert.deepEqual(t.calls.modalShow, ['modalNamaPelanggan']);
 });
+
+// ---- Tautkan ke pelanggan lama tanpa nomor (docs/requirements/2026-10-19-...) ----
+const BUTUH_TAUTAN = {
+    status: 'butuh_tautan', kandidat: { id: 11, nama: 'SOLEHA' },
+    nama_usulan: 'SOLEHA', digit: '7890', csrf: 'tok-taut',
+};
+
+test('T-1: butuh_tautan membuka modal tautan, belum ada tab dibuka', async () => {
+    const t = load({ elemen: { pesanTautPelanggan: { textContent: '' }, modalTautPelanggan: { id: 'modalTautPelanggan' } } });
+    t.setFetch(jawab(200, BUTUH_TAUTAN));
+
+    t.ctx.buatPesanan();
+    await flush2();
+
+    assert.deepEqual(t.calls.modalShow, ['modalTautPelanggan']);
+    assert.match(t.elemen.pesanTautPelanggan.textContent, /SOLEHA/);
+    assert.equal(t.calls.open, 0);
+});
+
+test('T-2: "Ya, orang yang sama" kirim tautkan_id + nama kandidat lalu buka Kasir', async () => {
+    const t = load({ elemen: { pesanTautPelanggan: { textContent: '' }, modalTautPelanggan: { id: 'modalTautPelanggan' } } });
+    t.setFetch(jawabDuaFase(BUTUH_TAUTAN, SUKSES));
+
+    t.ctx.buatPesanan();
+    await flush2();
+    t.ctx.tautkanPelangganLama();
+    await flush2();
+
+    const fase2 = t.calls.fetch[1];
+    assert.match(fase2.opts.body, /nama=SOLEHA/);
+    assert.match(fase2.opts.body, /tautkan_id=11/);
+    assert.equal(t.opener.location.href, SUKSES.redirect_url);
+    assert.ok(t.calls.modalHide.includes('modalTautPelanggan'));
+});
+
+test('T-3: "Bukan, pelanggan baru" pindah ke modal nama, tanpa tautkan_id', async () => {
+    const t = load({
+        elemen: {
+            pesanTautPelanggan: { textContent: '' }, modalTautPelanggan: { id: 'modalTautPelanggan' },
+            namaPelangganBaru: { value: '', focus() {}, select() {} }, digitPelangganBaru: { value: '' },
+            modalNamaPelanggan: { id: 'modalNamaPelanggan' },
+        },
+    });
+    t.setFetch(jawabDuaFase(BUTUH_TAUTAN, SUKSES));
+
+    t.ctx.buatPesanan();
+    await flush2();
+    t.ctx.tautPelangganBaru();
+    await flush2();
+
+    assert.ok(t.calls.modalShow.includes('modalNamaPelanggan'));
+    assert.equal(t.calls.fetch.length, 1, 'belum ada request kedua');
+    t.elemen.namaPelangganBaru.value = 'Soleha';
+    t.ctx.simpanNamaPelanggan();
+    await flush2();
+    assert.doesNotMatch(t.calls.fetch[1].opts.body, /tautkan_id/);
+});

@@ -796,7 +796,7 @@ function headerBuatPesanan() {
  * server tidak menulis apa pun), string = fase 2 (server memvalidasi lalu
  * menyimpan). Dipisah supaya kedua fase memakai jalur error/CSRF yang sama.
  */
-function kirimBuatPesanan(idPercakapan, nama) {
+function kirimBuatPesanan(idPercakapan, nama, tautkanId) {
     const opsi = {
         method: 'POST',
         headers: headerBuatPesanan()
@@ -804,6 +804,7 @@ function kirimBuatPesanan(idPercakapan, nama) {
 
     const bagian = [];
     if (typeof nama === 'string') bagian.push('nama=' + encodeURIComponent(nama));
+    if (tautkanId) bagian.push('tautkan_id=' + parseInt(tautkanId, 10));
     // Saran M.A.R.A yang sedang ditampilkan dan punya keranjang; server
     // memvalidasi ulang kepemilikannya, ini hanya petunjuk.
     const saranId = typeof saranKeranjangAktif === 'function' ? saranKeranjangAktif() : 0;
@@ -856,6 +857,11 @@ function lanjutBuatPesanan(idPercakapan) {
                 return;
             }
 
+            if (json.status === 'butuh_tautan') {
+                bukaModalTautPelanggan(idPercakapan, json);
+                return;
+            }
+
             showToast(json.message || 'Gagal membuat pesanan.', 'danger');
         })
         .catch(function(err) {
@@ -869,6 +875,68 @@ function lanjutBuatPesanan(idPercakapan) {
 
 // Data fase 1 yang menunggu kasir mengisi nama.
 let namaPelangganTertunda = null;
+
+// Kandidat "orang yang sama" (pelanggan lama tanpa nomor) yang menunggu keputusan.
+let tautPelangganTertunda = null;
+
+function bukaModalTautPelanggan(idPercakapan, data) {
+    tautPelangganTertunda = { conversationId: idPercakapan, data: data };
+
+    const pesan = document.getElementById('pesanTautPelanggan');
+    if (pesan) {
+        pesan.textContent = 'Di data pelanggan sudah ada "' + String(data.kandidat.nama) +
+            '" (tanpa nomor HP). Apakah ini orang yang sama dengan chat ini?';
+    }
+
+    const modal = document.getElementById('modalTautPelanggan');
+    if (modal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+    }
+}
+
+/** "Ya, orang yang sama": nomor chat diisikan ke pelanggan lama. */
+function tautkanPelangganLama() {
+    const tertunda = tautPelangganTertunda;
+    if (!tertunda || buatPesananBerjalan) return;
+
+    buatPesananBerjalan = true;
+    renderThreadHeader();
+
+    kirimBuatPesanan(tertunda.conversationId, tertunda.data.kandidat.nama, tertunda.data.kandidat.id)
+        .then(function(json) {
+            perbaruiTokenCsrf(json);
+            tautPelangganTertunda = null;
+            tutupModalInbox('modalTautPelanggan');
+
+            if (json.status === 'success' && json.redirect_url) {
+                arahkanKeKasir(json.redirect_url);
+                return;
+            }
+
+            showToast(json.message || 'Gagal menautkan pelanggan.', 'danger');
+        })
+        .catch(function(err) {
+            showToast('Gagal menghubungi server: ' + err.message, 'danger');
+        })
+        .finally(function() {
+            buatPesananBerjalan = false;
+            renderThreadHeader();
+        });
+}
+
+/** "Bukan, pelanggan baru": lanjut ke modal nama seperti biasa. */
+function tautPelangganBaru() {
+    const tertunda = tautPelangganTertunda;
+    tautPelangganTertunda = null;
+    tutupModalInbox('modalTautPelanggan');
+
+    if (tertunda) bukaModalNamaPelanggan(tertunda.conversationId, tertunda.data);
+}
+
+function batalTautPelanggan() {
+    tautPelangganTertunda = null;
+    tutupModalInbox('modalTautPelanggan');
+}
 
 function bukaModalNamaPelanggan(idPercakapan, data) {
     namaPelangganTertunda = {

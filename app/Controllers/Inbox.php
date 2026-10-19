@@ -3407,6 +3407,21 @@ class Inbox extends BaseController
                     $usulan = '';
                 }
 
+                // Nama chat sama dengan pelanggan lama TANPA nomor: bisa orang
+                // yang sama. Jangan menebak -- kasir yang memutuskan.
+                if (!$pelanggan && $usulan !== '') {
+                    $kandidat = $pelangganModel->findTanpaNomorByNama($usulan);
+                    if ($kandidat) {
+                        return $this->response->setStatusCode(200)->setJSON([
+                            'status'      => 'butuh_tautan',
+                            'kandidat'    => ['id' => (int) $kandidat['id'], 'nama' => (string) $kandidat['nama']],
+                            'nama_usulan' => $usulan,
+                            'digit'       => $digit,
+                            'csrf'        => csrf_hash(),
+                        ]);
+                    }
+                }
+
                 return $this->response->setStatusCode(200)->setJSON([
                     'status'        => 'butuh_nama',
                     'pelanggan_id'  => $pelanggan ? (int) $pelanggan['id'] : null,
@@ -3421,6 +3436,19 @@ class Inbox extends BaseController
                 $db->transRollback();
 
                 return $this->buatPesananError(422, 'Nomor WhatsApp pelanggan ini belum terverifikasi. Konfirmasi nomornya dulu sebelum membuat pesanan.');
+            }
+
+            // Kasir memilih "orang yang sama": pakai pelanggan lama itu, tapi
+            // HANYA bila memang masih tanpa nomor (tidak menimpa nomor orang).
+            $tautkanId = filter_var($this->request->getPost('tautkan_id'), FILTER_VALIDATE_INT);
+            if (!$pelanggan && $tautkanId !== false && $tautkanId > 0) {
+                $lama = $pelangganModel->find($tautkanId);
+                if (!$lama || trim((string) ($lama['no_hp'] ?? '')) !== '') {
+                    $db->transRollback();
+
+                    return $this->buatPesananError(409, 'Pelanggan itu sudah berubah (kini punya nomor atau terhapus). Ulangi dari awal.');
+                }
+                $pelanggan = $lama;
             }
 
             $namaBersih = $this->bersihkanNamaPelanggan($namaInput, $digit);

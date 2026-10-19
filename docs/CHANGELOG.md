@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-10-19 — Identitas pelanggan lewat nomor HP (Kasir + Inbox), Tahap 1
+
+- **Aturan bisnis baru**: nomor HP = identitas pelanggan, nama hanya label. Nama tidak lagi dipakai menebak pelanggan lama (dua "Budi" tidak tertukar). Satu `PelangganResolver` dipakai `Api::simpanTransaksi` dan `Transaksi::update`; 4 digit nama selalu dihitung server dari nomor (`NAMA 4DIGIT`; tanpa nomor `NAMA` polos).
+- **Kasir**: tidak ada auto-select pelanggan; dropdown selalu punya item "+ Jadikan Pelanggan Baru"; Enter memilih item teratas. Kolom telp selalu terbuka. Ganti nomor di kasir = pelanggan lain (nomor terdaftar -> pakai pemiliknya; belum terdaftar -> `NAMA 4DIGIT` baru); ganti nomor orang yang sama lewat Master Pelanggan. Piutang wajib pelanggan ber-HP.
+- **Atas nama**: kolom baru `transaksi.atas_nama` (migrasi `2026-10-19-000001`) + input "Atas nama (opsional)" di Kasir; dari Inbox terisi otomatis bila nama chat beda dari pelanggan hasil nomor. Tahap 1 hanya menyimpan; tampilan `Alby(Suherman)` di daftar/laporan/arsip = Tahap 2.
+- **Inbox**: nama chat sama dengan pelanggan lama TANPA nomor -> modal "Ya, Orang yang Sama" (nomor diisikan ke pelanggan lama) atau "Bukan, Pelanggan Baru".
+- **Deploy**: jalankan `php spark migrate` SEBELUM kode ini aktif.
+
 ## 2026-10-19 — Tombol "Minta Saran AI" di panel saran Inbox
 
 - **Aturan bisnis baru**: kasir bisa menekan "Minta Saran AI" di panel saran. AuliaPos membaca pesan percakapan hari ini (bila kosong, 15 pesan terakhir), meminta AI lewat 9router (model `aan-groq`, batas 15 detik), lalu menyimpan satu saran bertipe `balasan` (tanpa daftar periksa dan peringatan). Bila pesanan sudah deal dan semua item ada di katalog 15 produk, saran juga membawa `action=buka_kasir` dan `cart_items` sehingga tombol "Buat Pesanan" terisi. Kasir tetap memeriksa dan mengirim sendiri; tidak ada balasan otomatis ke pelanggan.

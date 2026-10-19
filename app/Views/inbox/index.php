@@ -234,6 +234,27 @@
 </div>
 
 <!-- ============================================ -->
+<!-- MODAL TAUTKAN KE PELANGGAN LAMA (tanpa nomor)  -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalTautPelanggan" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-link"></i> Pelanggan Sudah Ada?</h5>
+                <button type="button" class="btn-close" onclick="batalTautPelanggan()"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="pesanTautPelanggan"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" onclick="tautPelangganBaru()">Bukan, Pelanggan Baru</button>
+                <button type="button" class="btn btn-success" onclick="tautkanPelangganLama()">Ya, Orang yang Sama</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
 <!-- MODAL KONFIRMASI GANTI ISI TAB KASIR           -->
 <!-- Muncul hanya bila tab utama berisi keranjang atau sedang edit transaksi. -->
 <!-- ============================================ -->

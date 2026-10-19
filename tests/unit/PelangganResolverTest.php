@@ -170,4 +170,17 @@ final class PelangganResolverTest extends CIUnitTestCase
         $this->assertNotNull($r['error']);
         $this->assertSame(0, $this->jumlah());
     }
+
+    public function testFindTanpaNomorByNamaHanyaSatuKandidatTanpaNomor(): void
+    {
+        $this->seed('BUDI', '');
+        $this->assertNotNull($this->model->findTanpaNomorByNama('BUDI'));
+
+        $this->seed('BUDI', null);
+        $this->assertNull($this->model->findTanpaNomorByNama('BUDI'), 'ambigu -> null');
+
+        $this->seed('AGUS 1234', '081234561234');
+        $this->assertNull($this->model->findTanpaNomorByNama('AGUS 1234'), 'sudah punya nomor');
+        $this->assertNull($this->model->findTanpaNomorByNama(''));
+    }
 }
