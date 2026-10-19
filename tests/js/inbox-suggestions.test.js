@@ -315,3 +315,61 @@ test('S-20: the action button does not weaken the existing "Pakai draft ini" but
     assert.match(t.elements.panelSaranMara.innerHTML, /jalankanAksiSaran\(18\)/);
     assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /<script>alert/);
 });
+// --- Minta Saran AI (docs/design/2026-10-18-ai-saran-on-demand.md) ---
+
+function loadAi(conv) {
+    const t = loadSuggestions({
+        cariConversation: () => conv,
+        CSRF_INBOX: { header: 'X-CSRF-TOKEN', token: 't1' },
+        perbaruiTokenCsrf: () => {},
+    });
+    return t;
+}
+
+test('AI-1 (AC-1): button shown in panel for a 1-1 conversation, even with no suggestions', () => {
+    const t = loadAi({ id: 1, jid_type: 'user' });
+    t.ctx.renderSaranMara();
+    assert.match(t.elements.panelSaranMara.innerHTML, /mintaSaranAi\(\)/);
+    assert.notEqual(t.elements.panelSaranMara.style.display, 'none');
+});
+
+test('AI-2: button hidden for group conversations', () => {
+    const t = loadAi({ id: 1, jid_type: 'group' });
+    t.ctx.renderSaranMara();
+    assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /mintaSaranAi/);
+    assert.equal(t.elements.panelSaranMara.style.display, 'none');
+});
+
+test('AI-3 (AC-2): disabled while pending, POSTs generate-saran with CSRF, then reloads suggestions', async () => {
+    const t = loadAi({ id: 1, jid_type: 'user' });
+    const calls = [];
+    t.ctx.__setFetch((url, opts) => {
+        calls.push([url, opts && opts.method, opts && opts.headers && opts.headers['X-CSRF-TOKEN']]);
+        return Promise.resolve({ json: () => Promise.resolve(
+            url.endsWith('/generate-saran') ? { status: 'success' }
+                : { status: 'success', suggestions: [{ id: 9, type: 'balasan', priority: 'normal', text: 'Draft AI' }] }) });
+    });
+
+    t.ctx.mintaSaranAi();
+    assert.match(t.elements.panelSaranMara.innerHTML, /disabled/);
+    t.ctx.mintaSaranAi(); // double click ignored
+    await flush(); await flush(); await flush(); await flush();
+
+    assert.deepEqual(calls[0], ['/inbox/api/conversations/1/generate-saran', 'POST', 't1']);
+    assert.equal(calls.filter((c) => c[0].endsWith('/generate-saran')).length, 1);
+    assert.match(t.elements.panelSaranMara.innerHTML, /Draft AI/);
+    assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /disabled/);
+});
+
+test('AI-4 (AC-8): server error shows a toast and re-enables the button', async () => {
+    const t = loadAi({ id: 1, jid_type: 'user' });
+    t.ctx.__setFetch((url) => Promise.resolve({ json: () => Promise.resolve(
+        url.endsWith('/generate-saran') ? { status: 'error', message: 'AI terlalu lama menjawab.' }
+            : { status: 'success', suggestions: [] }) }));
+
+    t.ctx.mintaSaranAi();
+    await flush(); await flush(); await flush(); await flush();
+
+    assert.equal(t.toasts[0][0], 'AI terlalu lama menjawab.');
+    assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /disabled/);
+});

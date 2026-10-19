@@ -107,7 +107,9 @@ function renderSaranMara() {
     const panel = document.getElementById('panelSaranMara');
     if (!panel) return;
 
-    if (!daftarSaranMara.length) {
+    const tombolAi = renderTombolSaranAi();
+
+    if (!daftarSaranMara.length && tombolAi === '') {
         panel.style.display = 'none';
         panel.innerHTML = '';
         return;
@@ -117,8 +119,73 @@ function renderSaranMara() {
         return renderSatuSaran(s);
     }).join('');
 
-    panel.innerHTML = '<div class="inbox-saran-judul">Saran M.A.R.A</div>' + bagian;
+    panel.innerHTML = (daftarSaranMara.length ? '<div class="inbox-saran-judul">Saran M.A.R.A</div>' : '') +
+        bagian + tombolAi;
     panel.style.display = '';
+}
+
+// "Minta Saran AI" (docs/design/2026-10-18-ai-saran-on-demand.md): hanya
+// untuk percakapan terbuka yang BUKAN grup (server juga menolak grup, 403).
+var saranAiBerjalan = false;
+
+function bolehMintaSaranAi() {
+    if (!conversationAktif || typeof cariConversation !== 'function') return false;
+    const conv = cariConversation(conversationAktif);
+
+    return !!conv && conv.jid_type !== 'group';
+}
+
+function renderTombolSaranAi() {
+    if (!bolehMintaSaranAi()) return '';
+
+    return '<button type="button" class="btn btn-sm btn-outline-primary mt-1" id="tombolSaranAi" ' +
+        (saranAiBerjalan ? 'disabled ' : '') + 'onclick="mintaSaranAi()">' +
+        (saranAiBerjalan
+            ? '<span class="spinner-border spinner-border-sm"></span> Menganalisa...'
+            : '<i class="fas fa-robot"></i> Minta Saran AI') +
+        '</button>';
+}
+
+/**
+ * Minta saran ke AI untuk percakapan yang sedang terbuka. Hasil tersimpan di
+ * server lalu dimuat ulang lewat jalur baca biasa. Tidak mengirim apa pun ke
+ * pelanggan; kasir tetap memutuskan.
+ */
+function mintaSaranAi() {
+    if (saranAiBerjalan || !bolehMintaSaranAi()) return;
+
+    const idMinta = conversationAktif;
+    const base = (window.INBOX_PAGE_CONFIG && window.INBOX_PAGE_CONFIG.url
+        && window.INBOX_PAGE_CONFIG.url.suggestionBaseUrl) || '';
+    const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+    if (typeof CSRF_INBOX !== 'undefined') headers[CSRF_INBOX.header] = CSRF_INBOX.token;
+
+    saranAiBerjalan = true;
+    renderSaranMara();
+
+    fetch(base + idMinta + '/generate-saran', { method: 'POST', headers: headers })
+        .then(function(res) { return res.json(); })
+        .then(function(json) {
+            if (typeof perbaruiTokenCsrf === 'function') perbaruiTokenCsrf(json);
+            if (!json || json.status !== 'success') {
+                throw new Error((json && json.message) || 'Gagal meminta saran AI.');
+            }
+            if (json.message && typeof showToast === 'function') showToast(json.message, 'info');
+        })
+        .catch(function(err) {
+            if (typeof showToast === 'function') {
+                showToast((err && err.message) || 'Gagal meminta saran AI.', 'danger');
+            }
+        })
+        .then(function() {
+            saranAiBerjalan = false;
+            // Muat ulang hanya bila kasir masih di percakapan yang sama.
+            if (String(conversationAktif) === String(idMinta)) {
+                muatSaranMara(idMinta, true);
+            } else {
+                renderSaranMara();
+            }
+        });
 }
 
 /**

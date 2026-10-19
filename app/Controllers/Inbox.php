@@ -597,6 +597,93 @@ class Inbox extends BaseController
     }
 
     /**
+     * POST /inbox/api/conversations/(:num)/generate-saran
+     *
+     * Kasir menekan "Minta Saran AI": AiSuggestionService memanggil 9router,
+     * hasilnya disimpan ke mara_suggestions dengan pola lock+supersede+insert
+     * yang sama seperti MaraController::suggestions(). Grup diblok (403).
+     * Desain: docs/design/2026-10-18-ai-saran-on-demand.md
+     */
+    public function generateSaran($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversation = (new ConversationModel())->find($conversationId);
+        if ($conversation === null) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status' => 'error', 'message' => 'Conversation tidak ditemukan.', 'csrf' => csrf_hash(),
+            ]);
+        }
+        if (($conversation['jid_type'] ?? null) === 'group') {
+            return $this->response->setStatusCode(403)->setJSON([
+                'status' => 'error', 'message' => 'Saran AI tidak tersedia untuk grup.', 'csrf' => csrf_hash(),
+            ]);
+        }
+
+        try {
+            $baris = (new \App\Libraries\AiSuggestionService())->minta($conversationId);
+        } catch (\RuntimeException $e) {
+            return $this->response->setStatusCode(502)->setJSON([
+                'status' => 'error', 'message' => $e->getMessage(), 'csrf' => csrf_hash(),
+            ]);
+        }
+
+        if ($baris === []) {
+            return $this->response->setStatusCode(200)->setJSON([
+                'status' => 'success', 'suggestions' => [], 'message' => 'AI tidak punya saran untuk percakapan ini.',
+                'csrf' => csrf_hash(),
+            ]);
+        }
+
+        $model = new MaraSuggestionModel();
+        $db    = $model->db;
+        $now   = MaraSuggestionModel::nowWib();
+        $exp   = (new \DateTime('now', new \DateTimeZone('Asia/Jakarta')))->modify('+30 minutes')->format('Y-m-d H:i:s');
+
+        $db->transBegin();
+        try {
+            $model->lockConversation($conversationId);
+            // Saran segar menggantikan SEMUA saran aktif (termasuk daftar-periksa/peringatan lama dari M.A.R.A).
+            foreach (['balasan', 'daftar-periksa', 'peringatan'] as $tipe) {
+                $model->supersedeSameType($conversationId, $tipe, $now);
+            }
+            foreach ($baris as $r) {
+                $row = [
+                    'conversation_id' => $conversationId,
+                    'type'            => $r['type'],
+                    'priority'        => $r['priority'],
+                    'text'            => $r['text'],
+                    'items'           => $r['items'] === null ? null : json_encode($r['items'], JSON_UNESCAPED_UNICODE),
+                    'reason'          => $r['reason'],
+                    'status'          => 'active',
+                    'expires_at'      => $exp,
+                    'created_at'      => $now,
+                    'updated_at'      => $now,
+                ];
+                // Kolom action/cart_items hanya ditulis bila ada (pola MaraController::suggestions).
+                if (($r['action'] ?? null) !== null) {
+                    $row['action']     = $r['action'];
+                    $row['cart_items'] = json_encode($r['cart_items'], JSON_UNESCAPED_UNICODE);
+                }
+                $model->insert($row);
+            }
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('transaksi gagal');
+            }
+            $db->transCommit();
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            log_message('error', 'Inbox::generateSaran() gagal conversation_id=' . $conversationId . ': ' . $e->getMessage());
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => 'error', 'message' => 'Gagal menyimpan saran.', 'csrf' => csrf_hash(),
+            ]);
+        }
+
+        return $this->response->setJSON(['status' => 'success', 'csrf' => csrf_hash()]);
+    }
+
+    /**
      * GET /inbox/api/perlu-dibalas-count
      *
      * Hitung ringan jumlah conversation 'perlu_dibalas', dipakai badge

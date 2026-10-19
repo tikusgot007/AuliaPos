@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-10-19 — Tombol "Minta Saran AI" di panel saran Inbox
+
+- **Aturan bisnis baru**: kasir bisa menekan "Minta Saran AI" di panel saran. AuliaPos membaca pesan percakapan hari ini (bila kosong, 15 pesan terakhir), meminta AI lewat 9router (model `aan-groq`, batas 15 detik), lalu menyimpan satu saran bertipe `balasan` (tanpa daftar periksa dan peringatan). Bila pesanan sudah deal dan semua item ada di katalog 15 produk, saran juga membawa `action=buka_kasir` dan `cart_items` sehingga tombol "Buat Pesanan" terisi. Kasir tetap memeriksa dan mengirim sendiri; tidak ada balasan otomatis ke pelanggan.
+- **Batasan**: tombol tidak tersedia dan server menolak (403) untuk percakapan grup. Saran AI lama bertipe sama diganti saran baru. Nomor dan nama pelanggan tidak dikirim ke AI, hanya isi pesan.
+- **Ganti saran**: klik "Minta Saran AI" menandai SEMUA saran aktif percakapan itu (balasan, daftar-periksa, peringatan, termasuk dari M.A.R.A) sebagai `superseded`, lalu menyimpan balasan baru. Bila AI kena HTTP 429, service mengulang satu kali setelah jeda 3 detik (`AiGateway::$jedaUlangDetik`). Jam "Sekarang" yang dikirim ke AI dihitung eksplisit di zona Asia/Jakarta, tidak bergantung `date.timezone` PHP.
+- **Katalog AI**: 15 produk (ID dan harga) hardcode di `Config\AiGateway::$katalog`, dipakai untuk prompt dan validasi. ID di luar katalog, jumlah bukan bilangan bulat 1-999, dan `action` selain `buka_kasir` dibuang. Ukuran di luar katalog (mis. 4R) tidak diberi harga/total oleh AI. Harga berubah di master `produk` = ubah juga katalog ini. Tidak ada perubahan skema database.
+- **Status**: selesai di dev (tes unit, feature, JS lulus dengan AI palsu). Belum dites dengan `aan-groq` sungguhan; belum di-deploy. Di server wajib: 9router hidup, combo `aan-groq` ada, `aigateway.apiKey` diisi di `.env`.
+
 ## 2026-10-18 — Keranjang Kasir dari saran M.A.R.A
 
 - **Aturan bisnis baru**: saran M.A.R.A dengan `action = buka_kasir` boleh membawa `cart_items` berisi hanya `produk_id` dan `jumlah`. POS membatasi maksimal 20 baris, jumlah 1–999, serta menjumlahkan id produk kembar.

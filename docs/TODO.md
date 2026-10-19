@@ -67,6 +67,10 @@
   - Requirements Gate 1: `docs/requirements/2026-10-18-isi-keranjang-dari-saran-mara.md`. Design Gate 2: `docs/design/2026-10-18-isi-keranjang-dari-saran-mara.md`.
   - Ada migrasi Inbox `2026-10-18-000001_AddCartItemsToMaraSuggestions.php`; urutan rilis wajib: migrasi → POS → M.A.R.A. Kontrak sisi repo M.A.R.A belum diverifikasi.
 
+- [ ] **TODO-INBOX-AI-SARAN** Tombol "Minta Saran AI" on-demand di panel saran Inbox: AuliaPos panggil 9router (`aan-groq`) tanpa M.A.R.A, hasil ke `mara_suggestions` (sedang, permintaan user 2026-10-18). Tahap: Requirements Gate 1 + Design Gate 2 disetujui 2026-10-19; kode BELUM ditulis.
+  - Requirements: `docs/requirements/2026-10-18-ai-saran-on-demand.md`. Design: `docs/design/2026-10-18-ai-saran-on-demand.md`.
+  - Sebelum deploy: 9router produksi jalan sendiri di aulia-server2 (sama seperti dev, `localhost:20128`); cek di server: 9router hidup, combo `aan-groq` ada, key Groq terisi. Di dev, buktikan `aan-groq` hidup (tes tadi `Missing API key`). Chat grup diblok (403).
+
 - [ ] **TODO-INBOX-EMOJI** Emoji picker composer + reaksi masuk sebagai kutipan di Inbox — sedang — permintaan user 2026-10-12. **Selesai, di-commit & push, dan SUDAH DI-DEPLOY ke produksi 2026-10-12; tinggal uji nyata di produksi.**
   - (A) Pemilih emoji lokal: `public/assets/js/inbox-emoji.js` + tombol `btnEmojiBalasan` di `app/Views/inbox/index.php`, style `inbox.css`, toggle tombol di `inbox-page.js`.
   - (B) Reaksi masuk 1-1 → baris teks emoji ber-`quoted` target, dihitung pesan baru: `C:\Projects\evolution-gateway\src\evolution\normalize.js` (`extractIncomingReaction`) + `webhookRoutes.js` (reaksi tidak masuk `quotedStore`). Grup / fromMe / reaksi ditarik tetap diabaikan. Tanpa perubahan PHP/skema CI4.
