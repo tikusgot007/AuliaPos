@@ -3382,7 +3382,7 @@ class Inbox extends BaseController
 
                     log_message('info', "Inbox::buatPesanan sukses (tanpa koreksi nama). conversation_id={$conversationId}, pelanggan_id={$pelanggan['id']}, user_id=" . (int) session()->get('id_user'));
 
-                    return $this->buatPesananSukses($conversationId, $pelanggan, false);
+                    return $this->buatPesananSukses($conversationId, $pelanggan, false, $row);
                 }
 
                 $db->transRollback(); // tidak ada yang ditulis, lepaskan kunci
@@ -3510,7 +3510,7 @@ class Inbox extends BaseController
         $userId = (int) session()->get('id_user');
         log_message('info', "Inbox::buatPesanan sukses. conversation_id={$conversationId}, pelanggan_id={$pelanggan['id']}, baru=" . ($pelangganBaruId !== null ? '1' : '0') . ", nama=\"{$pelanggan['nama']}\", user_id={$userId}");
 
-        return $this->buatPesananSukses($conversationId, $pelanggan, $pelangganBaruId !== null);
+        return $this->buatPesananSukses($conversationId, $pelanggan, $pelangganBaruId !== null, $row);
     }
 
     /**
@@ -3518,7 +3518,7 @@ class Inbox extends BaseController
      * bahwa keranjang tersimpan (sessionStorage) harus DIBUANG, karena kasir
      * datang dengan pesanan baru -- lihat kasir-shared.js.
      */
-    private function buatPesananSukses(int $conversationId, array $pelanggan, bool $pelangganBaru)
+    private function buatPesananSukses(int $conversationId, array $pelanggan, bool $pelangganBaru, array $row = [])
     {
         $query = [
             'pelanggan_id'     => (int) $pelanggan['id'],
@@ -3527,6 +3527,18 @@ class Inbox extends BaseController
             'pelanggan_diskon' => $pelanggan['diskon'] ?? 0,
             'dari_inbox'       => 1,
         ];
+
+        // Atas nama: nama chat (kontak, lalu profil WA) bila beda dari nama dasar
+        // pelanggan -- mis. chat "Alby" tapi nomor milik SUHERMAN 1234.
+        $namaChat = trim((string) ($row['contact_name'] ?? ''));
+        if ($namaChat === '') {
+            $namaChat = trim((string) ($row['whatsapp_name'] ?? ''));
+        }
+        $namaChat = mb_substr($this->bersihkanNamaPelanggan($namaChat, null), 0, 95);
+        if (mb_strlen($namaChat) >= 2
+            && \App\Libraries\PelangganResolver::namaDasar($namaChat) !== \App\Libraries\PelangganResolver::namaDasar((string) $pelanggan['nama'])) {
+            $query['atas_nama'] = mb_convert_case(mb_strtolower($namaChat), MB_CASE_TITLE);
+        }
 
         // Isi keranjang dari saran M.A.R.A: hanya id saran yang ikut URL.
         // Kasir membaca ulang + memvalidasi sendiri, jadi ini cuma penyaring awal.

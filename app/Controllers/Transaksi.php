@@ -1343,6 +1343,7 @@ class Transaksi extends BaseController
         $pelangganId = $request['pelanggan'] ?? null;
         $pelangganNama = trim((string) ($request['pelanggan_nama'] ?? ''));
         $pelangganTelp = trim((string) ($request['pelanggan_telp'] ?? ''));
+        $atasNama = trim((string) ($request['atas_nama'] ?? ''));
         $diskon = (float) ($request['diskon'] ?? 0);
         // Sama seperti Api::simpanTransaksi() -- flag saja, persennya
         // diresolusi ulang dari master pelanggan di bawah (read-only).
@@ -1441,23 +1442,28 @@ class Transaksi extends BaseController
         // 7. PELANGGAN
         // ==========================================
 
-        $finalPelangganId = null;
+        // Resolver yang sama dengan Api::simpanTransaksi() (nomor = identitas).
+        // Tanpa input pelanggan sama sekali, pelanggan transaksi tidak berubah.
+        $finalPelangganId = !empty($transaksi['pelanggan_id'])
+            ? (int) $transaksi['pelanggan_id']
+            : null;
+        $atasNamaFinal = $transaksi['atas_nama'] ?? null;
 
-        if ($pelangganId === 'new' && $pelangganNama !== '') {
-            $finalPelangganId = $pelangganModel->insert([
-                'nama'  => $pelangganNama,
-                'no_hp' => $pelangganTelp
-            ]);
+        if ($pelangganId === 'new' || (!empty($pelangganId) && is_numeric($pelangganId))) {
+            $resolusi = \App\Libraries\PelangganResolver::resolve(
+                $pelangganModel,
+                $pelangganId,
+                $pelangganNama,
+                $pelangganTelp,
+                $atasNama
+            );
 
-            if (!$finalPelangganId) {
-                throw new \Exception('Gagal membuat pelanggan baru.');
+            if ($resolusi['error'] !== null) {
+                throw new \Exception($resolusi['error']);
             }
-        } elseif (!empty($pelangganId) && is_numeric($pelangganId)) {
-            $finalPelangganId = (int) $pelangganId;
-        } else {
-            $finalPelangganId = !empty($transaksi['pelanggan_id'])
-                ? (int) $transaksi['pelanggan_id']
-                : null;
+
+            $finalPelangganId = $resolusi['pelanggan_id'];
+            $atasNamaFinal    = $resolusi['atas_nama'];
         }
 
         // ==========================================
@@ -1580,6 +1586,7 @@ class Transaksi extends BaseController
             if ($transaksiModel->update($id, [
                 'no_order'                 => $noOrder,
                 'pelanggan_id'             => $finalPelangganId,
+                'atas_nama'                => $atasNamaFinal,
                 'subtotal'                 => $subtotal,
                 'diskon'                   => $diskon,
                 'diskon_pelanggan_persen'  => $diskonPelangganPersenTersimpan,

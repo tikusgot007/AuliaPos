@@ -47,7 +47,7 @@ function bukaKasir(opsi = {}) {
                 replaceState: (_state, _judul, url) => dipanggil.replaceState.push(url),
             },
         },
-        document: { title: 'Kasir' },
+        document: { title: 'Kasir', getElementById: () => null },
         sessionStorage: {
             getItem: (k) => (penyimpanan.has(k) ? penyimpanan.get(k) : null),
             setItem: (k, v) => penyimpanan.set(k, v),

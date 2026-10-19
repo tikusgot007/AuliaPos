@@ -109,6 +109,7 @@ class Api extends BaseController
         $pelangganId = $request['pelanggan'] ?? null;
         $pelangganNama = trim((string) ($request['pelanggan_nama'] ?? ''));
         $pelangganTelp = trim((string) ($request['pelanggan_telp'] ?? ''));
+        $atasNama = trim((string) ($request['atas_nama'] ?? ''));
         $diskon = (float)($request['diskon'] ?? 0);
         // 🔥 Diskon Pelanggan: HANYA sebuah flag "pakai diskon pelanggan
         // yang sedang terpilih" dari client -- persennya sendiri TIDAK
@@ -195,41 +196,35 @@ class Api extends BaseController
         // ==========================================
         // ==========================================
 
-        $finalPelangganId = null;
+        // Pelanggan ditentukan SATU resolver (nomor = identitas, nama tidak
+        // pernah dipakai menebak pelanggan lama). Lihat PelangganResolver.
+        $pelangganModel = new \App\Models\PelangganModel();
+        $resolusi = \App\Libraries\PelangganResolver::resolve(
+            $pelangganModel,
+            $pelangganId,
+            $pelangganNama,
+            $pelangganTelp,
+            $atasNama
+        );
 
-        if ($pelangganId === 'new') {
-            if (mb_strlen($pelangganNama) < 2) {
-                return $this->response->setJSON([
-                    'status' => 'error',
-                    'message' => 'Nama pelanggan minimal 2 karakter.'
-                ]);
-            }
-
-            $pelangganModel = new \App\Models\PelangganModel();
-            $existing = $pelangganModel->findByName($pelangganNama);
-            $finalPelangganId = $existing
-                ? (int) $existing['id']
-                : $pelangganModel->insert([
-                    'nama' => $pelangganNama,
-                    'no_hp' => $pelangganTelp
-                ]);
-        } elseif (!empty($pelangganId) && is_numeric($pelangganId)) {
-            $pelangganModel = new \App\Models\PelangganModel();
-            $pelanggan = $pelangganModel->find((int) $pelangganId);
-            if (!$pelanggan) {
-                return $this->response->setJSON([
-                    'status' => 'error',
-                    'message' => 'Pelanggan yang dipilih tidak ditemukan.'
-                ]);
-            }
-            $finalPelangganId = (int) $pelanggan['id'];
-        }
-
-        if ($metode === 'piutang' && $finalPelangganId === null) {
+        if ($resolusi['error'] !== null) {
             return $this->response->setJSON([
                 'status' => 'error',
-                'message' => 'Pelanggan wajib dipilih atau diisi untuk transaksi piutang.'
+                'message' => $resolusi['error']
             ]);
+        }
+
+        $finalPelangganId = $resolusi['pelanggan_id'];
+        $atasNamaFinal = $resolusi['atas_nama'];
+
+        if ($metode === 'piutang') {
+            $pelangganPiutang = $finalPelangganId !== null ? $pelangganModel->find($finalPelangganId) : null;
+            if (!$pelangganPiutang || trim((string) ($pelangganPiutang['no_hp'] ?? '')) === '') {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'message' => 'Transaksi piutang wajib memakai pelanggan dengan No. HP agar bisa ditagih.'
+                ]);
+            }
         }
 
         // ==========================================
@@ -328,6 +323,7 @@ class Api extends BaseController
             'no_order' => $noOrder,
             'tanggal' => date('Y-m-d H:i:s'),
             'pelanggan_id' => $finalPelangganId,
+            'atas_nama' => $atasNamaFinal,
             'kasir_id' => $kasirId,
             'subtotal' => $subtotal,
             'diskon' => $diskon,

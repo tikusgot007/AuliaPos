@@ -58,8 +58,7 @@
                         id="telpPelanggan"
                         class="form-control"
                         value="<?= esc($pelanggan['no_hp'] ?? '') ?>"
-                        placeholder="No. Telp (opsional)"
-                        readonly>
+                        placeholder="No. Telp (opsional)">
 
                     <button
                         type="button"
@@ -73,8 +72,17 @@
                 </div>
             </div>
 
-            <!-- Sisa ruang -->
-            <div class="col-md-3"></div>
+            <!-- Atas nama (opsional): hanya tampil saat pelanggan terpilih -->
+            <div class="col-md-3" id="atasNamaWrap" style="display:none;">
+                <input
+                    type="text"
+                    id="atasNama"
+                    class="form-control"
+                    maxlength="100"
+                    autocomplete="off"
+                    value=""
+                    placeholder="Atas nama (opsional)">
+            </div>
 
             <!-- Baris 2 -->
             <div class="col-md-9">
@@ -483,6 +491,7 @@
             <?= (float) ($pelanggan['diskon'] ?? 0) ?>,
             false
         );
+        isiAtasNama(<?= json_encode($transaksi['atas_nama'] ?? '') ?>);
 
         // pilihPelanggan() di atas otomatis meng-CENTANG checkbox kalau
         // pelanggan SAAT INI punya diskon > 0 -- tapi transaksi ini
@@ -542,6 +551,17 @@
 
         if (pelangganTerpilih && pelangganTerpilih.id) {
             pelangganId = pelangganTerpilih.id;
+            const telpKetik = document.getElementById('telpPelanggan').value.trim();
+            const digit = function (s) { return String(s || '').replace(/\D/g, ''); };
+            if (telpKetik && !pelangganTerpilih.no_hp) {
+                // pelanggan lama tanpa nomor: nomor diisikan server
+                pelangganTelp = telpKetik;
+            } else if (telpKetik && digit(telpKetik) !== digit(pelangganTerpilih.no_hp)) {
+                // nomor diganti di kasir = orang lain (server cek pemilik nomor)
+                pelangganId = 'new';
+                pelangganNama = document.getElementById('namaPelanggan').value.trim();
+                pelangganTelp = telpKetik;
+            }
         } else {
             pelangganNama = document.getElementById('namaPelanggan').value.trim();
             pelangganTelp = document.getElementById('telpPelanggan').value.trim();
@@ -553,6 +573,7 @@
             pelanggan: pelangganId,
             pelanggan_nama: pelangganNama,
             pelanggan_telp: pelangganTelp,
+            atas_nama: (document.getElementById('atasNama')?.value || '').trim(),
             no_order: noOrderAsli,
             diskon: diskonValue || 0,
             diskon_pelanggan_aktif: !!(document.getElementById('diskonPelangganCheckbox')?.checked)

@@ -15,6 +15,7 @@ class TransaksiModel extends Model
         'no_order',
         'tanggal',
         'pelanggan_id',
+        'atas_nama',
         'kasir_id',
         'subtotal',
         'diskon',

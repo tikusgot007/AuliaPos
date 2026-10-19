@@ -781,8 +781,29 @@ function handleCustomerNameInput(keyword) {
         btnEdit.style.display = 'none';
     }
 
+    // Atas nama hanya berlaku untuk pelanggan terpilih.
+    const wrapAtas = document.getElementById('atasNamaWrap');
+    const atasNama = document.getElementById('atasNama');
+    if (wrapAtas) wrapAtas.style.display = 'none';
+    if (atasNama) atasNama.value = '';
+
     searchPelanggan(keyword);
 }
+
+function pilihItemPertamaPelanggan(event) {
+    if (event.key !== 'Enter') return;
+    const list = document.getElementById('listPelanggan');
+    if (!list || list.style.display === 'none') return;
+    const pertama = list.querySelector('a');
+    if (!pertama) return;
+    event.preventDefault();
+    pertama.click();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const nama = document.getElementById('namaPelanggan');
+    if (nama) nama.addEventListener('keydown', pilihItemPertamaPelanggan);
+});
 
 function searchPelanggan(keyword) {
     const list = document.getElementById('listPelanggan');
@@ -809,27 +830,8 @@ function searchPelanggan(keyword) {
 
             list.replaceChildren();
             if (response.status === 'success' && response.data.length > 0) {
-                const namaInput = document.getElementById('namaPelanggan').value
-                    .trim()
-                    .toLowerCase();
-
-                // Jika nama yang diketik PERSIS sama dengan pelanggan yang ditemukan,
-                // otomatis pilih pelanggan tersebut tanpa harus klik list.
-                const exact = response.data.find(function (p) {
-                    return String(p.nama || '').trim().toLowerCase() === namaInput;
-                });
-
-                if (exact) {
-                    pilihPelanggan(
-                        exact.id,
-                        exact.nama || '',
-                        document.getElementById('telpPelanggan').value || exact.no_hp || '',
-                        exact.diskon || 0
-                    );
-
-                    list.style.display = 'none';
-                    return;
-                }
+                // Tidak ada auto-select: nama sama bisa orang berbeda
+                // (dua "Budi"). Kasir memilih (Enter = item pertama).
                 response.data.forEach(function (p) {
                     const option = document.createElement('a');
                     option.href = '#';
@@ -852,11 +854,19 @@ function searchPelanggan(keyword) {
                     });
                     list.appendChild(option);
                 });
-            } else {
-                const hint = document.createElement('div');
-                hint.className = 'list-group-item text-muted small';
-                list.appendChild(hint);
             }
+
+            // Selalu ada pilihan terakhir: pelanggan baru dengan nama ketikan.
+            const baru = document.createElement('a');
+            baru.href = '#';
+            baru.className = 'list-group-item list-group-item-action text-primary';
+            baru.dataset.pelangganBaru = '1';
+            baru.textContent = '+ Jadikan Pelanggan Baru';
+            baru.addEventListener('click', function (event) {
+                event.preventDefault();
+                list.style.display = 'none';
+            });
+            list.appendChild(baru);
             list.style.display = 'block';
         },
         error: function (xhr, status) {
@@ -954,6 +964,7 @@ function restorePelangganFromUrl() {
         pelangganTelp || '',
         pelangganDiskon || 0
     );
+    isiAtasNama(params.get('atas_nama'));
 
     // Bersihkan parameter URL setelah berhasil dipakai.
     const cleanUrl =
@@ -961,6 +972,11 @@ function restorePelangganFromUrl() {
         window.location.hash;
 
     window.history.replaceState({}, document.title, cleanUrl);
+}
+
+function isiAtasNama(nilai) {
+    const el = document.getElementById('atasNama');
+    if (el) el.value = nilai || '';
 }
 
 function pilihPelanggan(id, nama, no_hp, diskon, autoTerapkan) {
@@ -983,12 +999,16 @@ function pilihPelanggan(id, nama, no_hp, diskon, autoTerapkan) {
 
     if (telpInput) {
         telpInput.value = no_hp || '';
-        telpInput.readOnly = true;
+        telpInput.readOnly = false;
     }
 
+    // Ganti nomor pelanggan yang sama lewat Master Pelanggan, bukan di kasir.
     if (btnEdit) {
-        btnEdit.style.display = 'inline-block';
+        btnEdit.style.display = 'none';
     }
+
+    const wrapAtas = document.getElementById('atasNamaWrap');
+    if (wrapAtas) wrapAtas.style.display = '';
 
     if (list) {
         list.style.display = 'none';
