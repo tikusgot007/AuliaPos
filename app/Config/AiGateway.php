@@ -12,7 +12,7 @@ use CodeIgniter\Config\BaseConfig;
  * Isi di .env (hanya yang perlu ditimpa):
  *   aigateway.apiKey = <key 9router>
  *   aigateway.baseUrl = http://localhost:20128/v1
- *   aigateway.model = aan-groq
+ *   aigateway.model = aan-hermes
  */
 class AiGateway extends BaseConfig
 {
@@ -20,7 +20,7 @@ class AiGateway extends BaseConfig
 
     public string $apiKey = '';
 
-    public string $model = 'aan-groq';
+    public string $model = 'aan-hermes';
 
     public int $timeoutSeconds = 15;
 
