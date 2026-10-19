@@ -27,10 +27,7 @@ class Api extends BaseController
         }
 
         $pelangganModel = new \App\Models\PelangganModel();
-        $data = $pelangganModel->like('nama', $keyword)
-            ->orLike('no_hp', $keyword)
-            ->limit(10)
-            ->findAll();
+        $data = $pelangganModel->searchPelanggan($keyword);
 
         return $this->response->setJSON([
             'status' => 'success',

@@ -13,19 +13,21 @@ class PelangganModel extends Model
 
     public function searchPelanggan(string $keyword): array
     {
-        return $this->like('nama', $keyword)
-            ->orLike('no_hp', $keyword)
+        // Urutan penting: Enter di Kasir memilih item pertama. Nama persis,
+        // lalu awalan nama, lalu sisanya, supaya hasil teratas bisa ditebak.
+        $kw = trim($keyword);
+
+        return $this->groupStart()
+                ->like('nama', $kw)
+                ->orLike('no_hp', $kw)
+            ->groupEnd()
+            ->orderBy('(nama = ' . $this->db->escape($kw) . ')', 'DESC', false)
+            ->orderBy('(nama LIKE ' . $this->db->escape($this->db->escapeLikeString($kw) . '%') . ')', 'DESC', false)
+            ->orderBy('nama', 'ASC')
             ->limit(10)
             ->findAll();
     }
 
-    /**
-     * Cari pelanggan dengan nama persis sama.
-     *
-     * `$exceptId` dipakai saat mengoreksi nama pelanggan yang sudah ada:
-     * baris itu sendiri tidak boleh dianggap bentrok (lihat
-     * Inbox::buatPesanan(), AC-2b).
-     */
     /**
      * Pelanggan TANPA nomor HP dengan nama persis `$nama`. Kandidat "orang
      * yang sama" untuk ditautkan ke nomor baru; null bila tidak ada atau
@@ -45,6 +47,13 @@ class PelangganModel extends Model
         return count($rows) === 1 ? $rows[0] : null;
     }
 
+    /**
+     * Cari pelanggan dengan nama persis sama.
+     *
+     * `$exceptId` dipakai saat mengoreksi nama pelanggan yang sudah ada:
+     * baris itu sendiri tidak boleh dianggap bentrok (lihat
+     * Inbox::buatPesanan(), AC-2b).
+     */
     public function findByName(string $nama, ?int $exceptId = null): ?array
     {
         $builder = $this->where('nama', trim($nama));
