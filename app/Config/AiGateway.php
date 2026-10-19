@@ -36,6 +36,12 @@ class AiGateway extends BaseConfig
     /** Reasoning model bisa menghabiskan token sebelum menjawab; jangan kecilkan. */
     public int $maxTokens = 4096;
 
+    /**
+     * false (default) = kata cari produk ditebak lokal tanpa AI (hemat ±4 detik per klik).
+     * true = tahap 1 lewat AI memakai $promptCari. Env: aigateway.kataCariDenganAi = true
+     */
+    public bool $kataCariDenganAi = false;
+
     /** Tahap 1 (kata cari): batas waktu dan token. Gagal = dilewati, bukan error. */
     public int $timeoutCariSeconds = 8;
 

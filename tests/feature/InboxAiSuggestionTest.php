@@ -80,7 +80,7 @@ final class InboxAiSuggestionTest extends CIUnitTestCase
         @unlink($this->respFile . '.cari');
         @unlink($this->respFile . '.log');
         \Config\Database::forge()->dropTable('produk', true);
-        foreach (['aigateway.baseUrl', 'aigateway.timeoutSeconds', 'aigateway.jedaUlangDetik'] as $k) {
+        foreach (['aigateway.baseUrl', 'aigateway.timeoutSeconds', 'aigateway.jedaUlangDetik', 'aigateway.kataCariDenganAi'] as $k) {
             putenv($k);
             unset($_ENV[$k], $_SERVER[$k]);
         }
@@ -227,8 +227,28 @@ final class InboxAiSuggestionTest extends CIUnitTestCase
         $this->assertSame('Berhasil setelah ulang', $this->aktif($id)[0]['text']);
     }
 
+    private function modeAi(): void
+    {
+        putenv('aigateway.kataCariDenganAi=true');
+        $_ENV['aigateway.kataCariDenganAi'] = $_SERVER['aigateway.kataCariDenganAi'] = 'true';
+        \CodeIgniter\Config\Factories::reset('config');
+    }
+
+    public function testKataCariLokalSatuPanggilanAi(): void
+    {
+        $id = $this->seedConv(); // pesan: "kak cetak foto 4R 10 lembar"
+        $this->aiMenjawab(['balasan' => ['text' => 'Siap kak']]);
+        $this->minta($id)->assertOK();
+
+        $req = $this->request();
+        $this->assertCount(1, $req, 'hanya satu panggilan AI');
+        $this->assertStringContainsString('4R: ID 73', $req[0]['messages'][0]['content']);
+        $this->assertStringNotContainsString('24R', $req[0]['messages'][0]['content']);
+    }
+
     public function testHasilCariMasukPromptTahap2DariTabelProduk(): void
     {
+        $this->modeAi();
         $id = $this->seedConv();
         $this->aiCari(['4R', 'Frame 4R', '4R']);
         $this->aiMenjawab(['balasan' => ['text' => 'Siap kak']]);
@@ -249,6 +269,7 @@ final class InboxAiSuggestionTest extends CIUnitTestCase
 
     public function testTahapCariGagalTetapMenghasilkanSaran(): void
     {
+        $this->modeAi();
         $id = $this->seedConv();
         file_put_contents($this->respFile . '.cari', "429\n{}");
         $this->aiMenjawab(['balasan' => ['text' => 'Tetap jalan']]);

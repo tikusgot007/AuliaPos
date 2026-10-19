@@ -104,13 +104,64 @@ class AiSuggestionService
         }
 
         // Tahap 1: kata cari -> baris produk dari tabel `produk` (desain §10).
-        $katalog = $this->bangunKatalog($this->tentukanKataCari($teks));
+        $katalog = $this->bangunKatalog(
+            $this->config->kataCariDenganAi ? $this->tentukanKataCari($teks) : $this->kataCariLokal($teks)
+        );
 
         return $this->parse($this->panggil($teks, $katalog));
     }
 
     /**
-     * Tahap 1: AI menebak kata cari produk dari percakapan. Gagal/kosong/rusak
+     * Tahap 1 tanpa AI: ukuran (4R, 10RS, 3x4) dan kata kunci umum -> kata cari nama produk.
+     * ponytail: kamus kecil; produk di luar kamus tetap terjaring lewat produk dasar. Tambah
+     * pola di sini, atau set aigateway.kataCariDenganAi=true bila perlu tebakan AI.
+     *
+     * @return string[]
+     */
+    public function kataCariLokal(string $percakapan): array
+    {
+        $t      = mb_strtolower($percakapan);
+        $ukuran = [];
+        if (preg_match_all('/(?<![0-9a-z])(\d{1,2})\s?(rs|r)(?![0-9a-z])/u', $t, $m, PREG_SET_ORDER)) {
+            foreach ($m as $x) {
+                $ukuran[] = $x[1] . strtoupper($x[2]);
+            }
+        }
+        if (preg_match_all('/(?<![0-9a-z])(\d{1,2})\s?x\s?(\d{1,2})(?![0-9a-z])/u', $t, $m, PREG_SET_ORDER)) {
+            foreach ($m as $x) {
+                $ukuran[] = $x[1] . 'x' . $x[2];
+            }
+        }
+        $ukuran = array_values(array_unique($ukuran));
+        $frame  = preg_match('/(?<![a-z])(frame|pigura|bingkai)(?![a-z])/u', $t) === 1;
+
+        $kata = $ukuran;
+        foreach ($ukuran as $u) {
+            if ($frame) {
+                $kata[] = 'Frame ' . $u;
+            }
+        }
+        if ($frame && $ukuran === []) {
+            $kata[] = 'Frame';
+        }
+        foreach ([
+            '/(?<![a-z])ktp(?![a-z])/u'                           => ['Fotokopi Ktp'],
+            '/foto\s?copy|fotokopi|(?<![a-z])copy(?![a-z])|rangkap/u' => ['Fotokopi'],
+            '/print|skripsi|dokumen|hvs|(?<![a-z0-9])[af]4(?![a-z0-9])/u' => ['Print'],
+            '/jilid/u'                                            => ['Jilid', 'Buffallo', 'Mika'],
+            '/banner|spanduk/u'                                   => ['Banner'],
+            '/laminating|laminasi/u'                              => ['Laminating'],
+        ] as $pola => $tambah) {
+            if (preg_match($pola, $t) === 1) {
+                array_push($kata, ...$tambah);
+            }
+        }
+
+        return ProdukPencari::bersihkanKata($kata);
+    }
+
+    /**
+     * Tahap 1 (mode AI): AI menebak kata cari produk dari percakapan. Gagal/kosong/rusak
      * apa pun -> [] (tahap 2 tetap jalan dengan katalog dasar saja).
      *
      * @return string[]

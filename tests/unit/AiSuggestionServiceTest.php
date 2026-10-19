@@ -158,6 +158,18 @@ final class AiSuggestionServiceTest extends TestCase
         $this->assertSame('- Cetak 10R: ID 76', $svc->bangunKatalog([]));
     }
 
+    public function testKataCariLokal(): void
+    {
+        $s = $this->svc();
+        $this->assertSame(['4R'], $s->kataCariLokal('Pelanggan: kak cetak foto 4R 10 lembar'));
+        $this->assertSame(['10RS', '4R', 'Frame 10RS', 'Frame 4R'], $s->kataCariLokal('mau 10 RS dan 4r pakai bingkai'));
+        $this->assertSame(['3x4', 'Print', 'Jilid', 'Buffallo', 'Mika'], $s->kataCariLokal('pas foto 3 x 4 sama jilid skripsi'));
+        $this->assertSame(['Fotokopi Ktp', 'Fotokopi'], $s->kataCariLokal('fotokopi ktp 2'));
+        $this->assertSame(['Frame'], $s->kataCariLokal('ada pigura?'));
+        $this->assertSame([], $s->kataCariLokal('halo kak, buka jam berapa?'));
+        $this->assertSame([], $s->kataCariLokal('nomor 24RB'), 'menempel di tengah kata tidak dihitung');
+    }
+
     public function testTentukanKataCari(): void
     {
         $isi = fn (string $c) => fn () => $this->balasanAi($c);
