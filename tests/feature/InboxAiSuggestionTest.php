@@ -62,7 +62,7 @@ final class InboxAiSuggestionTest extends CIUnitTestCase
         for ($i = 0; $i < 50 && ! @fsockopen('127.0.0.1', $port); $i++) {
             usleep(100_000);
         }
-        foreach (['aigateway.baseUrl' => 'http://127.0.0.1:' . $port . '/v1', 'aigateway.timeoutSeconds' => '3', 'aigateway.jedaUlangDetik' => '0'] as $k => $v) {
+        foreach (['aigateway.baseUrl' => 'http://127.0.0.1:' . $port . '/v1', 'aigateway.timeoutSeconds' => '3', 'aigateway.jedaUlangDetik' => '0', 'aigateway.model' => 'tes-model'] as $k => $v) {
             putenv("$k=$v");
             $_ENV[$k] = $_SERVER[$k] = $v;
         }
@@ -80,7 +80,7 @@ final class InboxAiSuggestionTest extends CIUnitTestCase
         @unlink($this->respFile . '.cari');
         @unlink($this->respFile . '.log');
         \Config\Database::forge()->dropTable('produk', true);
-        foreach (['aigateway.baseUrl', 'aigateway.timeoutSeconds', 'aigateway.jedaUlangDetik', 'aigateway.kataCariDenganAi'] as $k) {
+        foreach (['aigateway.baseUrl', 'aigateway.timeoutSeconds', 'aigateway.jedaUlangDetik', 'aigateway.model', 'aigateway.kataCariDenganAi'] as $k) {
             putenv($k);
             unset($_ENV[$k], $_SERVER[$k]);
         }

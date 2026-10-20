@@ -216,6 +216,9 @@ class AiSuggestionService
             ],
         ];
 
+        if (trim($this->config->model) === '') {
+            throw new \RuntimeException('Model AI belum diatur (aigateway.model di .env).');
+        }
         $raw = null;
         $err = null;
         foreach (array_merge([$this->config->model], array_slice($this->cadangan(), 0, 2)) as $model) {
@@ -247,7 +250,7 @@ class AiSuggestionService
     /** @return string[] */
     private function cadangan(): array
     {
-        return array_values(array_filter(array_map('trim', is_string($this->config->modelCadangan) ? explode(',', $this->config->modelCadangan) : (array) $this->config->modelCadangan), 'strlen'));
+        return array_values(array_filter(array_map('trim', explode(',', $this->config->modelCadangan)), 'strlen'));
     }
 
     private function kirim(array $payload, int $timeout, bool $ulang429): string

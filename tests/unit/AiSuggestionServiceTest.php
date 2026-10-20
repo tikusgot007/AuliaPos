@@ -46,7 +46,11 @@ final class AiSuggestionServiceTest extends TestCase
 
     private function svc(?callable $http = null, ?ProdukPencari $p = null): AiSuggestionService
     {
-        return new AiSuggestionService(new AiGateway(), $http, $p ?? $this->pencari());
+        $cfg                = new AiGateway();
+        $cfg->model         = 'utama';
+        $cfg->modelCadangan = 'cad1, cad2 ,cad3';
+
+        return new AiSuggestionService($cfg, $http, $p ?? $this->pencari());
     }
 
     private function balasanAi(string $content): string
@@ -75,7 +79,7 @@ final class AiSuggestionServiceTest extends TestCase
         $svc->panggil('Pelanggan: halo', '- Cetak 10R: ID 76');
 
         $cfg = new AiGateway();
-        $this->assertSame($cfg->model, $dikirim['model']);
+        $this->assertSame('utama', $dikirim['model']);
         $this->assertSame(str_replace('{{KATALOG}}', '- Cetak 10R: ID 76', $cfg->systemPrompt), $dikirim['messages'][0]['content']);
         $this->assertGreaterThanOrEqual(4096, $dikirim['max_tokens']);
         $this->assertFalse($dikirim['stream']);
@@ -169,8 +173,15 @@ final class AiSuggestionServiceTest extends TestCase
             return $this->balasanAi('{"balasan":null}');
         });
         $svc->panggil('Pelanggan: halo');
+        $this->assertSame(['utama', 'cad1', 'cad2'], $dicoba, 'maks 2 cadangan, spasi dibuang');
+    }
+
+    public function testModelKosongDitolakJelas(): void
+    {
         $cfg = new AiGateway();
-        $this->assertSame(array_merge([$cfg->model], array_slice($cfg->modelCadangan, 0, 2)), $dicoba);
+        $cfg->model = '';
+        $this->expectExceptionMessage('aigateway.model');
+        (new AiSuggestionService($cfg, fn () => '', $this->pencari()))->panggil('Pelanggan: halo');
     }
 
     public function testError4xxTidakPindahModel(): void

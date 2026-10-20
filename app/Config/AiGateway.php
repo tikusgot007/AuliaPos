@@ -13,6 +13,7 @@ use CodeIgniter\Config\BaseConfig;
  *   aigateway.apiKey = <key 9router>
  *   aigateway.baseUrl = http://localhost:20128/v1
  *   aigateway.model = aan-hermes
+ *   aigateway.modelCadangan = groq/openai/gpt-oss-120b,ds/deepseek-v4-flash
  */
 class AiGateway extends BaseConfig
 {
@@ -20,18 +21,17 @@ class AiGateway extends BaseConfig
 
     public string $apiKey = '';
 
-    public string $model = 'aan-hermes';
+    /** Model utama. WAJIB diisi lewat .env (aigateway.model); kosong = saran AI menolak dengan pesan jelas. */
+    public string $model = '';
 
     /** Batas tunggu PER model. Lewat batas = coba model cadangan (total terburuk = timeout x (1 + jumlah cadangan)). */
     public int $timeoutSeconds = 8;
 
     /**
-     * Model cadangan, dicoba berurutan bila model utama timeout/tak terhubung/5xx. Bukan Claude (cc/*).
-     * Env: aigateway.modelCadangan = a,b (pisah koma; kosong = tanpa cadangan).
-     *
-     * @var string[]
+     * Model cadangan (maks 2), dicoba berurutan bila model utama timeout/tak terhubung/5xx. Bukan Claude (cc/*).
+     * Hanya lewat .env: aigateway.modelCadangan = a,b (pisah koma). Kosong = tanpa cadangan.
      */
-    public array $modelCadangan = ['groq/openai/gpt-oss-120b', 'ds/deepseek-v4-flash'];
+    public string $modelCadangan = '';
 
     /** Jeda sebelum satu kali ulang saat HTTP 429. 0 = langsung (dipakai tes). */
     public int $jedaUlangDetik = 3;
