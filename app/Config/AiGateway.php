@@ -22,7 +22,16 @@ class AiGateway extends BaseConfig
 
     public string $model = 'aan-hermes';
 
-    public int $timeoutSeconds = 15;
+    /** Batas tunggu PER model. Lewat batas = coba model cadangan (total terburuk = timeout x (1 + jumlah cadangan)). */
+    public int $timeoutSeconds = 8;
+
+    /**
+     * Model cadangan, dicoba berurutan bila model utama timeout/tak terhubung/5xx. Bukan Claude (cc/*).
+     * Env: aigateway.modelCadangan = a,b (pisah koma; kosong = tanpa cadangan).
+     *
+     * @var string[]
+     */
+    public array $modelCadangan = ['groq/openai/gpt-oss-120b', 'ds/deepseek-v4-flash'];
 
     /** Jeda sebelum satu kali ulang saat HTTP 429. 0 = langsung (dipakai tes). */
     public int $jedaUlangDetik = 3;

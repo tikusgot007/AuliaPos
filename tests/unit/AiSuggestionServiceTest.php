@@ -158,6 +158,45 @@ final class AiSuggestionServiceTest extends TestCase
         $this->assertSame('- Cetak 10R: ID 76', $svc->bangunKatalog([]));
     }
 
+    public function testTimeoutPindahKeModelCadangan(): void
+    {
+        $dicoba = [];
+        $svc = $this->svc(function (array $p) use (&$dicoba): string {
+            $dicoba[] = $p['model'];
+            if (count($dicoba) < 3) {
+                throw new \RuntimeException('AI terlalu lama menjawab. Coba lagi.');
+            }
+            return $this->balasanAi('{"balasan":null}');
+        });
+        $svc->panggil('Pelanggan: halo');
+        $cfg = new AiGateway();
+        $this->assertSame(array_merge([$cfg->model], array_slice($cfg->modelCadangan, 0, 2)), $dicoba);
+    }
+
+    public function testError4xxTidakPindahModel(): void
+    {
+        $n = 0;
+        $svc = $this->svc(function () use (&$n): string {
+            $n++;
+            throw new \RuntimeException('AI menolak permintaan (HTTP 401).', 401);
+        });
+        $this->expectException(\RuntimeException::class);
+        try {
+            $svc->panggil('Pelanggan: halo');
+        } finally {
+            $this->assertSame(1, $n);
+        }
+    }
+
+    public function testSemuaModelGagalMelemparError(): void
+    {
+        $svc = $this->svc(function (): string {
+            throw new \RuntimeException('AI terlalu lama menjawab. Coba lagi.');
+        });
+        $this->expectExceptionMessage('AI terlalu lama menjawab');
+        $svc->panggil('Pelanggan: halo');
+    }
+
     public function testKataCariLokal(): void
     {
         $s = $this->svc();

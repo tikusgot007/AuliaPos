@@ -207,7 +207,6 @@ class AiSuggestionService
     public function panggil(string $percakapan, string $katalog = ''): string
     {
         $payload = [
-            'model'       => $this->config->model,
             'max_tokens'  => $this->config->maxTokens,
             'temperature' => 0.2,
             'stream'      => false,
@@ -217,7 +216,24 @@ class AiSuggestionService
             ],
         ];
 
-        $raw = $this->kirim($payload, $this->config->timeoutSeconds, true);
+        $raw = null;
+        $err = null;
+        foreach (array_merge([$this->config->model], array_slice($this->cadangan(), 0, 2)) as $model) {
+            try {
+                $raw = $this->kirim(['model' => $model] + $payload, $this->config->timeoutSeconds, true);
+                break;
+            } catch (\RuntimeException $e) {
+                // ponytail: cadangan hanya untuk timeout/koneksi/5xx; 4xx (key/permintaan salah) tidak membaik ganti model.
+                if ($e->getCode() >= 400 && $e->getCode() < 500 && $e->getCode() !== 429) {
+                    throw $e;
+                }
+                $err = $e;
+                log_message('warning', 'AiSuggestionService: model ' . $model . ' gagal, coba cadangan');
+            }
+        }
+        if ($raw === null) {
+            throw $err;
+        }
 
         $json = json_decode($this->jsonPenuh(trim($raw)), true);
         $isi  = $json['choices'][0]['message']['content'] ?? null;
@@ -226,6 +242,12 @@ class AiSuggestionService
         }
 
         return $isi;
+    }
+
+    /** @return string[] */
+    private function cadangan(): array
+    {
+        return array_values(array_filter(array_map('trim', is_string($this->config->modelCadangan) ? explode(',', $this->config->modelCadangan) : (array) $this->config->modelCadangan), 'strlen'));
     }
 
     private function kirim(array $payload, int $timeout, bool $ulang429): string
