@@ -27,7 +27,10 @@
                         <p><strong>Kasir:</strong> <?= $transaksi['kasir_inisial'] ?? $transaksi['kasir_nama'] ?? '-' ?></p>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>Pelanggan:</strong> <?= $pelanggan['nama'] ?? '-' ?></p>
+                        <p><strong>Pelanggan:</strong> <?= esc($pelanggan['nama'] ?? '-') ?></p>
+                        <?php if (!empty($pelanggan['no_hp'])): ?>
+                            <p><strong>No HP:</strong> <?= esc($pelanggan['no_hp']) ?></p>
+                        <?php endif; ?>
                         <p><strong>Total Belanja:</strong> <strong><?= number_format($transaksi['grand_total'], 0, ',', '.') ?></strong></p>
                         <p><strong>Total Dibayar:</strong> <?= number_format($total_dibayar, 0, ',', '.') ?></p>
                         <p><strong>Sisa Tagihan:</strong> <span class="<?= $sisa_tagihan > 0 ? 'text-danger' : 'text-success' ?>">
