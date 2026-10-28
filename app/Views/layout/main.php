@@ -552,14 +552,6 @@
                                         <span class="ms-1 d-none d-md-inline nav-label">Preview Banner</span>
                                     </a>
 
-                                    <!-- Tagihan Belum Lunas (akses cepat ke daftar tagihan) -->
-                                    <a href="<?= base_url('/tagihan') ?>" class="nav-icon position-relative text-decoration-none d-inline-flex align-items-center"
-                                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Tagihan Belum Lunas">
-                                        <i class="fas fa-file-invoice"></i>
-                                        <span class="ms-1 d-none d-md-inline nav-label">Tagihan</span>
-                                        <span class="badge bg-danger" id="headerBadgeTagihan" style="padding: 2px 6px; border-radius: 20px; position: absolute; top: -6px; right: -8px; display: none;">0</span>
-                                    </a>
-
                                     <!-- User Dropdown -->
                                     <?php
                                     // Sengaja query langsung di sini (bukan disimpan ke
