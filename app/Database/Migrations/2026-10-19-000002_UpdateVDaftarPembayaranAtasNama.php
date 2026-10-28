@@ -5,7 +5,7 @@ namespace App\Database\Migrations;
 use CodeIgniter\Database\Migration;
 
 /**
- * v_daftar_pembayaran: nama_pelanggan tampil "Alby(SUHERMAN 1234)" bila
+ * v_daftar_pembayaran: nama_pelanggan tampil "Alby (SUHERMAN 1234)" bila
  * transaksi punya atas_nama (Tahap 2 identitas pelanggan). Kolom lain sama
  * persis dengan definisi di CreateAuliaPosCore.
  */
@@ -13,7 +13,7 @@ class UpdateVDaftarPembayaranAtasNama extends Migration
 {
     public function up()
     {
-        $this->buat("(CASE WHEN t.atas_nama IS NULL OR t.atas_nama = '' THEN pl.nama ELSE CONCAT(t.atas_nama, '(', COALESCE(pl.nama, ''), ')') END)");
+        $this->buat("(CASE WHEN t.atas_nama IS NULL OR t.atas_nama = '' THEN pl.nama ELSE CONCAT(t.atas_nama, ' (', COALESCE(pl.nama, ''), ')') END)");
     }
 
     public function down()
