@@ -86,7 +86,7 @@
                                     <td><?= $i + 1 ?></td>
                                     <td><?= $item['nama_produk'] ?? 'Produk #' . $item['produk_id'] ?></td>
                                     <td class="text-end"><?= number_format($item['harga_satuan'], 0, ',', '.') ?></td>
-                                    <td class="text-end"><?= $item['jumlah'] ?></td>
+                                    <td class="text-end"><?= rtrim(rtrim(number_format((float)($item['jumlah'] ?? 0), 2, ',', '.'), '0'), ',') ?></td>
                                     <td class="text-end"><?= number_format($item['subtotal'], 0, ',', '.') ?></td>
                                 </tr>
                             <?php endforeach; ?>

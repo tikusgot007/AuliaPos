@@ -379,7 +379,7 @@ function tampilkanKeranjang(keranjang) {
                             <button class="btn btn-sm btn-outline-secondary" onclick="updateJumlah('${itemKey}', ${item.jumlah - 1})" ${disabledAttr} aria-label="Kurangi jumlah" style="height: 36px; min-width: 36px; padding: 0; font-size: 1.15rem; font-weight: 700; line-height: 1;">-</button>
                             <input type="number" class="form-control form-control-sm text-center mx-1 ${disabledClass}"
                                    style="width: 46px; height: 42px; font-size: 1rem; font-weight: 600; padding: 2px;"
-                                   value="${item.jumlah}"
+                                   value="${Number.isInteger(item.jumlah) ? item.jumlah : parseFloat(item.jumlah)}"
                                    min="1"
                                    data-key="${itemKey}"
                                    data-harga="${hargaPerUnit}"
