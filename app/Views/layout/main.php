@@ -376,17 +376,6 @@
                             </a>
                         </li>
 
-                        <!-- ADMIN: FotoSlate -->
-                        <li class="nav-item">
-                            <a class="nav-link"
-                                href="http://192.168.1.10/fotoslate/"
-                                target="_blank"
-                                rel="noopener">
-                                <i class="fas fa-camera"></i>
-                                <span>FotoSlate</span>
-                            </a>
-                        </li>
-
                         <!-- ADMIN: Administrasi -->
                         <li class="nav-item">
                             <a class="nav-link d-flex align-items-center"
