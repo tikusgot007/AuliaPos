@@ -303,12 +303,6 @@ function renderDaftarConversation() {
         const nomorAtauLid = c.manual_phone || c.phone || (c.jid_type === 'lid' ? 'LID' : c.jid_type);
         const barisSnippet = renderSnippetCocok(c.match_snippet);
 
-        // CON-002 -- Edit Profil disabled (bukan hilang) untuk grup;
-        // Hapus percakapan tetap berfungsi penuh (REQ-007).
-        const tombolEditProfil = isGrup ?
-            '<button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil tidak berlaku untuk grup" disabled><i class="fas fa-pen"></i></button>' :
-            '<button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size:0.75rem;" title="Edit profil pelanggan" onclick="event.stopPropagation(); editPercakapanDariList(' + c.id + ')"><i class="fas fa-pen"></i></button>';
-
         return '<a href="#" class="inbox-list-item' + activeClass + '" onclick="return pilihConversation(' + c.id + ')">' +
             renderAvatarConversation(nama, isGrup) +
             '<div class="list-body">' +
@@ -317,7 +311,6 @@ function renderDaftarConversation() {
             '<span class="d-flex align-items-center gap-1 flex-shrink-0">' +
             '<span class="list-time">' + escapeHtmlInbox(waktu) + '</span>' +
             '<span class="list-aksi">' +
-            tombolEditProfil +
             '<button type="button" class="btn btn-sm btn-link p-0 text-danger" style="font-size:0.75rem;" title="Hapus percakapan" onclick="event.stopPropagation(); hapusPercakapanDariList(' + c.id + ')"><i class="fas fa-trash-alt"></i></button>' +
             '</span>' +
             '</span>' +
@@ -639,9 +632,12 @@ function renderThreadHeader() {
         (buatPesananBerjalan ? '<span class="spinner-border spinner-border-sm"></span>' : '<i class="fas fa-cash-register"></i>') +
         ' Buat Pesanan</button>';
 
-    // Edit & Hapus TIDAK lagi tampil di header -- dipindah ke masing-
-    // masing row percakapan di daftar kiri (lihat editPercakapanDariList()/
-    // hapusPercakapanDariList()).
+    // Edit profil: di header (tidak berlaku untuk grup, CON-002).
+    // Hapus tetap di row daftar kiri (hapusPercakapanDariList()).
+    const tombolEditProfil = isGrup ? '' :
+        '<button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Edit profil pelanggan" onclick="bukaModalEditProfil()">' +
+        '<i class="fas fa-user-edit"></i> Edit Kontak</button>';
+
     document.getElementById('threadHeader').innerHTML =
         '<span><strong>' + escapeHtmlInbox(identitas) + '</strong>' +
         penandaGrup +
@@ -649,7 +645,7 @@ function renderThreadHeader() {
         tombolKonfirmasiNomor +
         infoAssign +
         '</span>' +
-        '<span>' + tombolBuatPesanan + tombolCatatanInternal + tombolTandaiDibaca + tombolHandoff + tombolFollowUp + tombolTutup + tombolAssign + '</span>';
+        '<span>' + tombolBuatPesanan + tombolEditProfil + tombolCatatanInternal + tombolTandaiDibaca + tombolHandoff + tombolFollowUp + tombolTutup + tombolAssign + '</span>';
 }
 
 let buatPesananBerjalan = false;
@@ -2285,14 +2281,6 @@ document.getElementById('teksBalasan').addEventListener('paste', function(e) {
 // ================================================================
 // EDIT/HAPUS DARI ROW DAFTAR PERCAKAPAN (panel kiri)
 // ================================================================
-
-// Edit: percakapan dibuka dulu (nama, pesan, header ikut render),
-// BARU modal edit profil dibuka -- reuse pilihConversation() +
-// bukaModalEditProfil() apa adanya, tidak ada logic baru di sini.
-function editPercakapanDariList(id) {
-    pilihConversation(id);
-    bukaModalEditProfil();
-}
 
 // Hapus: SENGAJA TIDAK memanggil pilihConversation() -- klik Hapus
 // pada row yang sedang tidak aktif tidak boleh ikut membuka
