@@ -252,31 +252,12 @@
 
         <div class="col-md-4">
 
-            <div class="card border-secondary h-100">
-
-                <div class="card-body">
-
-                    <div class="small text-muted">
-                        Subtotal Item
-                    </div>
-
-                    <div class="fs-4 fw-bold">Rp <span id="summarySubtotal">0</span></div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <div class="col-md-4">
-
             <div class="card border-success h-100">
 
                 <div class="card-body">
 
                     <div class="small text-muted">
-                        Nilai Terjual / Teralokasi
+                        Total Diterima
                     </div>
 
                     <div class="fs-4 fw-bold text-success">Rp <span id="summaryTeralokasi">0</span></div>
@@ -346,21 +327,7 @@
                             <th
                                 class="text-end">
 
-                                Subtotal Item
-
-                            </th>
-
-                            <th
-                                class="text-end">
-
-                                Pembayaran
-
-                            </th>
-
-                            <th
-                                class="text-end">
-
-                                Nilai Terjual
+                                Diterima
 
                             </th>
 
@@ -386,10 +353,6 @@
                                 <th></th>
                                 <th></th>
                                 <th></th>
-
-                                <th class="text-end" id="ftSubtotal">Rp 0</th>
-
-                                <th class="text-end">-</th>
 
                                 <th class="text-end" id="ftTeralokasi">Rp 0</th>
 
@@ -427,7 +390,7 @@
         }
 
         function rupiah(n) {
-            return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+            return 'Rp ' + Math.round(Number(n || 0)).toLocaleString('id-ID');
         }
 
         const table = $('#tableItemHarian').DataTable({
@@ -448,19 +411,15 @@
                 { data: 'kode_invoice' },
                 { data: 'nama_produk' },
                 { data: 'jumlah_item', className: 'text-end' },
-                { data: 'subtotal_item', className: 'text-end', render: function(d) { return rupiah(d); } },
-                { data: 'total_pembayaran', className: 'text-end', render: function(d) { return rupiah(d); } },
                 { data: 'total_teralokasi', className: 'text-end', render: function(d) { return rupiah(d); } }
             ],
-            order: [[0, 'asc'], [7, 'desc']],
+            order: [[0, 'asc'], [5, 'desc']],
             footerCallback: function() {
                 const json = this.api().ajax.json() || {};
                 const totals = json.totals || {};
-                $('#ftSubtotal').text(rupiah(totals.subtotal_item));
                 $('#ftTeralokasi').text(rupiah(totals.total_teralokasi));
                 $('#summaryJumlahBaris').text(Number(json.recordsFiltered || 0).toLocaleString('id-ID'));
-                $('#summarySubtotal').text(Number(totals.subtotal_item || 0).toLocaleString('id-ID'));
-                $('#summaryTeralokasi').text(Number(totals.total_teralokasi || 0).toLocaleString('id-ID'));
+                $('#summaryTeralokasi').text(Math.round(Number(totals.total_teralokasi || 0)).toLocaleString('id-ID'));
             },
             language: {
                 processing: 'Memuat...',

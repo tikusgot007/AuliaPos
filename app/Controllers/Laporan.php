@@ -2058,9 +2058,7 @@ class Laporan extends BaseController
             2 => 'kode_invoice',
             3 => 'nama_produk',
             4 => 'jumlah_item',
-            5 => 'subtotal_item',
-            6 => 'total_pembayaran',
-            7 => 'total_teralokasi',
+            5 => 'total_teralokasi',
         ];
 
         $out = [];
@@ -2247,9 +2245,7 @@ class Laporan extends BaseController
                 $row['kode_invoice'] ?? '-',
                 $row['nama_produk'] ?? '-',
                 (float) ($row['jumlah_item'] ?? 0),
-                (float) ($row['subtotal_item'] ?? 0),
-                (float) ($row['total_pembayaran'] ?? 0),
-                (float) ($row['total_teralokasi'] ?? 0),
+                round((float) ($row['total_teralokasi'] ?? 0)),
             ];
         }
 
@@ -2257,7 +2253,7 @@ class Laporan extends BaseController
 
         return $this->excelXlsResponse(
             $filename,
-            ['Tanggal', 'Kategori', 'Invoice', 'Item', 'Qty', 'Subtotal Item', 'Pembayaran', 'Nilai Terjual'],
+            ['Tanggal', 'Kategori', 'Invoice', 'Item', 'Qty', 'Diterima'],
             $out
         );
     }
