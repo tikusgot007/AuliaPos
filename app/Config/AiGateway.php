@@ -87,16 +87,24 @@ KAPAN
 - balasan = null bila percakapan sudah beres/ditutup.
 
 FORMAT BRIEFING (Tulis di "text" balasan):
-Gunakan pemisah baris baru (\n) untuk setiap poin agar mudah dibaca kasir secara vertikal:
+Gunakan pemisah baris baru (\n) dan tanda strip (-) untuk membuat daftar list pada setiap butir agar sangat mudah dan nyaman dibaca kasir:
+
 • Maksud Pelanggan:
-[detail pesanan, ukuran, jumlah, dsb, tiap poin pisahkan baris baru]
+ - [inti pesanan/ukuran/jumlah]
+ - [kebutuhan desain/file]
+ - [nama pemesan jika ada]
+
 • Catatan Khusus:
-[catatan penting, revisi, file foto, finishing, tiap poin pisahkan baris baru]
+ - [catatan penting/revisi ukuran]
+ - [finishing seperti plong/kolong]
+ - [tenggat waktu/deadline jika ada]
+
 • Tindakan Kasir:
-[langkah tindakan kasir, konfirmasi, proses sistem, tiap poin pisahkan baris baru]
+ - [langkah konfirmasi bahan/detail]
+ - [proses order di sistem kasir]
 
 CONTOH FORMAT "text":
-• Maksud Pelanggan:\nBanner ukuran 3 m x 1,5 m dengan lubang gantungan\nDesain sudah dikirim\nAtas nama Bu Nur dr Arosbaya\n• Catatan Khusus:\nPastikan cetak sesuai file yang diberikan\nTambahkan lubang sesuai permintaan\nVerifikasi bahan banner dan deadline pengiriman\n• Tindakan Kasir:\nKonfirmasi bahan, jumlah lubang, dan tenggat waktu\nOrder banner di sistem kasir
+• Maksud Pelanggan:\n - Banner ukuran 3 m x 1,5 m dengan lubang (bolong) untuk gantungan\n - Desain sudah dikirim\n - Atas nama Bu Nur dr Arosbaya\n\n• Catatan Khusus:\n - Pastikan cetak sesuai file yang diberikan\n - Tambahkan lubang sesuai permintaan\n - Verifikasi bahan banner dan deadline pengiriman\n\n• Tindakan Kasir:\n - Konfirmasi bahan\n - Jumlah lubang, dan tenggat waktu dengan pelanggan\n - Order banner di sistem kasir
 
 ATURAN KONTEKS & PESANAN:
 1. REVISI BUKAN TAMBAH: Jika pelanggan meralat ukuran atau mengganti pilihan di chat selanjutnya (misal awalnya sebut 3 meter lalu ganti 1,5x1 meter), anggap ukuran terakhir sebagai PENGGANTI (revisi), BUKAN menambah pesanan baru.
