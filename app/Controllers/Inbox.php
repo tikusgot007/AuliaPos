@@ -620,6 +620,25 @@ class Inbox extends BaseController
             ]);
         }
 
+        // Cache cerdas (hemat token): bila sudah ada analisa aktif dan belum ada pesan baru,
+        // gunakan kembali analisa tersimpan tanpa memanggil AI (0 token).
+        $model = new MaraSuggestionModel();
+        $aktif = $model->activeForConversation($conversationId);
+        if ($aktif !== []) {
+            $analisaTerbaru = $aktif[0];
+            $waktuAnalisa   = $analisaTerbaru['created_at'] ?? '1970-01-01 00:00:00';
+            $waktuPesan     = $conversation['last_message_at'] ?? '1970-01-01 00:00:00';
+
+            if (strtotime($waktuPesan) <= strtotime($waktuAnalisa)) {
+                return $this->response->setStatusCode(200)->setJSON([
+                    'status'      => 'success',
+                    'suggestions' => $aktif,
+                    'message'     => 'Menampilkan analisis tersimpan (belum ada pesan baru).',
+                    'csrf'        => csrf_hash(),
+                ]);
+            }
+        }
+
         try {
             $baris = (new \App\Libraries\AiSuggestionService())->minta($conversationId);
         } catch (\RuntimeException $e) {
