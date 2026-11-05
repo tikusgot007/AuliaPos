@@ -224,10 +224,10 @@ function renderSatuSaran(s) {
         isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>';
     }
 
-    return '<div class="inbox-saran ' + kelasPrioritas + '" id="cardSaran' + saranId + '">' +
-        '<div class="inbox-saran-header">' +
-        '<div class="inbox-saran-tipe">' + escapeHtmlInbox(labelTipeSaran(tipe)) + '</div>' +
-        '<button type="button" class="inbox-saran-close" title="Tutup card" onclick="tutupCardSaran(' + saranId + ')">&times;</button>' +
+    return '<div class="inbox-saran ' + kelasPrioritas + '" id="cardSaran' + saranId + '" style="position:relative;">' +
+        '<div class="inbox-saran-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+        '<div class="inbox-saran-tipe" style="font-weight:700;font-size:0.75rem;color:#495057;">' + escapeHtmlInbox(labelTipeSaran(tipe)) + '</div>' +
+        '<button type="button" class="inbox-saran-close" title="Tutup card" onclick="tutupCardSaran(' + saranId + ')" style="background:none;border:none;color:#6c757d;font-size:1.25rem;line-height:1;cursor:pointer;padding:0 4px;margin-left:auto;">&times;</button>' +
         '</div>' +
         isi +
         '</div>';

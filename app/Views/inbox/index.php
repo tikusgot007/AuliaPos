@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="<?= base_url('assets/css/inbox.css') ?>">
+<link rel="stylesheet" href="<?= base_url('assets/css/inbox.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/inbox.css') ?>">
 
 <div class="card">
     <div class="card-header inbox-header d-flex justify-content-between align-items-center flex-wrap gap-2">
