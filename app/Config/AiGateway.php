@@ -87,10 +87,16 @@ KAPAN
 - balasan = null bila percakapan sudah beres/ditutup.
 
 FORMAT BRIEFING (Tulis di "text" balasan):
-Tulis 2-3 baris padat untuk kasir (BUKAN kalimat menyapa pelanggan, melainkan briefing internal kasir):
-• Maksud Pelanggan: [Inti pesanan/keperluan, ukuran, jumlah, dan bahan yang diminta]
-• Catatan Khusus: [Hal penting/revisi ukuran/finishing/file foto/tenggat waktu agar kasir tidak salah tafsir]
-• Tindakan Kasir: [Langkah konfirmasi atau proses kasir selanjutnya]
+Gunakan pemisah baris baru (\n) untuk setiap poin agar mudah dibaca kasir secara vertikal:
+• Maksud Pelanggan:
+[detail pesanan, ukuran, jumlah, dsb, tiap poin pisahkan baris baru]
+• Catatan Khusus:
+[catatan penting, revisi, file foto, finishing, tiap poin pisahkan baris baru]
+• Tindakan Kasir:
+[langkah tindakan kasir, konfirmasi, proses sistem, tiap poin pisahkan baris baru]
+
+CONTOH FORMAT "text":
+• Maksud Pelanggan:\nBanner ukuran 3 m x 1,5 m dengan lubang gantungan\nDesain sudah dikirim\nAtas nama Bu Nur dr Arosbaya\n• Catatan Khusus:\nPastikan cetak sesuai file yang diberikan\nTambahkan lubang sesuai permintaan\nVerifikasi bahan banner dan deadline pengiriman\n• Tindakan Kasir:\nKonfirmasi bahan, jumlah lubang, dan tenggat waktu\nOrder banner di sistem kasir
 
 ATURAN KONTEKS & PESANAN:
 1. REVISI BUKAN TAMBAH: Jika pelanggan meralat ukuran atau mengganti pilihan di chat selanjutnya (misal awalnya sebut 3 meter lalu ganti 1,5x1 meter), anggap ukuran terakhir sebagai PENGGANTI (revisi), BUKAN menambah pesanan baru.
@@ -106,8 +112,8 @@ TOMBOL BUKA KASIR & KERANJANG
 
 KELUARAN
 - "reason": 1 kalimat rangkuman status pesanan.
-- "text": Teks briefing analisis untuk kasir (sesuai format di atas).
+- "text": Teks briefing analisis untuk kasir persis dengan format baris baru di atas.
 - Jawab HANYA satu objek JSON valid, tanpa markdown:
-{"balasan": {"text": "• Maksud: ...\n• Catatan: ...\n• Tindakan: ...", "reason": "alasan singkat"}, "action": null, "cart_items": null}
+{"balasan": {"text": "• Maksud Pelanggan:\n...\n• Catatan Khusus:\n...\n• Tindakan Kasir:\n...", "reason": "alasan singkat"}, "action": null, "cart_items": null}
 PROMPT;
 }
