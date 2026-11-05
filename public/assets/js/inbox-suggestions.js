@@ -198,20 +198,18 @@ function renderSatuSaran(s) {
         : 'normal';
     const tipe = s.type || '';
     const kelasPrioritas = 'inbox-saran--' + priority;
-    // Aksi opsional (whitelist, hanya balasan/peringatan). Nilai lain
-    // diabaikan -- jangan pernah merender tombol dari string tak dikenal.
-    const tombolAksi = renderTombolAksiSaran(s);
+    const saranId = parseInt(s.id, 10);
 
     let isi = '';
 
     if (tipe === 'balasan') {
-        // Teks analisis briefing kasir + tombol aksi kasir (bila ada)
-        isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>' + tombolAksi;
+        // Teks analisis briefing kasir
+        isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>';
     } else if (tipe === 'daftar-periksa') {
         // Checklist: tiap item bisa dicentang terpisah (AC-13).
         const items = Array.isArray(s.items) ? s.items : [];
         const baris = items.map(function(item, idx) {
-            const id = 'saranCek' + parseInt(s.id, 10) + '_' + idx;
+            const id = 'saranCek' + saranId + '_' + idx;
             return '<label class="inbox-saran-item" for="' + id + '">' +
                 '<input type="checkbox" id="' + id + '" class="form-check-input">' +
                 '<span>' + escapeHtmlInbox(item) + '</span>' +
@@ -220,17 +218,26 @@ function renderSatuSaran(s) {
         isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>' +
             (baris ? '<div class="inbox-saran-checklist">' + baris + '</div>' : '');
     } else if (tipe === 'peringatan') {
-        isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>' + tombolAksi;
+        isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>';
     } else {
-        // Tipe tak dikenal (server seharusnya sudah menolak) -- tampilkan
-        // teksnya saja, jangan tebak-tebak.
+        // Tipe tak dikenal -- tampilkan teksnya saja
         isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>';
     }
 
-    return '<div class="inbox-saran ' + kelasPrioritas + '">' +
+    return '<div class="inbox-saran ' + kelasPrioritas + '" id="cardSaran' + saranId + '">' +
+        '<div class="inbox-saran-header">' +
         '<div class="inbox-saran-tipe">' + escapeHtmlInbox(labelTipeSaran(tipe)) + '</div>' +
+        '<button type="button" class="inbox-saran-close" title="Tutup card" onclick="tutupCardSaran(' + saranId + ')">&times;</button>' +
+        '</div>' +
         isi +
         '</div>';
+}
+
+function tutupCardSaran(saranId) {
+    daftarSaranMara = daftarSaranMara.filter(function(s) {
+        return parseInt(s.id, 10) !== parseInt(saranId, 10);
+    });
+    renderSaranMara();
 }
 
 // Aksi saran yang dikenal UI. Hanya pengenal -- M.A.R.A tidak pernah

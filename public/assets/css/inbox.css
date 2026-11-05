@@ -1138,11 +1138,32 @@
     background: #fdecea;
 }
 
+.inbox-saran-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
 .inbox-saran-tipe {
     font-size: 0.7rem;
     font-weight: 700;
     color: #495057;
-    margin-bottom: 2px;
+    margin-bottom: 0;
+}
+
+.inbox-saran-close {
+    background: transparent;
+    border: none;
+    color: #8696a0;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.inbox-saran-close:hover {
+    color: #111b21;
 }
 
 .inbox-saran-teks {
