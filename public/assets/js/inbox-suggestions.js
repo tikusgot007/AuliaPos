@@ -205,12 +205,8 @@ function renderSatuSaran(s) {
     let isi = '';
 
     if (tipe === 'balasan') {
-        // Draft siap-pakai: teks + tombol "Pakai" yang mengisi kotak
-        // balasan (TIDAK otomatis terkirim, AC-12).
-        isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>' +
-            '<button type="button" class="btn btn-sm btn-primary mt-1" ' +
-            'onclick="pakaiSaranBalasan(' + parseInt(s.id, 10) + ')">' +
-            '<i class="fas fa-reply"></i> Pakai draft ini</button>' + tombolAksi;
+        // Teks analisis briefing kasir + tombol aksi kasir (bila ada)
+        isi = '<div class="inbox-saran-teks">' + escapeHtmlInbox(s.text) + '</div>' + tombolAksi;
     } else if (tipe === 'daftar-periksa') {
         // Checklist: tiap item bisa dicentang terpisah (AC-13).
         const items = Array.isArray(s.items) ? s.items : [];
@@ -284,7 +280,7 @@ function saranKeranjangAktif() {
 }
 
 function labelTipeSaran(tipe) {
-    if (tipe === 'balasan') return 'Draft balasan';
+    if (tipe === 'balasan') return 'Analisis Kasir';
     if (tipe === 'daftar-periksa') return 'Daftar periksa';
     if (tipe === 'peringatan') return 'Peringatan';
     return tipe;
