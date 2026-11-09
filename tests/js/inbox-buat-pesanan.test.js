@@ -189,7 +189,9 @@ test('N-3 (AC-3): simpan mengirim nama ke fase 2 lalu mengarahkan opener', async
 
     assert.equal(t.opener.location.href, SUKSES.redirect_url);
     assert.equal(t.opener.fokus, 1, 'tab utama difokuskan');
-    assert.equal(t.calls.windowClose, 1, 'window Inbox ditutup supaya Kasir otomatis terfokus');
+    assert.equal(t.calls.windowClose, undefined, 'window Inbox TIDAK ditutup');
+    assert.deepEqual(t.calls.toasts, [['Pesanan dibuka di tab Kasir.', 'success']],
+        'Inbox tetap terbuka dan memberi notifikasi');
     assert.equal(t.calls.open, 0, 'tidak ada tab baru');
     assert.deepEqual(t.calls.modalHide, ['modalNamaPelanggan']);
 });
@@ -278,6 +280,7 @@ test('N-7 (AC-8): opener ada dan keranjang kosong -> langsung diarahkan, tanpa k
     assert.equal(t.opener.fokus, 1);
     assert.equal(t.calls.open, 0);
     assert.deepEqual(t.calls.modalShow, [], 'tidak ada konfirmasi');
+    assert.deepEqual(t.calls.toasts, [['Pesanan dibuka di tab Kasir.', 'success']]);
 });
 
 test('N-8 (AC-10): opener di halaman non-Kasir -> tetap diarahkan ke Kasir', async () => {
@@ -387,6 +390,8 @@ test('N-13 (AC-11): opener null -> tab baru dibuka', async () => {
     assert.equal(t.calls.open, 1);
     assert.equal(t.tabBaru.location.href, SUKSES.redirect_url);
     assert.equal(t.tabBaru.opener, null, 'tab baru diputus dari opener');
+    assert.equal(t.calls.windowClose, undefined, 'window Inbox TIDAK ditutup');
+    assert.deepEqual(t.calls.toasts, [['Pesanan dibuka di tab Kasir.', 'success']]);
 });
 
 test('N-14 (AC-11): opener sudah ditutup -> tab baru', async () => {
@@ -508,6 +513,7 @@ test('N-22: pelanggan baru -> toast info sebelum diarahkan', async () => {
 
     assert.equal(t.calls.toasts.length, 1);
     assert.match(t.calls.toasts[0][0], /Pelanggan baru/);
+    assert.match(t.calls.toasts[0][0], /Pesanan dibuka di tab Kasir/);
     assert.equal(t.opener.location.href, SUKSES.redirect_url);
 });
 

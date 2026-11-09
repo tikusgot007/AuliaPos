@@ -841,10 +841,7 @@ function lanjutBuatPesanan(idPercakapan) {
             perbaruiTokenCsrf(json);
 
             if (json.status === 'success' && json.redirect_url) {
-                if (json.pelanggan_baru) {
-                    showToast('Pelanggan baru dibuat dari percakapan ini.', 'success');
-                }
-                arahkanKeKasir(json.redirect_url);
+                arahkanKeKasir(json.redirect_url, json.pelanggan_baru);
                 return;
             }
 
@@ -986,10 +983,7 @@ function simpanNamaPelanggan(event) {
             if (json.status === 'success' && json.redirect_url) {
                 namaPelangganTertunda = null;
                 tutupModalInbox('modalNamaPelanggan');
-                if (json.pelanggan_baru) {
-                    showToast('Pelanggan baru dibuat dari percakapan ini.', 'success');
-                }
-                arahkanKeKasir(json.redirect_url);
+                arahkanKeKasir(json.redirect_url, json.pelanggan_baru);
                 return;
             }
 
@@ -1013,23 +1007,28 @@ function batalNamaPelanggan() {
 }
 
 /**
- * Tab utama (opener) yang diarahkan ke Kasir, difokuskan. Kalau opener tidak
- * ada (Inbox dibuka dari bookmark / sudah di-refresh / tab utama ditutup),
- * buka tab baru -- dipanggil di dalam klik atau submit, jadi tidak diblokir
- * popup blocker. Kalau tab pun tidak bisa dibuka, halaman ini yang pindah.
+ * Tab utama (opener) diarahkan ke Kasir dan difokuskan; window Inbox TETAP
+ * terbuka dan menampilkan notifikasi supaya kasir tahu pesanan sudah dibuka di
+ * tab lain. Kalau opener tidak ada (Inbox dibuka dari bookmark / sudah
+ * di-refresh / tab utama ditutup), buka tab baru -- dipanggil di dalam klik
+ * atau submit, jadi tidak diblokir popup blocker. Kalau tab pun tidak bisa
+ * dibuka, halaman ini yang pindah (tanpa notifikasi).
+ *
+ * `pelangganBaru` true: gabungkan info pelanggan baru ke satu toast, karena
+ * #liveToast hanya punya satu slot (toast kedua menimpa yang pertama).
  */
-function arahkanKeKasir(url) {
+function arahkanKeKasir(url, pelangganBaru) {
+    const pesan = pelangganBaru
+        ? 'Pelanggan baru dibuat. Pesanan dibuka di tab Kasir.'
+        : 'Pesanan dibuka di tab Kasir.';
+
     const opener = ambilOpenerKasir();
 
     if (opener) {
         try {
             opener.location.href = url;
             opener.focus();
-            // Browser modern memblokir focus() dari popup — tutup window Inbox
-            // supaya tab Kasir (opener) otomatis jadi window aktif.
-            // ponytail: kalau Inbox perlu tetap terbuka setelah buat pesanan,
-            // ganti window.close() dengan notifikasi visual.
-            window.close();
+            showToast(pesan, 'success');
             return;
         } catch (e) {
             // Jatuh ke tab baru di bawah.
@@ -1044,6 +1043,7 @@ function arahkanKeKasir(url) {
     }
 
     try { tab.opener = null; } catch (e) { /* biarkan */ }
+    showToast(pesan, 'success');
 }
 
 // Menit dari sekarang sampai jam 08:00 hari berikutnya -- dipakai
