@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-11-09 — Inbox: "Buat Pesanan" tidak lagi menutup window Inbox
+
+- **Perubahan perilaku**: setelah tab utama POS diarahkan ke halaman Kasir, window Inbox **tetap
+  terbuka** dan menampilkan toast "Pesanan dibuka di tab Kasir.". Sebelumnya Inbox menutup diri
+  (`window.close()`) supaya tab Kasir otomatis menjadi window aktif karena `opener.focus()`
+  diblokir browser.
+- **Toast pelanggan baru digabung**: `#liveToast` hanya punya satu slot, jadi info "Pelanggan baru
+  dibuat" dilebur menjadi "Pelanggan baru dibuat. Pesanan dibuka di tab Kasir." agar tidak saling
+  menimpa.
+- **Jalur cadangan**: bila tidak ada opener (Inbox dibuka dari bookmark atau tab utama ditutup) dan
+  tab Kasir baru berhasil dibuka, toast yang sama juga tampil di Inbox. Bila tab baru diblokir,
+  halaman Inbox sendiri yang pindah ke Kasir (tanpa toast).
+- Test: `tests/js/inbox-buat-pesanan.test.js` (29 test) diperbarui pada N-3, N-7, N-13, N-22; seluruh
+  8 file test JS lulus. Tidak ada perubahan PHP, route, atau skema.
+
 ## 2026-10-19 — Identitas pelanggan lewat nomor HP (Kasir + Inbox), Tahap 1
 
 - **Aturan bisnis baru**: nomor HP = identitas pelanggan, nama hanya label. Nama tidak lagi dipakai menebak pelanggan lama (dua "Budi" tidak tertukar). Satu `PelangganResolver` dipakai `Api::simpanTransaksi` dan `Transaksi::update`; 4 digit nama selalu dihitung server dari nomor (`NAMA 4DIGIT`; tanpa nomor `NAMA` polos).

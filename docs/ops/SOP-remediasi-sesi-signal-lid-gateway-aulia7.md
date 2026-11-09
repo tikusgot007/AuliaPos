@@ -111,12 +111,46 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8080/instance/connect/$inst" `
 > Catatan: instance terakhir relink disengaja 2026-10-04 ke nomor resmi `6285155105633`
 > (lihat `docs/TODO.md` TODO-F10). Setelah relink, sesi LID per-perangkat dibangun ulang.
 
+**Pelajaran 2026-11-03 (pairing):**
+- **Pairing dengan kode (`?number=...`) tidak andal di Baileys `7.0.0-rc.9`**: HP menolak kode dan log
+  Evolution mencatat `Error: Invalid buffer` (`messages-recv.js`, `decipherLinkPublicKey`), lalu instance
+  `close 401`. Empat kode berturut-turut gagal. **Pakai QR.**
+- Cara QR dari PC lain: buka `http://192.168.1.68:8080/manager` (port 8080 terbuka untuk **LAN saja**,
+  aturan firewall `AuliaPosGateway Evolution manager 8080 (LAN only)`), masuk dengan API key
+  Evolution, pilih `aulia-toko`, **Connect**, scan dari HP toko. Jangan simpan atau kirim QR (kredensial login).
+- Setelah logout + scan, webhook ke adapter (`127.0.0.1:3000/evolution/webhook`) tetap terpasang;
+  verifikasi `webhook/find/aulia-toko`, bukan dipasang ulang.
+- Instance `mara-bot` (nomor 6287875619833) hidup di proses Evolution yang sama dan dipakai; jangan
+  dihentikan saat remediasi `aulia-toko`.
+- Yang **tidak** memperbaiki sesi `open` tapi tuli: restart instance (`/instance/restart`) dan reboot aulia7.
+
 ### Tingkat 3 — Upgrade Baileys / patch Evolution (bila bug versi)
 
 Bila kegagalan LID/`Bad MAC` tetap berulang padahal sesi sudah segar, kemungkinan bug versi
 Baileys/Evolution. Ini pekerjaan **kode/rilis** di repo gateway (`evolution-api-server`), bukan
 operasional. **Ingat TODO-F3**: patch Evolution (`PATCH-ADAPTER`) harus diterapkan ulang setiap kali
 Evolution di-upgrade. Perlu analisis & rilis tersendiri dengan persetujuan user.
+
+**Patch yang sudah terpasang (2026-11-03) — wajib diterapkan ulang setelah Evolution/Baileys diinstal ulang:**
+- Berkas: `C:\AuliaPosGateway\evolution-api-server\node_modules\baileys\lib\Socket\messages-recv.js`
+  (Baileys `7.0.0-rc.9`). Menambah handler `ws.on('CB:status', ...)` yang meng-ack stanza `<status>`
+  (tanpa memprosesnya), sebelum `CB:ack,class:message`. Penanda: komentar `hermes-patch: ack <status> stanza`.
+- Alasan: WhatsApp mengirim Status kontak sebagai stanza `<status>` yang tidak dikenal rc.9, jadi tidak
+  di-ack; ~50 menit kemudian server memutus koneksi (`Stream Errored (ack)`, `class="status"`) dan
+  mengulang tiap ~50 menit. Rujukan upstream: WhiskeySockets/Baileys issue #2858, perbaikan PR #2866
+  (belum dirilis saat dicatat). Di aulia7 galat ini tercatat 07:37, 08:27, 11:15, 12:05, 13:50 WIB.
+- Skrip penerap (idempoten, membuat cadangan, punya `--self-test` bila tanpa argumen):
+  `C:\AuliaPosGateway\scripts\patch-baileys-ack-status.mjs <path messages-recv.js>`.
+  Cadangan berkas asli: `messages-recv.js.orig-8b9329dd` (sha256 asli `8B9329DD...`).
+- Terapkan: `node patch-baileys-ack-status.mjs <path>` lalu `node --check <path>` lalu
+  `Restart-Service AuliaPosGatewayEvolution` (jeda pesan masuk ~1 menit; login WhatsApp tetap).
+- Rollback: salin `messages-recv.js.orig-8b9329dd` menimpa `messages-recv.js`, restart servis.
+- Hasil terukur: sebelum patch 12 putus-nyambung pada 2026-11-03; 96 menit pertama setelah patch 0 putus
+  dan 0 galat `ack status` baru. Kepastian penuh menunggu data semalam.
+- **Tidak menutup** bug "deaf session" terpisah (Baileys #2491: ACK tertahan mutex pemrosesan pesan,
+  `messages.upsert` berhenti walau koneksi tampak sehat). Itu ditangkap `AuliaIngressWatchdog`.
+- Pairing kode juga punya perbaikan upstream (Baileys #2602, #2765; bundel di Evolution PR #2727)
+  yang **belum** diterapkan di aulia7.
 
 ## 5. Verifikasi pasca-remediasi (wajib)
 
@@ -148,6 +182,8 @@ toko** (gambar masih tampil & bisa diunduh dari browser).
 ## 8. Hal yang belum diverifikasi
 
 - Apakah Tingkat 1 (restart instance) benar-benar menghentikan `Bad MAC` — **belum diuji**.
+  (Diuji 2026-11-03 untuk kasus lain: restart instance **tidak** memulihkan sesi `open` tapi tuli;
+  yang memulihkan hanya logout + pairing ulang. Untuk `Bad MAC` murni tetap belum diuji.)
 - Endpoint Evolution pasti untuk restart/logout instance (`/instance/restart`, `/instance/logout`,
   `/instance/connect`) mengikuti Evolution v2.3.7; verifikasi respons saat dijalankan.
 - Apakah kegagalan 2026-10-14 menulis ke `err.log` — kemungkinan tidak (Baileys drop senyap);
