@@ -53,15 +53,32 @@ function loadSuggestions(overrides = {}) {
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-test('S-1 (AC-12): balasan suggestion renders text and a clickable "Pakai" button', async () => {
+// Since 2026-11-05 a 'balasan' card is a cashier briefing ("Analisis Kasir"):
+// it has a close (x) button and no "Pakai draft ini" button.
+test('S-1 (AC-12): balasan suggestion renders as an "Analisis Kasir" briefing with a close button, no "Pakai" button', async () => {
     const t = loadSuggestions();
     t.ctx.daftarSaranMara = [{ id: 5, type: 'balasan', priority: 'normal', text: 'Halo, ada yang bisa dibantu?', items: null }];
 
     t.ctx.renderSaranMara();
 
     assert.match(t.elements.panelSaranMara.innerHTML, /Halo, ada yang bisa dibantu\?/);
-    assert.match(t.elements.panelSaranMara.innerHTML, /pakaiSaranBalasan\(5\)/);
+    assert.match(t.elements.panelSaranMara.innerHTML, /Analisis Kasir/);
+    assert.match(t.elements.panelSaranMara.innerHTML, /tutupCardSaran\(5\)/);
+    assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /pakaiSaranBalasan/);
     assert.notEqual(t.elements.panelSaranMara.style.display, 'none');
+});
+
+test('S-1b: closing a card removes only that card from the panel', () => {
+    const t = loadSuggestions();
+    t.ctx.daftarSaranMara = [
+        { id: 5, type: 'balasan', priority: 'normal', text: 'Ditutup', items: null },
+        { id: '6', type: 'peringatan', priority: 'normal', text: 'Tetap ada', items: null },
+    ];
+
+    t.ctx.tutupCardSaran(5);
+
+    assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /Ditutup/);
+    assert.match(t.elements.panelSaranMara.innerHTML, /Tetap ada/);
 });
 
 test('S-2 (AC-12): pakaiSaranBalasan fills #teksBalasan without sending', () => {
@@ -244,15 +261,17 @@ test('S-14: forced fetch for a DIFFERENT conversation always fires', async () =>
 // Inbox -> Kasir: action button on M.A.R.A suggestions (AC-12 / AC-13).
 // ---------------------------------------------------------------------------
 
-test('S-15 (AC-12): balasan and peringatan with action buka_kasir render the "Buka di Kasir" button', () => {
+// The "Buka di Kasir" card button was removed on 2026-11-05; the header
+// "Buat Pesanan" button is the only entry point (see saranKeranjangAktif).
+test('S-15: a card with action buka_kasir no longer renders a "Buka di Kasir" button', () => {
     for (const type of ['balasan', 'peringatan']) {
         const t = loadSuggestions();
         t.ctx.daftarSaranMara = [{ id: 11, type, priority: 'normal', text: 'Buatkan pesanan', items: null, action: 'buka_kasir' }];
 
         t.ctx.renderSaranMara();
 
-        assert.match(t.elements.panelSaranMara.innerHTML, /jalankanAksiSaran\(11\)/, type);
-        assert.match(t.elements.panelSaranMara.innerHTML, /Buka di Kasir/, type);
+        assert.match(t.elements.panelSaranMara.innerHTML, /Buatkan pesanan/, type);
+        assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /jalankanAksiSaran|Buka di Kasir/, type);
     }
 });
 
@@ -305,14 +324,14 @@ test('S-19 (AC-13): jalankanAksiSaran ignores an unknown suggestion id, an unkno
     assert.doesNotThrow(() => tanpaFungsi.ctx.jalankanAksiSaran(17));
 });
 
-test('S-20: the action button does not weaken the existing "Pakai draft ini" button or escaping', () => {
+test('S-20: a balasan card carrying an action still escapes its text', () => {
     const t = loadSuggestions();
     t.ctx.daftarSaranMara = [{ id: 18, type: 'balasan', priority: 'normal', text: '<script>alert(1)</script>', items: null, action: 'buka_kasir' }];
 
     t.ctx.renderSaranMara();
 
-    assert.match(t.elements.panelSaranMara.innerHTML, /pakaiSaranBalasan\(18\)/);
-    assert.match(t.elements.panelSaranMara.innerHTML, /jalankanAksiSaran\(18\)/);
+    assert.match(t.elements.panelSaranMara.innerHTML, /tutupCardSaran\(18\)/);
+    assert.match(t.elements.panelSaranMara.innerHTML, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
     assert.doesNotMatch(t.elements.panelSaranMara.innerHTML, /<script>alert/);
 });
 // --- Minta Saran AI (docs/design/2026-10-18-ai-saran-on-demand.md) ---
