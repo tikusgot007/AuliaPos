@@ -15,6 +15,12 @@
 
 (Semua item high selesai)
 
+### Medium
+
+- [ ] **TODO-INBOX-LIST2** Paginasi `Inbox::apiConversations()` di sisi SQL — sedang — temuan 2026-11-10. Saat ini setiap request halaman memuat dan mengolah SELURUH percakapan (`findAll()` + `attach*`, `app/Controllers/Inbox.php:255-260`) lalu baru dipotong (`:312`); satu putaran penuh di produksi (±1.220 percakapan) = 25 request berurutan, 5,6–10,5 detik (diukur lewat Resource Timing browser). Menyentuh kontrak `page` spec Fase 1e (CL-010..CL-013) dan pemanggil `inbox-page.js` (`ambilSemuaConversation()`, pencarian Chat Baru) — butuh design sendiri.
+- [ ] **TODO-INBOX-LIST3** Verifikasi antrean kunci session pada request Inbox — sedang — temuan 2026-11-10. Session memakai `FileHandler` (`app/Config/Session.php:25`) dan controller tidak menutup session lebih awal. HIPOTESIS (belum dibuktikan): request dari satu browser saling menunggu, sehingga `POST /inbox/kirim` dan `/messages` antre di belakang halaman daftar. Indikasi: rata-rata `/messages` naik ±280 ms → ±430 ms saat putaran daftar berjalan.
+- [ ] **TODO-INBOX-LIST4** Putaran daftar tumpang tindih dari pemanggil langsung — rendah — temuan 2026-11-10. Pemanggil `muatUlangDaftarConversation()` setelah aksi (ambil, lepas, handoff, follow-up) tidak melewati pengaman `putaranDaftarBerjalan`; di produksi teramati 50 request dalam 6,9 detik (dua putaran bersamaan). Pemicu berbasis pesan sudah dialihkan lewat TODO-INBOX-LIST1.
+
 
 
 ### Low
@@ -24,6 +30,8 @@
 ## Sedang dikerjakan
 
 ### Medium
+
+- [ ] **TODO-INBOX-LIST1** Jeda daftar Inbox setelah pesan masuk/kirim balasan — sedang — laporan user 2026-11-10. Realtime (WebSocket) sehat; jedanya dari refresh daftar yang memuat 25 halaman sebelum render. Perbaikan: `muatUlangDaftarCepat()` di `public/assets/js/inbox-page.js` (satu request `page=1`, digabung ke daftar) untuk pemicu `message.created`, selesai kirim teks/media, dan teruskan; putaran penuh tetap untuk polling, pencarian, dan aksi status. Test: `tests/js/inbox-daftar-cepat.test.js` (7 lulus), seluruh `tests/js` 176 lulus, `InboxViewStructureTest` lulus, uji browser localhost (3 pemicu → 2 request). **Belum di-deploy ke produksi; belum diuji dengan kirim nyata (gateway dev terputus).** Batasan: perubahan yang tidak menggeser `last_message_at` baru terlihat saat rekonsiliasi ≤ 30 detik.
 
 
 - [ ] **TODO-MARA1** Kontrak M.A.R.A ↔ AuliaPos (agent AI pemantau Inbox, jalan di aulia7, satu LAN dengan server AuliaPos) — sedang — permintaan user 2026-10-13.

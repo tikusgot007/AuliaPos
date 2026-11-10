@@ -433,7 +433,76 @@ function muatUlangDaftarConversation(saatGagal) {
             // tetap terpasang, supaya tick 6 detik tidak memulai
             // putaran ketiga selagi putaran terbaru masih berjalan
             // (CORR-01).
-            if (giliran === putaranDaftarTerakhir) putaranDaftarBerjalan = false;
+            if (giliran === putaranDaftarTerakhir) {
+                putaranDaftarBerjalan = false;
+                jalankanDaftarCepatTertunda();
+            }
+        });
+}
+
+// Quick refresh for message-driven triggers (message.created, reply sent).
+// A full round is 25 sequential requests on ~1200 conversations (5-10 s
+// measured in production), and the list only re-renders after the last
+// page. A new message always moves its conversation into page 1
+// (`last_message_at DESC`), so one request merged into the current list is
+// enough here; the periodic full round stays the reconciliation.
+// ponytail: changes that do not move `last_message_at` (late backlog,
+// delete by another cashier) only show up at the next full round (<= 30 s);
+// upgrade path: a server-side "changed since" endpoint.
+let daftarCepatBerjalan = false;
+let daftarCepatTertunda = false;
+
+function gabungHalamanPertama(lama, halaman) {
+    // A short page 1 is already the complete list.
+    if (halaman.length < CONVERSATIONS_PER_PAGE) return halaman;
+
+    const idBaru = new Set(halaman.map(function(c) { return String(c.id); }));
+    return halaman.concat(lama.filter(function(c) { return !idBaru.has(String(c.id)); }));
+}
+
+function jalankanDaftarCepatTertunda() {
+    if (!daftarCepatTertunda) return;
+    daftarCepatTertunda = false;
+    muatUlangDaftarCepat();
+}
+
+function muatUlangDaftarCepat() {
+    // Merging page 1 cannot drop rows that stopped matching the search.
+    if (kataKunciAktif !== '') {
+        muatUlangDaftarConversation();
+        return;
+    }
+
+    // A full round in flight fetched its page 1 BEFORE this trigger and
+    // would overwrite the merge with older data -- run after it instead.
+    if (putaranDaftarBerjalan || daftarCepatBerjalan) {
+        daftarCepatTertunda = true;
+        return;
+    }
+
+    const giliran = putaranDaftarTerakhir;
+    daftarCepatBerjalan = true;
+
+    fetch(INBOX_URL.conversations + '?page=1')
+        .then(function(res) {
+            return res.json();
+        })
+        .then(function(json) {
+            if (json.status !== 'success') return;
+            // A full round or a search started meanwhile: its own page 1 is
+            // newer than this one, so this result is dropped.
+            if (giliran !== putaranDaftarTerakhir || kataKunciAktif !== '') return;
+
+            daftarConversation = gabungHalamanPertama(daftarConversation, json.conversations);
+            renderDaftarConversation();
+            renderThreadHeader();
+        })
+        .catch(function() {
+            // Silent, same as polling: the next full round reconciles.
+        })
+        .finally(function() {
+            daftarCepatBerjalan = false;
+            jalankanDaftarCepatTertunda();
         });
 }
 
@@ -2003,7 +2072,7 @@ function teruskanPesan() {
                 // langsung terlihat, lalu segarkan daftar percakapan
                 // (tujuan menjadi yang teratas).
                 pilihConversation(tujuan);
-                muatUlangDaftarConversation();
+                muatUlangDaftarCepat();
             } else {
                 tampilkanAlertTeruskan(json.message || 'Gagal meneruskan pesan.');
             }
@@ -2808,7 +2877,7 @@ function kirimBalasan(e) {
                 // Langsung tampilkan pesan baru tanpa nunggu polling
                 // (sesuai spec: outgoing langsung terlihat setelah sukses).
                 tampilkanBubbleOutgoing(json.message);
-                muatUlangDaftarConversation();
+                muatUlangDaftarCepat();
             } else {
                 tanganiKegagalanKirimBalasan(json, 'Gagal mengirim pesan.');
             }
@@ -2950,7 +3019,7 @@ async function kirimAntrianMediaBalasan() {
         showToast('Sebagian file gagal terkirim -- lihat tanda di lampiran.', 'danger');
     }
 
-    muatUlangDaftarConversation();
+    muatUlangDaftarCepat();
 
     btn.disabled = false;
     textarea.disabled = false;
@@ -3144,7 +3213,7 @@ function jalankanRealtimeRefresh() {
 
     const lakukanList = perluList && !listDitunda;
     const lakukanThread = perluThread;
-    if (lakukanList) muatUlangDaftarConversation();
+    if (lakukanList) muatUlangDaftarCepat();
     // Thread aktif tidak punya guard putaranDaftarBerjalan; refresh langsung.
     if (lakukanThread) muatUlangPesan(false);
 
