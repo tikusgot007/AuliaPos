@@ -31,9 +31,6 @@
 
 ### Medium
 
-- [ ] **TODO-INBOX-LIST1** Jeda daftar Inbox setelah pesan masuk/kirim balasan — sedang — laporan user 2026-11-10. Realtime (WebSocket) sehat; jedanya dari refresh daftar yang memuat 25 halaman sebelum render. Perbaikan: `muatUlangDaftarCepat()` di `public/assets/js/inbox-page.js` (satu request `page=1`, digabung ke daftar) untuk pemicu `message.created`, selesai kirim teks/media, dan teruskan; putaran penuh tetap untuk polling, pencarian, dan aksi status. Test: `tests/js/inbox-daftar-cepat.test.js` (7 lulus), seluruh `tests/js` 176 lulus, `InboxViewStructureTest` lulus, uji browser localhost (3 pemicu → 2 request). **Belum di-deploy ke produksi; belum diuji dengan kirim nyata (gateway dev terputus).** Batasan: perubahan yang tidak menggeser `last_message_at` baru terlihat saat rekonsiliasi ≤ 30 detik.
-
-
 - [ ] **TODO-MARA1** Kontrak M.A.R.A ↔ AuliaPos (agent AI pemantau Inbox, jalan di aulia7, satu LAN dengan server AuliaPos) — sedang — permintaan user 2026-10-13.
   - **Prinsip desain yang disepakati**: anonimisasi HANYA berlaku di jalur training/export (M.A.R.A tidak perlu tahu identitas untuk belajar pola); jalur realtime/operasional TIDAK dianonimkan (nama/nomor asli, dipakai untuk follow-up & lapor Telegram ke owner). Kunci rujukan training = `conversation_id` (bukan hash sepihak), bisa di-resolve manual saat eskalasi via endpoint terpisah yang dilog. M.A.R.A **tidak pernah** akses DB production (`aulia_inboxdb`) langsung — selalu lewat API read-only/kontrak terbatas yang disediakan AuliaPos.
   - **SELESAI & diverifikasi lokal (dev server, 2026-10-13)**: 2 dari 5 endpoint yang didesain.
