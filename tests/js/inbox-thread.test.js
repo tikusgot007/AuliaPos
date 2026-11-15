@@ -96,6 +96,44 @@ const ids = (container) => container.children.filter((c) => c.dataset.id !== und
 // one polling response for conversation 1, like muatUlangPesan() delivers it
 const poll = (t, list, force = false, hasMore = false) => t.ctx.terimaPesanTerbaru(1, { status: 'success', messages: list, has_more: hasMore }, force);
 
+// ---- internal note strip ------------------------------------------------
+test('internal note strip is expanded by default and lists note jump buttons', () => {
+    const t = loadThread();
+    const note = msg(90, { is_internal: true, text: 'Catatan penting untuk staff' });
+    poll(t, [msg(89), note, msg(91)], true);
+
+    const html = t.container.internalNoteStripHtml || '';
+    assert.match(html, /Catatan penting untuk staff/);
+    assert.match(html, /Ke catatan/);
+    assert.match(html, /internal-note-strip-expanded/);
+    assert.equal(t.get('internalNoteStripExpanded'), true);
+});
+
+test('internal note strip jump button scrolls to the selected note', () => {
+    const t = loadThread();
+    const note = msg(92, { is_internal: true, text: 'Scroll ke sini' });
+    poll(t, [note], true);
+
+    t.ctx.lompatKeCatatanInternal(92);
+    const entry = t.get("threadEntries.get('92').el");
+    assert.equal(entry.scrolledIntoView, 1);
+});
+
+test('internal note strip is absent when conversation has no internal note', () => {
+    const t = loadThread();
+    poll(t, [msg(93)], true);
+    assert.equal(t.container.internalNoteStripHtml || '', '');
+});
+
+test('switching conversation resets the strip to expanded', () => {
+    const t = loadThread();
+    poll(t, [msg(94, { is_internal: true, text: 'Catatan' })], true);
+    t.ctx.toggleCatatanInternal();
+    assert.equal(t.get('internalNoteStripExpanded'), false);
+    t.ctx.terimaPesanTerbaru(2, { status: 'success', messages: [msg(95)], has_more: false }, true);
+    assert.equal(t.get('internalNoteStripExpanded'), true);
+});
+
 // ---- pure rendering ----------------------------------------------------
 test('escapeHtmlInbox escapes &, < and >', () => {
     const t = loadThread();

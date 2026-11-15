@@ -57,6 +57,8 @@
                     <span class="text-muted">Pilih percakapan di sebelah kiri untuk mulai.</span>
                 </div>
 
+                <div class="inbox-internal-note-strip" id="internalNoteStrip" style="display:none;" aria-live="polite"></div>
+
                 <div class="inbox-thread-wrap">
                     <div class="inbox-thread-messages" id="threadMessages">
                         <div class="inbox-thread-empty">
