@@ -1413,8 +1413,58 @@ function gulungKeTerbaru() {
     perbaruiTombolGulung();
 }
 
+let internalNoteStripExpanded = true;
+
+function internalNoteMessages(messages) {
+    return (messages || []).filter(function(m) {
+        return !isHandoffTimelineItem(m) && (m.is_internal === true || m.is_internal === 1 || m.is_internal === '1');
+    });
+}
+
+function renderInternalNoteStrip(messages) {
+    const notes = internalNoteMessages(messages);
+    const thread = document.getElementById('threadMessages');
+    const strip = document.getElementById('internalNoteStrip');
+
+    if (!notes.length) {
+        if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
+        if (thread) thread.internalNoteStripHtml = '';
+        return;
+    }
+
+    const html = '<div class="internal-note-strip internal-note-strip-expanded">' +
+        '<div class="internal-note-strip-head">' +
+        '<strong><i class="fas fa-sticky-note"></i> Catatan internal (' + notes.length + ')</strong>' +
+        '<button type="button" class="btn btn-sm btn-link internal-note-strip-toggle" onclick="toggleCatatanInternal()">' +
+        (internalNoteStripExpanded ? 'Sembunyikan' : 'Tampilkan') + '</button></div>' +
+        (internalNoteStripExpanded ? '<div class="internal-note-strip-list">' + notes.map(function(note) {
+            return '<div class="internal-note-strip-item"><span>' + escapeHtmlInbox(note.text || '(tanpa teks)') + '</span>' +
+                '<button type="button" class="btn btn-sm btn-outline-warning" onclick="lompatKeCatatanInternal(' + Number(note.id) + ')">Ke catatan</button></div>';
+        }).join('') + '</div>' : '') + '</div>';
+
+    if (strip) { strip.innerHTML = html; strip.style.display = ''; }
+    if (thread) thread.internalNoteStripHtml = html;
+}
+
+function toggleCatatanInternal() {
+    internalNoteStripExpanded = !internalNoteStripExpanded;
+    renderInternalNoteStrip(urutkanPesan(threadDikenal));
+}
+
+function lompatKeCatatanInternal(messageId) {
+    const entry = threadEntries.get(String(messageId));
+    if (!entry) {
+        tampilkanToastThread('Catatan internal belum termuat di riwayat.', 'warning');
+        return Promise.resolve(false);
+    }
+    entry.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    sorotBubble(entry.el);
+    return Promise.resolve(true);
+}
+
 function renderPesan(messages, paksaScroll, opsi) {
     const container = document.getElementById('threadMessages');
+    renderInternalNoteStrip(messages);
     opsi = opsi || {};
 
     // Tentukan SEBELUM DOM berubah -- scrollHeight/scrollTop
@@ -1479,6 +1529,7 @@ function renderPesan(messages, paksaScroll, opsi) {
 function terimaPesanTerbaru(konvId, json, paksaScroll) {
     if (konvId !== threadKonvId) {
         resetThread('');
+        internalNoteStripExpanded = true;
         threadKonvId = konvId;
     }
 
