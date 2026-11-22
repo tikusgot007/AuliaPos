@@ -506,6 +506,62 @@ function muatUlangDaftarCepat() {
         });
 }
 
+// ---- segarkan setelah aksi (mulai) ----
+// Setelah aksi user berhasil (ambil, lepas, tandai dibaca, follow-up,
+// handoff, dll.), percakapan yang sedang dibuka disegarkan LANGSUNG dari
+// satu request ke endpoint pesan -- respons itu sudah membawa data
+// percakapan terbaru (assigned_to, status, response_state, bisa_*) dan
+// timeline pesan. Muat ulang daftar penuh (±25 request, 5-10 dtk di
+// production) tidak lagi ditunggu supaya perubahan langsung terlihat.
+// Mengembalikan Promise<boolean>; tidak pernah menolak.
+function segarkanPercakapanSetelahAksi(id) {
+    const target = id || conversationAktif;
+    if (!target) return Promise.resolve(false);
+
+    return fetch(INBOX_URL.conversations + '/' + target + '/messages')
+        .then(function(res) {
+            return res.json();
+        })
+        .then(function(json) {
+            if (json.status !== 'success' || !json.conversation) return false;
+
+            // Digabung ke entri lama, bukan menimpa: `sla_color` hanya
+            // dihitung endpoint daftar (apiConversations) dan `match_snippet`
+            // hanya ada saat pencarian -- keduanya tidak dikirim endpoint
+            // pesan dan akan hilang bila entri ditimpa. Daftar penuh yang
+            // menyusul menyegarkan keduanya.
+            const idx = daftarConversation.findIndex(function(c) {
+                return String(c.id) === String(target);
+            });
+            const baru = Object.assign({}, idx !== -1 ? daftarConversation[idx] : {}, json.conversation);
+            if (idx !== -1) daftarConversation[idx] = baru;
+
+            if (String(conversationAktif) === String(target)) {
+                // Percakapan di luar daftar (hasil pencarian) tidak
+                // ditambahkan ke daftar; header memakai salinan ini.
+                if (idx === -1) salinanConversationAktif = baru;
+                renderDaftarConversation();
+                renderThreadHeader();
+                terimaPesanTerbaru(target, json, false);
+            } else {
+                renderDaftarConversation();
+            }
+            return true;
+        })
+        .catch(function() {
+            return false;
+        });
+}
+
+// Segar dulu (cepat), lalu daftar penuh tetap jalan sebagai rekonsiliasi
+// untuk perubahan di percakapan lain / oleh kasir lain.
+function segarkanSetelahAksi(id) {
+    return segarkanPercakapanSetelahAksi(id).then(function() {
+        muatUlangDaftarConversation();
+    });
+}
+// ---- segarkan setelah aksi (selesai) ----
+
 // Whitespace-only counts as empty, so no `q` is sent (CL-007). On a
 // failed search (e.g. 400) the previous keyword and list stay, and
 // the error is shown once (AC-012g).
@@ -1134,7 +1190,7 @@ function tandaiDibacaAktif() {
         })
         .then(function(json) {
             if (json.status === 'success') {
-                muatUlangDaftarConversation();
+                segarkanSetelahAksi(conversationAktif);
                 panggilWhatsappDibaca(conversationAktif);
             } else {
                 showToast(json.message || 'Gagal menandai dibaca.', 'danger');
@@ -1218,7 +1274,7 @@ function snoozePercakapanAktif(menit, alasan) {
                 return;
             }
 
-            muatUlangDaftarConversation();
+            segarkanSetelahAksi(conversationId);
 
             if (!(menit > 0 && alasan)) {
                 showToast(menit > 0 ? 'Percakapan di-follow-up.' : 'Follow-up dibatalkan.', 'success');
@@ -1380,7 +1436,7 @@ function ambilPercakapan() {
         .then(function(json) {
             if (json.status === 'success') {
                 showToast('Percakapan berhasil diambil.', 'success');
-                muatUlangDaftarConversation();
+                segarkanSetelahAksi(conversationAktif);
             } else {
                 showToast(json.message || 'Gagal mengambil percakapan.', 'danger');
             }
@@ -1402,7 +1458,7 @@ function lepasPercakapan() {
         .then(function(json) {
             if (json.status === 'success') {
                 showToast('Percakapan dilepas.', 'success');
-                muatUlangDaftarConversation();
+                segarkanSetelahAksi(conversationAktif);
             } else {
                 showToast(json.message || 'Gagal melepas percakapan.', 'danger');
             }
@@ -1464,7 +1520,7 @@ function nudgeAmbilSekarang() {
         if (json.status === 'success') {
             showToast('Percakapan berhasil diambil.', 'success');
             tutupNudgeAmbil();
-            muatUlangDaftarConversation();
+            segarkanSetelahAksi(conversationAktif);
         } else {
             showToast(json.message || 'Gagal mengambil percakapan.', 'danger');
         }
@@ -1558,7 +1614,7 @@ function nudgeUnduhPilih(aksi) {
     panggilAmbilPercakapan(conversationAktif).then(function(json) {
         if (json.status === 'success') {
             showToast('Percakapan berhasil diambil.', 'success');
-            muatUlangDaftarConversation();
+            segarkanSetelahAksi(conversationAktif);
         } else {
             // 409 "sudah diambil orang lain" -> tetap lanjut unduh (read-only).
             showToast(json.message || 'Gagal mengambil percakapan.', 'warning');
@@ -1691,8 +1747,9 @@ function kirimHandoff(e) {
             if (json.status === 'success') {
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHandoff')).hide();
                 showToast(json.message || 'Percakapan berhasil diserahkan.', 'success');
-                muatUlangDaftarConversation();
-                // Handoff sekarang menjadi event timeline.
+                // Handoff menjadi event timeline: satu request menyegarkan
+                // percakapan, header, dan timeline sekaligus.
+                segarkanSetelahAksi(conversationAktif);
                 muatUlangPesan(true);
             } else {
                 // 400 (validasi), 403 (inisiator/target), 409 (kalah
