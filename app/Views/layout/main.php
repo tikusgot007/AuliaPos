@@ -87,7 +87,7 @@
                 // 'laporan-pembayaran' TIDAK cocok dengan segmen 'laporan'
                 // (butuh 'laporan/'), jadi otomatis tidak ikut aktif.
                 $isLaporanMenu   = $__seg('laporan');
-                $isAdminMenu     = $__seg('user-management', 'ganti-password', 'migrasi-manual', 'archive-transaksi', 'kategori', 'balasan-template', 'log-kirim-gagal', 'log-audit-kas', 'log-closing-kas');
+                $isAdminMenu     = $__seg('user-management', 'ganti-password', 'migrasi-manual', 'archive-transaksi', 'auto-selesai-transaksi', 'kategori', 'balasan-template', 'log-kirim-gagal', 'log-audit-kas', 'log-closing-kas');
 
                 // Boolean submenu yang dipakai di dalam closure di bawah.
                 $isKasActive       = ($__path === 'cash');
@@ -424,6 +424,13 @@
                                             href="<?= base_url('/archive-transaksi') ?>">
                                             <i class="fas fa-box-archive"></i>
                                             Arsip Transaksi
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?= $__seg('auto-selesai-transaksi') ? 'active' : '' ?>"
+                                            href="<?= base_url('/auto-selesai-transaksi') ?>">
+                                            <i class="fas fa-circle-check"></i>
+                                            Auto-Selesai Transaksi
                                         </a>
                                     </li>
                                     <li class="nav-item">

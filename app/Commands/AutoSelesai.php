@@ -10,7 +10,8 @@ use CodeIgniter\CLI\CLI;
  * Auto-SELESAI transaksi LUNAS yang masih PROSES setelah N hari (default 7,
  * dihitung dari tanggal transaksi). Hanya menyentuh status=proses +
  * status_pembayaran=lunas + belum digabung; belum lunas/mangkrak/batal tidak
- * disentuh. Dirancang dijalankan harian lewat Scheduled Task.
+ * disentuh. Dijalankan lewat CLI (bisa dijadwalkan) atau lewat tombol admin
+ * di /auto-selesai-transaksi bila Scheduled Task tidak tersedia.
  */
 class AutoSelesai extends BaseCommand
 {
