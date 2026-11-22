@@ -186,7 +186,7 @@ final class PelangganResolverTest extends CIUnitTestCase
 
     public function testTampilGabungAtasNama(): void
     {
-        $this->assertSame('Alby(SUHERMAN 1234)', PelangganResolver::tampil('SUHERMAN 1234', 'Alby'));
+        $this->assertSame('Alby (SUHERMAN 1234)', PelangganResolver::tampil('SUHERMAN 1234', 'Alby'));
         $this->assertSame('SUHERMAN 1234', PelangganResolver::tampil('SUHERMAN 1234', null));
         $this->assertSame('SUHERMAN 1234', PelangganResolver::tampil('SUHERMAN 1234', '  '));
     }
