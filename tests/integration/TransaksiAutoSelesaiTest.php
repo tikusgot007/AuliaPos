@@ -119,4 +119,39 @@ final class TransaksiAutoSelesaiTest extends CIUnitTestCase
         $this->expectException(\InvalidArgumentException::class);
         (new \App\Models\TransaksiModel())->autoSelesaikanLunasLama(0);
     }
+
+    public function testLimitMembatasiJumlahDiubahPerPanggilan(): void
+    {
+        $db = db_connect();
+        $lama = date('Y-m-d H:i:s', strtotime('-8 days'));
+        // Tambah 2 kandidat valid lagi (id 9, 10) -> total kandidat valid: 1, 9, 10 (+ id 8 basi).
+        foreach ([9, 10] as $id) {
+            $db->table('transaksi')->insert([
+                'id' => $id, 'merged_into' => null, 'tanggal' => $lama, 'grand_total' => 100000,
+                'total_dibayar' => 100000, 'status_pembayaran' => 'lunas', 'status' => 'proses',
+                'created_at' => $lama, 'updated_at' => $lama,
+            ]);
+            $db->table('pembayaran')->insert([
+                'transaksi_id' => $id, 'tanggal' => $lama, 'jumlah' => 100000, 'status' => 'aktif',
+            ]);
+        }
+
+        $model = new \App\Models\TransaksiModel();
+
+        $pertama = $model->autoSelesaikanLunasLama(7, false, 2);
+        $this->assertSame(2, $pertama['diubah']);
+        $this->assertSame('selesai', $this->statusTrx(1));
+        $this->assertSame('selesai', $this->statusTrx(9));
+        $this->assertSame('proses', $this->statusTrx(10), 'batch pertama berhenti di limit');
+
+        $kedua = $model->autoSelesaikanLunasLama(7, false, 2);
+        $this->assertSame(1, $kedua['diubah']);
+        $this->assertSame('selesai', $this->statusTrx(10));
+    }
+
+    public function testLimitTidakValidDitolak(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new \App\Models\TransaksiModel())->autoSelesaikanLunasLama(7, false, 0);
+    }
 }

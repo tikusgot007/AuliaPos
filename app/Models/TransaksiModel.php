@@ -686,18 +686,27 @@ class TransaksiModel extends Model
      * hari (dihitung dari `tanggal` transaksi) diubah ke SELESAI.
      *
      * Ini SATU-SATUNYA pengecualian aturan "lunas tidak langsung selesai"
-     * (lihat komentar ubahStatus). Dipakai HANYA oleh command
-     * `aulia:auto-selesai`. Transisi tetap lewat ubahStatus() sehingga
+     * (lihat komentar ubahStatus). Dipakai oleh command `aulia:auto-selesai`
+     * dan halaman admin /auto-selesai-transaksi. Transisi tetap lewat ubahStatus() sehingga
      * syarat LUNAS (re-sync dari tabel pembayaran) tetap diperiksa; yang
      * belum_bayar/dp, mangkrak, batal, dan sudah digabung (merged_into)
      * tidak pernah disentuh.
      *
+     * $limit (opsional) membatasi jumlah transaksi yang BERHASIL diubah per
+     * panggilan (urut id naik) supaya request web tidak kena batas waktu PHP;
+     * yang dilewati tidak dihitung. `kandidat` tetap total seluruh kandidat;
+     * `ids` hanya yang benar-benar diubah.
+     *
      * @return array{kandidat:int, diubah:int, dilewati:array<int,string>, ids:int[]}
      */
-    public function autoSelesaikanLunasLama(int $hari = 7, bool $dryRun = false): array
+    public function autoSelesaikanLunasLama(int $hari = 7, bool $dryRun = false, ?int $limit = null): array
     {
         if ($hari < 1) {
             throw new \InvalidArgumentException('Batas hari minimal 1.');
+        }
+
+        if ($limit !== null && $limit < 1) {
+            throw new \InvalidArgumentException('Limit minimal 1.');
         }
 
         $batas = date('Y-m-d H:i:s', strtotime("-{$hari} days"));
@@ -717,6 +726,9 @@ class TransaksiModel extends Model
         if (!$dryRun) {
             $ubah = [];
             foreach ($ids as $id) {
+                if ($limit !== null && $diubah >= $limit) {
+                    break;
+                }
                 try {
                     $this->ubahStatus($id, 'selesai', true);
                     $ubah[] = $id;

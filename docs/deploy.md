@@ -87,16 +87,16 @@ Setelah rollback: ulangi smoke test bagian 5 dan catat kejadian di `docs/sesi/`.
 - [ ] `docs/CHANGELOG.md` diperbarui bila ada perubahan aturan bisnis.
 - [ ] Lokasi backup dan versi sebelumnya dicatat di checkpoint.
 
-## 7b. Auto-SELESAI transaksi lunas (Scheduled Task)
+## 7b. Auto-SELESAI transaksi lunas (halaman admin atau Scheduled Task)
 
 Command: aulia:auto-selesai mengubah transaksi PROSES + LUNAS yang berumur >= 7 hari menjadi SELESAI. Tidak ada migrasi.
 
 1. Setelah rilis, uji dulu tanpa mengubah data: php spark aulia:auto-selesai --dry-run (catat jumlah kandidat).
 2. Backup id dan status lama sebelum jalan pertama (hari pertama menyelesaikan seluruh backlog).
 3. Jalankan sekali manual: php spark aulia:auto-selesai, cocokkan jumlah diubah dengan dry-run.
-4. Pasang Scheduled Task harian di server (mis. 23:30), perintah: C:/xampp/php/php.exe spark aulia:auto-selesai dengan Start in = folder aplikasi. Jangan dipasang sebelum langkah 1-3 disetujui Muhammad.
+4. Jalur A (tanpa Scheduled Task): admin membuka menu Admin > Auto-Selesai Transaksi, cek angka kandidat, tekan "Selesaikan sekarang" secara berkala (mis. mingguan). Backup CSV id + status lama dibuat otomatis di writable/backups/auto-selesai-*.csv sebelum tiap batch. Jalur B (bila Scheduled Task tersedia): harian (mis. 23:30), perintah: C:/xampp/php/php.exe spark aulia:auto-selesai dengan Start in = folder aplikasi. Jangan dipasang sebelum langkah 1-3 disetujui Muhammad.
 5. Cek writable/logs untuk baris aulia:auto-selesai.
-6. Nonaktifkan: Disable-ScheduledTask pada task tersebut. Rollback status: set kembali ke proses berdasarkan backup langkah 2.
+6. Nonaktifkan: jalur A cukup tidak menekan tombolnya; jalur B Disable-ScheduledTask pada task tersebut. Rollback status: set kembali ke proses berdasarkan backup langkah 2 (atau CSV di writable/backups).
 
 ## 8. Rollback gateway WhatsApp `aulia7` → `aulia3`
 

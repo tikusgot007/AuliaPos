@@ -154,6 +154,14 @@ $routes->post('/archive-transaksi/preview', 'ArchiveTransaksi::preview', ['filte
 $routes->post('/archive-transaksi/jalankan', 'ArchiveTransaksi::jalankan', ['filter' => 'auth']);
 
 // ==========================================
+// ROUTE AUTO-SELESAI TRANSAKSI (ADMIN-ONLY) - pengganti Scheduled Task
+// `aulia:auto-selesai`. Lihat App\Controllers\AutoSelesaiTransaksi.
+// ==========================================
+$routes->get('/auto-selesai-transaksi', 'AutoSelesaiTransaksi::index', ['filter' => 'auth']);
+$routes->post('/auto-selesai-transaksi/preview', 'AutoSelesaiTransaksi::preview', ['filter' => 'auth']);
+$routes->post('/auto-selesai-transaksi/jalankan', 'AutoSelesaiTransaksi::jalankan', ['filter' => 'auth']);
+
+// ==========================================
 // ROUTE LOG AUDIT (ADMIN-ONLY, READ-ONLY) - TODO-L3
 // ==========================================
 $routes->get('/log-kirim-gagal', 'LogKirimGagal::index', ['filter' => 'auth']);
