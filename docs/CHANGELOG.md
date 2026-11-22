@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-11-22 — Auto-SELESAI transaksi lunas setelah 7 hari
+
+- **Aturan bisnis baru**: transaksi berstatus PROSES yang sudah LUNAS dan berumur >= 7 hari (dihitung dari tanggal transaksi) otomatis menjadi SELESAI. Sebelumnya SELESAI hanya lewat tombol, sehingga ratusan transaksi lunas menumpuk di PROSES. Ini satu-satunya pengecualian aturan "lunas tidak langsung selesai"; tombol Selesai manual tetap ada.
+- **Yang tidak disentuh**: belum_bayar/dp, MANGKRAK, BATAL, dan transaksi yang sudah digabung (merged_into). Transisi tetap lewat TransaksiModel::ubahStatus(), jadi syarat LUNAS dicek ulang dari tabel pembayaran (cache status_pembayaran yang basi ditolak dan dilaporkan sebagai dilewati).
+- **Cara jalan**: Spark command aulia:auto-selesai [--hari=7] [--dry-run]. Dijadwalkan harian lewat Scheduled Task (lihat docs/deploy.md bagian Auto-SELESAI). Tidak ada migrasi dan tidak ada perubahan skema.
+- **Test**: tests/integration/TransaksiAutoSelesaiTest.php (4 test).
+- **Status**: selesai test lokal; belum di-deploy. Hari pertama jalan akan menyelesaikan seluruh backlog lunas+proses yang berumur >= 7 hari, jadi jalankan --dry-run dulu.
+
 ## 2026-11-09 — Inbox: "Buat Pesanan" tidak lagi menutup window Inbox
 
 - **Perubahan perilaku**: setelah tab utama POS diarahkan ke halaman Kasir, window Inbox **tetap
