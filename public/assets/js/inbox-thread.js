@@ -1417,7 +1417,12 @@ let internalNoteStripExpanded = true;
 
 function internalNoteMessages(messages) {
     return (messages || []).filter(function(m) {
-        return !isHandoffTimelineItem(m) && (m.is_internal === true || m.is_internal === 1 || m.is_internal === '1');
+        if (isHandoffTimelineItem(m)) return false;
+        if (!(m.is_internal === true || m.is_internal === 1 || m.is_internal === '1')) return false;
+        // Catatan yang sudah dihapus (revoked) atau tanpa isi tidak boleh
+        // muncul sebagai baris kosong di strip.
+        if (m.is_revoked === true || m.is_revoked === 1 || m.is_revoked === '1') return false;
+        return String(m.text || '').trim() !== '';
     });
 }
 
@@ -1438,7 +1443,7 @@ function renderInternalNoteStrip(messages) {
         '<button type="button" class="btn btn-sm btn-link internal-note-strip-toggle" onclick="toggleCatatanInternal()">' +
         (internalNoteStripExpanded ? 'Sembunyikan' : 'Tampilkan') + '</button></div>' +
         (internalNoteStripExpanded ? '<div class="internal-note-strip-list">' + notes.map(function(note) {
-            return '<div class="internal-note-strip-item"><span>' + escapeHtmlInbox(note.text || '(tanpa teks)') + '</span>' +
+            return '<div class="internal-note-strip-item"><span>' + escapeHtmlInbox(note.text) + '</span>' +
                 '<button type="button" class="btn btn-sm btn-outline-warning" onclick="lompatKeCatatanInternal(' + Number(note.id) + ')">Ke catatan</button></div>';
         }).join('') + '</div>' : '') + '</div>';
 

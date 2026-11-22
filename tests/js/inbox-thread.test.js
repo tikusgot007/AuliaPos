@@ -125,6 +125,31 @@ test('internal note strip is absent when conversation has no internal note', () 
     assert.equal(t.container.internalNoteStripHtml || '', '');
 });
 
+test('internal note strip skips deleted (revoked) notes', () => {
+    const t = loadThread();
+    const hidup = msg(96, { is_internal: true, text: 'Catatan masih ada' });
+    const dihapus = msg(97, { is_internal: true, text: null, is_revoked: true, revoked_at: '2026-11-19 11:49:09' });
+    poll(t, [hidup, dihapus], true);
+
+    const html = t.container.internalNoteStripHtml || '';
+    assert.match(html, /Catatan internal \(1\)/);
+    assert.match(html, /Catatan masih ada/);
+    assert.ok(!html.includes('tanpa teks'), 'deleted note must not render an empty row');
+    assert.ok(!html.includes('lompatKeCatatanInternal(97)'), 'no jump button for deleted note');
+});
+
+test('internal note strip is absent when all internal notes are deleted', () => {
+    const t = loadThread();
+    poll(t, [msg(98, { is_internal: true, text: null, is_revoked: true })], true);
+    assert.equal(t.container.internalNoteStripHtml || '', '');
+});
+
+test('internal note strip skips notes with empty text', () => {
+    const t = loadThread();
+    poll(t, [msg(99, { is_internal: true, text: '   ' })], true);
+    assert.equal(t.container.internalNoteStripHtml || '', '');
+});
+
 test('switching conversation resets the strip to expanded', () => {
     const t = loadThread();
     poll(t, [msg(94, { is_internal: true, text: 'Catatan' })], true);
