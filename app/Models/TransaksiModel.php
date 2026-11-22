@@ -49,8 +49,9 @@ class TransaksiModel extends Model
      * - batal   -> final
      *
      * SELESAI = garapan clear DAN pembayaran lunas. Pembayaran lunas
-     * TIDAK otomatis membuat transaksi menjadi selesai; admin tetap
-     * harus menekan tombol Selesai secara eksplisit.
+     * TIDAK langsung membuat transaksi menjadi selesai; tombol Selesai
+     * ditekan eksplisit, kecuali auto-selesai 7 hari (command
+     * `aulia:auto-selesai` -> autoSelesaikanLunasLama()).
      */
     /**
      * Ubah status transaksi.
@@ -222,8 +223,9 @@ class TransaksiModel extends Model
 
         // PROSES -> SELESAI mensyaratkan garapan benar-benar clear:
         // hanya admin yang boleh menyelesaikan, DAN pembayaran harus
-        // sudah LUNAS. 'lunas' tidak pernah otomatis menjadi 'selesai';
-        // tombol Selesai tetap harus ditekan secara eksplisit.
+        // sudah LUNAS. 'lunas' tidak langsung menjadi 'selesai'; tombol
+        // Selesai ditekan eksplisit, KECUALI auto-selesai setelah 7 hari
+        // (autoSelesaikanLunasLama(), command `aulia:auto-selesai`).
         // (lihat docs/aturan-bisnis-AULIA.md Section 5 & 22, serta
         // perubahan-alur-status-transaksi.md)
         //
@@ -676,6 +678,61 @@ class TransaksiModel extends Model
         return [
             'total_dibayar' => $totalDibayar,
             'status_pembayaran' => $status,
+        ];
+    }
+
+    /**
+     * Auto-SELESAI: transaksi PROSES yang sudah LUNAS dan berumur >= $hari
+     * hari (dihitung dari `tanggal` transaksi) diubah ke SELESAI.
+     *
+     * Ini SATU-SATUNYA pengecualian aturan "lunas tidak langsung selesai"
+     * (lihat komentar ubahStatus). Dipakai HANYA oleh command
+     * `aulia:auto-selesai`. Transisi tetap lewat ubahStatus() sehingga
+     * syarat LUNAS (re-sync dari tabel pembayaran) tetap diperiksa; yang
+     * belum_bayar/dp, mangkrak, batal, dan sudah digabung (merged_into)
+     * tidak pernah disentuh.
+     *
+     * @return array{kandidat:int, diubah:int, dilewati:array<int,string>, ids:int[]}
+     */
+    public function autoSelesaikanLunasLama(int $hari = 7, bool $dryRun = false): array
+    {
+        if ($hari < 1) {
+            throw new \InvalidArgumentException('Batas hari minimal 1.');
+        }
+
+        $batas = date('Y-m-d H:i:s', strtotime("-{$hari} days"));
+
+        $rows = $this->select('id')
+            ->where('status', 'proses')
+            ->where('status_pembayaran', 'lunas')
+            ->where('merged_into IS NULL', null, false)
+            ->where('tanggal <', $batas)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+
+        $ids      = array_map(static fn($r) => (int) $r['id'], $rows);
+        $diubah   = 0;
+        $dilewati = [];
+
+        if (!$dryRun) {
+            $ubah = [];
+            foreach ($ids as $id) {
+                try {
+                    $this->ubahStatus($id, 'selesai', true);
+                    $ubah[] = $id;
+                    $diubah++;
+                } catch (\Throwable $e) {
+                    $dilewati[$id] = $e->getMessage();
+                }
+            }
+            $ids = $ubah;
+        }
+
+        return [
+            'kandidat' => count($rows),
+            'diubah'   => $diubah,
+            'dilewati' => $dilewati,
+            'ids'      => $ids,
         ];
     }
 
