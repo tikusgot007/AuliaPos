@@ -39,11 +39,11 @@
                                             <i class="fab fa-whatsapp"></i> WA (Inbox)
                                         </button>
                                     <?php else: ?>
-                                        <a class="btn btn-sm btn-outline-success ms-2" id="btnWaBiasa"
-                                            href="<?= esc($waLink['wa_url'], 'attr') ?>" target="_blank" rel="noopener noreferrer"
-                                            title="Belum ada di Inbox, buka WhatsApp">
-                                            <i class="fab fa-whatsapp"></i> WA
-                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-success ms-2" id="btnWaInbox"
+                                            title="Belum ada di Inbox, mulai Chat Baru"
+                                            data-inbox-url="<?= esc(base_url('/inbox?chat_baru=' . $waLink['nomor']), 'attr') ?>">
+                                            <i class="fab fa-whatsapp"></i> Chat Baru
+                                        </button>
                                     <?php endif; ?>
                                 <?php endif; ?>
                             </p>
