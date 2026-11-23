@@ -29,7 +29,24 @@
                     <div class="col-md-6">
                         <p><strong>Pelanggan:</strong> <?= esc($pelanggan['nama'] ?? '-') ?></p>
                         <?php if (!empty($pelanggan['no_hp'])): ?>
-                            <p><strong>No HP:</strong> <?= esc($pelanggan['no_hp']) ?></p>
+                            <p><strong>No HP:</strong> <?= esc($pelanggan['no_hp']) ?>
+                                <?php $waLink = \App\Libraries\InboxPhoneLookup::untukNomor($pelanggan['no_hp']); ?>
+                                <?php if ($waLink !== null): ?>
+                                    <?php if ($waLink['conversation_id'] !== null): ?>
+                                        <button type="button" class="btn btn-sm btn-success ms-2" id="btnWaInbox"
+                                            title="Buka percakapan di Inbox"
+                                            data-inbox-url="<?= esc(base_url('/inbox?conversation_id=' . $waLink['conversation_id']), 'attr') ?>">
+                                            <i class="fab fa-whatsapp"></i> WA (Inbox)
+                                        </button>
+                                    <?php else: ?>
+                                        <a class="btn btn-sm btn-outline-success ms-2" id="btnWaBiasa"
+                                            href="<?= esc($waLink['wa_url'], 'attr') ?>" target="_blank" rel="noopener noreferrer"
+                                            title="Belum ada di Inbox, buka WhatsApp">
+                                            <i class="fab fa-whatsapp"></i> WA
+                                        </a>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </p>
                         <?php endif; ?>
                         <p><strong>Total Belanja:</strong> <strong><?= number_format($transaksi['grand_total'], 0, ',', '.') ?></strong></p>
                         <p><strong>Total Dibayar:</strong> <?= number_format($total_dibayar, 0, ',', '.') ?></p>
@@ -907,5 +924,18 @@
         isAdmin: <?= session()->get('role') === 'admin' ? 'true' : 'false' ?>,
         isShiftLeader: <?= $isShiftLeaderUser ? 'true' : 'false' ?>
     };
+</script>
+<script>
+    // Tombol WA: buka/fokuskan window Inbox yang sama dengan menu sidebar
+    // (nama window 'AuliaInbox'), langsung ke percakapan pelanggan.
+    (function() {
+        const btn = document.getElementById('btnWaInbox');
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+            const w = window.open(btn.dataset.inboxUrl, 'AuliaInbox',
+                'width=' + screen.availWidth + ',height=' + screen.availHeight + ',left=0,top=0');
+            if (w) { try { w.focus(); } catch (e) {} }
+        });
+    })();
 </script>
 <script src="<?= base_url('assets/js/payment.js') ?>"></script>
