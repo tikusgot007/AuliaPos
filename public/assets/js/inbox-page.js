@@ -3417,6 +3417,33 @@ renderDaftarConversation();
     if (id > 0) pilihConversation(id);
 })();
 
+// Deep-link dari tombol "Chat Baru" di detail transaksi/tagihan: buka modal
+// Chat Baru dengan nomor terisi, teks pesan SENGAJA kosong (kasir mengetik
+// sendiri). Nomor hanya diisi kalau lolos sebagai digit; pengiriman tetap
+// lewat mulaiChatBaru() (cek gateway & validasi server tidak dilewati).
+(function bukaChatBaruDariUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const nomor = (params.get('chat_baru') || '').replace(/\D/g, '');
+    if (!nomor) return;
+
+    // Skrip ini dimuat SEBELUM bootstrap.bundle.js (layout memuatnya di
+    // akhir halaman), jadi `bootstrap` baru ada setelah event `load`.
+    window.addEventListener('load', function() {
+        const modalEl = document.getElementById('modalChatBaru');
+        if (!modalEl) return;
+        document.getElementById('nomorChatBaru').value = nomor;
+        document.getElementById('teksChatBaru').value = '';
+        modalEl.addEventListener('shown.bs.modal', function() {
+            document.getElementById('teksChatBaru').focus();
+        }, { once: true });
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        // Buang parameter supaya refresh tidak membuka modal lagi.
+        params.delete('chat_baru');
+        const qs = params.toString();
+        history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
+    });
+})();
+
 // Milestone 4A: adaptive polling. Timer tetap pada cadence LAMA (daftar
 // 6 detik, pesan 4 detik), tetapi tick DILEWATI selama WebSocket
 // benar-benar OPEN sampai jendela reconciliation (daftar 30 detik, pesan

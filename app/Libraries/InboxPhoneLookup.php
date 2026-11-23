@@ -12,6 +12,7 @@ use App\Models\ConversationModel;
  * - Cocok HANYA lewat nomor HP, dinormalisasi (PhoneNumber::normalize)
  *   dan dibandingkan dengan `conversations.phone` (nomor ter-verifikasi).
  *   `manual_phone` dan `pelanggan_id` SENGAJA tidak dipakai.
+ * - Tidak ketemu -> tombol "Chat Baru" (modal Chat Baru inbox, nomor terisi).
  * - Grup diabaikan; percakapan soft-deleted tidak ikut (default model).
  * - Kalau ada beberapa, ambil `last_message_at` terbaru.
  * - Read-only: tidak pernah menulis ke database mana pun.
@@ -19,7 +20,7 @@ use App\Models\ConversationModel;
 class InboxPhoneLookup
 {
     /**
-     * @return array{wa_url: string, conversation_id: ?int}|null null kalau
+     * @return array{nomor: string, conversation_id: ?int}|null null kalau
      *         nomor kosong/tidak valid (tombol tidak ditampilkan).
      */
     public static function untukNomor(?string $noHp): ?array
@@ -41,13 +42,13 @@ class InboxPhoneLookup
                 ->first();
             $id = $row ? (int) $row['id'] : null;
         } catch (\Throwable $e) {
-            // DB inbox tidak bisa dijangkau -> jatuh ke wa.me, halaman
+            // DB inbox tidak bisa dijangkau -> jatuh ke Chat Baru, halaman
             // detail transaksi tidak boleh ikut rusak.
             log_message('error', 'InboxPhoneLookup gagal: ' . $e->getMessage());
         }
 
         return [
-            'wa_url'          => 'https://wa.me/' . $nomor,
+            'nomor'           => $nomor,
             'conversation_id' => $id,
         ];
     }
