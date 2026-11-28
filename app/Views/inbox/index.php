@@ -685,7 +685,7 @@
             gatewayStatus: <?= json_encode(base_url('/inbox/api/gateway-status')) ?>,
             realtimeTicket: <?= json_encode(base_url('/inbox/api/realtime-ticket')) ?>,
             suggestionBaseUrl: <?= json_encode(base_url('/inbox/api/conversations/')) ?>,
-            tagihanUrl: <?= json_encode(base_url('/tagihan')) ?>,
+            transaksiDetailUrl: <?= json_encode(base_url('/transaksi/detail/')) ?>,
             kirim: <?= json_encode(base_url('/inbox/kirim')) ?>,
             kirimMedia: <?= json_encode(base_url('/inbox/kirim-media')) ?>,
             mulaiPercakapan: <?= json_encode(base_url('/inbox/mulai-percakapan')) ?>,
