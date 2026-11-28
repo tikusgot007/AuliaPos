@@ -1091,4 +1091,56 @@ class TransaksiModel extends Model
 
         return 1;
     }
+
+    /**
+     * Transaksi belum lunas atau mangkrak milik sekumpulan pelanggan.
+     * Dipakai banner tunggakan di Inbox (baca saja, tidak menulis apa pun).
+     *
+     * Termasuk: status_pembayaran belum_bayar/dp dengan status proses/
+     * selesai/mangkrak. Tidak termasuk: batal, sudah digabung
+     * (merged_into), dan lunas. `kategori` = 'mangkrak' bila status
+     * mangkrak, selain itu 'belum_lunas'.
+     *
+     * @param int[] $pelangganIds
+     * @return array<int,array<string,mixed>>
+     */
+    public function tunggakanPelanggan(array $pelangganIds, int $limit = 50): array
+    {
+        $pelangganIds = array_values(array_unique(array_filter(array_map('intval', $pelangganIds))));
+        if ($pelangganIds === []) {
+            return [];
+        }
+
+        $rows = $this->select('id, kode_invoice, tanggal, grand_total, total_dibayar, status_pembayaran, status')
+            ->whereIn('pelanggan_id', $pelangganIds)
+            ->where('status_pembayaran !=', 'lunas')
+            ->where('status !=', 'batal')
+            ->where('merged_into IS NULL', null, false)
+            ->orderBy('tanggal', 'ASC')
+            ->limit($limit)
+            ->findAll();
+
+        $sekarang = time();
+        $hasil    = [];
+        foreach ($rows as $r) {
+            $grand = (float) $r['grand_total'];
+            $bayar = (float) $r['total_dibayar'];
+            $ts    = !empty($r['tanggal']) ? strtotime((string) $r['tanggal']) : false;
+
+            $hasil[] = [
+                'id'                => (int) $r['id'],
+                'kode_invoice'      => (string) $r['kode_invoice'],
+                'tanggal'           => $r['tanggal'],
+                'umur_hari'         => $ts !== false ? max(0, (int) floor(($sekarang - $ts) / 86400)) : 0,
+                'grand_total'       => $grand,
+                'total_dibayar'     => $bayar,
+                'sisa'              => max(0.0, $grand - $bayar),
+                'status_pembayaran' => (string) $r['status_pembayaran'],
+                'status'            => (string) $r['status'],
+                'kategori'          => $r['status'] === 'mangkrak' ? 'mangkrak' : 'belum_lunas',
+            ];
+        }
+
+        return $hasil;
+    }
 }

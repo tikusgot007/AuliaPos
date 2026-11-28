@@ -597,6 +597,75 @@ class Inbox extends BaseController
     }
 
     /**
+     * GET /inbox/api/conversations/(:num)/tunggakan
+     *
+     * Cek (baca saja) apakah nomor pelanggan di percakapan ini punya
+     * transaksi belum lunas atau mangkrak. Dipanggil sekali tiap kasir
+     * membuka percakapan. Grup dan percakapan tanpa nomor terverifikasi
+     * mengembalikan hasil kosong (bukan error). Kegagalan baca data
+     * kasir juga dibalas kosong supaya inbox tidak terganggu.
+     */
+    public function apiTunggakan($conversationId = null)
+    {
+        $conversationId = (int) $conversationId;
+
+        $conversation = (new ConversationModel())->find($conversationId);
+        if ($conversation === null) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status'  => 'error',
+                'message' => 'Conversation tidak ditemukan.',
+            ]);
+        }
+
+        $kosong = [
+            'status'     => 'success',
+            'ada'        => false,
+            'jumlah'     => 0,
+            'total_sisa' => 0,
+            'transaksi'  => [],
+        ];
+
+        if (($conversation['jid_type'] ?? null) === 'group') {
+            return $this->response->setJSON($kosong);
+        }
+
+        try {
+            $pelangganModel = new \App\Models\PelangganModel();
+            $ids            = [];
+
+            // Tautan eksplisit (kasir pernah "Buat Pesanan"). Id menggantung
+            // (pelanggan sudah dihapus) diabaikan.
+            if (!empty($conversation['pelanggan_id'])) {
+                $tertaut = $pelangganModel->find((int) $conversation['pelanggan_id']);
+                if ($tertaut) {
+                    $ids[] = (int) $tertaut['id'];
+                }
+            }
+
+            $nomor = $this->nomorTerverifikasiPercakapan($conversation);
+            if ($nomor !== null) {
+                foreach ($pelangganModel->findAllByNomor($nomor) as $p) {
+                    $ids[] = (int) $p['id'];
+                }
+            }
+
+            $transaksi = (new \App\Models\TransaksiModel())->tunggakanPelanggan($ids);
+        } catch (\Throwable $e) {
+            log_message('error', 'Inbox::apiTunggakan() gagal conversation_id=' . $conversationId . ': ' . $e->getMessage());
+
+            return $this->response->setJSON($kosong);
+        }
+
+        return $this->response->setJSON([
+            'status'     => 'success',
+            'ada'        => $transaksi !== [],
+            'jumlah'     => count($transaksi),
+            'total_sisa' => array_sum(array_column($transaksi, 'sisa')),
+            'transaksi'  => $transaksi,
+        ]);
+    }
+
+    /**
      * POST /inbox/api/conversations/(:num)/generate-saran
      *
      * Kasir menekan "Minta Saran AI": AiSuggestionService memanggil 9router,

@@ -98,4 +98,30 @@ class PelangganModel extends Model
 
         return null;
     }
+
+    /**
+     * Semua pelanggan yang no_hp-nya setara dengan nomor canonical.
+     * Beda dari findByNomor() (yang hanya mengembalikan satu): dipakai
+     * untuk cek tunggakan, di mana satu nomor bisa terdaftar di beberapa
+     * baris pelanggan dan semuanya harus ikut dicek.
+     *
+     * @return array<int,array>
+     */
+    public function findAllByNomor(string $canonical): array
+    {
+        if (preg_match('/^62\d{8,13}$/', $canonical) !== 1) {
+            return [];
+        }
+
+        $bersih = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(no_hp, ' ', ''), '-', ''), '+', ''), '.', ''), '(', ''), ')', '')";
+
+        $kandidat = $this->where($bersih . ' LIKE ' . $this->db->escape('%' . substr($canonical, 2)), null, false)
+            ->orderBy('id', 'ASC')
+            ->limit(20)
+            ->findAll();
+
+        return array_values(array_filter($kandidat, static function (array $pelanggan) use ($canonical): bool {
+            return \App\Libraries\PhoneNumber::normalize((string) ($pelanggan['no_hp'] ?? '')) === $canonical;
+        }));
+    }
 }
