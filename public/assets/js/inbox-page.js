@@ -127,6 +127,7 @@ function kosongkanThreadPanel() {
 
     // Saran M.A.R.A: tidak ada percakapan aktif -> sembunyikan panel.
     if (typeof kosongkanSaranMara === 'function') kosongkanSaranMara();
+    if (typeof kosongkanTunggakan === 'function') kosongkanTunggakan();
 
     // Nudge 1: panel dikosongkan -> batalkan timer & sembunyikan banner
     // supaya tidak ada banner nyangkut atau timer yang masih berjalan.
@@ -1821,6 +1822,9 @@ function pilihConversation(id) {
     // dari muatUlangPesan() (loop polling) TIDAK force, jadi tertahan throttle
     // (mencegah fetch ganda saat pilihConversation lalu muatUlangPesan).
     if (typeof muatSaranMara === 'function') muatSaranMara(id, true);
+
+    // Cek tunggakan: sekali per percakapan dibuka (tidak ikut polling).
+    if (typeof muatTunggakan === 'function') muatTunggakan(id);
 
     muatUlangPesan(true);
     panggilWhatsappDibaca(id);

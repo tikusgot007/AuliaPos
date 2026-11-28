@@ -67,6 +67,7 @@ $routes->get('/inbox/api/conversations/(:num)/messages', 'Inbox::apiMessages/$1'
 // POST /api/inbox/mara/suggestions. Lihat
 // docs/requirements/2026-10-13-mara-saran-ke-kasir.md.
 $routes->get('/inbox/api/conversations/(:num)/suggestions', 'Inbox::apiSuggestions/$1', ['filter' => 'auth']);
+$routes->get('/inbox/api/conversations/(:num)/tunggakan', 'Inbox::apiTunggakan/$1', ['filter' => 'auth']);
 $routes->post('/inbox/api/conversations/(:num)/generate-saran', 'Inbox::generateSaran/$1', ['filter' => ['auth', 'csrf']]);
 $routes->get('/inbox/api/gateway-status', 'Inbox::apiGatewayStatus', ['filter' => 'auth']);
 $routes->get('/inbox/api/realtime-ticket', 'Inbox::apiRealtimeTicket', ['filter' => 'auth']);

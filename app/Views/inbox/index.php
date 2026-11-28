@@ -104,6 +104,9 @@
                          pilihConversation); di luar area scroll thread supaya
                          tidak hilang saat polling. Lihat
                          docs/requirements/2026-10-13-mara-saran-ke-kasir.md. -->
+                    <!-- Banner tunggakan: transaksi belum lunas / mangkrak untuk
+                         nomor pelanggan percakapan ini. Diisi inbox-tunggakan.js. -->
+                    <div id="bannerTunggakan" class="inbox-tunggakan" style="display:none;"></div>
                     <div id="panelSaranMara" class="inbox-saran-panel" style="display:none;"></div>
                     <!-- Area kutipan aktif (Balas Pesan, REQ-005): muncul
                          hanya setelah kasir menekan "Balas" pada salah satu
@@ -682,6 +685,7 @@
             gatewayStatus: <?= json_encode(base_url('/inbox/api/gateway-status')) ?>,
             realtimeTicket: <?= json_encode(base_url('/inbox/api/realtime-ticket')) ?>,
             suggestionBaseUrl: <?= json_encode(base_url('/inbox/api/conversations/')) ?>,
+            tagihanUrl: <?= json_encode(base_url('/tagihan')) ?>,
             kirim: <?= json_encode(base_url('/inbox/kirim')) ?>,
             kirimMedia: <?= json_encode(base_url('/inbox/kirim-media')) ?>,
             mulaiPercakapan: <?= json_encode(base_url('/inbox/mulai-percakapan')) ?>,
@@ -705,4 +709,5 @@
 </script>
 <script src="<?= base_url('assets/js/inbox-emoji.js') ?>"></script>
 <script src="<?= base_url('assets/js/inbox-suggestions.js') ?>?v=<?= filemtime(FCPATH . 'assets/js/inbox-suggestions.js') ?>"></script>
+<script src="<?= base_url('assets/js/inbox-tunggakan.js') ?>?v=<?= filemtime(FCPATH . 'assets/js/inbox-tunggakan.js') ?>"></script>
 <script src="<?= base_url('assets/js/inbox-page.js') ?>?v=<?= filemtime(FCPATH . 'assets/js/inbox-page.js') ?>"></script>

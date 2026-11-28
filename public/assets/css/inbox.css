@@ -1231,3 +1231,41 @@
     word-wrap: break-word;
 }
 
+/* ================================================================
+   Banner tunggakan -- transaksi belum lunas / mangkrak untuk nomor
+   pelanggan percakapan yang sedang dibuka. Hanya informasi.
+   ================================================================ */
+.inbox-tunggakan {
+    border-left: 4px solid #dc3545;
+    border-radius: 8px;
+    background: #fff5f5;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+}
+
+.inbox-tunggakan-judul {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.inbox-tunggakan-daftar {
+    margin: 6px 0 0;
+    padding-left: 0;
+    list-style: none;
+    max-height: 140px;
+    overflow-y: auto;
+}
+
+.inbox-tunggakan-daftar li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 0;
+    border-top: 1px solid #f1d5d5;
+}
+
+.inbox-tunggakan-mangkrak {
+    color: #6c757d;
+    font-style: italic;
+}
